@@ -1,0 +1,2 @@
+-- Seed danych dla lokalnego dev/test
+-- Wypełnimy po dodaniu migracji w M1.

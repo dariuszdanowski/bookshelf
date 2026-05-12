@@ -1,0 +1,12 @@
+# Placeholder konfiguracji Supabase.
+# Pełny config.toml zostanie wygenerowany przez `supabase init` po zainstalowaniu CLI
+# z sieci która nie blokuje github.com (binarka Go pobierana z github.com/supabase/cli/releases).
+#
+# Alternatywa instalacji CLI:
+#   scoop install supabase
+#   winget install Supabase.CLI
+#   choco install supabase
+#
+# Po instalacji uruchom: supabase init --force (w katalogu repo).
+
+project_id = "bookshelf-10xdevs"
