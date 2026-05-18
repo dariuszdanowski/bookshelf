@@ -1,0 +1,120 @@
+Podsumowanie przetwarzania obrazu
+==================================================
+
+Źródło: C:\Projekty\10xDevs\photos\20260512_230159.jpg
+Wymiary: 4000x1848 px
+
+Przetworzone książki:
+  nr 2: Wojna Balonowa - Romuald Pawlak
+    Pozycja: 0.5-4.5% (szerokość)
+    Pliki: 48
+      - book21_autocontrast.png
+      - book21_binary.png
+      - book21_brightness.png
+      - book21_clahe.png
+      - book21_color.png
+      - book21_combo.png
+      - book21_contrast.png
+      - book21_enlarged.png
+      - book21_equalize.png
+      - book21_grayscale_contrast.png
+      - book21_original.png
+      - book21_sharpen.png
+      - book22_autocontrast.png
+      - book22_binary.png
+      - book22_brightness.png
+      - book22_clahe.png
+      - book22_color.png
+      - book22_combo.png
+      - book22_contrast.png
+      - book22_enlarged.png
+      - book22_equalize.png
+      - book22_grayscale_contrast.png
+      - book22_original.png
+      - book22_sharpen.png
+      - book23_autocontrast.png
+      - book23_binary.png
+      - book23_brightness.png
+      - book23_clahe.png
+      - book23_color.png
+      - book23_combo.png
+      - book23_contrast.png
+      - book23_enlarged.png
+      - book23_equalize.png
+      - book23_grayscale_contrast.png
+      - book23_original.png
+      - book23_sharpen.png
+      - book2_autocontrast.png
+      - book2_binary.png
+      - book2_brightness.png
+      - book2_clahe.png
+      - book2_color.png
+      - book2_combo.png
+      - book2_contrast.png
+      - book2_enlarged.png
+      - book2_equalize.png
+      - book2_grayscale_contrast.png
+      - book2_original.png
+      - book2_sharpen.png
+  nr 3: Czarem i smoczym oddechem - Romuald Pawlak
+    Pozycja: 4.5-9.0% (szerokość)
+    Pliki: 12
+      - book3_autocontrast.png
+      - book3_binary.png
+      - book3_brightness.png
+      - book3_clahe.png
+      - book3_color.png
+      - book3_combo.png
+      - book3_contrast.png
+      - book3_enlarged.png
+      - book3_equalize.png
+      - book3_grayscale_contrast.png
+      - book3_original.png
+      - book3_sharpen.png
+  nr 21: Cyn... - Philip Reeve
+    Pozycja: 82-87% (szerokość)
+    Pliki: 12
+      - book21_autocontrast.png
+      - book21_binary.png
+      - book21_brightness.png
+      - book21_clahe.png
+      - book21_color.png
+      - book21_combo.png
+      - book21_contrast.png
+      - book21_enlarged.png
+      - book21_equalize.png
+      - book21_grayscale_contrast.png
+      - book21_original.png
+      - book21_sharpen.png
+  nr 22: Kosmos... - Neil deGrasse Tyson
+    Pozycja: 87-92% (szerokość)
+    Pliki: 12
+      - book22_autocontrast.png
+      - book22_binary.png
+      - book22_brightness.png
+      - book22_clahe.png
+      - book22_color.png
+      - book22_combo.png
+      - book22_contrast.png
+      - book22_enlarged.png
+      - book22_equalize.png
+      - book22_grayscale_contrast.png
+      - book22_original.png
+      - book22_sharpen.png
+  nr 23: Osad.../Cat... - Rebecca...
+    Pozycja: 92-100% (szerokość)
+    Pliki: 12
+      - book23_autocontrast.png
+      - book23_binary.png
+      - book23_brightness.png
+      - book23_clahe.png
+      - book23_color.png
+      - book23_combo.png
+      - book23_contrast.png
+      - book23_enlarged.png
+      - book23_equalize.png
+      - book23_grayscale_contrast.png
+      - book23_original.png
+      - book23_sharpen.png
+
+Całkowita liczba plików: 61
