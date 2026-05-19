@@ -1,13 +1,13 @@
 {
-	"compatibility_date": "2026-05-12",
-	"compatibility_flags": ["global_fetch_strictly_public"],
-	"name": "tmp-astro",
-	"main": "@astrojs/cloudflare/entrypoints/server",
-	"assets": {
-		"directory": "./dist",
-		"binding": "ASSETS"
-	},
-	"observability": {
-		"enabled": true
-	}
+  "compatibility_date": "2026-05-12",
+  "compatibility_flags": ["global_fetch_strictly_public"],
+  "name": "tmp-astro",
+  "main": "@astrojs/cloudflare/entrypoints/server",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+  },
+  "observability": {
+    "enabled": true,
+  },
 }

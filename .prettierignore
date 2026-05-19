@@ -1,0 +1,14 @@
+dist/
+.astro/
+.claude/
+node_modules/
+coverage/
+playwright-report/
+test-results/
+package-lock.json
+worker-configuration.d.ts
+src/env.d.ts
+context/
+docs/
+supabase/migrations/
+*.md

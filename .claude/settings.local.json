@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "PowerShell(Set-Clipboard *)"
+      "PowerShell(Set-Clipboard *)",
+      "Bash(npm run *)",
+      "Bash(npm install *)"
     ]
   }
 }
