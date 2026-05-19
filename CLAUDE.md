@@ -46,11 +46,20 @@ Wymagania: **Node.js ≥ 22.12.0** (`engines.node` w `package.json`).
 | `npm run dev` | Dev server na `http://localhost:4321/` z HMR |
 | `npm run build` | Produkcyjny build (`dist/`) pod Cloudflare Pages |
 | `npm run preview` | Preview produkcyjnego buildu lokalnie (wrangler) |
-| `npm run astro -- check` | Type-check pages/components Astro (substytut `tsc --noEmit`) |
+| `npm run typecheck` | `astro check` — typy w `.astro` + `.ts/.tsx` (substytut `tsc --noEmit`) |
+| `npm run test` | Vitest run (jsdom, `tests/unit/**`) |
+| `npm run test:watch` | Vitest w trybie watch |
+| `npm run test:coverage` | Vitest run + raport pokrycia v8 (`coverage/`) |
+| `npm run test:e2e` | Playwright run (`tests/e2e/**`); wymaga jednorazowego `npx playwright install --with-deps` |
+| `npm run lint` | ESLint na całym repo (flat config, ESLint v9) |
+| `npm run lint:fix` | ESLint z autofixem |
+| `npm run format` | Prettier `--write .` (plugin Astro + Tailwind) |
+| `npm run format:check` | Prettier `--check .` |
 | `npm run astro -- add <integration>` | Dodanie integracji (np. `mdx`, `sitemap`) |
 | `npm run generate-types` | Regeneracja `worker-configuration.d.ts` z bindings Cloudflare (po zmianie `wrangler.jsonc`) |
 
-> Skrypty `lint` / `test` **jeszcze nie istnieją** w `package.json`. ESLint, Vitest i Playwright są w planie (M1/M3) — dodać przed wpięciem CI. Nie zakładaj, że `npm test` zadziała.
+> **Pojedynczy test (Vitest):** `npx vitest run tests/unit/health.test.ts` (po ścieżce) lub `npx vitest -t "fragment nazwy"` (po nazwie).
+> **Pojedynczy spec (Playwright):** `npx playwright test tests/e2e/smoke.spec.ts` lub `npx playwright test -g "fragment"`. Wymaga uprzedniego `npx playwright install --with-deps` (~600 MB binariów przeglądarki — **nie** wciągane przez zwykłe `npm install`).
 
 ## Cloudflare adapter — specyfika
 
@@ -119,6 +128,17 @@ bookshelf/
 ├── docs/
 │   ├── prd.md              # PRD modułu (artefakt M1)
 │   └── plan-implementacji.md
+├── context/
+│   └── foundation/
+│       ├── prd.md          # foundation PRD (hand-off /10x-prd → /10x-tech-stack-selector)
+│       ├── tech-stack.md   # locked stack pick (hand-off → /10x-bootstrapper, /10x-infra-research)
+│       └── health-check.md # raport stanu projektu (re-genowany /10x-health-check)
+├── eslint.config.mjs       # ESLint v9 flat config
+├── vitest.config.ts        # Vitest config (jsdom + setupFiles)
+├── playwright.config.ts    # Playwright config (chromium + webServer)
+├── .prettierrc.json
+├── .prettierignore
+├── .editorconfig
 ├── CLAUDE.md               # ten plik
 └── README.md
 ```
@@ -153,9 +173,16 @@ bookshelf/
 - `< 0.55` = brak matchu, użytkownik wpisuje ręcznie → record w `corrections`
 
 ### Testy
-- **Vitest** dla unit: matching, dedupe, isbn validation, vision response parsing
-- **Playwright** dla E2E: jeden golden path (`tests/e2e/upload-flow.spec.ts`) z **mock** vision-response
-- Real vision tylko w manualnym smoke test (nie w CI — flaky + drogi)
+- **Vitest** dla unit: matching, dedupe, isbn validation, vision response parsing. Config: `vitest.config.ts` (jsdom env, setup w `tests/unit/setup.ts`, coverage v8).
+- **Playwright** dla E2E: jeden golden path (`tests/e2e/upload-flow.spec.ts`) z **mock** vision-response. Config: `playwright.config.ts` (chromium project, `webServer` startuje `npm run dev` na :4321).
+- Real vision tylko w manualnym smoke test (nie w CI — flaky + drogi).
+- Browser binaries Playwrighta **nie są** wciągane przez `npm install` — pierwszy `npm run test:e2e` na świeżej maszynie wymaga `npx playwright install --with-deps`.
+
+### Lint / format
+- **ESLint** w flat config (`eslint.config.mjs`): `@eslint/js` + `typescript-eslint` + `eslint-plugin-react` + `eslint-plugin-react-hooks` + `eslint-plugin-astro` + `eslint-config-prettier`.
+- **ESLint pinowany na v9** — `eslint-plugin-react@7.x` deklaruje peer `eslint: <=^9`. Bump do v10 dopiero po release'ie `eslint-plugin-react@8` lub po migracji na `@eslint-react/eslint-plugin`. Nie odpalaj `npm i eslint@latest` bez planu zamiany pluginu.
+- **Prettier** z `prettier-plugin-astro` + `prettier-plugin-tailwindcss`. Tailwind plugin sortuje klasy automatycznie — nie układaj ich ręcznie.
+- `eslint-config-prettier` musi zostać ostatnim wpisem w `eslint.config.mjs` (wyłącza reguły kolidujące z formaterem).
 
 ### CI
 - GitHub Actions: lint + typecheck + vitest + playwright + deploy CF Pages
@@ -174,31 +201,15 @@ bookshelf/
 - Offline mode / PWA cache
 - Image cropping w UI
 
-## Status (stan na 2026-05-17)
+## Status
 
-- ✅ Repo sklonowane (`git@github.com:dariuszdanowski/bookshelf.git`)
-- ✅ Reality check vision OK (recall 100%, precision ~82% na zdjęciu polskiej półki)
-- ✅ **M0 bootstrap done** — Astro 6 + React 19 + Tailwind 4 + Cloudflare adapter + `@anthropic-ai/sdk` + `@supabase/{ssr,supabase-js}` + Zod zainstalowane (`package.json`, `astro.config.mjs`)
-- ✅ PRD modułu — [docs/prd.md](docs/prd.md)
-- ⏳ Struktura katalogów: `src/lib/{vision,books,matching,db,auth}/`, `src/components/`, `tests/{unit,integration,e2e}/`, `supabase/migrations/`, `.github/workflows/` — **scaffoldowane jako puste foldery**. Sekcja "Struktura katalogów" wyżej opisuje cel, nie obecny stan.
-- ⏳ Supabase project init + migracje
-- ⏳ Vitest + Playwright + ESLint — **jeszcze nie zainstalowane** (zob. "Komendy")
-- ⏳ CI workflows (`.github/workflows/` jest pusty)
+Aktualny, regenerowalny obraz stanu projektu (audit zależności + test runner + CI + braki configów): [@context/foundation/health-check.md](context/foundation/health-check.md). Regeneracja: `/10x-health-check`. Sekcja "Struktura katalogów" wyżej opisuje cel, nie obecny stan — wiele podkatalogów `src/lib/`, `supabase/migrations/`, `.github/workflows/` to jeszcze puste foldery.
 
-## Najbliższe kroki (M1 — 18.05 → 31.05)
+## Najbliższe kroki
 
-1. `npx supabase init && npx supabase login && npx supabase projects create bookshelf-10xdevs && npx supabase link`
-2. Połączenie Cloudflare Pages z repo GitHub
-3. Migracje SQL w `supabase/migrations/` → 8 tabel + RLS (zob. [docs/prd.md](docs/prd.md#schemat-danych))
-4. Auth flow + UI `/shelves` CRUD
-5. `/api/photos/upload` + Storage
-6. `src/lib/vision/` — klient `@anthropic-ai/sdk` + prompt + Zod schema
-7. `/api/photos/:id/process` (vision tylko, bez matching jeszcze)
-8. Wpięcie ESLint + Vitest + Playwright; pierwszy CI workflow
+Aktualny milestone: **M1 — schema + upload + vision (deadline 31.05.2026)**. Pełny kalendarz milestonów, ryzyka i definition-of-done: [@docs/plan-implementacji.md](docs/plan-implementacji.md). Schemat danych do migracji: [@docs/prd.md#schemat-danych](docs/prd.md#schemat-danych).
 
 > ⚠ **Firewall korporacyjny** (zob. memory): `github.com/releases` jest blokowany, więc instalacja Supabase CLI z binarki padnie na ETIMEDOUT. Używać tunelu / VPN albo wersji npm.
-
-Cały kalendarz: [docs/plan-implementacji.md](docs/plan-implementacji.md).
 
 ## Kontekst zewnętrzny
 
