@@ -5,7 +5,7 @@ project_name: bookshelf
 hints:
   language_family: js
   team_size: solo
-  deployment_target: cloudflare-pages
+  deployment_target: cloudflare-workers
   ci_provider: github-actions
   ci_default_flow: auto-deploy-on-merge
   bootstrapper_confidence: first-class
@@ -25,13 +25,18 @@ Solo after-hours build with a 6-week hard deadline (2026-07-05) shipping a web-a
 that turns a shelf photo into a catalog: needs auth + Postgres + file storage +
 vision LLM + external book-metadata APIs, all behind one developer. The recommended
 default for `(web-app, js)` — Astro 6 + React 19 + TypeScript + Tailwind 4 +
-Supabase + Cloudflare Pages — clears all four agent-friendly gates and bundles
+Supabase + Cloudflare Workers — clears all four agent-friendly gates and bundles
 exactly the building blocks the PRD's FRs name: Supabase Auth for email+password
 multi-user isolation (FR-001/003/004), Supabase Postgres+RLS for the 8-table
 catalog model with strict per-user privacy (NFR guardrail), Supabase Storage for
-shelf photos (FR-010/013), and Cloudflare Pages for edge deploy under after-hours
-budget. Vision+matching live in Astro API routes calling Anthropic Sonnet 4.6
-and Google Books / OpenLibrary with Zod-validated I/O. Standard path; deployment
-and CI defaults accepted (cloudflare-pages + GitHub Actions + auto-deploy on
-merge). The repo is already bootstrapped against this exact stack — this hand-off
-documents the locked choice for downstream skills.
+shelf photos (FR-010/013), and Cloudflare Workers (z Workers Assets) for edge
+deploy under after-hours budget. Vision+matching live in Astro API routes calling
+Anthropic Sonnet 4.6 and Google Books / OpenLibrary with Zod-validated I/O.
+Standard path; deployment i CI defaults accepted (cloudflare-workers + GitHub
+Actions + auto-deploy on merge). The repo is already bootstrapped against this
+exact stack — this hand-off documents the locked choice for downstream skills.
+
+> **Migration note (2026-05-20)**: `deployment_target` zaktualizowane z `cloudflare-pages` na
+> `cloudflare-workers` po `/10x-infra-research`. `@astrojs/cloudflare` v13 (zainstalowany M0)
+> wycofał wsparcie dla Pages — Workers (z Workers Assets) to jedyna ścieżka deploy'u dla tego
+> adaptera. Pełne rationale + risk register w `context/foundation/infrastructure.md`.

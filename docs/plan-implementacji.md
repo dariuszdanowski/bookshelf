@@ -8,7 +8,7 @@
 ```
 13.05 ─ 17.05  TYDZIEŃ 0 — PREWORK + BOOTSTRAP                        [~12h]
               ├─ 13-14.05  dokończ prework (pozostałe ~3-4h)
-              ├─ 15.05     bootstrap Astro + Supabase project + CF Pages connect
+              ├─ 15.05     bootstrap Astro + Supabase project + CF Workers connect
               ├─ 16.05     PRD doprecyzowany z agentem
               ├─ 17.05     pierwszy deploy „hello world" na Cloudflare
               └─ Subskrypcja Claude Code Pro + Anthropic API budżet $20
@@ -45,7 +45,7 @@
 
 15.06 ─ 19.06  M3 (1 tyg) — CI/CD + SZLIF + DEMO                      [~10h]
               ├─ GitHub Actions: lint+typecheck+vitest+playwright+deploy
-              ├─ Cloudflare Pages: domain + env vars
+              ├─ Cloudflare Workers: domain + env vars (Workers Secrets via `wrangler secret put`)
               ├─ AGENTS.md + README z screenshotami
               ├─ szlif UX (loader, error states, empty states)
               └─ przygotowanie demo (3 półki, ~30 książek)
@@ -93,10 +93,21 @@ GOOGLE_BOOKS_API_KEY=<optional, dla wyższego limitu>
 # 6. .gitignore — upewnij się że .env.local jest ignorowany
 # Domyślny .gitignore Node.js powinien już to mieć — sprawdź
 
-# 7. Cloudflare Pages
-# W panelu CF: Workers & Pages → Create → Pages → Connect to Git
-# Wybierz repo dariuszdanowski/bookshelf, framework preset = Astro
-# Po pierwszym deploy: dodaj env vars w CF Pages settings (te same co .env.local)
+# 7. Cloudflare Workers (NIE Pages — @astrojs/cloudflare v13 wycofał Pages support)
+# Stwórz API token w panel.cloudflare.com → My Profile → API Tokens
+#   → Use template "Edit Cloudflare Workers" + add "Account: Pages Read"
+#   → zapisz jako CLOUDFLARE_API_TOKEN + CLOUDFLARE_ACCOUNT_ID (NIE Global API Key)
+# Pierwszy deploy z CLI (NIE przez panel "Pages with Astro preset" — to wrong path dla v13):
+npm run build
+npx wrangler deploy
+# Output: https://bookshelf.<account>.workers.dev
+# Sekrety do produkcji:
+npx wrangler secret put PUBLIC_SUPABASE_URL
+npx wrangler secret put PUBLIC_SUPABASE_ANON_KEY
+npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+npx wrangler secret put ANTHROPIC_API_KEY
+# Smoke test #15434 (Astro middleware + nodejs_compat → [object Object] bug):
+npx wrangler dev --remote  # sprawdź czy strony rendują tekst, nie obiekty
 
 # 8. Pierwszy commit + push
 git add -A
@@ -122,9 +133,10 @@ git push origin pre-course-baseline
 ## Definition of Done — per milestone
 
 ### M1 (31.05)
-- [ ] Astro/Tailwind/React skonfigurowane, deploy na CF Pages działa
+- [ ] Astro/Tailwind/React skonfigurowane, deploy na CF Workers działa (`npx wrangler deploy`)
 - [ ] Login + logout + email confirmation
 - [ ] Tworzenie półki przez UI
+- [ ] `src/lib/http/response.ts` z typed `ApiErrorCode` union + helpery `apiResponse({ data })` / `apiError({ code, status, message })` z `Cache-Control: private, no-store` w defaultach — enforcement-by-code dla konwencji z `CLAUDE.md > Konwencje > API endpoints` (lekcja z rule-calibration testu 2026-05-20: sama proza w CLAUDE.md nie zacisnęła konwergencji na `code` casing ani Cache-Control header, kompilator + helper zacisną).
 - [ ] Upload zdjęcia → Supabase Storage
 - [ ] Vision call zwraca listę detected_title widoczną w UI
 - [ ] Pierwszy test Playwright (mock vision) zielony lokalnie
@@ -141,7 +153,7 @@ git push origin pre-course-baseline
 
 ### M3 (19.06)
 - [ ] GitHub Actions: full pipeline (lint+typecheck+test+deploy)
-- [ ] CF Pages: produkcyjny URL działa
+- [ ] CF Workers: produkcyjny URL działa (`bookshelf.<account>.workers.dev` lub custom domain)
 - [ ] AGENTS.md + CLAUDE.md final
 - [ ] README z screenshotami i quick-start
 - [ ] Demo content: 3 półki, ~30 książek prawdziwych
@@ -151,7 +163,7 @@ git push origin pre-course-baseline
 
 | Ryzyko | Kiedy sprawdzam | Trigger pivota |
 |---|---|---|
-| CF Pages 30s timeout na vision call | M1, tydz 2 (po pierwszej integracji) | Jeśli >25s średnio → przenieś process do Supabase Edge Function |
+| CF Workers 30s CPU limit (paid plan $5/mo) na vision call + retry | M1, tydz 2 (po pierwszej integracji) | Jeśli >25s avg → przenieś process do Cloudflare Queues + background Worker (zob. infrastructure.md risk register) |
 | Vision recall <70% w realiach | M1 do końca | Eskalacja do Opus 4.7; jeśli dalej słabo → manualne entry jako primary w MVP |
 | Google Books rate limit | M2, tydz 1 | Cache w book_candidates, fallback OpenLibrary jako primary |
 | Hybrid Astro/React miesza się | M1, ongoing | Trzymaj się reguły: server data = Astro, interactive = React |

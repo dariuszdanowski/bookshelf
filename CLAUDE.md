@@ -31,11 +31,9 @@ Pięć decyzji domenowych: (1) detekcja z obrazu, (2) scoring matchu z bazą zew
 | Vision LLM | Claude Sonnet 4.6 (multimodal) — bezpośrednio przez Anthropic API |
 | Walidacja LLM I/O | Zod schemas |
 | Book metadata | Google Books API (primary) + OpenLibrary (fallback) |
-| Deployment | Cloudflare Pages |
+| Deployment | Cloudflare Workers (z Workers Assets — `@astrojs/cloudflare` v13 wycofał Pages) |
 | Test framework | Vitest (unit) + Playwright (E2E) |
 | CI | GitHub Actions |
-
-**Match z kursowym stackiem: 8/8.**
 
 ## Komendy
 
@@ -44,7 +42,7 @@ Wymagania: **Node.js ≥ 22.12.0** (`engines.node` w `package.json`).
 | Komenda | Co robi |
 |---|---|
 | `npm run dev` | Dev server na `http://localhost:4321/` z HMR |
-| `npm run build` | Produkcyjny build (`dist/`) pod Cloudflare Pages |
+| `npm run build` | Produkcyjny build (`dist/`) pod Cloudflare Workers |
 | `npm run preview` | Preview produkcyjnego buildu lokalnie (wrangler) |
 | `npm run typecheck` | `astro check` — typy w `.astro` + `.ts/.tsx` (substytut `tsc --noEmit`) |
 | `npm run test` | Vitest run (jsdom, `tests/unit/**`) |
@@ -71,7 +69,7 @@ Wymagania: **Node.js ≥ 22.12.0** (`engines.node` w `package.json`).
 ## Architektura — schemat
 
 ```
-Browser (React 19 islands) ─→ Astro SSR (Cloudflare Pages)
+Browser (React 19 islands) ─→ Astro SSR (Cloudflare Workers + Assets)
                                    │
             ┌──────────────────────┼──────────────────────┐
             ▼                      ▼                      ▼
@@ -124,7 +122,7 @@ bookshelf/
 │   └── e2e/                # Playwright (z mock vision-response)
 ├── .github/workflows/
 │   ├── ci.yml              # lint + typecheck + tests
-│   └── deploy.yml          # build + deploy CF Pages
+│   └── deploy.yml          # build + deploy CF Workers (cloudflare/wrangler-action@v3)
 ├── docs/
 │   ├── prd.md              # PRD modułu (artefakt M1)
 │   └── plan-implementacji.md
@@ -161,10 +159,23 @@ bookshelf/
 - Typed client: `supabase.server.ts` (service role, tylko w API endpoints) i `supabase.browser.ts` (anon key)
 - Migracje wersjonowane w `supabase/migrations/`
 
+### API endpoints (`src/pages/api/`)
+
+Endpoint zwraca jeden ze stabilnych kształtów: sukces `{ data: ... }`, błąd `{ error: { code, message, details? } }`. `code` w `SCREAMING_SNAKE_CASE` (`UNAUTHENTICATED`, `SHELF_NOT_FOUND`, `INTERNAL_ERROR`). Nigdy `{ error: string }`, nigdy raw `throw` propagujący do response.
+
+**Status codes (privacy-first, FR-NFR z PRD — nigdy nie ujawniaj istnienia cudzych zasobów):**
+- `404` zarówno dla "nie ma rekordu" jak i "rekord należy do innego usera" (RLS już to wymusza; nie kodować osobnej gałęzi 403). Także `404` dla zniekształconego UUID w parametrze ścieżki, żeby nie wyciekać kształtu ID nieuwierzytelnionym.
+- `400` zarezerwowane wyłącznie dla walidacji **inputu od zalogowanego usera** (np. body Zod fail).
+- `401` check **przed** resource fetch (niezalogowany nie może enumerować).
+
+Header `Cache-Control: private, no-store` na każdej odpowiedzi z danymi per-user — Cloudflare edge cache nie może shared-cache'ować JWT-scoped contentu.
+
+`export const prerender = false` na każdym dynamicznym endpoincie (wymóg `@astrojs/cloudflare` przy `output: 'server'`).
+
 ### Vision LLM
 - Single source of truth dla promptu: `src/lib/vision/prompt.ts`
 - Output **zawsze** walidowany przez Zod (`DetectionSchema`)
-- Jeśli model zwróci śmieci → retry z `extended_thinking`, eskalacja do Opus tylko w MVP+
+- Jeśli output nie przechodzi `DetectionSchema.safeParse()` (`ZodError`) → retry **raz** z `thinking: { type: 'enabled', budget_tokens: ... }`; drugi `safeParse` fail → record w `corrections` z `correction_type: 'parse_failure'` i abort łańcucha dla tego zdjęcia. Eskalacja do Opus tylko w MVP+ (poza M1)
 - Każda detekcja persistowana **przed** matchingiem (idempotencja przy retry)
 
 ### Matching
@@ -185,7 +196,7 @@ bookshelf/
 - `eslint-config-prettier` musi zostać ostatnim wpisem w `eslint.config.mjs` (wyłącza reguły kolidujące z formaterem).
 
 ### CI
-- GitHub Actions: lint + typecheck + vitest + playwright + deploy CF Pages
+- GitHub Actions: lint + typecheck + vitest + playwright + deploy CF Workers (`cloudflare/wrangler-action@v3`, **NIE** `cloudflare/pages-action`)
 - Sekrety: `ANTHROPIC_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `CLOUDFLARE_API_TOKEN` w GitHub Secrets
 
 ## Decyzje świadomie odsunięte (NIE w MVP)
@@ -214,7 +225,6 @@ Aktualny milestone: **M1 — schema + upload + vision (deadline 31.05.2026)**. P
 ## Kontekst zewnętrzny
 
 - Pełna analiza projektu (poza tym repo): `c:\Projekty\10xDevs\analiza-projektu-bookshelf.md`
-- Porównanie z innymi kandydatami: `c:\Projekty\10xDevs\porownanie-projektow.md`
 - Wymogi certyfikacji 10xDevs 3.0: `c:\Projekty\10xDevs\analiza-projektu-kursowego.md` sekcja 1
 - Prework: `c:\Projekty\10xDevs\prework\`
 

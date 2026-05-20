@@ -3,7 +3,8 @@
     "allow": [
       "PowerShell(Set-Clipboard *)",
       "Bash(npm run *)",
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "Skill(10x-lesson)"
     ]
   }
 }
