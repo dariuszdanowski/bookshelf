@@ -3,7 +3,7 @@
 **Project:** bookshelf
 **Stack pin:** Astro 6.3.5 + React 19 + TypeScript + Tailwind 4 / `@astrojs/cloudflare` v13.5.2 / wrangler 4.93.0 / Node 22.12.0
 **Platform:** Cloudflare Workers (with Workers Assets — NIE Pages; `@astrojs/cloudflare` v13 dropped Pages)
-**Last verified:** 2026-05-23
+**Last verified:** 2026-05-23 (gap #1-#4 closed same day)
 **compatibility_date:** 2026-05-12
 **Source artifacts:** [context/foundation/infrastructure.md](../foundation/infrastructure.md) (operations, risk register R1–R7), [context/foundation/tech-stack.md](../foundation/tech-stack.md) (stack rationale)
 
@@ -26,6 +26,9 @@ Pierwszy deploy MVP został wykonany 2026-05-23 zgodnie z rekomendacją `/10x-in
 | Deploy cmd zweryfikowany | `npx wrangler deploy` (z env vars z `.dev.vars` w sesji PowerShell) |
 | Smoke test #15434 (R1) | ✅ GET `/` → HTTP 200, valid HTML, brak `[object Object]` |
 | Astro middleware obecne | NIE — `src/middleware.ts` jeszcze nie utworzony (planowany w M1) |
+| Supabase project linked | ✅ `foqpoqdbicgsrbkcuckc` / `bookshelf` / West Europe (London) |
+| Supabase schema applied | ✅ migracje `0001_initial_schema.sql` + `0002_rls_policies.sql` na remote — 8 tabel z RLS, weryfikacja REST API `GET /rest/v1/shelves` → 200 `[]` |
+| Workers Secrets bound | ✅ 4 sekrety na `bookshelf`: `PUBLIC_SUPABASE_URL`, `PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY` (`wrangler secret list` confirmed) |
 
 Stack pinning + bindings są w `wrangler.jsonc` (commit `f5b9347`). Adapter używa `@astrojs/cloudflare/entrypoints/server` jako `main` (modern v13 default — różni się od starszego `./dist/_worker.js/index.js` z infrastructure.md step 2, ale jest poprawne).
 
@@ -58,10 +61,10 @@ Grupowanie po milestone (M1 / M1L5 / M3) — milestone planners konsumują per-l
 
 | # | Gap | Executor | Command / Action | Verification | Milestone | Risk-ref |
 |---|---|---|---|---|---|---|
-| 1 | `worker-configuration.d.ts` untracked — wygenerowany lokalnie, nie powinien być commit'owany | agent-auto | Dodać linię `worker-configuration.d.ts` do `.gitignore` | `git status` — plik znika z untracked listy | housekeeping | — |
-| 2 | Supabase project nie zainicjalizowany (`supabase/` istnieje pusty) | agent-with-approval | `npx supabase init` + `npx supabase login` (human) + `npx supabase projects create bookshelf-10xdevs` + `npx supabase link --project-ref <ref>` | `supabase/config.toml` istnieje + `.supabase/` linked | M1 (tydz 1, 18-24.05) | — |
-| 3 | Migracje SQL nie spisane | agent-auto | Napisać `supabase/migrations/0001_initial_schema.sql` + `0002_rls_policies.sql` per `docs/prd.md#schemat-danych` | `npx supabase db push` clean; tabele widoczne w dashboard | M1 (tydz 1) | — |
-| 4 | Runtime secrets nie wgrane na Workers (4 klucze) | agent-with-approval | `npx wrangler secret put PUBLIC_SUPABASE_URL` + `PUBLIC_SUPABASE_ANON_KEY` + `SUPABASE_SERVICE_ROLE_KEY` + `ANTHROPIC_API_KEY` | `npx wrangler secret list` zwraca 4 wpisy | M1 (tydz 2, 25-31.05 — gdy pierwszy endpoint potrzebuje Supabase) | — |
+| 1 | ✅ DONE 2026-05-23 — `worker-configuration.d.ts` w `.gitignore` (linia 152) | agent-auto | — | `git status` clean | housekeeping | — |
+| 2 | ✅ DONE 2026-05-23 — Supabase init + link (`foqpoqdbicgsrbkcuckc`, West Europe) | agent-with-approval | — | `npx supabase migration list` pokazuje linked state | M1 | — |
+| 3 | ✅ DONE 2026-05-23 — Migracje `0001_initial_schema.sql` + `0002_rls_policies.sql` na remote | agent-auto | — | `migration list`: Local 0001/0002 = Remote 0001/0002; REST API `GET /rest/v1/shelves` → 200 `[]` | M1 | — |
+| 4 | ✅ DONE 2026-05-23 — 4 runtime secrets na Workers prod | agent-with-approval | — | `npx wrangler secret list` → 4 wpisy | M1 | — |
 | 5 | `GOOGLE_BOOKS_API_KEY` (opcjonalny, dla wyższego limitu) | human-only | Załóż klucz w Google Cloud Console → `npx wrangler secret put GOOGLE_BOOKS_API_KEY` | jw. | M2 (gdy matching pipeline online) | — |
 | 6 | Astro middleware bug smoke test ZANIM `src/middleware.ts` powstanie | agent-with-approval | Po dodaniu middleware: `npm run build` + `npx wrangler deploy` + `curl https://bookshelf...workers.dev/shelves` (auth-guarded route) | Response zawiera tekst, nie `[object Object]`. Jeśli bug trafi — middleware-as-helper workaround (`src/lib/auth/guard.ts` per-page) | M1 (przed Vision integracją) | R1 (M, H) |
 | 7 | `.github/workflows/ci.yml` (lint + typecheck + vitest + playwright) | agent-auto | Scaffold zgodnie ze CLAUDE.md sekcja "CI" — wszystkie scripty już są w `package.json` | Pierwszy PR triggeruje pipeline; status = green | M1L5 | — |
