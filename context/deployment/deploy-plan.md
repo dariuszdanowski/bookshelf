@@ -90,7 +90,7 @@ Samowystarczalny quickstart dla kogoś stawiającego projekt od czystego repo. D
 ### B. Lokalnie — uruchomienie aplikacji
 
 ```powershell
-npm install                       # Node ≥ 22.12.0 (engines.node)
+npm install                       # Node ≥ 22.13.0 (engines.node)
 Copy-Item .env.example .env.local # uzupełnij 4 sekrety Supabase/Anthropic (vars opisane w .env.example)
 # .dev.vars (gitignored) — credentiale Cloudflare do sesji wrangler/deploy:
 #   CLOUDFLARE_API_TOKEN=...

@@ -37,7 +37,7 @@ Pięć decyzji domenowych: (1) detekcja z obrazu, (2) scoring matchu z bazą zew
 
 ## Komendy
 
-Wymagania: **Node.js ≥ 22.12.0** (`engines.node` w `package.json`).
+Wymagania: **Node.js ≥ 22.13.0** (`engines.node` w `package.json`).
 
 | Komenda | Co robi |
 |---|---|

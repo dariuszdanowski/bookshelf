@@ -56,7 +56,7 @@ Browser (React 19 islands) ─→ Astro SSR (Cloudflare Workers + Assets)
 
 ## Szybki start
 
-Wymagania: **Node.js ≥ 22.12.0**, `npm`, konto Supabase, klucz Anthropic API.
+Wymagania: **Node.js ≥ 22.13.0**, `npm`, konto Supabase, klucz Anthropic API.
 
 ```powershell
 # 1. Klon i zależności
