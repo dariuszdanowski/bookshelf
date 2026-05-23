@@ -18,7 +18,7 @@ Bootstrapper reads four top-level keys from frontmatter and dispatches actions o
 
 ### `starter_id` — registry lookup
 
-Used to look up the chosen card in `packages/ai-artifacts/skills/10x-tech-stack-selector/references/starter-registry.yaml` under the `starters:` map. The card supplies:
+Used to look up the chosen card in `/skills/10x-tech-stack-selector/references/starter-registry.yaml` under the `starters:` map. The card supplies:
 
 - `cmd_template` — the CLI invocation, with `{name}` and `{pm}` placeholders.
 - `language_family` — drives the audit-command lookup at Step 3.

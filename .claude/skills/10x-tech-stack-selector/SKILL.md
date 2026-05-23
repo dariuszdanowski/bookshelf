@@ -24,7 +24,7 @@ allowed-tools:
 
 This skill is the third link in the bootstrap chain (`/10x-shape → /10x-prd → 10x-tech-stack-selector → /10x-bootstrapper`). Its single job: turn a written PRD into a recommended starter and a small machine-readable hand-off `/10x-bootstrapper` can read to scaffold a project.
 
-The skill is a **decision facilitator over a curated registry**, not a recommendation generator from first principles. It reads PRD priors, asks at most ~6 residual questions on the custom path (or short-circuits to a vetted recommendation on the standard path), reasons over language-aware starter cards in `references/starter-registry.yaml`, and applies four hard-filter quality gates. Rich rationale stays in conversation; the file hand-off is minimal.
+The skill is a **decision facilitator over a curated registry**, not a recommendation engine from first principles. It reads PRD priors, asks at most ~6 residual questions on the custom path (or short-circuits to a vetted recommendation on the standard path), reasons over language-aware starter cards in `references/starter-registry.yaml`, and applies four hard-filter quality gates. Rich rationale stays in conversation; the file hand-off is minimal.
 
 The starter registry in `references/starter-registry.yaml` is the **single source of truth** for available starters. `/10x-bootstrapper` reads it; a CI validator (`scripts/validate-starter-registry-sync.mjs`) prevents bootstrapper from referencing a `starter_id` that does not exist here.
 
@@ -42,7 +42,7 @@ The starter registry in `references/starter-registry.yaml` is the **single sourc
 
 ## Required inputs
 
-1. A PRD file — exists, is readable, conforms to the PRD schema (`packages/ai-artifacts/skills/10x-shape/references/prd-schema.md`). Default location: `context/foundation/prd.md`. The user MAY pass a different path as the argument (see "Initial Response" below). The skill reads the **frontmatter** as priors (`product_type`, `target_scale`, `timeline_budget`, `project`) and may read body sections (`## Functional Requirements`, `## Non-Goals`) for the feature audit and to detect Socratic moments where the PRD's FRs surface a feature the recommended starter does not include.
+1. A PRD file — exists, is readable, conforms to the PRD schema (`/skills/10x-shape/references/prd-schema.md`). Default location: `context/foundation/prd.md`. The user MAY pass a different path as the argument (see "Initial Response" below). The skill reads the **frontmatter** as priors (`product_type`, `target_scale`, `timeline_budget`, `project`) and may read body sections (`## Functional Requirements`, `## Non-Goals`) for the feature audit and to detect Socratic moments where the PRD's FRs surface a feature the recommended starter does not include.
 2. `references/starter-registry.yaml` — bundled with the skill. Loaded at decision time.
 3. `references/residual-interview.md` — bundled. Loaded at interview time.
 4. `references/handoff-schema.md` — bundled. Loaded at write time.

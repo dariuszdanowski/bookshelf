@@ -4,7 +4,8 @@
       "PowerShell(Set-Clipboard *)",
       "Bash(npm run *)",
       "Bash(npm install *)",
-      "Skill(10x-lesson)"
+      "Skill(10x-lesson)",
+      "Bash(git *)"
     ]
   }
 }

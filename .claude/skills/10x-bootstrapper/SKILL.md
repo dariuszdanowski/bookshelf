@@ -27,7 +27,7 @@ allowed-tools:
 
 This skill is the chain-tail of the bootstrap sequence (`/10x-shape → /10x-prd → /10x-tech-stack-selector → 10x-bootstrapper`). Its single job: turn a written tech-stack hand-off into a scaffolded project in the current working directory, with verification findings logged for the user to review.
 
-The skill is a **registry consumer**, not a registry owner. The starter registry lives in `/10x-tech-stack-selector` (`packages/ai-artifacts/skills/10x-tech-stack-selector/references/starter-registry.yaml`); bootstrapper looks up the chosen card by `starter_id`, substitutes its `cmd_template`, and dispatches to the right cwd strategy. A CI validator (`scripts/validate-starter-registry-sync.mjs`) prevents bootstrapper from referencing a `starter_id` absent from that registry.
+The skill is a **registry consumer**, not a registry owner. The starter registry lives in `/10x-tech-stack-selector` (`/skills/10x-tech-stack-selector/references/starter-registry.yaml`); bootstrapper looks up the chosen card by `starter_id`, substitutes its `cmd_template`, and dispatches to the right cwd strategy. A CI validator (`scripts/validate-starter-registry-sync.mjs`) prevents bootstrapper from referencing a `starter_id` absent from that registry.
 
 v1 is **chain-mode only**. Without `context/foundation/tech-stack.md`, the skill refuses and redirects to `/10x-tech-stack-selector`. There is no inline mini-handoff, no standalone-mode, no AI-as-bridge fallback for unknown stacks. v1 also does **not** generate `AGENTS.md` / `CLAUDE.md` — that responsibility belongs to a future M1L4 skill.
 
@@ -48,7 +48,7 @@ Skip when:
 ## Required inputs
 
 1. `context/foundation/tech-stack.md` — the hand-off written by `/10x-tech-stack-selector`. Contract: see `references/handoff-consumer.md` (which pins to `/10x-tech-stack-selector/references/handoff-schema.md` as the authoritative schema).
-2. The chosen card from `packages/ai-artifacts/skills/10x-tech-stack-selector/references/starter-registry.yaml`. Resolved by `starter_id` lookup. Carries `cmd_template`, `language_family`, `bootstrapper_confidence`, `toolchain.package_manager`, `deployment_defaults`.
+2. The chosen card from `/skills/10x-tech-stack-selector/references/starter-registry.yaml`. Resolved by `starter_id` lookup. Carries `cmd_template`, `language_family`, `bootstrapper_confidence`, `toolchain.package_manager`, `deployment_defaults`.
 3. `references/bootstrapper-config.yaml` — bootstrapper-side per-starter `cwd_strategy` overrides + `language_family → audit_command` lookup. Bundled with the skill.
 4. `references/handoff-consumer.md` — bundled. Loaded at Step 0.
 5. `references/refusal-protocol.md` — bundled. Loaded when any refusal condition trips.
@@ -95,7 +95,7 @@ Bootstrapper requires a tech-stack hand-off at `<handoff-path>`. Run `/10x-tech-
 
 Then STOP. The conversation context is **not** a fallback — even if a stack pick was discussed earlier in chat, the skill demands the file on disk. See `references/refusal-protocol.md` for the full set of refusal conditions and clipboard strings.
 
-**If present**, read it FULLY (no `limit`/`offset`) and proceed. Parse the frontmatter per `references/handoff-consumer.md` and resolve the chosen card by `starter_id` lookup against `packages/ai-artifacts/skills/10x-tech-stack-selector/references/starter-registry.yaml`. If the lookup fails, run the registry-drift refusal from `references/refusal-protocol.md` and STOP.
+**If present**, read it FULLY (no `limit`/`offset`) and proceed. Parse the frontmatter per `references/handoff-consumer.md` and resolve the chosen card by `starter_id` lookup against `/skills/10x-tech-stack-selector/references/starter-registry.yaml`. If the lookup fails, run the registry-drift refusal from `references/refusal-protocol.md` and STOP.
 
 Echo the consumed fields back to the user as a confirm-or-correct summary:
 

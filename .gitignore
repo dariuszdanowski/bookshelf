@@ -149,6 +149,7 @@ dist/
 # Cloudflare
 .wrangler/
 .dev.vars
+worker-configuration.d.ts
 
 # OS
 .DS_Store

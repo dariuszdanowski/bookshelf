@@ -27,7 +27,7 @@ Bootstrapper requires a tech-stack hand-off at `context/foundation/tech-stack.md
 
 ## (b) `starter_id` not in registry — HARD REFUSAL
 
-**Trigger**: hand-off frontmatter `starter_id` does not match any key under `starters:` in `packages/ai-artifacts/skills/10x-tech-stack-selector/references/starter-registry.yaml`. In chain-mode this should be unreachable (tech-stack-selector refuses to write a hand-off whose `starter_id` it can't resolve); this is a defensive check against hand-edited hand-offs.
+**Trigger**: hand-off frontmatter `starter_id` does not match any key under `starters:` in `/skills/10x-tech-stack-selector/references/starter-registry.yaml`. In chain-mode this should be unreachable (tech-stack-selector refuses to write a hand-off whose `starter_id` it can't resolve); this is a defensive check against hand-edited hand-offs.
 
 **Clipboard**:
 
@@ -40,7 +40,7 @@ echo -n "/10x-tech-stack-selector" | pbcopy 2>/dev/null || echo -n "/10x-tech-st
 ```
 Registry drift detected: `<id>` is not in the tech-stack-selector registry. Either the hand-off was hand-edited, or the registry was modified after the hand-off was written. Re-run `/10x-tech-stack-selector` to regenerate `context/foundation/tech-stack.md` against the current registry.
 
-(If you believe `<id>` should exist, add it to `packages/ai-artifacts/skills/10x-tech-stack-selector/references/starter-registry.yaml` first — bootstrapper consumes that registry; it does not own it.)
+(If you believe `<id>` should exist, add it to `/skills/10x-tech-stack-selector/references/starter-registry.yaml` first — bootstrapper consumes that registry; it does not own it.)
 ```
 
 **Exit**: stop immediately. Do not attempt to resolve the `starter_id` to anything else.
