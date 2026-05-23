@@ -297,7 +297,7 @@ timeline_budget:
 Stack już zdecydowany w CLAUDE.md (decyzje wniesione poza /10x-shape), nie podlega `/10x-prd`. Notatka informacyjna dla downstream:
 
 - Astro 6 (SSR) + React 19 islands + TypeScript strict + Tailwind 4
-- Backend: Astro endpoints na Cloudflare Pages (Workers runtime, nie Node)
+- Backend: Astro endpoints na Cloudflare Workers (Workers runtime, nie Node)
 - DB: Supabase Postgres + RLS od dnia 1
 - Storage: Supabase Storage (bucket `photos/`)
 - Auth: Supabase Auth (email + hasło)
@@ -314,7 +314,7 @@ Wybór nie podlega ponownej walidacji w `/10x-prd` — sekcja istnieje wyłączn
 Tylko surowy bullet list, do uzupełnienia przez kolejny skill w łańcuchu:
 
 - Implementacja w 5 milestonach: M1 (Supabase init + auth + CRUD półek), M2 (upload zdjęcia + vision-pipeline + persistence), M3 (matching + propozycje + akceptacja), M4 (Flow B + wirtualna półka "Zakupione" + przekładanie), M5 (wyszukiwarka + kolor grzbietu + finalny CI + deploy).
-- CI workflow: lint → typecheck → vitest → playwright → deploy CF Pages.
+- CI workflow: lint → typecheck → vitest → playwright → deploy CF Workers.
 - Sekrety w GitHub Secrets: ANTHROPIC_API_KEY, SUPABASE_SERVICE_ROLE_KEY, CLOUDFLARE_API_TOKEN, GOOGLE_BOOKS_API_KEY.
 - Reality check vision już zrobiony (recall 100%, precision ~82% na polskiej półce — z CLAUDE.md).
 

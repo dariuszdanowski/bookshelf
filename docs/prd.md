@@ -51,7 +51,7 @@ Aplikacja webowa do katalogowania domowej kolekcji książek na podstawie zdję�
 | 3 | Logika biznesowa | Vision-detekcja → matching scoring → deduplikacja → ranking → telemetria |
 | 4 | Artefakty M1-M3 | Ten PRD + `docs/plan-implementacji.md` + AGENTS.md (do napisania w M1) + spec API |
 | 5 | Test E2E | Playwright: golden path `upload → detect → confirm → catalog` z mock vision-response |
-| 6 | CI/CD | GitHub Actions: lint + typecheck + vitest + playwright + deploy CF Pages |
+| 6 | CI/CD | GitHub Actions: lint + typecheck + vitest + playwright + deploy CF Workers |
 
 ## 7. Schemat danych
 
@@ -251,7 +251,7 @@ ELSE:
 ## 13. Ryzyka
 
 1. **Vision quality** — częściowo zmitygowane reality checkiem (recall 100%, precision 82% na polskich półkach)
-2. **Cloudflare Pages timeout 30s** — vision call może dochodzić do 15-20s; fallback do Supabase Edge Function jeśli problem
+2. **Cloudflare Workers CPU limit 30s (paid plan)** — vision call może dochodzić do 15-20s; fallback do Supabase Edge Function jeśli problem
 3. **Koszt vision** — cap per user $1/dzień w `profiles.daily_vision_budget_usd`
 4. **Rate limit Google Books** — cache w `book_candidates` po `external_id`, fallback OpenLibrary
 5. **RLS misconfiguration** — per-tabela policy test w `supabase/tests/`

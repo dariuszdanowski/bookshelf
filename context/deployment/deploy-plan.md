@@ -3,7 +3,7 @@
 **Project:** bookshelf
 **Stack pin:** Astro 6.3.5 + React 19 + TypeScript + Tailwind 4 / `@astrojs/cloudflare` v13.5.2 / wrangler 4.93.0 / Node 22.12.0
 **Platform:** Cloudflare Workers (with Workers Assets — NIE Pages; `@astrojs/cloudflare` v13 dropped Pages)
-**Last verified:** 2026-05-23 (gap #1-#4 closed same day)
+**Last verified:** 2026-05-23 (gap #1-#4 closed same day; full live-state re-verification 2026-05-23 — URL→200, version `bb78b47f`, KV `cf3e7423`, 4 secrets, Supabase migrations 0001/0002 remote — wszystko zgodne z Baseline)
 **compatibility_date:** 2026-05-12
 **Source artifacts:** [context/foundation/infrastructure.md](../foundation/infrastructure.md) (operations, risk register R1–R7), [context/foundation/tech-stack.md](../foundation/tech-stack.md) (stack rationale)
 
@@ -74,12 +74,71 @@ Grupowanie po milestone (M1 / M1L5 / M3) — milestone planners konsumują per-l
 
 Sekwencjonowanie: gap 1 może być kiedykolwiek; **2 → 3 → 4 musi być w tej kolejności** (init przed migrations przed secrets); 6 jest gate'em przed pełną integracją Vision w M1; 7-9 to spójna paczka M1L5; 10 to post-deploy obserwacja, nie krok wdrożenia.
 
+## Setup od zera — konta + lokalnie + chmura
+
+Samowystarczalny quickstart dla kogoś stawiającego projekt od czystego repo. Deep-dive (rationale, risk register, operational story) nadal w `infrastructure.md` / `plan-implementacji.md` — tu jest minimalna ścieżka "działa lokalnie i w chmurze".
+
+### A. Konta do założenia (human-only, jednorazowo)
+
+| Usługa | Gdzie | Co skopiować |
+|---|---|---|
+| Supabase | `supabase.com` → New project (region West Europe / London, jak obecny `foqpoqdbicgsrbkcuckc`) | Settings → API: `Project URL`, `anon` key, `service_role` key |
+| Cloudflare | `dash.cloudflare.com` → konto, potem My Profile → API Tokens → Create Token, template **"Edit Cloudflare Workers"** + dodaj "Account: Pages Read" (dla `deployments list`) | API token + Account ID. **NIE** Global API Key |
+| Anthropic | `console.anthropic.com/settings/keys` | `ANTHROPIC_API_KEY` (+ budżet ~$20) |
+| Google Books (opc.) | `console.cloud.google.com/apis/credentials` | `GOOGLE_BOOKS_API_KEY` — wyższy rate limit; potrzebne dopiero w M2 (gap #5) |
+
+### B. Lokalnie — uruchomienie aplikacji
+
+```powershell
+npm install                       # Node ≥ 22.12.0 (engines.node)
+Copy-Item .env.example .env.local # uzupełnij 4 sekrety Supabase/Anthropic (vars opisane w .env.example)
+# .dev.vars (gitignored) — credentiale Cloudflare do sesji wrangler/deploy:
+#   CLOUDFLARE_API_TOKEN=...
+#   CLOUDFLARE_ACCOUNT_ID=...
+
+npm run dev          # → http://localhost:4321 (Vite; NIE workerd)
+npm run preview      # albo: npx wrangler dev --remote → workerd lokalnie (smoke test #15434 / R1)
+```
+
+> `npm run dev` używa Vite, nie miniflare — Workers-only API (`caches.default` itp.) i bug #15434 weryfikuj dopiero przez `preview` / `wrangler dev --remote`.
+
+### C. Supabase — inicjalizacja (dwie ścieżki)
+
+- **Remote — obecny setup, już zrobiony** (to jest stan produkcyjny):
+  ```powershell
+  npx supabase login
+  npx supabase link --project-ref foqpoqdbicgsrbkcuckc
+  npx supabase db push          # aplikuje supabase/migrations/0001 + 0002 na remote
+  ```
+- **Local stack — opcjonalny, wymaga Dockera** (porty z `supabase/config.toml`: API 54321, DB 54322):
+  ```powershell
+  npx supabase start            # Postgres + Auth + Storage lokalnie
+  npx supabase db reset         # aplikuje migracje na lokalną bazę
+  ```
+  ⚠ **Firewall korporacyjny** (zob. memory): pobranie obrazów Docker / binarki Supabase CLI z `github.com/releases` padnie na `ETIMEDOUT` — użyj VPN/tunelu albo trzymaj się ścieżki **remote**.
+
+### D. Chmura — deploy
+
+```powershell
+npm run build
+npx wrangler deploy            # NIE `wrangler pages deploy` (@astrojs/cloudflare v13 wycofał Pages)
+# → https://bookshelf.<account>.workers.dev
+
+# Sekrety runtime (× 4) — jednorazowo na produkcyjny worker:
+npx wrangler secret put PUBLIC_SUPABASE_URL
+npx wrangler secret put PUBLIC_SUPABASE_ANON_KEY
+npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY
+npx wrangler secret put ANTHROPIC_API_KEY
+```
+
+CI/CD: push do `main` → `.github/workflows/deploy.yml` (`cloudflare/wrangler-action@v3`) deployuje automatycznie. Wymaga `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` w **GitHub Secrets** (Repo Settings → Secrets and variables → Actions) — to gap #9, human-only.
+
 ## References (nie duplikujemy)
 
 - **Operational story** (preview deploys / secrets rotation / rollback / approval / logs) → `infrastructure.md` § Operational Story
 - **Risk register R1–R7** (Astro #15434, stale Pages refs, CPU vs vision retry, panel default suggestion, Anthropic timeout > CF 30s, wrangler local-mode default, multi-project $5×N cost) → `infrastructure.md` § Risk Register
 - **Stack rationale** (dlaczego Workers nie Pages, dlaczego $5/mo paid plan default) → `tech-stack.md` + `infrastructure.md` § Recommendation
-- **Komendy startowe** (token creation, env vars, first deploy walkthrough) → `docs/plan-implementacji.md` § Komendy startowe + `infrastructure.md` § Getting Started
+- **Komendy startowe** (token creation, env vars, first deploy walkthrough) → quickstart inline w § Setup od zera wyżej; pełny walkthrough + rationale w `docs/plan-implementacji.md` § Komendy startowe + `infrastructure.md` § Getting Started
 
 ## Out of scope
 
@@ -89,7 +148,7 @@ Następujące **nie są** częścią pierwszego wdrożenia ani tego planu:
 - **Cloudflare Access / Zero Trust** dla preview URL gatingu — paid feature, post-MVP.
 - **Cloudflare Queues / Durable Objects / D1** — paid bindings, planowane jako trigger pivota jeśli R3 (CPU vision retry) odpali. Nie konfigurujemy z wyprzedzeniem.
 - **Multi-region failover / HA / SLA** — single-user MVP.
-- **Trzy stale referencje "Cloudflare Pages"** (`context/foundation/health-check.md:143`, `context/foundation/shape-notes.md:300`, `docs/prd.md:254+`) — to documentation drift, NIE blocker deploymentu. Tracked separately; podłączyć do M1L5 commit'a gdy CI YAML i tak będzie ruszać te pliki, albo otworzyć osobny `/10x-new` ticket. **Nie mieszamy z deploy-plan signal** dla downstream consumers.
+- **✅ DONE 2026-05-23 — stale referencje "Cloudflare Pages"** naprawione (5 wystąpień w 3 plikach: `docs/prd.md:54,254`, `context/foundation/health-check.md:143`, `context/foundation/shape-notes.md:300,317` → "Cloudflare Workers"). Był to documentation drift, nie blocker deploymentu. Pozostałe wzmianki "Pages" w repo (`CLAUDE.md`, `AGENTS.md`, `plan-implementacji.md`, `tech-stack.md`, `infrastructure.md`) są poprawne — mówią "NIE Pages" / wyjaśniają dlaczego nie Pages — i celowo nietknięte.
 - **Pages → Workers migration commands** — wykonane w commitach `312d426` i `f5b9347`. Nie powtarzamy.
 - **Dockerfile / Fly.io runner-up** — runner-up zachowany w `infrastructure.md` jako exit ramp; nie konfigurujemy z wyprzedzeniem.
 

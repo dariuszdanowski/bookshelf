@@ -140,7 +140,7 @@ trim_trailing_whitespace = false
 #### CI/CD pipeline (`.github/workflows/{ci,deploy}.yml`)
 
 **Lesson**: [Sprint Zero z Agentem: infrastruktura, walking skeleton i pierwszy deploy (M1L5)](https://platforma.przeprogramowani.pl/external/10xdevs-3/m1-l5)
-**What you'll do there**: wire GitHub Actions for `npm run lint` + `npm run typecheck` + `npm run test` + `npm run build` + Cloudflare Pages deploy. The scripts are already in place — the lesson plugs them into a workflow file.
+**What you'll do there**: wire GitHub Actions for `npm run lint` + `npm run typecheck` + `npm run test` + `npm run build` + Cloudflare Workers deploy. The scripts are already in place — the lesson plugs them into a workflow file.
 
 #### `AGENTS.md` (agent onboarding doc)
 
