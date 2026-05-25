@@ -273,10 +273,10 @@ Brak — F-02 nie modyfikuje istniejących artefaktów (poza CLAUDE.md docs sync
 
 #### Automated
 
-- [x] 3.1 `grep -F 'src/lib/http/response.ts' CLAUDE.md` exit 0 — pointer obecny w pliku
+- [x] 3.1 `grep -F 'src/lib/http/response.ts' CLAUDE.md` exit 0 — pointer obecny w pliku — 8d4454d
 
 #### Manual
 
-- [x] 3.2 CLAUDE.md sekcja § API endpoints na początku pokazuje pointer do `src/lib/http/response.ts` z listą codes z naszego union
-- [x] 3.3 Proza zachowana jako quick-reference (nie usunięta, nie przepisana)
-- [x] 3.4 `SHELF_NOT_FOUND` usunięty z istniejącej prozy (brak referencji do nieistniejących codes jako autoritative)
+- [x] 3.2 CLAUDE.md sekcja § API endpoints na początku pokazuje pointer do `src/lib/http/response.ts` z listą codes z naszego union — 8d4454d
+- [x] 3.3 Proza zachowana jako quick-reference (nie usunięta, nie przepisana) — 8d4454d
+- [x] 3.4 `SHELF_NOT_FOUND` usunięty z istniejącej prozy (brak referencji do nieistniejących codes jako autoritative) — 8d4454d
