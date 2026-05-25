@@ -223,13 +223,13 @@ Nie dotyczy substratu. NFR `p95 < 1 s` na widokach nawigacji jest egzekwowany pr
 
 #### Automated
 
-- [x] 1.1 `npx supabase migration list` pokazuje 0001 i 0002 jako applied na zdalnym projekcie
-- [x] 1.2 `src/lib/db/database.types.ts` istnieje i eksportuje typ `Database`
-- [x] 1.3 `npm run typecheck` (astro check) zielony — 0 błędów
+- [x] 1.1 `npx supabase migration list` pokazuje 0001 i 0002 jako applied na zdalnym projekcie — 83bea67
+- [x] 1.2 `src/lib/db/database.types.ts` istnieje i eksportuje typ `Database` — 83bea67
+- [x] 1.3 `npm run typecheck` (astro check) zielony — 0 błędów — 83bea67
 
 #### Manual
 
-- [x] 1.4 W Supabase Studio widoczne 8 tabel z włączonym RLS, bez utraty istniejących danych
+- [x] 1.4 W Supabase Studio widoczne 8 tabel z włączonym RLS, bez utraty istniejących danych — 83bea67
 
 ### Phase 2: Typowane klienty RLS-respecting
 

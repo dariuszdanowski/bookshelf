@@ -16,6 +16,7 @@ export default [
       'playwright-report/',
       'test-results/',
       'worker-configuration.d.ts',
+      'src/lib/db/database.types.ts',
       'src/env.d.ts',
       'context/',
       'docs/',
