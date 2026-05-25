@@ -235,13 +235,13 @@ Nie dotyczy substratu. NFR `p95 < 1 s` na widokach nawigacji jest egzekwowany pr
 
 #### Automated
 
-- [x] 2.1 `npm run typecheck` zielony z nowymi klientami (oba zwracają `SupabaseClient<Database>`, bez `any`)
-- [x] 2.2 `npm run lint` zielony na `src/lib/db/**`
+- [x] 2.1 `npm run typecheck` zielony z nowymi klientami (oba zwracają `SupabaseClient<Database>`, bez `any`) — 0375fca
+- [x] 2.2 `npm run lint` zielony na `src/lib/db/**` — 0375fca
 
 #### Manual
 
-- [x] 2.3 Code review: żaden plik w `src/lib/db/` nie odwołuje się do `SUPABASE_SERVICE_ROLE_KEY`
-- [x] 2.4 CLAUDE.md (Konwencje > Supabase) opisuje server client jako RLS-respecting, nie service-role
+- [x] 2.3 Code review: żaden plik w `src/lib/db/` nie odwołuje się do `SUPABASE_SERVICE_ROLE_KEY` — 0375fca
+- [x] 2.4 CLAUDE.md (Konwencje > Supabase) opisuje server client jako RLS-respecting, nie service-role — 0375fca
 
 ### Phase 3: Test izolacji RLS (Vitest, integracyjny)
 
