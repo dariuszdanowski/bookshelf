@@ -260,14 +260,14 @@ Brak — F-02 nie modyfikuje istniejących artefaktów (poza CLAUDE.md docs sync
 
 #### Automated
 
-- [x] 2.1 `npm run typecheck` zielony — `context.locals.supabase`/`locals.user` typowane z `App.Locals`, brak `any`
-- [x] 2.2 `npm run lint` zielony na `src/middleware.ts` + `src/env.d.ts`
-- [x] 2.3 `npm run test` zielony — minimum 7 testów w `tests/unit/middleware.test.ts` pokrywających każdy scenariusz
+- [x] 2.1 `npm run typecheck` zielony — `context.locals.supabase`/`locals.user` typowane z `App.Locals`, brak `any` — 40c50c0
+- [x] 2.2 `npm run lint` zielony na `src/middleware.ts` + `src/env.d.ts` — 40c50c0
+- [x] 2.3 `npm run test` zielony — minimum 7 testów w `tests/unit/middleware.test.ts` pokrywających każdy scenariusz — 40c50c0
 
 #### Manual
 
-- [x] 2.4 Code review: `src/middleware.ts` NIE używa `new Response()` ręcznie (tylko przez `apiError`); `getUser()` (nie `getSession()`); `PUBLIC_PREFIXES` jako module-level constant
-- [x] 2.5 `App.Locals` w `src/env.d.ts` deklaruje `supabase` jako required (nie optional)
+- [x] 2.4 Code review: `src/middleware.ts` NIE używa `new Response()` ręcznie (tylko przez `apiError`); `getUser()` (nie `getSession()`); `PUBLIC_PREFIXES` jako module-level constant — 40c50c0
+- [x] 2.5 `App.Locals` w `src/env.d.ts` deklaruje `supabase` jako required (nie optional) — 40c50c0
 
 ### Phase 3: CLAUDE.md sync — pointer do helpera jako single source of truth
 
