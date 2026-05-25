@@ -248,13 +248,13 @@ Brak — F-02 nie modyfikuje istniejących artefaktów (poza CLAUDE.md docs sync
 
 #### Automated
 
-- [x] 1.1 `npm run typecheck` zielony — 0 błędów, `src/lib/http/response.ts` bez `any`
-- [x] 1.2 `npm run lint` zielony na `src/lib/http/**`
-- [x] 1.3 `npm run test` zielony — minimum 8 testów w `tests/unit/lib/http/response.test.ts`
+- [x] 1.1 `npm run typecheck` zielony — 0 błędów, `src/lib/http/response.ts` bez `any` — ebe95b4
+- [x] 1.2 `npm run lint` zielony na `src/lib/http/**` — ebe95b4
+- [x] 1.3 `npm run test` zielony — minimum 8 testów w `tests/unit/lib/http/response.test.ts` — ebe95b4
 
 #### Manual
 
-- [x] 1.4 Code review: signatury helperów zgodne z kontraktem, defaultowe headers obecne, brak `new Response()` z ręcznie ustawianym Cache-Control
+- [x] 1.4 Code review: signatury helperów zgodne z kontraktem, defaultowe headers obecne, brak `new Response()` z ręcznie ustawianym Cache-Control — ebe95b4
 
 ### Phase 2: Middleware auth-guard + Astro.locals typing
 
