@@ -161,7 +161,9 @@ bookshelf/
 
 ### API endpoints (`src/pages/api/`)
 
-Endpoint zwraca jeden ze stabilnych kształtów: sukces `{ data: ... }`, błąd `{ error: { code, message, details? } }`. `code` w `SCREAMING_SNAKE_CASE` (`UNAUTHENTICATED`, `SHELF_NOT_FOUND`, `INTERNAL_ERROR`). Nigdy `{ error: string }`, nigdy raw `throw` propagujący do response.
+**Single source of truth**: `src/lib/http/response.ts` (typowany `ApiErrorCode` union: `UNAUTHENTICATED | NOT_FOUND | VALIDATION_ERROR | INTERNAL_ERROR | RATE_LIMITED` + helpery `apiResponse({ data })` / `apiError({ code, status, message, details? })` z `Cache-Control: private, no-store` w defaultach + `parseUuidParam` dla 404-privacy na bad UUID). Endpointy konsumują wyłącznie te helpery — nie konstruują `new Response()` ręcznie. Rozszerzanie unii per slice gdy realnie potrzebne (per-resource codes typu `SHELF_NOT_FOUND` świadomie odsunięte do momentu gdy klient potrzebuje dispatch'ować na konkretny resource).
+
+Endpoint zwraca jeden ze stabilnych kształtów: sukces `{ data: ... }`, błąd `{ error: { code, message, details? } }`. `code` w `SCREAMING_SNAKE_CASE` (`UNAUTHENTICATED`, `NOT_FOUND`, `VALIDATION_ERROR`, `INTERNAL_ERROR`, `RATE_LIMITED`). Nigdy `{ error: string }`, nigdy raw `throw` propagujący do response.
 
 **Status codes (privacy-first, FR-NFR z PRD — nigdy nie ujawniaj istnienia cudzych zasobów):**
 - `404` zarówno dla "nie ma rekordu" jak i "rekord należy do innego usera" (RLS już to wymusza; nie kodować osobnej gałęzi 403). Także `404` dla zniekształconego UUID w parametrze ścieżki, żeby nie wyciekać kształtu ID nieuwierzytelnionym.
