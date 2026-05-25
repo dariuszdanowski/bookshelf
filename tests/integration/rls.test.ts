@@ -120,8 +120,10 @@ if (!hasEnv) {
 
     afterAll(async () => {
       // Cascade (FK on delete cascade → auth.users) czyści shelves/books/shelf_entries.
-      if (userAId) await admin.auth.admin.deleteUser(userAId);
-      if (userBId) await admin.auth.admin.deleteUser(userBId);
+      // allSettled: błąd kasowania jednego usera nie może osierocić drugiego.
+      await Promise.allSettled(
+        [userAId, userBId].filter((id) => id).map((id) => admin.auth.admin.deleteUser(id))
+      );
     });
 
     it('polityka bezpośrednia (shelves.user_id): userA widzi własną półkę, userB dostaje 0 wierszy', async () => {

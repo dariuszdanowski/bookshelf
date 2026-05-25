@@ -34,6 +34,8 @@ function loadEnvFile(file: string): Record<string, string> {
 
 // Lokalnie sekrety idą z pliku; w CI obu plików brak → fileEnv puste, test
 // czyta prawdziwy process.env (sekrety z GitHub Secrets).
+// Precedencja: .dev.vars wygrywa z .env.local (konwencja Cloudflare to .dev.vars);
+// Vitest merge'uje `env` NA process.env, więc CI-fallback nadal działa.
 const fileEnv = { ...loadEnvFile('.env.local'), ...loadEnvFile('.dev.vars') };
 
 export default defineConfig({
