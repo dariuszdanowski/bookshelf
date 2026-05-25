@@ -247,10 +247,10 @@ Nie dotyczy substratu. NFR `p95 < 1 s` na widokach nawigacji jest egzekwowany pr
 
 #### Automated
 
-- [x] 3.1 `npm run test:integration` zielony: userA widzi własną półkę, userB dostaje 0 wierszy dla danych A (tabela `shelves`, polityka `user_id`)
-- [x] 3.2 Ten sam przebieg potwierdza izolację dla tabeli EXISTS-przez-parent (`shelf_entries` lub `detections`)
-- [x] 3.3 Domyślny `npm run test` (jsdom) nie odpala testu integracyjnego i pozostaje zielony/offline
+- [x] 3.1 `npm run test:integration` zielony: userA widzi własną półkę, userB dostaje 0 wierszy dla danych A (tabela `shelves`, polityka `user_id`) — bcbff55
+- [x] 3.2 Ten sam przebieg potwierdza izolację dla tabeli EXISTS-przez-parent (`shelf_entries` lub `detections`) — bcbff55
+- [x] 3.3 Domyślny `npm run test` (jsdom) nie odpala testu integracyjnego i pozostaje zielony/offline — bcbff55
 
 #### Manual
 
-- [x] 3.4 Po przebiegu testu brak userów-śmieci w `auth.users` (cleanup zadziałał)
+- [x] 3.4 Po przebiegu testu brak userów-śmieci w `auth.users` (cleanup zadziałał) — bcbff55
