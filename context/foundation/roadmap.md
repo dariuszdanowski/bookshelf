@@ -67,7 +67,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 
 ### F-01: Persystencja + izolacja per-user
 
-- **Outcome:** (foundation) migracje 0001+0002 zaaplikowane do zlinkowanego projektu, izolacja RLS zweryfikowana (użytkownik A nie widzi danych B), typowane klienty Supabase (server service-role, browser anon) spięte w `src/lib/db/`.
+- **Outcome:** (foundation) migracje 0001+0002 zaaplikowane do zlinkowanego projektu, izolacja RLS zweryfikowana (użytkownik A nie widzi danych B), typowane klienty Supabase RLS-respecting (server: `@supabase/ssr` anon + JWT z cookies; browser: anon) spięte w `src/lib/db/`, bez service-role.
 - **Change ID:** data-and-rls-substrate
 - **PRD refs:** FR-003, NFR (privacy guardrail: "użytkownik A pod żadnym warunkiem nie widzi danych B")
 - **Unlocks:** S-01, S-02, S-03, S-04, S-05, S-06, S-07, S-08 (każdy slice czyta/pisze dane katalogu) + egzekucja guardrail'a prywatności.
@@ -235,6 +235,6 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 
 ## Done
 
-- **F-01: (foundation) migracje 0001+0002 zaaplikowane do zlinkowanego projektu, izolacja RLS zweryfikowana (użytkownik A nie widzi danych B), typowane klienty Supabase (server service-role, browser anon) spięte w `src/lib/db/`.** — Archived 2026-05-26 → `context/archive/2026-05-25-data-and-rls-substrate/`. Lesson: —.
+- **F-01: (foundation) migracje 0001+0002 zaaplikowane do zlinkowanego projektu, izolacja RLS zweryfikowana (użytkownik A nie widzi danych B), typowane klienty Supabase RLS-respecting (server: `@supabase/ssr` anon + JWT z cookies; browser: anon) spięte w `src/lib/db/`, bez service-role.** — Archived 2026-05-26 → `context/archive/2026-05-25-data-and-rls-substrate/`. Lesson: —.
 
 (Pusta przy pierwszej generacji. `/10x-archive` dopisuje tu wpis — i przerzuca Status pozycji na `done` — gdy archiwizowana zmiana ma `Change ID` zgodny z pozycją roadmapy. NIE wypełniać ręcznie.)
