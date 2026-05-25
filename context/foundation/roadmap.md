@@ -3,7 +3,7 @@ project: "BookShelf Scanner"
 version: 1
 status: draft
 created: 2026-05-25
-updated: 2026-05-25
+updated: 2026-05-26
 prd_version: 1
 main_goal: speed
 top_blocker: time
@@ -29,7 +29,7 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 
 | ID    | Change ID                    | Outcome (użytkownik może …)                              | Prerequisites | PRD refs              | Status   |
 | ----- | ---------------------------- | -------------------------------------------------------- | ------------- | --------------------- | -------- |
-| F-01  | data-and-rls-substrate       | (foundation) dane + izolacja per-user gotowe              | —             | FR-003, NFR-privacy   | ready    |
+| F-01  | data-and-rls-substrate       | (foundation) dane + izolacja per-user gotowe              | —             | FR-003, NFR-privacy   | done     |
 | F-02  | api-response-contract        | (foundation) typowany kontrakt odpowiedzi API + guard     | —             | FR-004, NFR-privacy   | ready    |
 | S-01  | email-password-auth          | zarejestrować się, zalogować, wylogować; ochrona ścieżek  | F-01, F-02    | FR-001, FR-003, FR-004 | proposed |
 | S-02  | shelves-crud-and-purchased   | tworzyć/edytować/usuwać półki; auto-półka "Zakupione"     | S-01          | FR-005–009            | proposed |
@@ -76,7 +76,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** guardrail prywatności i cały katalog wiszą na RLS; jeśli izolacja per-user nie jest zweryfikowana, zanim ruszą widoki, każdy późniejszy slice dziedziczy lukę bezpieczeństwa.
-- **Status:** ready
+- **Status:** done
 
 ### F-02: Kontrakt odpowiedzi API + middleware auth-guard
 
@@ -234,5 +234,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **Pełen audit WCAG-AA, internacjonalizacja (PL+EN)** — Why parked: w MVP tylko podstawy a11y, UI w całości po polsku (PRD §Non-Goals + NFR).
 
 ## Done
+
+- **F-01: (foundation) migracje 0001+0002 zaaplikowane do zlinkowanego projektu, izolacja RLS zweryfikowana (użytkownik A nie widzi danych B), typowane klienty Supabase (server service-role, browser anon) spięte w `src/lib/db/`.** — Archived 2026-05-26 → `context/archive/2026-05-25-data-and-rls-substrate/`. Lesson: —.
 
 (Pusta przy pierwszej generacji. `/10x-archive` dopisuje tu wpis — i przerzuca Status pozycji na `done` — gdy archiwizowana zmiana ma `Change ID` zgodny z pozycją roadmapy. NIE wypełniać ręcznie.)
