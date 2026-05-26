@@ -264,16 +264,16 @@ Nie dotyczy. Reading optional chaining `context.locals?.runtime?.env?.X` to ~5 n
 
 #### Manual
 
-- [ ] 1.4 Code review: `supabase.server.ts` ma runtime-first ordering; browser.ts ma komentarz wyjaśniający; CLAUDE.md zawiera 3-środowiskową matrix; lessons.md ma nowy entry
+- [x] 1.4 Code review: `supabase.server.ts` ma runtime-first ordering; browser.ts ma komentarz wyjaśniający; CLAUDE.md zawiera 3-środowiskową matrix; lessons.md ma nowy entry — bcfdd19
 
 ### Phase 2: Deploy infrastructure + manual production verify
 
 #### Automated
 
-- [ ] 2.1 GitHub Actions deploy job (po push Phase 1 + Phase 2 commit) kończy się sukcesem — build step zielony z `PUBLIC_*` env, wrangler deploy step zielony
+- [x] 2.1 GitHub Actions deploy job (po push Phase 1 + Phase 2 commit) kończy się sukcesem — build step zielony z `PUBLIC_*` env, wrangler deploy step zielony — 17ee531
 
 #### Manual
 
-- [x] 2.2 GitHub Repository Secrets dodane: `PUBLIC_SUPABASE_URL` + `PUBLIC_SUPABASE_ANON_KEY` (Settings → Secrets and variables → Actions)
-- [ ] 2.3 `curl -i https://bookshelf.dariusz-danowski-559.workers.dev/` zwraca 200 (nie 500); body zawiera landing page HTML
-- [ ] 2.4 Cloudflare Worker Dashboard → Logs: brak nowych `[middleware] bootstrap failed` ani `Brak PUBLIC_SUPABASE_URL` przez 5 minut po deploy
+- [x] 2.2 GitHub Repository Secrets dodane: `PUBLIC_SUPABASE_URL` + `PUBLIC_SUPABASE_ANON_KEY` (Settings → Secrets and variables → Actions) — 17ee531
+- [x] 2.3 `curl -i https://bookshelf.dariusz-danowski-559.workers.dev/` zwraca 200 (nie 500); body zawiera landing page HTML — 17ee531
+- [x] 2.4 Cloudflare Worker Dashboard → Logs: brak nowych `[middleware] bootstrap failed` ani `Brak PUBLIC_SUPABASE_URL` przez 5 minut po deploy — 17ee531
