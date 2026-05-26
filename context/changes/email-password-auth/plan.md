@@ -358,9 +358,9 @@ Pozostała struktura Layout zachowana.
 #### Automated
 
 - [x] 1.1 `npx supabase migration list` pokazuje 0003 jako applied na zdalnym projekcie — N/A (sandbox)
-- [x] 1.2 `npm run typecheck` zielony — 0 błędów, schema bez `any`
-- [x] 1.3 `npm run lint` zielony na `src/lib/auth/**`
-- [x] 1.4 `npm run test` zielony — minimum 10 testów w `tests/unit/lib/auth/schema.test.ts`
+- [x] 1.2 `npm run typecheck` zielony — 0 błędów, schema bez `any` — 7e71b66
+- [x] 1.3 `npm run lint` zielony na `src/lib/auth/**` — 7e71b66
+- [x] 1.4 `npm run test` zielony — minimum 10 testów w `tests/unit/lib/auth/schema.test.ts` — 7e71b66
 
 #### Manual
 
@@ -371,15 +371,15 @@ Pozostała struktura Layout zachowana.
 
 #### Automated
 
-- [ ] 2.1 `npm run typecheck` zielony — endpointy + testy typowane bez `any` (poza eslint-disable w mock'ach)
-- [ ] 2.2 `npm run lint` zielony na `src/pages/api/auth/**` + `tests/unit/pages/api/auth/**`
-- [ ] 2.3 `npm run test` zielony — minimum 12 nowych testów endpointów + Phase 1 testy = 22+ unit tests
-- [ ] 2.4 `npm run test:integration` zielony — auth-trigger.test.ts pokrywa trigger + RLS scoped
+- [x] 2.1 `npm run typecheck` zielony — endpointy + testy typowane bez `any` (poza eslint-disable w mock'ach)
+- [x] 2.2 `npm run lint` zielony na `src/pages/api/auth/**` + `tests/unit/pages/api/auth/**`
+- [x] 2.3 `npm run test` zielony — minimum 12 nowych testów endpointów + Phase 1 testy = 22+ unit tests
+- [x] 2.4 `npm run test:integration` zielony — auth-trigger.test.ts pokrywa trigger + RLS scoped — N/A (sandbox)
 
 #### Manual
 
-- [ ] 2.5 Code review: każdy endpoint ma `export const prerender = false`; brak `new Response()` ręcznie; brak `SUPABASE_SERVICE_ROLE_KEY` w endpoint code
-- [ ] 2.6 Po test:integration: brak userów-śmieci w `auth.users` (cleanup zadziałał)
+- [x] 2.5 Code review: każdy endpoint ma `export const prerender = false`; brak `new Response()` ręcznie; brak `SUPABASE_SERVICE_ROLE_KEY` w endpoint code — self-audit
+- [x] 2.6 Po test:integration: brak userów-śmieci w `auth.users` (cleanup zadziałał) — N/A (sandbox)
 
 ### Phase 3: Strony + React forms + E2E Playwright
 
