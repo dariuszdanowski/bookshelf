@@ -30,7 +30,7 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | ID    | Change ID                    | Outcome (użytkownik może …)                              | Prerequisites | PRD refs              | Status   |
 | ----- | ---------------------------- | -------------------------------------------------------- | ------------- | --------------------- | -------- |
 | F-01  | data-and-rls-substrate       | (foundation) dane + izolacja per-user gotowe              | —             | FR-003, NFR-privacy   | done     |
-| F-02  | api-response-contract        | (foundation) typowany kontrakt odpowiedzi API + guard     | —             | FR-004, NFR-privacy   | ready    |
+| F-02  | api-response-contract        | (foundation) typowany kontrakt odpowiedzi API + guard     | —             | FR-004, NFR-privacy   | done     |
 | S-01  | email-password-auth          | zarejestrować się, zalogować, wylogować; ochrona ścieżek  | F-01, F-02    | FR-001, FR-003, FR-004 | proposed |
 | S-02  | shelves-crud-and-purchased   | tworzyć/edytować/usuwać półki; auto-półka "Zakupione"     | S-01          | FR-005–009            | proposed |
 | S-03  | shelf-photo-vision-detection | wgrać zdjęcie półki → rozpoznane detekcje grzbietów        | S-02          | FR-010–014, FR-039    | proposed |
@@ -89,7 +89,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** bez typowanego envelope błędów + nagłówków prywatności w defaultach agent rozjeżdża kontrakt API endpoint po endpoincie (udokumentowane w `lessons.md`); taniej wymusić kodem raz, na starcie, niż prozą przy każdym endpoincie.
-- **Status:** ready
+- **Status:** done
 
 ## Slices
 
@@ -236,5 +236,6 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 ## Done
 
 - **F-01: (foundation) migracje 0001+0002 zaaplikowane do zlinkowanego projektu, izolacja RLS zweryfikowana (użytkownik A nie widzi danych B), typowane klienty Supabase RLS-respecting (server: `@supabase/ssr` anon + JWT z cookies; browser: anon) spięte w `src/lib/db/`, bez service-role.** — Archived 2026-05-26 → `context/archive/2026-05-25-data-and-rls-substrate/`. Lesson: —.
+- **F-02: (foundation) `src/lib/http/response.ts` z typowanym `ApiErrorCode` union + helperami `apiResponse({ data })` / `apiError({ code, status, message })` z `Cache-Control: private, no-store` i semantyką 404-privacy w defaultach; `src/middleware.ts` przekierowujący niezalogowanego na logowanie.** — Archived 2026-05-26 → `context/archive/2026-05-26-api-response-contract/`. Lesson: —.
 
 (Pusta przy pierwszej generacji. `/10x-archive` dopisuje tu wpis — i przerzuca Status pozycji na `done` — gdy archiwizowana zmiana ma `Change ID` zgodny z pozycją roadmapy. NIE wypełniać ręcznie.)

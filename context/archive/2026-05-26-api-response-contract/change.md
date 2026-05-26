@@ -1,10 +1,10 @@
 ---
 change_id: api-response-contract
 title: Api response contract
-status: impl_reviewed
+status: archived
 created: 2026-05-26
 updated: 2026-05-26
-archived_at: null
+archived_at: 2026-05-26T00:27:10Z
 ---
 
 ## Notes
