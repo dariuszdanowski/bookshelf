@@ -39,7 +39,7 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | S-06  | add-purchase-flow            | dodać zakup (ręcznie/zdjęcie) na półkę "Zakupione"        | S-05, S-02    | FR-025–028            | proposed |
 | S-07  | move-book-and-history        | przenieść książkę między półkami z historią lokalizacji   | S-05, S-02    | FR-029–031, FR-038    | proposed |
 | S-08  | catalog-search-and-filters   | wyszukać katalog pełnotekstowo + filtry (kolor/półka/status) | S-05, S-02 | FR-032–036            | proposed |
-| S-09  | landing-auth-cta             | niezalogowany na `/` widzi CTA do logowania i rejestracji; zalogowany — CTA do biblioteki | S-01 | FR-001 (UX adjacent)  | proposed |
+| S-09  | landing-auth-cta             | niezalogowany na `/` widzi CTA do logowania i rejestracji; zalogowany — CTA do biblioteki; logout redirektuje na `/login` zamiast `/` | S-01 | FR-001 (UX adjacent)  | proposed |
 
 ## Streams
 
@@ -199,7 +199,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 
 ### S-09: Landing page — CTA dla niezalogowanych + skrót dla zalogowanych
 
-- **Outcome:** niezalogowany na `/` widzi 2 widoczne CTA: „Zaloguj się" (→ `/login`) i „Załóż konto" (→ `/signup`); zalogowany widzi 1 CTA: „Przejdź do biblioteki" (→ `/library`); landing content (tytuł + pitch) pozostaje, dorzucamy tylko sekcję CTA pod nim.
+- **Outcome:** niezalogowany na `/` widzi 2 widoczne CTA: „Zaloguj się" (→ `/login`) i „Załóż konto" (→ `/signup`); zalogowany widzi 1 CTA: „Przejdź do biblioteki" (→ `/library`); landing content (tytuł + pitch) pozostaje, dorzucamy tylko sekcję CTA pod nim. Dodatkowo: `LogoutButton` po wylogowaniu redirektuje na `/login` (zamiast `/`) — bardziej naturalne UX („wylogowano → tu zaloguj się ponownie"), spójne z guard'em F-02 dla protected paths.
 - **Change ID:** landing-auth-cta
 - **PRD refs:** FR-001 (UX adjacent — nie zmienia kontraktu auth, tylko nawigację z root URL)
 - **Prerequisites:** S-01 (mechanizm logowania musi już istnieć)
