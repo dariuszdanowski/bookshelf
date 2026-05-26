@@ -1,0 +1,19 @@
+---
+import Layout from '../layouts/Layout.astro';
+import LoginForm from '../components/LoginForm.tsx';
+
+// Server-side guard: zalogowany user wraca na home zamiast widzieć form.
+if (Astro.locals.user) {
+  return Astro.redirect('/');
+}
+---
+
+<Layout title="Logowanie — BookShelf">
+  <main class="mx-auto max-w-md p-8">
+    <h1 class="mb-6 text-2xl font-bold">Zaloguj się</h1>
+    <LoginForm client:load />
+    <p class="mt-4 text-sm text-gray-600">
+      Nie masz konta? <a href="/signup" class="text-blue-600 underline">Zarejestruj się</a>
+    </p>
+  </main>
+</Layout>

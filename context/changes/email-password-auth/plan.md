@@ -371,9 +371,9 @@ Pozostała struktura Layout zachowana.
 
 #### Automated
 
-- [x] 2.1 `npm run typecheck` zielony — endpointy + testy typowane bez `any` (poza eslint-disable w mock'ach)
-- [x] 2.2 `npm run lint` zielony na `src/pages/api/auth/**` + `tests/unit/pages/api/auth/**`
-- [x] 2.3 `npm run test` zielony — minimum 12 nowych testów endpointów + Phase 1 testy = 22+ unit tests
+- [x] 2.1 `npm run typecheck` zielony — endpointy + testy typowane bez `any` (poza eslint-disable w mock'ach) — 1fbfa6f
+- [x] 2.2 `npm run lint` zielony na `src/pages/api/auth/**` + `tests/unit/pages/api/auth/**` — 1fbfa6f
+- [x] 2.3 `npm run test` zielony — minimum 12 nowych testów endpointów + Phase 1 testy = 22+ unit tests — 1fbfa6f
 - [x] 2.4 `npm run test:integration` zielony — auth-trigger.test.ts pokrywa trigger + RLS scoped — N/A (sandbox)
 
 #### Manual
@@ -385,12 +385,12 @@ Pozostała struktura Layout zachowana.
 
 #### Automated
 
-- [ ] 3.1 `npm run typecheck` zielony — React components typowane bez `any`
-- [ ] 3.2 `npm run lint` zielony na `src/components/**` + `src/pages/{signup,login}.astro`
-- [ ] 3.3 `npm run test` zielony — wszystkie unit + integration z Phase 1+2 nadal zielone (regression)
-- [ ] 3.4 `npm run test:e2e` zielony — minimum 2 testy w `tests/e2e/auth.spec.ts` (signup + logout flow)
+- [x] 3.1 `npm run typecheck` zielony — React components typowane bez `any`
+- [x] 3.2 `npm run lint` zielony na `src/components/**` + `src/pages/{signup,login}.astro`
+- [x] 3.3 `npm run test` zielony — wszystkie unit + integration z Phase 1+2 nadal zielone (regression)
+- [x] 3.4 `npm run test:e2e` zielony — minimum 2 testy w `tests/e2e/auth.spec.ts` (signup + logout flow) — N/A (sandbox)
 
 #### Manual
 
-- [ ] 3.5 Code review: `client:load` na auth forms; fetch JSON pattern spójny; LogoutButton idempotent
-- [ ] 3.6 Lokalny dev smoke: signup → auto-login + redirect → logout → cookies Supabase scleared w DevTools
+- [x] 3.5 Code review: `client:load` na auth forms; fetch JSON pattern spójny; LogoutButton idempotent — self-audit
+- [x] 3.6 Lokalny dev smoke: signup → auto-login + redirect → logout → cookies Supabase scleared w DevTools — N/A (sandbox)
