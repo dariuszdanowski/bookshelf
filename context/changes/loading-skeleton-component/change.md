@@ -1,7 +1,7 @@
 ---
 change_id: loading-skeleton-component
 title: Generic React <Skeleton /> komponent (loading placeholder)
-status: planned
+status: in_progress
 created: 2026-05-26
 updated: 2026-05-26
 archived_at: null
