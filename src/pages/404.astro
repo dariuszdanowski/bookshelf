@@ -1,0 +1,22 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+const user = Astro.locals.user;
+const ctaHref = user ? '/library' : '/';
+const ctaLabel = user ? 'Wróć do biblioteki' : 'Wróć do strony głównej';
+---
+
+<Layout title="Nie znaleziono — BookShelf">
+  <main class="mx-auto max-w-md p-8 text-center">
+    <h1 class="mb-4 text-3xl font-bold">Nie znaleziono strony</h1>
+    <p class="mb-6 text-sm text-gray-600">
+      Adres, którego szukasz, nie istnieje lub został przeniesiony.
+    </p>
+    <a
+      href={ctaHref}
+      class="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+    >
+      {ctaLabel}
+    </a>
+  </main>
+</Layout>

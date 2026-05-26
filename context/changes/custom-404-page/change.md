@@ -1,7 +1,7 @@
 ---
 change_id: custom-404-page
 title: Custom Astro 404 page z nawigacją z powrotem
-status: planned
+status: in-progress
 created: 2026-05-26
 updated: 2026-05-26
 archived_at: null
