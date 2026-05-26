@@ -62,21 +62,28 @@ export const POST: APIRoute = async ({ request, locals }) => {
     error = result.error;
   } catch (thrown) {
     // DEBUG: jakiś wyjątek poza standardową obsługą Supabase (np. cookie
-    // setter throw, fetch error w runtime CF Workers). Loguj wszystko +
-    // sygnalizuj fakcie via INTERNAL_ERROR (privacy: nie wyciekamy detalu).
-    console.error('[api/auth/signup] thrown exception during signUp', {
+    // setter throw, fetch error w runtime CF Workers). TEMP: zwracamy
+    // szczegóły w response body żeby diagnozować bez dostępu do Worker logs.
+    // Do cofnięcia po znalezieniu root cause (privacy guardrail).
+    const debugInfo = {
+      kind: 'thrown',
       name: thrown instanceof Error ? thrown.name : 'unknown',
       message: thrown instanceof Error ? thrown.message : String(thrown),
-      stack: thrown instanceof Error ? thrown.stack : undefined,
+      stack:
+        thrown instanceof Error && thrown.stack
+          ? thrown.stack.split('\n').slice(0, 8).join('\n')
+          : undefined,
       cause:
         thrown instanceof Error && 'cause' in thrown
           ? String((thrown as { cause?: unknown }).cause)
           : undefined,
-    });
+    };
+    console.error('[api/auth/signup] thrown exception during signUp', debugInfo);
     return apiError({
       code: 'INTERNAL_ERROR',
       status: 500,
       message: 'Signup failed.',
+      details: debugInfo,
     });
   }
 
@@ -89,18 +96,21 @@ export const POST: APIRoute = async ({ request, locals }) => {
         message: 'Email is already registered.',
       });
     }
-    console.error('[api/auth/signup] supabase signUp failed', {
-      // DEBUG: rozszerzone logowanie żeby zobaczyć name/status/code z
-      // Supabase AuthError + ewentualny cause; nie wyciekamy do response.
+    // DEBUG: TEMP zwracamy szczegóły w response body. Do cofnięcia po
+    // znalezieniu root cause.
+    const debugInfo = {
+      kind: 'supabase-error',
       name: error.name,
       message: error.message,
       status: error.status,
       code: 'code' in error ? error.code : undefined,
-    });
+    };
+    console.error('[api/auth/signup] supabase signUp failed', debugInfo);
     return apiError({
       code: 'INTERNAL_ERROR',
       status: 500,
       message: 'Signup failed.',
+      details: debugInfo,
     });
   }
 
