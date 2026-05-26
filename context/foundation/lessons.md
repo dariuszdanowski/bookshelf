@@ -34,6 +34,13 @@
   - Typowanie: rozszerzaj `Cloudflare.Env` przez `declare namespace Cloudflare { interface Env { ... } }` w `src/env.d.ts` (wrangler typegen nie zna runtime secrets — manual extension). Single source of truth dla typów `env`.
 - **Applies to**: plan, implement, impl-review
 
+## Worker Dashboard Secrets muszą być aktywnie walidowane vs `.dev.vars` przed „deploy done"
+
+- **Context**: Każdy slice używający server-side env z `cloudflare:workers` virtual module (S-01 Supabase anon key, S-03+ ANTHROPIC_API_KEY, dowolny przyszły external API client). Plus każda zmiana env-zależnego kodu w fix-* changes (np. fix-cloudflare-runtime-env). Sekrety server-side żyją w 3 miejscach: Worker Dashboard Secrets (prod runtime), `.dev.vars` (Astro dev lokalnie), GitHub Repository Secrets (browser build-time). Nominalnie te SAME wartości, w 3 niezależnych miejscach.
+- **Problem**: 2026-05-26: prod signup zwracało 500 INTERNAL_ERROR. Root cause: Worker Dashboard Secret `PUBLIC_SUPABASE_ANON_KEY` był różny od `.dev.vars` — Supabase odrzucało z 401 „Invalid API key". 1.5h debugu (rich console.error w endpoint + Cloudflare Worker logs real-time stream w Dashboard browser → operator podmienił secret). Deployment workflow (GitHub Actions) skończył się sukcesem ✓; smoke test landing page zwracał 200 ✓ — ale to NIE wykrywało rozjazdu secret bo signup nie był w smoke pathie. Drift możliwy w przyszłości za każdym razem gdy Supabase rotuje klucze, gdy user wkleja z innego źródła, gdy zmienia się scope sekretu (np. publishable vs service_role).
+- **Rule**: Po każdym deploy zawierającym zmiany w server-side env handling (lub po `wrangler secret put` / Worker Dashboard secret edit): wykonaj **production smoke test pokrywający WSZYSTKIE env-konsumujące ścieżki**, nie tylko landing page. Dla S-01: `curl POST /api/auth/signup` z fake email — oczekiwany 200 + session cookies (5 sekund testu). Dla S-03+ vision: `curl POST /api/photos/:id/process` (lub równoważna ścieżka) z minimal payload. **Nie traktuj „GitHub Actions Deploy success + landing 200" jako equivalent „prod działa"** gdy slice wprowadza nowy env-konsumer. Walidacja: deploy.yml MOŻE w przyszłości dorzucić automated smoke step (`curl --fail-with-body` po każdej deploy) dla kluczowych endpointów — odsunięte do osobnego slice'a (Stream E micro: „deploy smoke automation").
+- **Applies to**: plan, implement, impl-review
+
 ## Adaptacje literalne wewnątrz fazy → accept + flag, nie wracaj do `/10x-plan`
 
 - **Context**: Cykle `/10x-implement` w fazach gdzie literalny szczegół z planu (szkic kontraktu, sugerowana nazwa API biblioteki, defaultowa ścieżka pliku env, format komendy CLI) okazuje się niezgodny z realnym stanem repo lub bieżącą wersją zewnętrznego API.

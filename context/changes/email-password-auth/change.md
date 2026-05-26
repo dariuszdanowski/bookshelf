@@ -1,7 +1,7 @@
 ---
 change_id: email-password-auth
 title: Rejestracja, logowanie i wylogowanie email+hasło + trigger profile/Zakupione
-status: implemented
+status: impl_reviewed
 created: 2026-05-26
 updated: 2026-05-26
 archived_at: null
