@@ -34,7 +34,13 @@ describe('POST /api/auth/login', () => {
   it('returns 200 + { data: { redirect: "/" } } on valid credentials', async () => {
     const { context, signInFn } = makeContext({
       body: validBody,
-      signIn: { data: { session: { access_token: 't' } }, error: null },
+      signIn: {
+        data: {
+          session: { access_token: 't' },
+          user: { id: 'user-1', email: 'user@example.com' },
+        },
+        error: null,
+      },
     });
 
     const res = await POST(context as never);
@@ -43,6 +49,33 @@ describe('POST /api/auth/login', () => {
     const json = (await res.json()) as { data: { redirect: string } };
     expect(json.data.redirect).toBe('/');
     expect(signInFn).toHaveBeenCalledWith(validBody);
+  });
+
+  it('returns 401 UNAUTHENTICATED when Supabase error has status=null/undefined (transport blip)', async () => {
+    const { context } = makeContext({
+      body: validBody,
+      signIn: {
+        data: null,
+        error: { message: 'Network error' }, // status undefined
+      },
+    });
+
+    const res = await POST(context as never);
+    expect(res.status).toBe(401);
+    const json = (await res.json()) as { error: { code: string } };
+    expect(json.error.code).toBe('UNAUTHENTICATED');
+  });
+
+  it('returns 401 UNAUTHENTICATED when Supabase returns no error but data.user is missing', async () => {
+    const { context } = makeContext({
+      body: validBody,
+      signIn: { data: { session: null, user: null }, error: null },
+    });
+
+    const res = await POST(context as never);
+    expect(res.status).toBe(401);
+    const json = (await res.json()) as { error: { code: string } };
+    expect(json.error.code).toBe('UNAUTHENTICATED');
   });
 
   it('returns 400 VALIDATION_ERROR for invalid Zod input', async () => {

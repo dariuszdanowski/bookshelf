@@ -33,6 +33,12 @@ begin
 end;
 $$;
 
+-- Idempotency: `drop trigger if exists` przed `create trigger` chroni
+-- przed `ERROR: trigger already exists` przy migration replay (supabase db
+-- reset, branch switching, rerun w prod gdy migration zostanie ponownie
+-- zaaplikowana). Funkcja jest już idempotentna przez `create or replace`.
+drop trigger if exists on_auth_user_created on auth.users;
+
 create trigger on_auth_user_created
   after insert on auth.users
   for each row

@@ -37,17 +37,18 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   const { email, password } = parsed.data;
 
-  const { error } = await locals.supabase.auth.signInWithPassword({
+  const { data, error } = await locals.supabase.auth.signInWithPassword({
     email,
     password,
   });
 
   if (error) {
     // Supabase rozróżnia "Invalid login credentials" (status 400) od innych
-    // (np. 500 z infra). Generic 401 dla credentials, 500 dla reszty —
-    // privacy guardrail (nie potwierdzamy istnienia emaila).
-    const status = error.status ?? 500;
-    if (status === 400 || status === 401) {
+    // (np. 500 z infra). Generic 401 dla credentials, brak statusu (status=null
+    // przy network/transport blip), lub 401 → privacy-first 401. 5xx i inne
+    // niespodzianki → 500. Privacy guardrail: nie potwierdzamy istnienia emaila.
+    const status = typeof error.status === 'number' ? error.status : null;
+    if (status === null || status === 400 || status === 401) {
       return apiError({
         code: 'UNAUTHENTICATED',
         status: 401,
@@ -61,6 +62,18 @@ export const POST: APIRoute = async ({ request, locals }) => {
       code: 'INTERNAL_ERROR',
       status: 500,
       message: 'Login failed.',
+    });
+  }
+
+  // Defensywnie: Supabase nie zwrócił error ale data.user puste — traktujemy
+  // jak nieudany login (privacy: nie ujawniamy nietypowego stanu). Rzadki
+  // edge case (zaobserwowany np. gdy Confirm email = on a user jeszcze nie
+  // potwierdził). Cherry-pick z eksperymentu A/B/C wariantu C.
+  if (!data.user) {
+    return apiError({
+      code: 'UNAUTHENTICATED',
+      status: 401,
+      message: 'Invalid email or password.',
     });
   }
 
