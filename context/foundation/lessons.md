@@ -23,6 +23,17 @@
 - **Rule**: W server-side error logging ZAWSZE używaj `err instanceof Error ? err.message : String(err)` zamiast całego err object. Nigdy `console.error('...', { err })`. Jeśli potrzebujesz więcej kontekstu, explicit field extraction po whitelist (np. `err.code`, `err.status`, `err.name`).
 - **Applies to**: implement, impl-review
 
+## Cloudflare Workers env reading — server vs browser, runtime vs build-time
+
+- **Context**: Każdy server-side helper czytający env w Astro + Cloudflare Workers projekcie (Supabase clients, vision LLM client w S-03+, dowolny przyszły external API client) plus każdy browser-side moduł czytający `PUBLIC_*`. Astro v6+ z `@astrojs/cloudflare` adapter + Workers deploy.
+- **Problem**: `import.meta.env.PUBLIC_*` w Vite to **build-time inlining** — Vite zastępuje wartości statycznie na etapie buildu. W prod CF Workers `import.meta.env` to static object zainline'owany z env wartości obecnych w build env (lub `undefined` gdy build env był pusty). Lokalnie działa przez `@astrojs/cloudflare` dev adapter (parsuje `.dev.vars`). W prod fails — bug 2026-05-26: middleware rzucił `Error: Brak PUBLIC_SUPABASE_URL — uzupełnij .env.local`, każdy request do prod URL zwracał 500, mimo że user miał 4 sekrety jako Worker Dashboard Secrets. Root cause: `supabase.server.ts` czytał `import.meta.env.PUBLIC_*` ale GitHub Actions build step nie pasował env vars, więc Vite zainline'ował `undefined`. Sekrety user'a żyją tylko w runtime (Worker bindings), nie build-time. Plus: oryginalna intuicja "użyj `Astro.locals.runtime.env`" jest myląca — Astro v6 usunęło ten field (cytat z `@astrojs/cloudflare/dist/utils/handler.js:84`: *"Astro.locals.runtime.env has been removed in Astro v6. Use 'import { env } from \"cloudflare:workers\"' instead."*).
+- **Rule**:
+  - **Server-side** (Astro v6+): czytaj env z `import { env } from 'cloudflare:workers'` (canonical Astro v6+ pattern; module-level import, nie context-scoped); fallback do `import.meta.env.X` dla dev/test compat (Vitest mock + Astro dev). Konfiguracja prod: Cloudflare Worker Dashboard Secrets (per env, encrypted) — `wrangler secret put NAME` lub UI. W Vitest: virtual module wymaga stub'a — albo globalnego w `vitest.config.ts` (`resolveId` + `load` dla `'cloudflare:workers'`), albo per-test `vi.mock('cloudflare:workers', () => ({ env: {...} }))` przed `import` consumera.
+  - **Browser-side**: czytaj env z `import.meta.env.PUBLIC_*` (Vite build-time inline; browser nie ma access do `cloudflare:workers` ani runtime bindings). Konfiguracja: GitHub Actions Repository Secrets + `env:` block w `deploy.yml` build step.
+  - **Nigdy** nie inline'uj secrets non-`PUBLIC_*` (np. SUPABASE_SERVICE_ROLE_KEY, ANTHROPIC_API_KEY) do browser bundle — server-only zostaje w Worker Secrets.
+  - Typowanie: rozszerzaj `Cloudflare.Env` przez `declare namespace Cloudflare { interface Env { ... } }` w `src/env.d.ts` (wrangler typegen nie zna runtime secrets — manual extension). Single source of truth dla typów `env`.
+- **Applies to**: plan, implement, impl-review
+
 ## Adaptacje literalne wewnątrz fazy → accept + flag, nie wracaj do `/10x-plan`
 
 - **Context**: Cykle `/10x-implement` w fazach gdzie literalny szczegół z planu (szkic kontraktu, sugerowana nazwa API biblioteki, defaultowa ścieżka pliku env, format komendy CLI) okazuje się niezgodny z realnym stanem repo lub bieżącą wersją zewnętrznego API.
