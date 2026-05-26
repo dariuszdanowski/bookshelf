@@ -1,0 +1,20 @@
+---
+import Layout from '../layouts/Layout.astro';
+import ShelvesIsland from '../components/ShelvesIsland.tsx';
+
+// Protected path: middleware (F-02) ensures `locals.user` is non-null tu
+// (redirect na /login dla anon). Page renderuje React island, który
+// fetchuje /api/shelves przez cookies-scoped Supabase session.
+---
+
+<Layout title="Moje półki">
+  <main class="mx-auto max-w-4xl p-8">
+    <h1 class="mb-6 text-3xl font-bold">Moje półki</h1>
+    <p class="mb-6 text-sm text-gray-600">
+      Twoje fizyczne (i wirtualne) półki na książki. Systemowa „Zakupione"
+      tworzy się automatycznie i nie można jej usunąć — tam lądują nowe
+      zakupy zanim przeniesiesz je na właściwą półkę.
+    </p>
+    <ShelvesIsland client:load />
+  </main>
+</Layout>
