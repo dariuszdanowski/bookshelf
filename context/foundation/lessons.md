@@ -41,6 +41,19 @@
 - **Rule**: Po każdym deploy zawierającym zmiany w server-side env handling (lub po `wrangler secret put` / Worker Dashboard secret edit): wykonaj **production smoke test pokrywający WSZYSTKIE env-konsumujące ścieżki**, nie tylko landing page. Dla S-01: `curl POST /api/auth/signup` z fake email — oczekiwany 200 + session cookies (5 sekund testu). Dla S-03+ vision: `curl POST /api/photos/:id/process` (lub równoważna ścieżka) z minimal payload. **Nie traktuj „GitHub Actions Deploy success + landing 200" jako equivalent „prod działa"** gdy slice wprowadza nowy env-konsumer. Walidacja: deploy.yml MOŻE w przyszłości dorzucić automated smoke step (`curl --fail-with-body` po każdej deploy) dla kluczowych endpointów — odsunięte do osobnego slice'a (Stream E micro: „deploy smoke automation").
 - **Applies to**: plan, implement, impl-review
 
+## Branch per change workflow (od 2026-05-26) — całe cykle w `change/<change-id>`, PR do main
+
+- **Context**: Każdy slice/foundation/fix w projekcie. Workflow zmieniony 2026-05-26 po doświadczeniach z S-01 + 5 debug deploys do prod pchanych bezpośrednio z main (Worker Secret debugging dla signup 500). Plus S-01 + Stream E przeprowadziły 25+ commitów na main bez PR review gate.
+- **Problem**: Praca bezpośrednio na main = każdy push triggers deploy, łącznie z debug/WIP commitami → 5+ niepotrzebnych prod deployów dla pojedynczego debug session. Brak formalnego review gate przed mergem do trunku. Trudniej rollback'ować pojedynczy slice (`git revert` chain) niż usunąć branch. Slice'y muszą stać w kolejce bo każdy zmienia main HEAD → blokuje paralelne prace. Plus zmniejsza demo-quality discipline dla 10xDevs course (każda zmiana powinna być wizualnie identyfikowalna jako jednostka pracy w PR-ach).
+- **Rule**: Każdy slice/foundation/fix wykonujemy w branchu `change/<change-id>` (np. `change/shelves-crud-and-purchased`). Cały cykl (plan → implement → impl-review → archive) ląduje w branchu — commit per faza, atomic. Po `/10x-archive` w branchu:
+  1. `git push origin change/<change-id>`
+  2. `gh pr create --title "<change-id>: <title>" --body "<plan-brief + impl-review summary>"`
+  3. User mergeuje PR (z opcjonalnym review w PR comments / GitHub UI)
+  4. GitHub Actions deploy.yml deployuje main → prod
+  - **Migracje Supabase**: `supabase db push` ZAWSZE po merge do main (irreversible w prod DB; pchnięcie w branchu pozostawia zombi schema gdy PR zostanie odrzucony). Integration testy w branchu używają Vitest mocks (analog F-02 `astro:middleware` mock); real DB integration odroczone do post-merge lokalnie.
+  - **Wyjątki**: planowanie/roadmapa edits (`/10x-plan`, `/10x-roadmap`) mogą lądować bezpośrednio na main jako standalone `docs(...)` commits, gdy nie są związane z aktywnym implementation cycle.
+- **Applies to**: implement, impl-review, archive (skille pozostają bez zmian — commitują do current branch; różnica tylko w startowym `git checkout -b`)
+
 ## Adaptacje literalne wewnątrz fazy → accept + flag, nie wracaj do `/10x-plan`
 
 - **Context**: Cykle `/10x-implement` w fazach gdzie literalny szczegół z planu (szkic kontraktu, sugerowana nazwa API biblioteki, defaultowa ścieżka pliku env, format komendy CLI) okazuje się niezgodny z realnym stanem repo lub bieżącą wersją zewnętrznego API.
