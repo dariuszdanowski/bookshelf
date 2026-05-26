@@ -3,7 +3,7 @@ import { useState } from 'react';
 /**
  * Pojedynczy button POST do /api/auth/logout. Idempotent z perspektywy UX:
  * niezależnie od response cookies są scleared przez @supabase/ssr, więc
- * po reloadzie user wraca na anon state.
+ * po reloadzie user wraca na anon state na `/login`.
  */
 export default function LogoutButton() {
   const [loading, setLoading] = useState(false);
@@ -15,7 +15,7 @@ export default function LogoutButton() {
     } catch {
       // Idempotent: nawet przy network blip i tak redirectujemy.
     } finally {
-      window.location.href = '/';
+      window.location.href = '/login';
     }
   }
 

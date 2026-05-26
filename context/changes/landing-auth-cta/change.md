@@ -1,7 +1,7 @@
 ---
 change_id: landing-auth-cta
 title: Landing page CTA dla niezalogowanych + skrót dla zalogowanych
-status: planned
+status: in-progress
 created: 2026-05-26
 updated: 2026-05-26
 archived_at: null
