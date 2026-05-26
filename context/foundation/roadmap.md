@@ -41,7 +41,7 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | S-08  | catalog-search-and-filters   | wyszukać katalog pełnotekstowo + filtry (kolor/półka/status) | S-05, S-02 | FR-032–036            | proposed |
 | S-09  | landing-auth-cta             | niezalogowany na `/` widzi CTA do logowania i rejestracji; zalogowany — CTA do biblioteki; logout redirektuje na `/login` zamiast `/` | S-01 | FR-001 (UX adjacent)  | done     |
 | S-10  | custom-404-page              | Astro renderuje custom 404 page (Layout + conditional CTA) zamiast default białej strony | — (S-01 adjacent) | UX polish | done     |
-| S-11  | health-check-endpoint        | `GET /api/health` zwraca `{data:{status,version,timestamp}}` z F-02 envelope; whitelisted w middleware | F-02 | NFR (monitoring) | planned  |
+| S-11  | health-check-endpoint        | `GET /api/health` zwraca `{data:{status,version,timestamp}}` z F-02 envelope; whitelisted w middleware | F-02 | NFR (monitoring) | done     |
 | S-12  | loading-skeleton-component   | Generic React `<Skeleton />` (gray pulsing div) gotowy dla S-03/S-04/S-08 | — | UI substrate | planned  |
 
 ## Streams
@@ -234,7 +234,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** trywialne; pułapka jeśli endpoint zostałby pomylony z protected — middleware whitelist musi być prawidłowo dodany.
-- **Status:** planned (Stream E parallel experiment)
+- **Status:** done
 
 ### S-12: Loading skeleton component
 
@@ -297,5 +297,6 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **S-01: zarejestrować się, zalogować, wylogować; ochrona ścieżek** — Archived 2026-05-26 → `context/archive/2026-05-26-email-password-auth/`. Lesson: Worker Dashboard Secrets walidacja vs `.dev.vars` przed „deploy done" — sama deployment success workflow nie pokrywa runtime secret correctness (zapisane jako rule w `lessons.md`).
 - **S-09: niezalogowany na `/` widzi CTA do logowania i rejestracji; zalogowany — CTA do biblioteki; logout redirektuje na `/login` zamiast `/`** — Archived 2026-05-26 → `context/archive/2026-05-26-landing-auth-cta/`. Lesson: —. (Stream E parallel experiment slice 1/4.)
 - **S-10: Astro renderuje custom 404 page (Layout + conditional CTA) zamiast default białej strony** — Archived 2026-05-26 → `context/archive/2026-05-26-custom-404-page/`. Lesson: —. (Stream E parallel experiment slice 2/4.)
+- **S-11: `GET /api/health` zwraca `{data:{status,version,timestamp}}` z F-02 envelope; whitelisted w middleware** — Archived 2026-05-26 → `context/archive/2026-05-26-health-check-endpoint/`. Lesson: —. Endpoint przyda się jako monitor target dla lesson „Worker Secret validation". (Stream E parallel experiment slice 3/4.)
 
 (Pusta przy pierwszej generacji. `/10x-archive` dopisuje tu wpis — i przerzuca Status pozycji na `done` — gdy archiwizowana zmiana ma `Change ID` zgodny z pozycją roadmapy. NIE wypełniać ręcznie.)
