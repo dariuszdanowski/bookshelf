@@ -258,9 +258,9 @@ Nie dotyczy. Reading optional chaining `context.locals?.runtime?.env?.X` to ~5 n
 
 #### Automated
 
-- [x] 1.1 `npm run typecheck` zielony — 0 błędów, `App.Locals extends Runtime<Env>` typowanie działa, server client czyta runtime.env bez `any`
-- [x] 1.2 `npm run lint` zielony na touched files (`src/env.d.ts` ignored per konwencji, reszta clean)
-- [x] 1.3 `npm run test` zielony — minimum 3 nowych testów w `tests/unit/lib/db/supabase.server.test.ts` + middleware.test.ts pozostaje zielony
+- [x] 1.1 `npm run typecheck` zielony — 0 błędów, `App.Locals extends Runtime<Env>` typowanie działa, server client czyta runtime.env bez `any` — bcfdd19
+- [x] 1.2 `npm run lint` zielony na touched files (`src/env.d.ts` ignored per konwencji, reszta clean) — bcfdd19
+- [x] 1.3 `npm run test` zielony — minimum 3 nowych testów w `tests/unit/lib/db/supabase.server.test.ts` + middleware.test.ts pozostaje zielony — bcfdd19
 
 #### Manual
 
@@ -274,6 +274,6 @@ Nie dotyczy. Reading optional chaining `context.locals?.runtime?.env?.X` to ~5 n
 
 #### Manual
 
-- [ ] 2.2 GitHub Repository Secrets dodane: `PUBLIC_SUPABASE_URL` + `PUBLIC_SUPABASE_ANON_KEY` (Settings → Secrets and variables → Actions)
+- [x] 2.2 GitHub Repository Secrets dodane: `PUBLIC_SUPABASE_URL` + `PUBLIC_SUPABASE_ANON_KEY` (Settings → Secrets and variables → Actions)
 - [ ] 2.3 `curl -i https://bookshelf.dariusz-danowski-559.workers.dev/` zwraca 200 (nie 500); body zawiera landing page HTML
 - [ ] 2.4 Cloudflare Worker Dashboard → Logs: brak nowych `[middleware] bootstrap failed` ani `Brak PUBLIC_SUPABASE_URL` przez 5 minut po deploy

@@ -29,6 +29,14 @@ jobs:
 
       - name: Build
         run: npm run build
+        env:
+          # PUBLIC_* sekrety wymagane przez Vite build-time inlining
+          # (browser bundle, `src/lib/db/supabase.browser.ts`). Server czyta
+          # te same wartości z `'cloudflare:workers'` env w runtime (Worker
+          # Dashboard Secrets) — tu są dla browser side. SUPABASE_SERVICE_ROLE_KEY
+          # i ANTHROPIC_API_KEY są server-only runtime, NIE idą do build env.
+          PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
+          PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
 
       - name: Deploy to Cloudflare Workers
         uses: cloudflare/wrangler-action@v4
