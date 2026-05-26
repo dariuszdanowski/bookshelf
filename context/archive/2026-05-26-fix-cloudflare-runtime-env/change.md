@@ -1,10 +1,10 @@
 ---
 change_id: fix-cloudflare-runtime-env
 title: Server reads runtime.env (Worker bindings) zamiast import.meta.env
-status: impl_reviewed
+status: archived
 created: 2026-05-26
 updated: 2026-05-26
-archived_at: null
+archived_at: 2026-05-26T08:45:33Z
 ---
 
 ## Notes
