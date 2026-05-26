@@ -75,9 +75,9 @@ Rozwiązanie: dorzucamy link „Moje półki" do existing header'a w `Layout.ast
 
 #### Automated
 
-- [x] 1.1 `npm run typecheck` zielony — 0 errors (0/0/0)
-- [x] 1.2 `npm run lint` zielony
-- [x] 1.3 `npm run test` zielony — 97/97 (regression check)
+- [x] 1.1 `npm run typecheck` zielony — 0 errors (0/0/0) — 246b8a1
+- [x] 1.2 `npm run lint` zielony — 246b8a1
+- [x] 1.3 `npm run test` zielony — 97/97 (regression check) — 246b8a1
 
 #### Manual
 
