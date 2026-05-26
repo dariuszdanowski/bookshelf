@@ -61,9 +61,9 @@ Public GET `/api/health` zwracający `{data:{status:"ok",version:"<pkg version>"
 
 #### Automated
 
-- [ ] 1.1 `npm run typecheck` zielony
-- [ ] 1.2 `npm run lint` zielony
-- [ ] 1.3 `npm run test` zielony — minimum 2 nowe testy dla `/api/health` + middleware regression
+- [x] 1.1 `npm run typecheck` — single pre-existing baseline error w `src/lib/db/supabase.server.ts` (`cloudflare:workers` type bez `.dev.vars` w worktree); plik nieruszany, błąd reprodukuje się na czystym `main` (verified przez `git stash`). Moje pliki bezbłędne.
+- [x] 1.2 `npm run lint` zielony
+- [x] 1.3 `npm run test` zielony — 57 testów passed (9 plików), w tym 2 nowe dla `/api/health` + middleware regression bez wpływu. Uruchamiać przez PowerShell — vitest 4 + Git Bash na Windows ma znany bug z runner detection (czyste pre-existing env issue).
 
 #### Manual
 
