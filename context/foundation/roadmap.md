@@ -32,7 +32,7 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | F-01  | data-and-rls-substrate       | (foundation) dane + izolacja per-user gotowe              | —             | FR-003, NFR-privacy   | done     |
 | F-02  | api-response-contract        | (foundation) typowany kontrakt odpowiedzi API + guard     | —             | FR-004, NFR-privacy   | done     |
 | S-01  | email-password-auth          | zarejestrować się, zalogować, wylogować; ochrona ścieżek  | F-01, F-02    | FR-001, FR-003, FR-004 | done     |
-| S-02  | shelves-crud-and-purchased   | tworzyć/edytować/usuwać półki; auto-półka "Zakupione"     | S-01          | FR-005–009            | proposed |
+| S-02  | shelves-crud-and-purchased   | tworzyć/edytować/usuwać półki; auto-półka "Zakupione"     | S-01          | FR-005–009            | done     |
 | S-03  | shelf-photo-vision-detection | wgrać zdjęcie półki → rozpoznane detekcje grzbietów        | S-02          | FR-010–014, FR-039    | proposed |
 | S-04  | external-match-and-proposals | zobaczyć propozycje z bazy publicznej + flagi duplikatów  | S-03          | FR-015–018            | proposed |
 | S-05  | proposal-accept-to-catalog   | akceptować/odrzucać/korygować → katalog + widok półki     | S-04          | FR-019–024, FR-037    | proposed |
@@ -120,7 +120,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** niezmiennik "każda książka na dokładnie jednej półce" (FR-029) + niesuwalna "Zakupione" to fundament, na którym opierają się Flow A i Flow B; postawić, zanim pojawią się książki, bo dorabianie wstecz to migracja danych.
-- **Status:** proposed
+- **Status:** done
 
 ### S-03: Upload zdjęcia półki + detekcja grzbietów (vision)
 
@@ -299,5 +299,6 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **S-10: Astro renderuje custom 404 page (Layout + conditional CTA) zamiast default białej strony** — Archived 2026-05-26 → `context/archive/2026-05-26-custom-404-page/`. Lesson: —. (Stream E parallel experiment slice 2/4.)
 - **S-11: `GET /api/health` zwraca `{data:{status,version,timestamp}}` z F-02 envelope; whitelisted w middleware** — Archived 2026-05-26 → `context/archive/2026-05-26-health-check-endpoint/`. Lesson: —. Endpoint przyda się jako monitor target dla lesson „Worker Secret validation". (Stream E parallel experiment slice 3/4.)
 - **S-12: Generic React `<Skeleton />` (gray pulsing div) gotowy dla S-03/S-04/S-08** — Archived 2026-05-26 → `context/archive/2026-05-26-loading-skeleton-component/`. Lesson: —. Substrate komponent — bez konsumenta teraz, ready dla przyszłych slice'ów loading states. (Stream E parallel experiment slice 4/4.)
+- **S-02: tworzyć/edytować/usuwać półki; auto-półka „Zakupione"** — Archived 2026-05-26 → `context/archive/2026-05-26-shelves-crud-and-purchased/`. Lesson: workflow „branch per change" zaadoptowany od tego slice'a — całość w `change/shelves-crud-and-purchased` + PR (zob. `lessons.md` § Branch per change workflow). Integration + E2E testy napisane z `describe.skip` na brak env (deferred do post-merge po `supabase db push` migracji 0004).
 
 (Pusta przy pierwszej generacji. `/10x-archive` dopisuje tu wpis — i przerzuca Status pozycji na `done` — gdy archiwizowana zmiana ma `Change ID` zgodny z pozycją roadmapy. NIE wypełniać ręcznie.)
