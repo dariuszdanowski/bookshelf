@@ -58,9 +58,9 @@ Astro renderuje `src/pages/404.astro` dla unmatched routes. Zastępujemy default
 
 #### Automated
 
-- [ ] 1.1 `npm run typecheck` zielony
-- [ ] 1.2 `npm run lint` zielony
-- [ ] 1.3 `npm run test` zielony — istniejące 55 testów (regression check)
+- [x] 1.1 `npm run typecheck` zielony — e66638f (uwaga: 1 pre-existing error w `supabase.server.ts` o `cloudflare:workers` virtual module, niezwiązany z 404.astro; tożsamy z baseline'em)
+- [x] 1.2 `npm run lint` zielony — e66638f
+- [x] 1.3 `npm run test` zielony — istniejące 55 testów (regression check) — e66638f
 
 #### Manual
 
