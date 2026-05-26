@@ -40,12 +40,15 @@ const user = Astro.locals.user;
             class="flex items-center justify-center pt-2"
             data-testid="landing-cta-auth"
           >
+            {/* Pivot vs S-09 plan: linkujemy do /shelves bo /library jeszcze
+                nie istnieje (przyjdzie w S-08 catalog-search-and-filters).
+                Po dostarczeniu S-08 zmieniamy z powrotem na /library. */}
             <a
-              href="/library"
+              href="/shelves"
               class="inline-flex items-center justify-center rounded-md border border-gray-900 bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
-              data-testid="cta-library"
+              data-testid="cta-shelves"
             >
-              Przejdź do biblioteki
+              Przejdź do moich półek
             </a>
           </div>
         )
