@@ -1,10 +1,12 @@
 ---
 import Layout from '../layouts/Layout.astro';
+
+const user = Astro.locals.user;
 ---
 
 <Layout title="BookShelf Catalog">
   <main class="flex min-h-screen items-center justify-center p-8">
-    <div class="max-w-2xl space-y-4 text-center">
+    <div class="max-w-2xl space-y-6 text-center">
       <h1 class="text-4xl font-bold">BookShelf Catalog</h1>
       <p class="text-lg text-gray-600">
         Sfotografuj półkę → vision rozpoznaje tytuły → potwierdź wpisy.
@@ -12,6 +14,42 @@ import Layout from '../layouts/Layout.astro';
       <p class="text-sm text-gray-400">
         Bootstrap M1 — Astro 6 + React 19 + Tailwind 4 + Cloudflare.
       </p>
+      {
+        user === null ? (
+          <div
+            class="flex flex-wrap items-center justify-center gap-3 pt-2"
+            data-testid="landing-cta-anon"
+          >
+            <a
+              href="/login"
+              class="inline-flex items-center justify-center rounded-md border border-gray-900 bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+              data-testid="cta-login"
+            >
+              Zaloguj się
+            </a>
+            <a
+              href="/signup"
+              class="inline-flex items-center justify-center rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-900 hover:bg-gray-100"
+              data-testid="cta-signup"
+            >
+              Załóż konto
+            </a>
+          </div>
+        ) : (
+          <div
+            class="flex items-center justify-center pt-2"
+            data-testid="landing-cta-auth"
+          >
+            <a
+              href="/library"
+              class="inline-flex items-center justify-center rounded-md border border-gray-900 bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+              data-testid="cta-library"
+            >
+              Przejdź do biblioteki
+            </a>
+          </div>
+        )
+      }
     </div>
   </main>
 </Layout>
