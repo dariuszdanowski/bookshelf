@@ -134,12 +134,15 @@ bookshelf/
 ├── src/
 │   ├── pages/              # Astro pages + /api/ endpoints
 │   ├── components/         # React islands (PhotoUploader, DetectionReview, BookCard...)
-│   ├── lib/
-│   │   ├── vision/         # klient Anthropic + prompt + Zod schema
-│   │   ├── books/          # Google Books + OpenLibrary klienci + reconcile
-│   │   ├── matching/       # score, dedupe, isbn
-│   │   ├── db/             # Supabase typed clients (server/browser)
-│   │   └── auth/           # middleware guard
+│   ├── lib/                # konwencja: src/lib/<domain>/ = Zod schema.ts + helpers
+│   │   ├── auth/           # S-01: schema.ts (LoginSchema, SignupSchema)
+│   │   ├── shelves/        # S-02: schema.ts (CreateShelfSchema, UpdateShelfSchema, ShelfDTO)
+│   │   ├── http/           # F-02: response.ts (apiResponse/apiError/parseUuidParam)
+│   │   ├── middleware/     # F-02: handler.ts (auth guard split z Astro thin wrapper)
+│   │   ├── db/             # F-01: supabase.{server,browser}.ts + database.types.ts (generated)
+│   │   ├── vision/         # S-03 (planowany): klient Anthropic + prompt + Zod schema
+│   │   ├── books/          # S-04 (planowany): Google Books + OpenLibrary klienci + reconcile
+│   │   └── matching/       # S-04 (planowany): score, dedupe, isbn
 │   ├── middleware.ts
 │   └── env.d.ts
 ├── supabase/
@@ -186,7 +189,8 @@ bookshelf/
 ### Supabase
 - **RLS od pierwszego dnia** — każda tabela ma policy `user_id = auth.uid()`
 - Typed clienty (`SupabaseClient<Database>`): `supabase.server.ts` = **RLS-respecting** (`@supabase/ssr` `createServerClient`, anon key + JWT usera z cookies; request-scoped, nowy na każdy render) i `supabase.browser.ts` (anon key, `createBrowserClient`). Service-role **nie** w `src/lib/db/` — wyłącznie w wąskich, wydzielonych ścieżkach privileged, gdy realnie zajdą (nie w F-01); omija RLS, więc nie jest domyślną ścieżką dostępu do danych.
-- Migracje wersjonowane w `supabase/migrations/`
+- Migracje wersjonowane w `supabase/migrations/`. Stan na 2026-05-27: `0001_initial_schema.sql` (8 tabel) + `0002_rls_policies.sql` (per-user policies) + `0003_handle_new_user.sql` (auto-bootstrap profile + półka „Zakupione" przy signup) + `0004_shelves_constraints.sql` (UNIQUE per-user + triggery „Zakupione" hard-lock).
+- **DB triggery jako defense-in-depth** dla domain invariantów — pattern: zamiast polegać na walidacji wyłącznie w Zod/UI, dorzucamy `BEFORE INSERT/UPDATE/DELETE` trigger (SECURITY DEFINER + `SET search_path = public, pg_temp`) który rzuca `RAISE EXCEPTION ... USING errcode = 'P0001'` przy naruszeniu inwariantu. Precedensy: `handle_new_user` (S-01, bootstrap), `prevent_zakupione_delete/rename` (S-02, niesuwalna systemowa). Endpoint mapuje `P0001` → 400 `VALIDATION_ERROR` z `error.message` z trigger'a. Triple guard: Zod refuse + UI guard + DB trigger.
 
 ### API endpoints (`src/pages/api/`)
 
@@ -202,6 +206,13 @@ Endpoint zwraca jeden ze stabilnych kształtów: sukces `{ data: ... }`, błąd 
 Header `Cache-Control: private, no-store` na każdej odpowiedzi z danymi per-user — Cloudflare edge cache nie może shared-cache'ować JWT-scoped contentu.
 
 `export const prerender = false` na każdym dynamicznym endpoincie (wymóg `@astrojs/cloudflare` przy `output: 'server'`).
+
+**CRUD pattern w endpointach** (od S-02): collection vs item → 2 pliki w `src/pages/api/<resource>/`: `index.ts` (`GET` list + `POST` create) i `[id].ts` (`PATCH` update + `DELETE`). Postgres SQLSTATE → F-02 envelope mapping (single source of truth dla CRUD endpointów konsumujących DB):
+- `23505` (unique_violation) → 400 `VALIDATION_ERROR` z domain-specific message (np. „Półka o tej nazwie już istnieje")
+- `23503` (foreign_key_violation) → 404 `NOT_FOUND` (parent rekord nie istnieje lub RLS scope)
+- `P0001` (RAISE EXCEPTION z naszego DB trigger'a — zob. § Supabase „defense-in-depth") → 400 `VALIDATION_ERROR` z `error.message` z trigger'a verbatim
+- `PGRST116` (Supabase REST: no rows z `.single()`) → 404 `NOT_FOUND`
+- inne / nieoczekiwane → 500 `INTERNAL_ERROR` + `console.error` z rich payload (`name`, `code`, `status`, ew. `cause`)
 
 ### Vision LLM
 - Single source of truth dla promptu: `src/lib/vision/prompt.ts`

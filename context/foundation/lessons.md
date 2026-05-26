@@ -62,3 +62,24 @@
   - **Literalna** (intent kontraktu zachowany, zmienia się szczegół implementacyjny): zaaplikuj inline; oflaguj w komentarzu kodu (`// adaptacja vs plan: <co> — <dlaczego>`) i w commit message ostatniej fazy lub osobnym `docs:` commitcie. Polish dokumentów (szkic w planie, Outcome w roadmapie po `/10x-archive`) zrób raz, krótkim `docs(<slice>): align ...` commitem; **nie wracaj do `/10x-plan`**.
   - **Kontraktowa** (shape API, zakres slice'a, DoD, success criteria, decyzja architektoniczna): **stop & replan** — wróć do `/10x-plan` zgodnie z M2L2.
 - **Applies to**: implement, impl-review, archive
+
+## Generated artifacts w CI: explicit Generate step PRZED konsumującym
+
+- **Context**: CI pipelines (.github/workflows/ci.yml i analogiczne) z krokami typecheck/lint/test które konsumują generated files trzymane jako .gitignored artifacts (worker-configuration.d.ts z wrangler, src/lib/db/database.types.ts z 'supabase gen types', itp.).
+- **Problem**: Fresh CI runner robi 'npm ci' + step który konsumuje generated file → SQLSTATE 2307 'Cannot find module'. Recurring w sesji 2026-05-26: 4 agenci Stream E + agent S-02 + CI fail PR #1 → wszyscy flagowali worker-configuration.d.ts missing. Deploy.yml działał przez side-effect 'npm run build' regenerującego plik; CI typecheck bez build → padał.
+- **Rule**: Każdy generated artifact konsumowany przez typecheck/lint/test w CI musi mieć explicit Generate step PRZED krokiem konsumującym. Dla worker-configuration.d.ts: 'npx wrangler types'. Dla database.types.ts: 'npx supabase gen types typescript --linked --schema public > ...'. Nie polegaj na side-effect 'npm run build' — CI może wcale nie budować.
+- **Applies to**: implement, impl-review
+
+## Każda nowa user-facing strona → navigation entry point jako planowany follow-up micro-slice
+
+- **Context**: Slice'y dostarczające nową user-facing stronę (login/signup w S-01, /shelves w S-02, przyszłe S-03 /upload, S-05 /library, S-06 /add-purchase). Slice'y mają scope discipline = CRUD + dedykowana page, ale bez navigation entry points (linki w header'ze, CTA z landing, breadcrumbs).
+- **Problem**: Pattern powtórzony 2x w sesji 2026-05-26/27: (1) S-01 dostarczył /login + /signup ale brak CTA na / → S-09 musiało to naprawić; (2) S-02 dostarczył /shelves ale brak linka nigdzie → S-13 musiało to naprawić. User za każdym razem zauważał gap dopiero przy real UI smoke i wymagał follow-up slice'a. Late-discovery feedback loop — wartość out-of-scope discipline OK, ale gap pozostaje do user'a do zgłoszenia post-merge.
+- **Rule**: Po /10x-plan slice'a dostarczającego nową user-facing page, rejestruj navigation entry point (link w header'ze, CTA na landing, breadcrumbs) jako planowany follow-up micro-slice w roadmapie (Stream E bucket, status proposed) JESZCZE przed /10x-implement slice'a głównego. Nie dorzucaj do scope slice'a głównego (scope discipline), ale rejestruj jako todo. Po nazbieraniu 3-4 micro-slice'ów → Stream E parallel experiment.
+- **Applies to**: plan, plan-review
+
+## JSX attribute z polish typographic quotes → curly-brace expression form
+
+- **Context**: TSX components w polish-language projektach używające typograficznych quotes (`„` U+201E, `"` U+201D) w treści UI (placeholder'y, labels, message'y) wewnątrz JSX attribute string literals.
+- **Problem**: JSX parser interpretuje typograficzne `"` (U+201D) jako closing delimiter attribute value. Wykryte w S-02 ShelfForm: `placeholder="Nazwa (np. „Belletrystyka")"` → 8 typecheck errors + 1 lint parsing error. Parser zinterpretował unicode quote jako koniec atrybutu i posypał się na reszcie tag'a.
+- **Rule**: W JSX attribute zawierającym polish typographic quotes używaj curly-brace expression form: `placeholder={'tekst „X"'}` (string literal w JS expression), nie attribute literal `placeholder="tekst „X""`. Alternatywnie: HTML entities `&bdquo;` / `&rdquo;`. JSX attribute delimiter MUSI być standardowy `"` (U+0022); typograficzne quotes TYLKO w treści wewnątrz JS expression.
+- **Applies to**: implement, impl-review
