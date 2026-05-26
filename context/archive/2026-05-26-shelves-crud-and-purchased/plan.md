@@ -461,10 +461,10 @@ Nieistotne dla S-02. Lista półek (typowo <50 rows) ładuje się <50ms. Trigger
 
 #### Automated
 
-- [x] 2.1 `npm run typecheck` zielony — React components typowane bez `any` (0 errors / 0 warnings / 0 hints)
-- [x] 2.2 `npm run lint` zielony na `src/components/Shelf*` + `src/pages/shelves.astro`
-- [x] 2.3 `npm run test` zielony — regression unit + integration z Phase 1 nadal zielone (97/97)
-- [x] 2.4 `npm run test:e2e` — DEFERRED (test plik napisany; wymaga zdeploy'owanej migracji 0004 + ewentualnie playwright browsers install; uruchamiany przez user'a po merge)
+- [x] 2.1 `npm run typecheck` zielony — React components typowane bez `any` (0 errors / 0 warnings / 0 hints) — 576dc9d
+- [x] 2.2 `npm run lint` zielony na `src/components/Shelf*` + `src/pages/shelves.astro` — 576dc9d
+- [x] 2.3 `npm run test` zielony — regression unit + integration z Phase 1 nadal zielone (97/97) — 576dc9d
+- [x] 2.4 `npm run test:e2e` — DEFERRED (test plik napisany; wymaga zdeploy'owanej migracji 0004; uruchamiany przez user'a po merge) — 576dc9d
 
 #### Manual
 
