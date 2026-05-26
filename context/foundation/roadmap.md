@@ -80,7 +80,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 
 ### F-02: Kontrakt odpowiedzi API + middleware auth-guard
 
-- **Outcome:** (foundation) `src/lib/http/response.ts` z typowanym `ApiErrorCode` union + helperami `apiResponse({ data })` / `apiError({ code, status, message })` z `Cache-Control: private, no-store` i semantyką 404-privacy w defaultach; `src/middleware.ts` przekierowujący niezalogowanego na logowanie.
+- **Outcome:** (foundation) `src/lib/http/response.ts` (typowany `ApiErrorCode` union + `apiResponse` / `apiError` / `parseUuidParam` z `Cache-Control: private, no-store` i 404-privacy w defaultach, plus `buildResponse` fallback dla envelope contract na worst-case JSON.stringify); middleware split (`src/middleware.ts` thin Astro wrapper + `src/lib/middleware/handler.ts` core z try/catch fallback dla bootstrap i `getUser()`, whitelist public paths, redirect/401 dla protected); `src/env.d.ts` (`App.Locals`: `supabase` required + `user: AuthUser | null`). CLAUDE.md § API endpoints wskazuje response.ts jako single source of truth.
 - **Change ID:** api-response-contract
 - **PRD refs:** FR-004, NFR (privacy: jednoznaczny brak dla cudzego zasobu, brak współdzielonego cache JWT-scoped contentu)
 - **Unlocks:** S-01 (endpointy auth) + wszystkie slice'y z `/api` (S-02–S-08); enforcement-by-code konwencji z `CLAUDE.md` + `lessons.md` (test 2026-05-20: sama proza nie zacisnęła kontraktu).
@@ -236,6 +236,6 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 ## Done
 
 - **F-01: (foundation) migracje 0001+0002 zaaplikowane do zlinkowanego projektu, izolacja RLS zweryfikowana (użytkownik A nie widzi danych B), typowane klienty Supabase RLS-respecting (server: `@supabase/ssr` anon + JWT z cookies; browser: anon) spięte w `src/lib/db/`, bez service-role.** — Archived 2026-05-26 → `context/archive/2026-05-25-data-and-rls-substrate/`. Lesson: —.
-- **F-02: (foundation) `src/lib/http/response.ts` z typowanym `ApiErrorCode` union + helperami `apiResponse({ data })` / `apiError({ code, status, message })` z `Cache-Control: private, no-store` i semantyką 404-privacy w defaultach; `src/middleware.ts` przekierowujący niezalogowanego na logowanie.** — Archived 2026-05-26 → `context/archive/2026-05-26-api-response-contract/`. Lesson: —.
+- **F-02: (foundation) `src/lib/http/response.ts` (typowany `ApiErrorCode` union + `apiResponse` / `apiError` / `parseUuidParam` z `Cache-Control: private, no-store` i 404-privacy w defaultach, plus `buildResponse` fallback dla envelope contract na worst-case JSON.stringify); middleware split (`src/middleware.ts` thin Astro wrapper + `src/lib/middleware/handler.ts` core z try/catch fallback dla bootstrap i `getUser()`, whitelist public paths, redirect/401 dla protected); `src/env.d.ts` (`App.Locals`: `supabase` required + `user: AuthUser | null`). CLAUDE.md § API endpoints wskazuje response.ts jako single source of truth.** — Archived 2026-05-26 → `context/archive/2026-05-26-api-response-contract/`. Lesson: —.
 
 (Pusta przy pierwszej generacji. `/10x-archive` dopisuje tu wpis — i przerzuca Status pozycji na `done` — gdy archiwizowana zmiana ma `Change ID` zgodny z pozycją roadmapy. NIE wypełniać ręcznie.)
