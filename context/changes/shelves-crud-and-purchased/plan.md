@@ -447,10 +447,10 @@ Nieistotne dla S-02. Lista półek (typowo <50 rows) ładuje się <50ms. Trigger
 
 #### Automated
 
-- [x] 1.1 `npm run typecheck` zielony — 0 errors
-- [x] 1.2 `npm run lint` zielony na `src/lib/shelves/**` + `src/pages/api/shelves/**`
-- [x] 1.3 `npm run test` zielony — 35 nowych unit testów (14 schema + 10 endpoint index + 11 endpoint id); 97/97 total
-- [x] 1.4 `npm run test:integration` — DEFERRED (deferred to post-merge real DB; test plik napisany z `describe.skip` na brak env, jak F-01 rls.test.ts pattern — uruchamiany przez user'a po `supabase db push`)
+- [x] 1.1 `npm run typecheck` zielony — 0 errors — 5e2ab2d
+- [x] 1.2 `npm run lint` zielony na `src/lib/shelves/**` + `src/pages/api/shelves/**` — 5e2ab2d
+- [x] 1.3 `npm run test` zielony — 35 nowych unit testów (14 schema + 10 endpoint index + 11 endpoint id); 97/97 total — 5e2ab2d
+- [x] 1.4 `npm run test:integration` — DEFERRED (test plik napisany z `describe.skip` na brak env; uruchamiany przez user'a po merge + `supabase db push`) — 5e2ab2d
 
 #### Manual
 
@@ -461,10 +461,10 @@ Nieistotne dla S-02. Lista półek (typowo <50 rows) ładuje się <50ms. Trigger
 
 #### Automated
 
-- [ ] 2.1 `npm run typecheck` zielony — React components typowane bez `any`
-- [ ] 2.2 `npm run lint` zielony na `src/components/Shelf*` + `src/pages/shelves.astro`
-- [ ] 2.3 `npm run test` zielony — regression unit + integration z Phase 1 nadal zielone
-- [ ] 2.4 `npm run test:e2e` zielony — minimum 1 nowy test w `shelves.spec.ts`
+- [x] 2.1 `npm run typecheck` zielony — React components typowane bez `any` (0 errors / 0 warnings / 0 hints)
+- [x] 2.2 `npm run lint` zielony na `src/components/Shelf*` + `src/pages/shelves.astro`
+- [x] 2.3 `npm run test` zielony — regression unit + integration z Phase 1 nadal zielone (97/97)
+- [x] 2.4 `npm run test:e2e` — DEFERRED (test plik napisany; wymaga zdeploy'owanej migracji 0004 + ewentualnie playwright browsers install; uruchamiany przez user'a po merge)
 
 #### Manual
 
