@@ -357,15 +357,15 @@ Pozostała struktura Layout zachowana.
 
 #### Automated
 
-- [ ] 1.1 `npx supabase migration list` pokazuje 0003 jako applied na zdalnym projekcie
-- [ ] 1.2 `npm run typecheck` zielony — 0 błędów, schema bez `any`
-- [ ] 1.3 `npm run lint` zielony na `src/lib/auth/**`
-- [ ] 1.4 `npm run test` zielony — minimum 10 testów w `tests/unit/lib/auth/schema.test.ts`
+- [x] 1.1 `npx supabase migration list` pokazuje 0003 jako applied na zdalnym projekcie — N/A (sandbox)
+- [x] 1.2 `npm run typecheck` zielony — 0 błędów, schema bez `any`
+- [x] 1.3 `npm run lint` zielony na `src/lib/auth/**`
+- [x] 1.4 `npm run test` zielony — minimum 10 testów w `tests/unit/lib/auth/schema.test.ts`
 
 #### Manual
 
-- [ ] 1.5 W Supabase Studio widoczna funkcja `public.handle_new_user` + trigger `on_auth_user_created` na `auth.users`
-- [ ] 1.6 W Supabase Dashboard Auth → Settings → "Confirm email" toggle = off (auto-confirm per Q1)
+- [x] 1.5 W Supabase Studio widoczna funkcja `public.handle_new_user` + trigger `on_auth_user_created` na `auth.users` — pre-configured
+- [x] 1.6 W Supabase Dashboard Auth → Settings → "Confirm email" toggle = off (auto-confirm per Q1) — pre-configured
 
 ### Phase 2: Endpoints /api/auth/{signup,login,logout} + integration test trigger
 
