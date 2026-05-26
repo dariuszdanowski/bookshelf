@@ -46,11 +46,39 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   const { email, password, display_name } = parsed.data;
 
-  const { data, error } = await locals.supabase.auth.signUp({
-    email,
-    password,
-    options: { data: { display_name } },
-  });
+  let data: Awaited<
+    ReturnType<typeof locals.supabase.auth.signUp>
+  >['data'];
+  let error: Awaited<
+    ReturnType<typeof locals.supabase.auth.signUp>
+  >['error'];
+  try {
+    const result = await locals.supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { display_name } },
+    });
+    data = result.data;
+    error = result.error;
+  } catch (thrown) {
+    // DEBUG: jakiś wyjątek poza standardową obsługą Supabase (np. cookie
+    // setter throw, fetch error w runtime CF Workers). Loguj wszystko +
+    // sygnalizuj fakcie via INTERNAL_ERROR (privacy: nie wyciekamy detalu).
+    console.error('[api/auth/signup] thrown exception during signUp', {
+      name: thrown instanceof Error ? thrown.name : 'unknown',
+      message: thrown instanceof Error ? thrown.message : String(thrown),
+      stack: thrown instanceof Error ? thrown.stack : undefined,
+      cause:
+        thrown instanceof Error && 'cause' in thrown
+          ? String((thrown as { cause?: unknown }).cause)
+          : undefined,
+    });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Signup failed.',
+    });
+  }
 
   if (error) {
     const msg = error.message?.toLowerCase() ?? '';
@@ -62,7 +90,12 @@ export const POST: APIRoute = async ({ request, locals }) => {
       });
     }
     console.error('[api/auth/signup] supabase signUp failed', {
-      err: error.message,
+      // DEBUG: rozszerzone logowanie żeby zobaczyć name/status/code z
+      // Supabase AuthError + ewentualny cause; nie wyciekamy do response.
+      name: error.name,
+      message: error.message,
+      status: error.status,
+      code: 'code' in error ? error.code : undefined,
     });
     return apiError({
       code: 'INTERNAL_ERROR',
