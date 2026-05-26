@@ -39,7 +39,7 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | S-06  | add-purchase-flow            | dodać zakup (ręcznie/zdjęcie) na półkę "Zakupione"        | S-05, S-02    | FR-025–028            | proposed |
 | S-07  | move-book-and-history        | przenieść książkę między półkami z historią lokalizacji   | S-05, S-02    | FR-029–031, FR-038    | proposed |
 | S-08  | catalog-search-and-filters   | wyszukać katalog pełnotekstowo + filtry (kolor/półka/status) | S-05, S-02 | FR-032–036            | proposed |
-| S-09  | landing-auth-cta             | niezalogowany na `/` widzi CTA do logowania i rejestracji; zalogowany — CTA do biblioteki; logout redirektuje na `/login` zamiast `/` | S-01 | FR-001 (UX adjacent)  | planned  |
+| S-09  | landing-auth-cta             | niezalogowany na `/` widzi CTA do logowania i rejestracji; zalogowany — CTA do biblioteki; logout redirektuje na `/login` zamiast `/` | S-01 | FR-001 (UX adjacent)  | done     |
 | S-10  | custom-404-page              | Astro renderuje custom 404 page (Layout + conditional CTA) zamiast default białej strony | — (S-01 adjacent) | UX polish | planned  |
 | S-11  | health-check-endpoint        | `GET /api/health` zwraca `{data:{status,version,timestamp}}` z F-02 envelope; whitelisted w middleware | F-02 | NFR (monitoring) | planned  |
 | S-12  | loading-skeleton-component   | Generic React `<Skeleton />` (gray pulsing div) gotowy dla S-03/S-04/S-08 | — | UI substrate | planned  |
@@ -210,7 +210,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** zero ryzyka technicznego — pure UI polish; jedyna pułapka to nie zepsuć istniejącej landing-page semantyki (SSR-rendered, Astro.locals.user już dostępne). Out-of-scope dla S-01 świadomie (M1L4 decyzja: scope discipline) — wyodrębniony tu jako pierwszy element bucketa Stream E.
-- **Status:** planned (Stream E parallel experiment)
+- **Status:** done
 
 ### S-10: Custom 404 page
 
@@ -295,5 +295,6 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **F-01: (foundation) migracje 0001+0002 zaaplikowane do zlinkowanego projektu, izolacja RLS zweryfikowana (użytkownik A nie widzi danych B), typowane klienty Supabase RLS-respecting (server: `@supabase/ssr` anon + JWT z cookies; browser: anon) spięte w `src/lib/db/`, bez service-role.** — Archived 2026-05-26 → `context/archive/2026-05-25-data-and-rls-substrate/`. Lesson: —.
 - **F-02: (foundation) `src/lib/http/response.ts` (typowany `ApiErrorCode` union + `apiResponse` / `apiError` / `parseUuidParam` z `Cache-Control: private, no-store` i 404-privacy w defaultach, plus `buildResponse` fallback dla envelope contract na worst-case JSON.stringify); middleware split (`src/middleware.ts` thin Astro wrapper + `src/lib/middleware/handler.ts` core z try/catch fallback dla bootstrap i `getUser()`, whitelist public paths, redirect/401 dla protected); `src/env.d.ts` (`App.Locals`: `supabase` required + `user: AuthUser | null`). CLAUDE.md § API endpoints wskazuje response.ts jako single source of truth.** — Archived 2026-05-26 → `context/archive/2026-05-26-api-response-contract/`. Lesson: —.
 - **S-01: zarejestrować się, zalogować, wylogować; ochrona ścieżek** — Archived 2026-05-26 → `context/archive/2026-05-26-email-password-auth/`. Lesson: Worker Dashboard Secrets walidacja vs `.dev.vars` przed „deploy done" — sama deployment success workflow nie pokrywa runtime secret correctness (zapisane jako rule w `lessons.md`).
+- **S-09: niezalogowany na `/` widzi CTA do logowania i rejestracji; zalogowany — CTA do biblioteki; logout redirektuje na `/login` zamiast `/`** — Archived 2026-05-26 → `context/archive/2026-05-26-landing-auth-cta/`. Lesson: —. (Stream E parallel experiment slice 1/4.)
 
 (Pusta przy pierwszej generacji. `/10x-archive` dopisuje tu wpis — i przerzuca Status pozycji na `done` — gdy archiwizowana zmiana ma `Change ID` zgodny z pozycją roadmapy. NIE wypełniać ręcznie.)
