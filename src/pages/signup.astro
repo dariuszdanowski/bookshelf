@@ -1,0 +1,21 @@
+---
+import Layout from '../layouts/Layout.astro';
+import SignupForm from '../components/SignupForm.tsx';
+
+// Server-side guard: zalogowany user nie powinien widzieć pustego formularza,
+// wraca na home. Middleware whitelist'uje /signup (public), więc to dodatkowa
+// warstwa UX, nie auth.
+if (Astro.locals.user) {
+  return Astro.redirect('/');
+}
+---
+
+<Layout title="Rejestracja — BookShelf">
+  <main class="mx-auto max-w-md p-8">
+    <h1 class="mb-6 text-2xl font-bold">Załóż konto</h1>
+    <SignupForm client:load />
+    <p class="mt-4 text-sm text-gray-600">
+      Masz już konto? <a href="/login" class="text-blue-600 underline">Zaloguj się</a>
+    </p>
+  </main>
+</Layout>

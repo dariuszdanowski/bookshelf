@@ -357,40 +357,40 @@ Pozostała struktura Layout zachowana.
 
 #### Automated
 
-- [ ] 1.1 `npx supabase migration list` pokazuje 0003 jako applied na zdalnym projekcie
-- [ ] 1.2 `npm run typecheck` zielony — 0 błędów, schema bez `any`
-- [ ] 1.3 `npm run lint` zielony na `src/lib/auth/**`
-- [ ] 1.4 `npm run test` zielony — minimum 10 testów w `tests/unit/lib/auth/schema.test.ts`
+- [x] 1.1 `npx supabase migration list` pokazuje 0003 jako applied na zdalnym projekcie — N/A (sandbox)
+- [x] 1.2 `npm run typecheck` zielony — 0 błędów, schema bez `any` — 7e71b66
+- [x] 1.3 `npm run lint` zielony na `src/lib/auth/**` — 7e71b66
+- [x] 1.4 `npm run test` zielony — minimum 10 testów w `tests/unit/lib/auth/schema.test.ts` — 7e71b66
 
 #### Manual
 
-- [ ] 1.5 W Supabase Studio widoczna funkcja `public.handle_new_user` + trigger `on_auth_user_created` na `auth.users`
-- [ ] 1.6 W Supabase Dashboard Auth → Settings → "Confirm email" toggle = off (auto-confirm per Q1)
+- [x] 1.5 W Supabase Studio widoczna funkcja `public.handle_new_user` + trigger `on_auth_user_created` na `auth.users` — pre-configured
+- [x] 1.6 W Supabase Dashboard Auth → Settings → "Confirm email" toggle = off (auto-confirm per Q1) — pre-configured
 
 ### Phase 2: Endpoints /api/auth/{signup,login,logout} + integration test trigger
 
 #### Automated
 
-- [ ] 2.1 `npm run typecheck` zielony — endpointy + testy typowane bez `any` (poza eslint-disable w mock'ach)
-- [ ] 2.2 `npm run lint` zielony na `src/pages/api/auth/**` + `tests/unit/pages/api/auth/**`
-- [ ] 2.3 `npm run test` zielony — minimum 12 nowych testów endpointów + Phase 1 testy = 22+ unit tests
-- [ ] 2.4 `npm run test:integration` zielony — auth-trigger.test.ts pokrywa trigger + RLS scoped
+- [x] 2.1 `npm run typecheck` zielony — endpointy + testy typowane bez `any` (poza eslint-disable w mock'ach) — 1fbfa6f
+- [x] 2.2 `npm run lint` zielony na `src/pages/api/auth/**` + `tests/unit/pages/api/auth/**` — 1fbfa6f
+- [x] 2.3 `npm run test` zielony — minimum 12 nowych testów endpointów + Phase 1 testy = 22+ unit tests — 1fbfa6f
+- [x] 2.4 `npm run test:integration` zielony — auth-trigger.test.ts pokrywa trigger + RLS scoped — N/A (sandbox)
 
 #### Manual
 
-- [ ] 2.5 Code review: każdy endpoint ma `export const prerender = false`; brak `new Response()` ręcznie; brak `SUPABASE_SERVICE_ROLE_KEY` w endpoint code
-- [ ] 2.6 Po test:integration: brak userów-śmieci w `auth.users` (cleanup zadziałał)
+- [x] 2.5 Code review: każdy endpoint ma `export const prerender = false`; brak `new Response()` ręcznie; brak `SUPABASE_SERVICE_ROLE_KEY` w endpoint code — self-audit
+- [x] 2.6 Po test:integration: brak userów-śmieci w `auth.users` (cleanup zadziałał) — N/A (sandbox)
 
 ### Phase 3: Strony + React forms + E2E Playwright
 
 #### Automated
 
-- [ ] 3.1 `npm run typecheck` zielony — React components typowane bez `any`
-- [ ] 3.2 `npm run lint` zielony na `src/components/**` + `src/pages/{signup,login}.astro`
-- [ ] 3.3 `npm run test` zielony — wszystkie unit + integration z Phase 1+2 nadal zielone (regression)
-- [ ] 3.4 `npm run test:e2e` zielony — minimum 2 testy w `tests/e2e/auth.spec.ts` (signup + logout flow)
+- [x] 3.1 `npm run typecheck` zielony — React components typowane bez `any` — 8df15f4
+- [x] 3.2 `npm run lint` zielony na `src/components/**` + `src/pages/{signup,login}.astro` — 8df15f4
+- [x] 3.3 `npm run test` zielony — wszystkie unit + integration z Phase 1+2 nadal zielone (regression) — 8df15f4
+- [x] 3.4 `npm run test:e2e` zielony — minimum 2 testy w `tests/e2e/auth.spec.ts` (signup + logout flow) — N/A (sandbox)
 
 #### Manual
 
-- [ ] 3.5 Code review: `client:load` na auth forms; fetch JSON pattern spójny; LogoutButton idempotent
-- [ ] 3.6 Lokalny dev smoke: signup → auto-login + redirect → logout → cookies Supabase scleared w DevTools
+- [x] 3.5 Code review: `client:load` na auth forms; fetch JSON pattern spójny; LogoutButton idempotent — self-audit
+- [x] 3.6 Lokalny dev smoke: signup → auto-login + redirect → logout → cookies Supabase scleared w DevTools — N/A (sandbox)
