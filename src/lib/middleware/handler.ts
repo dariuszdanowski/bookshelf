@@ -12,7 +12,7 @@ import { apiError } from '../http/response';
  * na liście). PREFIX = match po prefiksie (`/api/auth/login`,
  * `/api/auth/signup` → match na `/api/auth/`).
  */
-const PUBLIC_EXACT = new Set(['/', '/login', '/signup']);
+const PUBLIC_EXACT = new Set(['/', '/login', '/signup', '/api/health']);
 const PUBLIC_PREFIXES = ['/api/auth/'] as const;
 
 function isPublicPath(pathname: string): boolean {

@@ -1,7 +1,7 @@
 ---
 change_id: health-check-endpoint
 title: GET /api/health endpoint z F-02 envelope + middleware whitelist
-status: planned
+status: in-progress
 created: 2026-05-26
 updated: 2026-05-26
 archived_at: null
