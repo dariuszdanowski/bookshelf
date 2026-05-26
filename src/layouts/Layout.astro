@@ -23,9 +23,16 @@ const user = Astro.locals.user;
     {
       user && (
         <header
-          class="flex justify-end gap-4 p-4 text-sm"
+          class="flex items-center justify-end gap-4 p-4 text-sm"
           data-testid="auth-header"
         >
+          <a
+            href="/shelves"
+            class="font-medium text-gray-700 hover:text-gray-900"
+            data-testid="nav-shelves"
+          >
+            Moje półki
+          </a>
           <span data-testid="user-email">{user.email}</span>
           <LogoutButton client:load />
         </header>

@@ -43,6 +43,7 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | S-10  | custom-404-page              | Astro renderuje custom 404 page (Layout + conditional CTA) zamiast default białej strony | — (S-01 adjacent) | UX polish | done     |
 | S-11  | health-check-endpoint        | `GET /api/health` zwraca `{data:{status,version,timestamp}}` z F-02 envelope; whitelisted w middleware | F-02 | NFR (monitoring) | done     |
 | S-12  | loading-skeleton-component   | Generic React `<Skeleton />` (gray pulsing div) gotowy dla S-03/S-04/S-08 | — | UI substrate | done     |
+| S-13  | header-nav-when-auth         | header nav „Moje półki" → /shelves dla auth user'a + landing CTA pivot na /shelves (do czasu /library w S-08) | S-02 | UX polish | done     |
 
 ## Streams
 
@@ -300,5 +301,6 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **S-11: `GET /api/health` zwraca `{data:{status,version,timestamp}}` z F-02 envelope; whitelisted w middleware** — Archived 2026-05-26 → `context/archive/2026-05-26-health-check-endpoint/`. Lesson: —. Endpoint przyda się jako monitor target dla lesson „Worker Secret validation". (Stream E parallel experiment slice 3/4.)
 - **S-12: Generic React `<Skeleton />` (gray pulsing div) gotowy dla S-03/S-04/S-08** — Archived 2026-05-26 → `context/archive/2026-05-26-loading-skeleton-component/`. Lesson: —. Substrate komponent — bez konsumenta teraz, ready dla przyszłych slice'ów loading states. (Stream E parallel experiment slice 4/4.)
 - **S-02: tworzyć/edytować/usuwać półki; auto-półka „Zakupione"** — Archived 2026-05-26 → `context/archive/2026-05-26-shelves-crud-and-purchased/`. Lesson: workflow „branch per change" zaadoptowany od tego slice'a — całość w `change/shelves-crud-and-purchased` + PR (zob. `lessons.md` § Branch per change workflow). Integration + E2E testy napisane z `describe.skip` na brak env (deferred do post-merge po `supabase db push` migracji 0004).
+- **S-13: header nav „Moje półki" → /shelves dla auth user'a + landing CTA pivot na /shelves (do czasu /library w S-08)** — Archived 2026-05-27 → `context/archive/2026-05-27-header-nav-when-auth/`. Lesson: —. UX gap fix po S-02 (nikt nigdzie nie linkował /shelves; landing CTA z S-09 prowadził do nieistniejącego /library). Po S-08 wrócimy do oryginalnej intencji S-09 z linkiem do /library.
 
 (Pusta przy pierwszej generacji. `/10x-archive` dopisuje tu wpis — i przerzuca Status pozycji na `done` — gdy archiwizowana zmiana ma `Change ID` zgodny z pozycją roadmapy. NIE wypełniać ręcznie.)
