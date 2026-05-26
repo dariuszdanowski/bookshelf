@@ -31,7 +31,7 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | ----- | ---------------------------- | -------------------------------------------------------- | ------------- | --------------------- | -------- |
 | F-01  | data-and-rls-substrate       | (foundation) dane + izolacja per-user gotowe              | —             | FR-003, NFR-privacy   | done     |
 | F-02  | api-response-contract        | (foundation) typowany kontrakt odpowiedzi API + guard     | —             | FR-004, NFR-privacy   | done     |
-| S-01  | email-password-auth          | zarejestrować się, zalogować, wylogować; ochrona ścieżek  | F-01, F-02    | FR-001, FR-003, FR-004 | proposed |
+| S-01  | email-password-auth          | zarejestrować się, zalogować, wylogować; ochrona ścieżek  | F-01, F-02    | FR-001, FR-003, FR-004 | done     |
 | S-02  | shelves-crud-and-purchased   | tworzyć/edytować/usuwać półki; auto-półka "Zakupione"     | S-01          | FR-005–009            | proposed |
 | S-03  | shelf-photo-vision-detection | wgrać zdjęcie półki → rozpoznane detekcje grzbietów        | S-02          | FR-010–014, FR-039    | proposed |
 | S-04  | external-match-and-proposals | zobaczyć propozycje z bazy publicznej + flagi duplikatów  | S-03          | FR-015–018            | proposed |
@@ -105,7 +105,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** brama wejścia do wszystkiego per-user; błędna konfiguracja guard/redirect odsłania chronione ścieżki — to regresja guardrail'a prywatności, nie zwykły bug UI.
-- **Status:** proposed
+- **Status:** done
 
 ### S-02: CRUD półek + automatyczna półka "Zakupione"
 
@@ -252,5 +252,6 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 
 - **F-01: (foundation) migracje 0001+0002 zaaplikowane do zlinkowanego projektu, izolacja RLS zweryfikowana (użytkownik A nie widzi danych B), typowane klienty Supabase RLS-respecting (server: `@supabase/ssr` anon + JWT z cookies; browser: anon) spięte w `src/lib/db/`, bez service-role.** — Archived 2026-05-26 → `context/archive/2026-05-25-data-and-rls-substrate/`. Lesson: —.
 - **F-02: (foundation) `src/lib/http/response.ts` (typowany `ApiErrorCode` union + `apiResponse` / `apiError` / `parseUuidParam` z `Cache-Control: private, no-store` i 404-privacy w defaultach, plus `buildResponse` fallback dla envelope contract na worst-case JSON.stringify); middleware split (`src/middleware.ts` thin Astro wrapper + `src/lib/middleware/handler.ts` core z try/catch fallback dla bootstrap i `getUser()`, whitelist public paths, redirect/401 dla protected); `src/env.d.ts` (`App.Locals`: `supabase` required + `user: AuthUser | null`). CLAUDE.md § API endpoints wskazuje response.ts jako single source of truth.** — Archived 2026-05-26 → `context/archive/2026-05-26-api-response-contract/`. Lesson: —.
+- **S-01: zarejestrować się, zalogować, wylogować; ochrona ścieżek** — Archived 2026-05-26 → `context/archive/2026-05-26-email-password-auth/`. Lesson: Worker Dashboard Secrets walidacja vs `.dev.vars` przed „deploy done" — sama deployment success workflow nie pokrywa runtime secret correctness (zapisane jako rule w `lessons.md`).
 
 (Pusta przy pierwszej generacji. `/10x-archive` dopisuje tu wpis — i przerzuca Status pozycji na `done` — gdy archiwizowana zmiana ma `Change ID` zgodny z pozycją roadmapy. NIE wypełniać ręcznie.)
