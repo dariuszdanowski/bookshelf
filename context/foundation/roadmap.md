@@ -39,7 +39,10 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | S-06  | add-purchase-flow            | dodać zakup (ręcznie/zdjęcie) na półkę "Zakupione"        | S-05, S-02    | FR-025–028            | proposed |
 | S-07  | move-book-and-history        | przenieść książkę między półkami z historią lokalizacji   | S-05, S-02    | FR-029–031, FR-038    | proposed |
 | S-08  | catalog-search-and-filters   | wyszukać katalog pełnotekstowo + filtry (kolor/półka/status) | S-05, S-02 | FR-032–036            | proposed |
-| S-09  | landing-auth-cta             | niezalogowany na `/` widzi CTA do logowania i rejestracji; zalogowany — CTA do biblioteki; logout redirektuje na `/login` zamiast `/` | S-01 | FR-001 (UX adjacent)  | proposed |
+| S-09  | landing-auth-cta             | niezalogowany na `/` widzi CTA do logowania i rejestracji; zalogowany — CTA do biblioteki; logout redirektuje na `/login` zamiast `/` | S-01 | FR-001 (UX adjacent)  | planned  |
+| S-10  | custom-404-page              | Astro renderuje custom 404 page (Layout + conditional CTA) zamiast default białej strony | — (S-01 adjacent) | UX polish | planned  |
+| S-11  | health-check-endpoint        | `GET /api/health` zwraca `{data:{status,version,timestamp}}` z F-02 envelope; whitelisted w middleware | F-02 | NFR (monitoring) | planned  |
+| S-12  | loading-skeleton-component   | Generic React `<Skeleton />` (gray pulsing div) gotowy dla S-03/S-04/S-08 | — | UI substrate | planned  |
 
 ## Streams
 
@@ -203,11 +206,47 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **Change ID:** landing-auth-cta
 - **PRD refs:** FR-001 (UX adjacent — nie zmienia kontraktu auth, tylko nawigację z root URL)
 - **Prerequisites:** S-01 (mechanizm logowania musi już istnieć)
-- **Parallel with:** wszystkie pozostałe slice'y (S-02..S-08) — micro-slice z izolowanym scope na `src/pages/index.astro`.
+- **Parallel with:** S-10, S-11, S-12 (Stream E micro-slice bucket — zero file-scope overlap), S-02..S-08.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** zero ryzyka technicznego — pure UI polish; jedyna pułapka to nie zepsuć istniejącej landing-page semantyki (SSR-rendered, Astro.locals.user już dostępne). Out-of-scope dla S-01 świadomie (M1L4 decyzja: scope discipline) — wyodrębniony tu jako pierwszy element bucketa Stream E.
-- **Status:** proposed
+- **Status:** planned (Stream E parallel experiment)
+
+### S-10: Custom 404 page
+
+- **Outcome:** Astro renderuje `src/pages/404.astro` dla unmatched routes — customowa strona z `Layout.astro`, h1 „Nie znaleziono strony" + krótki tekst + conditional CTA (zalogowany → `/library`, niezalogowany → `/`). Zastępuje wbudowany białą stronę Astro „Page not found".
+- **Change ID:** custom-404-page
+- **PRD refs:** — (UX polish, brak FR)
+- **Prerequisites:** —
+- **Parallel with:** S-09, S-11, S-12 (Stream E micro-slice bucket — zero file-scope overlap).
+- **Blockers:** —
+- **Unknowns:** —
+- **Risk:** zero — pure UI; middleware nie tykany (anonymous user nie zobaczy 404 bo F-02 redirektuje wcześniej, ale to świadoma decyzja: out-of-scope dla tego slice'a).
+- **Status:** planned (Stream E parallel experiment)
+
+### S-11: Health check endpoint
+
+- **Outcome:** publiczny `GET /api/health` zwraca HTTP 200 + `{data:{status:"ok",version:"<pkg>",timestamp:"<iso>"}}` z F-02 envelope (`apiResponse` helper) + `Cache-Control: private, no-store`. Wymaga whitelist'u `/api/health` w `PUBLIC_EXACT` w middleware. Endpoint do wykorzystania przez monitoring / deploy smoke (lesson „Worker Secret validation" w `lessons.md`).
+- **Change ID:** health-check-endpoint
+- **PRD refs:** NFR (monitoring)
+- **Prerequisites:** F-02 (envelope + middleware)
+- **Parallel with:** S-09, S-10, S-12 (Stream E micro-slice bucket — ten slice JAKO JEDYNY w bucketcie tyka middleware; pozostałe mają explicit instrukcję nie tykać).
+- **Blockers:** —
+- **Unknowns:** —
+- **Risk:** trywialne; pułapka jeśli endpoint zostałby pomylony z protected — middleware whitelist musi być prawidłowo dodany.
+- **Status:** planned (Stream E parallel experiment)
+
+### S-12: Loading skeleton component
+
+- **Outcome:** `src/components/Skeleton.tsx` — generic React komponent (gray pulsing div, Tailwind `animate-pulse`) z props `className?`, `width?`, `height?`, `aria-label?` (default „Ładowanie"). Substrate UI dla S-03 (photo upload progress), S-04 (book candidates loading), S-08 (search results loading). Bez konsumentów teraz — testowany w izolacji.
+- **Change ID:** loading-skeleton-component
+- **PRD refs:** — (UI substrate; przyda się w przyszłych FRs)
+- **Prerequisites:** —
+- **Parallel with:** S-09, S-10, S-11 (Stream E micro-slice bucket — zero file-scope overlap).
+- **Blockers:** —
+- **Unknowns:** —
+- **Risk:** zero — czysty substrate, izolowany plik + test.
+- **Status:** planned (Stream E parallel experiment)
 
 ## Backlog Handoff
 
@@ -223,7 +262,10 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 | S-06       | add-purchase-flow            | Flow B — dodaj zakup na półkę "Zakupione"                        | no                    | Czeka na S-05, S-02                    |
 | S-07       | move-book-and-history        | Przenoszenie książek + wersjonowana historia lokalizacji         | no                    | Czeka na S-05, S-02                    |
 | S-08       | catalog-search-and-filters   | Wyszukiwarka katalogu — pełnotekst + filtry                      | no                    | Czeka na S-05, S-02                    |
-| S-09       | landing-auth-cta             | Landing page — CTA dla niezalogowanych + skrót dla zalogowanych  | no                    | Bucket Stream E (parallel-micro-slice) |
+| S-09       | landing-auth-cta             | Landing page — CTA dla niezalogowanych + skrót dla zalogowanych  | yes                   | Stream E bucket — eksperyment parallel |
+| S-10       | custom-404-page              | Custom Astro 404 page                                            | yes                   | Stream E bucket — eksperyment parallel |
+| S-11       | health-check-endpoint        | `GET /api/health` endpoint + middleware whitelist                | yes                   | Stream E bucket — eksperyment parallel |
+| S-12       | loading-skeleton-component   | Generic React `<Skeleton />` komponent                            | yes                   | Stream E bucket — eksperyment parallel |
 
 ## Open Roadmap Questions
 
