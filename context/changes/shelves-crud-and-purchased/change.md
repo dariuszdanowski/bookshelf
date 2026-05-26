@@ -1,7 +1,7 @@
 ---
 change_id: shelves-crud-and-purchased
 title: CRUD półek + niesuwalna systemowa "Zakupione"
-status: planned
+status: implementing
 created: 2026-05-26
 updated: 2026-05-26
 archived_at: null

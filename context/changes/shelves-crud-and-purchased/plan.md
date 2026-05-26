@@ -447,10 +447,10 @@ Nieistotne dla S-02. Lista półek (typowo <50 rows) ładuje się <50ms. Trigger
 
 #### Automated
 
-- [ ] 1.1 `npm run typecheck` zielony — 0 errors
-- [ ] 1.2 `npm run lint` zielony na `src/lib/shelves/**` + `src/pages/api/shelves/**`
-- [ ] 1.3 `npm run test` zielony — minimum 22 nowych unit testów
-- [ ] 1.4 `npm run test:integration` zielony — `shelves-rls-and-triggers.test.ts` (5 testów) + regression na rls.test.ts + auth-trigger.test.ts
+- [x] 1.1 `npm run typecheck` zielony — 0 errors
+- [x] 1.2 `npm run lint` zielony na `src/lib/shelves/**` + `src/pages/api/shelves/**`
+- [x] 1.3 `npm run test` zielony — 35 nowych unit testów (14 schema + 10 endpoint index + 11 endpoint id); 97/97 total
+- [x] 1.4 `npm run test:integration` — DEFERRED (deferred to post-merge real DB; test plik napisany z `describe.skip` na brak env, jak F-01 rls.test.ts pattern — uruchamiany przez user'a po `supabase db push`)
 
 #### Manual
 
