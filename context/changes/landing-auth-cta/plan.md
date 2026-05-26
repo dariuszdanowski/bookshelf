@@ -63,9 +63,9 @@ Niezalogowany na `/` widzi 2 CTA „Zaloguj się" (→ `/login`) i „Załóż k
 
 #### Automated
 
-- [x] 1.1 `npm run typecheck` zielony — baseline 1 error w `src/lib/db/supabase.server.ts` (cloudflare:workers module resolution) pre-existing, poza scope tego slice'a; slice nie wprowadza nowych błędów typów
-- [x] 1.2 `npm run lint` zielony
-- [x] 1.3 `npm run test` zielony — 57/57 (55 baseline + 2 nowe dla LogoutButton: /login redirect happy path + idempotent po fetch reject)
+- [x] 1.1 `npm run typecheck` zielony — baseline 1 error w `src/lib/db/supabase.server.ts` (cloudflare:workers module resolution) pre-existing, poza scope tego slice'a; slice nie wprowadza nowych błędów typów — 5b892f4
+- [x] 1.2 `npm run lint` zielony — 5b892f4
+- [x] 1.3 `npm run test` zielony — 57/57 (55 baseline + 2 nowe dla LogoutButton: /login redirect happy path + idempotent po fetch reject) — 5b892f4
 
 #### Manual
 
