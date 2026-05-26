@@ -39,6 +39,7 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | S-06  | add-purchase-flow            | dodać zakup (ręcznie/zdjęcie) na półkę "Zakupione"        | S-05, S-02    | FR-025–028            | proposed |
 | S-07  | move-book-and-history        | przenieść książkę między półkami z historią lokalizacji   | S-05, S-02    | FR-029–031, FR-038    | proposed |
 | S-08  | catalog-search-and-filters   | wyszukać katalog pełnotekstowo + filtry (kolor/półka/status) | S-05, S-02 | FR-032–036            | proposed |
+| S-09  | landing-auth-cta             | niezalogowany na `/` widzi CTA do logowania i rejestracji; zalogowany — CTA do biblioteki | S-01 | FR-001 (UX adjacent)  | proposed |
 
 ## Streams
 
@@ -50,6 +51,7 @@ Pomoc nawigacyjna — grupuje wycinki dzielące łańcuch Prerequisites. Kanonic
 | B      | Flow A: od konta do skatalogowanej półki | `S-01` → `S-02` → `S-03` → `S-04` → `S-05`        | Ścieżka krytyczna must-have; kończy się gwiazdą przewodnią `S-05`.    |
 | C      | Cykl życia zakupu i lokalizacji         | `S-06` / `S-07`                                  | Oba budują na `S-05` (Stream B), równoległe wzajemnie i ze Stream D. |
 | D      | Nawigacja po katalogu                   | `S-08`                                           | Buduje na `S-05` (Stream B); równoległy ze Stream C.                 |
+| E      | Polish / UX micro-slice'y                | `S-09` (+ kolejne)                               | Małe niezależne kawałki UX po `S-01`; zaplanowane jako bucket do eksperymentu z równoległą realizacją (3-4 slice'y, 3-4 background agents). |
 
 ## Baseline
 
@@ -195,6 +197,18 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **Risk:** p95 < 1 s na ~1000 wyników + kombinowalne filtry to KPI find-in-house i in-bookstore; niezindeksowane pole opisu/koloru rozjeżdża wydajność, a niezamrożona paleta unieważnia zindeksowane wartości.
 - **Status:** proposed
 
+### S-09: Landing page — CTA dla niezalogowanych + skrót dla zalogowanych
+
+- **Outcome:** niezalogowany na `/` widzi 2 widoczne CTA: „Zaloguj się" (→ `/login`) i „Załóż konto" (→ `/signup`); zalogowany widzi 1 CTA: „Przejdź do biblioteki" (→ `/library`); landing content (tytuł + pitch) pozostaje, dorzucamy tylko sekcję CTA pod nim.
+- **Change ID:** landing-auth-cta
+- **PRD refs:** FR-001 (UX adjacent — nie zmienia kontraktu auth, tylko nawigację z root URL)
+- **Prerequisites:** S-01 (mechanizm logowania musi już istnieć)
+- **Parallel with:** wszystkie pozostałe slice'y (S-02..S-08) — micro-slice z izolowanym scope na `src/pages/index.astro`.
+- **Blockers:** —
+- **Unknowns:** —
+- **Risk:** zero ryzyka technicznego — pure UI polish; jedyna pułapka to nie zepsuć istniejącej landing-page semantyki (SSR-rendered, Astro.locals.user już dostępne). Out-of-scope dla S-01 świadomie (M1L4 decyzja: scope discipline) — wyodrębniony tu jako pierwszy element bucketa Stream E.
+- **Status:** proposed
+
 ## Backlog Handoff
 
 | Roadmap ID | Change ID                    | Suggested issue title                                            | Ready for `/10x-plan` | Notes                                  |
@@ -209,6 +223,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 | S-06       | add-purchase-flow            | Flow B — dodaj zakup na półkę "Zakupione"                        | no                    | Czeka na S-05, S-02                    |
 | S-07       | move-book-and-history        | Przenoszenie książek + wersjonowana historia lokalizacji         | no                    | Czeka na S-05, S-02                    |
 | S-08       | catalog-search-and-filters   | Wyszukiwarka katalogu — pełnotekst + filtry                      | no                    | Czeka na S-05, S-02                    |
+| S-09       | landing-auth-cta             | Landing page — CTA dla niezalogowanych + skrót dla zalogowanych  | no                    | Bucket Stream E (parallel-micro-slice) |
 
 ## Open Roadmap Questions
 
