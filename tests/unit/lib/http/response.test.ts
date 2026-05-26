@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { apiError, apiResponse, parseUuidParam } from '../../../../src/lib/http/response';
 
@@ -64,6 +64,58 @@ describe('apiError', () => {
       message: 'Authentication required.',
     });
     expect(res.status).toBe(401);
+  });
+});
+
+describe('buildResponse fallback (F4 — JSON.stringify safety)', () => {
+  it('apiResponse with circular ref → fallback 500 envelope + log', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const circular: Record<string, unknown> = { name: 'loop' };
+    circular.self = circular;
+
+    const res = apiResponse({ data: circular });
+
+    expect(res.status).toBe(500);
+    expect(res.headers.get('Cache-Control')).toBe('private, no-store');
+    await expect(res.json()).resolves.toEqual({
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: 'Response serialization failed.',
+      },
+    });
+    expect(errorSpy).toHaveBeenCalledWith(
+      '[response] JSON.stringify failed',
+      expect.objectContaining({ err: expect.any(String) })
+    );
+
+    errorSpy.mockRestore();
+  });
+
+  it('apiError with circular ref in details → fallback 500 envelope', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const circular: Record<string, unknown> = {};
+    circular.loop = circular;
+
+    const res = apiError({
+      code: 'VALIDATION_ERROR',
+      status: 400,
+      message: 'bad input',
+      details: circular,
+    });
+
+    // Fallback nadpisuje original status (400) na 500, bo serialization
+    // zawiodła — klient dostaje deterministic error envelope zamiast crashu.
+    expect(res.status).toBe(500);
+    await expect(res.json()).resolves.toEqual({
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: 'Response serialization failed.',
+      },
+    });
+
+    errorSpy.mockRestore();
   });
 });
 

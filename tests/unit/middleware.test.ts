@@ -39,7 +39,6 @@ function makeContext(opts: {
   throws?: boolean;
 }): FakeContext {
   const supabase = makeSupabase(opts.user ?? null, { throws: opts.throws });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   mockedCreate.mockReturnValue(supabase as any);
 
   const url = new URL(`http://localhost${opts.path}`);
@@ -62,7 +61,6 @@ beforeEach(() => {
   next.mockClear();
 });
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 const callMiddleware = (ctx: FakeContext) => handleRequest(ctx as any, next);
 
 const ALICE: FakeUser = { id: 'user-a-id', email: 'alice@example.com' };
@@ -134,6 +132,16 @@ describe('middleware onRequest — protected paths', () => {
     expect(ctx.locals.user).toEqual(ALICE);
     expect(res.status).toBe(200);
   });
+
+  it('lets authenticated user through to protected API path', async () => {
+    const ctx = makeContext({ path: '/api/shelves', user: ALICE });
+    const res = await callMiddleware(ctx);
+
+    expect(next).toHaveBeenCalledOnce();
+    expect(ctx.redirect).not.toHaveBeenCalled();
+    expect(ctx.locals.user).toEqual(ALICE);
+    expect(res.status).toBe(200);
+  });
 });
 
 describe('middleware onRequest — auth error handling', () => {
@@ -151,6 +159,64 @@ describe('middleware onRequest — auth error handling', () => {
     );
     expect(ctx.redirect).toHaveBeenCalledWith('/login');
     expect(res.status).toBe(302);
+
+    errorSpy.mockRestore();
+  });
+});
+
+// Helper dla bootstrap-failure scenariuszy — `createServerSupabaseClient`
+// rzuca PRZED utworzeniem klienta, więc makeSupabase nie pasuje.
+function makeBootstrapFailCtx(path: string): FakeContext {
+  mockedCreate.mockImplementation(() => {
+    throw new Error('Brak PUBLIC_SUPABASE_URL lub PUBLIC_SUPABASE_ANON_KEY');
+  });
+  const url = new URL(`http://localhost${path}`);
+  return {
+    request: new Request(url.toString()),
+    cookies: {},
+    url,
+    locals: {},
+    redirect: vi.fn(),
+  };
+}
+
+describe('middleware onRequest — bootstrap failure', () => {
+  it('returns 500 envelope when createServerSupabaseClient throws on /api/ path', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const ctx = makeBootstrapFailCtx('/api/shelves');
+    const res = await callMiddleware(ctx);
+
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toBe(500);
+    expect(res.headers.get('Cache-Control')).toBe('private, no-store');
+    await expect(res.json()).resolves.toEqual({
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: 'Service temporarily unavailable.',
+      },
+    });
+    expect(errorSpy).toHaveBeenCalledWith(
+      '[middleware] bootstrap failed',
+      expect.objectContaining({ path: '/api/shelves' })
+    );
+
+    errorSpy.mockRestore();
+  });
+
+  it('re-throws for page paths (Astro renderuje default 500 page)', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    const ctx = makeBootstrapFailCtx('/library');
+
+    await expect(callMiddleware(ctx)).rejects.toThrow(
+      'Brak PUBLIC_SUPABASE_URL'
+    );
+    expect(errorSpy).toHaveBeenCalledWith(
+      '[middleware] bootstrap failed',
+      expect.objectContaining({ path: '/library' })
+    );
+    expect(next).not.toHaveBeenCalled();
 
     errorSpy.mockRestore();
   });

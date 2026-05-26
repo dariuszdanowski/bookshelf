@@ -27,10 +27,7 @@ export function apiResponse<T>(opts: {
   status?: number;
   headers?: HeadersInit;
 }): Response {
-  return new Response(JSON.stringify({ data: opts.data }), {
-    status: opts.status ?? 200,
-    headers: mergeHeaders(opts.headers),
-  });
+  return buildResponse({ data: opts.data }, opts.status ?? 200, opts.headers);
 }
 
 export function apiError(opts: {
@@ -50,10 +47,7 @@ export function apiError(opts: {
     errorBody.details = opts.details;
   }
 
-  return new Response(JSON.stringify({ error: errorBody }), {
-    status: opts.status,
-    headers: mergeHeaders(opts.headers),
-  });
+  return buildResponse({ error: errorBody }, opts.status, opts.headers);
 }
 
 // UUID v1-v5 regex (case-insensitive). Nie wymuszamy konkretnej wersji —
@@ -69,6 +63,44 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12
 export function parseUuidParam(raw: string | undefined): string | null {
   if (!raw || !UUID_REGEX.test(raw)) return null;
   return raw.toLowerCase();
+}
+
+/**
+ * Pre-serialized fallback envelope dla `buildResponse` gdy `JSON.stringify`
+ * na user-supplied body padnie (circular ref, BigInt itp.). Module-level
+ * constant = jeden stringify execution na cały lifetime modułu; static shape
+ * gwarantuje że ten stringify nie może paść.
+ */
+const FALLBACK_BODY = JSON.stringify({
+  error: {
+    code: 'INTERNAL_ERROR' satisfies ApiErrorCode,
+    message: 'Response serialization failed.',
+  },
+});
+
+function buildResponse(
+  body: unknown,
+  status: number,
+  headers?: HeadersInit
+): Response {
+  let bodyString: string;
+  let actualStatus = status;
+  try {
+    bodyString = JSON.stringify(body);
+  } catch (err) {
+    // Defensive fallback: chronimy envelope contract przed circular refs /
+    // BigInt / innymi non-serializable values w body. W praktyce M1 endpointy
+    // pasują plain serializable obj — to safety net na worst case.
+    console.error('[response] JSON.stringify failed', {
+      err: err instanceof Error ? err.message : String(err),
+    });
+    bodyString = FALLBACK_BODY;
+    actualStatus = 500;
+  }
+  return new Response(bodyString, {
+    status: actualStatus,
+    headers: mergeHeaders(headers),
+  });
 }
 
 function mergeHeaders(custom?: HeadersInit): HeadersInit {

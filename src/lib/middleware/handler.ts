@@ -30,7 +30,27 @@ export async function handleRequest(
   context: APIContext,
   next: MiddlewareNext
 ): Promise<Response> {
-  const supabase = createServerSupabaseClient(context);
+  // Bootstrap może paść przy missing env (createServerSupabaseClient rzuca
+  // czytelnym Error'em). Bez catch raw 500 omija envelope contract dla /api/.
+  // Strony pozwalamy padać do Astro default 500 page (brak envelope contract
+  // dla stron, plus deweloper widzi prawdziwy stacktrace).
+  let supabase;
+  try {
+    supabase = createServerSupabaseClient(context);
+  } catch (err) {
+    console.error('[middleware] bootstrap failed', {
+      path: context.url.pathname,
+      err: err instanceof Error ? err.message : String(err),
+    });
+    if (context.url.pathname.startsWith('/api/')) {
+      return apiError({
+        code: 'INTERNAL_ERROR',
+        status: 500,
+        message: 'Service temporarily unavailable.',
+      });
+    }
+    throw err;
+  }
 
   let user: AuthUser | null = null;
   try {
@@ -41,7 +61,7 @@ export async function handleRequest(
     // refresh przez user naprawia transient blip).
     console.error('[middleware] auth.getUser failed', {
       path: context.url.pathname,
-      err,
+      err: err instanceof Error ? err.message : String(err),
     });
     user = null;
   }

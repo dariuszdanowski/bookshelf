@@ -16,6 +16,13 @@
 - **Rule**: Generowane artefakty (typy z `supabase gen types`, `wrangler types`, itp.) dodawaj do `ignores` w `eslint.config.mjs` od razu przy ich wprowadzeniu — tak jak już zrobiono dla `worker-configuration.d.ts`. Kryteria lint pokrywają kod pisany ręcznie, nie generowany.
 - **Applies to**: plan, implement, impl-review
 
+## Server-side error logging: nigdy raw err object, zawsze err.message
+
+- **Context**: `src/lib/middleware/handler.ts:42` (oryginalnie); ogólnie wszystkie server-side handlers logujące błędy z external boundaries (Supabase calls, fetch, file I/O, parser libraries) gdzie `err` może zawierać sensitive data z stack/error message.
+- **Problem**: `console.error('[middleware] auth.getUser failed', { path, err })` logował cały `err` object. Jeśli zewnętrzny SDK (np. przyszła wersja `@supabase/supabase-js`, fetch errors z Supabase) embeduje JWT fragmenty, cookie strings, request body lub inne sensitive context w error messages/stack, trafią one do Cloudflare Workers logów (operator widzi). Hipotetyczne ryzyko leak, ale realne dla long-living projektu z rotating deps.
+- **Rule**: W server-side error logging ZAWSZE używaj `err instanceof Error ? err.message : String(err)` zamiast całego err object. Nigdy `console.error('...', { err })`. Jeśli potrzebujesz więcej kontekstu, explicit field extraction po whitelist (np. `err.code`, `err.status`, `err.name`).
+- **Applies to**: implement, impl-review
+
 ## Adaptacje literalne wewnątrz fazy → accept + flag, nie wracaj do `/10x-plan`
 
 - **Context**: Cykle `/10x-implement` w fazach gdzie literalny szczegół z planu (szkic kontraktu, sugerowana nazwa API biblioteki, defaultowa ścieżka pliku env, format komendy CLI) okazuje się niezgodny z realnym stanem repo lub bieżącą wersją zewnętrznego API.
