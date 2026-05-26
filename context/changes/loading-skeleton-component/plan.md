@@ -70,9 +70,9 @@ Generic React `<Skeleton />` komponent — gray pulsing div, gotowy do użycia w
 
 #### Automated
 
-- [ ] 1.1 `npm run typecheck` zielony — Props typed bez `any`
-- [ ] 1.2 `npm run lint` zielony
-- [ ] 1.3 `npm run test` zielony — minimum 3 nowe testy dla Skeleton
+- [x] 1.1 `npm run typecheck` zielony — Props typed bez `any` (0 errors / 0 warnings / 0 hints, 40 files)
+- [x] 1.2 `npm run lint` zielony — `npx eslint src tests` zero errors (root-scan flaguje preexisting `.astro/` generated + sibling worktree dirs — poza scope tego slice'a)
+- [x] 1.3 `npm run test` zielony — 59/59 passed (55 istniejących + 4 nowe Skeleton tests)
 
 #### Manual
 
