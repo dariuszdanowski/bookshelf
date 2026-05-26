@@ -385,9 +385,9 @@ Pozostała struktura Layout zachowana.
 
 #### Automated
 
-- [x] 3.1 `npm run typecheck` zielony — React components typowane bez `any`
-- [x] 3.2 `npm run lint` zielony na `src/components/**` + `src/pages/{signup,login}.astro`
-- [x] 3.3 `npm run test` zielony — wszystkie unit + integration z Phase 1+2 nadal zielone (regression)
+- [x] 3.1 `npm run typecheck` zielony — React components typowane bez `any` — 8df15f4
+- [x] 3.2 `npm run lint` zielony na `src/components/**` + `src/pages/{signup,login}.astro` — 8df15f4
+- [x] 3.3 `npm run test` zielony — wszystkie unit + integration z Phase 1+2 nadal zielone (regression) — 8df15f4
 - [x] 3.4 `npm run test:e2e` zielony — minimum 2 testy w `tests/e2e/auth.spec.ts` (signup + logout flow) — N/A (sandbox)
 
 #### Manual
