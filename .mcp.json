@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "cloudflare": {
+      "type": "http",
+      "url": "https://mcp.cloudflare.com/mcp"
+    },
+    "exa": {
+      "type": "http",
+      "url": "https://mcp.exa.ai/mcp"
+    },
+    "context7": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp"
+    }
+  }
+}
