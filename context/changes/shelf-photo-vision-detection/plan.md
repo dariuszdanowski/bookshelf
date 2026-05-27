@@ -225,16 +225,16 @@ React island z drag-drop, client-side resize, browser→Storage upload, auto-cha
 
 ### Phase 1: Vision domain module
 #### Automated
-- [x] 1.1 Unit DetectionSchema (valid/invalid confidence, title, spine_color enum)
-- [x] 1.2 Unit client.detectSpines (happy, retry-with-thinking, parse_failure) z mock SDK
-- [x] 1.3 Typecheck passes
-- [x] 1.4 Lint passes
+- [x] 1.1 Unit DetectionSchema (valid/invalid confidence, title, spine_color enum) — 4886e6b
+- [x] 1.2 Unit client.detectSpines (happy, retry-with-thinking, parse_failure) z mock SDK — 4886e6b
+- [x] 1.3 Typecheck passes — 4886e6b
+- [x] 1.4 Lint passes — 4886e6b
 
 ### Phase 2: Storage bucket + record endpoint
 #### Automated
-- [ ] 2.1 Unit POST /api/photos (201, 400, 23503→404)
-- [ ] 2.2 Unit GET /api/photos/[id] (bad UUID→404, not found→404, ok DTO)
-- [ ] 2.3 Typecheck + lint
+- [x] 2.1 Unit POST /api/photos (201, 400, 23503→404)
+- [x] 2.2 Unit GET /api/photos/[id] (bad UUID→404, not found→404, ok DTO)
+- [x] 2.3 Typecheck + lint
 #### Manual
 - [ ] 2.4 (spike F1) browser client niesie sesję dla Storage upload, lub fallback signed-URL wpięty
 - [ ] 2.5 (post-merge) bucket istnieje + Storage RLS izoluje userów
