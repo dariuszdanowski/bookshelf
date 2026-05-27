@@ -4,60 +4,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 # BookShelf Catalog — kontekst dla agenta
 
-## Czym jest projekt
+Operacyjne reguły pracy z agentem AI dla tego repo. Szybki opis projektu, stack, komendy, architektura → [README.md](README.md). Ten plik koncentruje się na **regułach pracy** (workflow agenta, konwencje konsumpcji stacku, decyzje świadomie odsunięte).
 
-Aplikacja webowa do katalogowania książek na podstawie zdjęć półek. Użytkownik fotografuje półkę, system rozpoznaje tytuły przez vision-LLM, matchuje je z bazą zewnętrzną (Google Books / OpenLibrary), wykrywa duplikaty względem istniejącego katalogu i proponuje wpisy z lokalizacją (półka, pozycja); użytkownik akceptuje / odrzuca / koryguje, a system rejestruje korekty do telemetrii.
+> **Tryb pracy**: branch-per-change + PR → main; atomic commit per faza implementacji; manual verification zawsze user-only.
 
-**Projekt zaliczeniowy 10xDevs 3.0** (start kursu 18.05.2026, 1. termin oddania 5.07.2026).
+## Workflow agenta
 
-## Logika biznesowa w jednym zdaniu
+Defaults zwijające powtarzalne decyzje w pętli M2L2/L3 (`/10x-plan` → `/10x-implement` → `/10x-impl-review` → `/10x-archive`). Skille czytają tę sekcję jako instructions — nie pytaj o te decyzje per slice.
 
-Vision-detekcja → matching scoring → deduplikacja → ranking propozycji → potwierdzenie użytkownika → telemetria korekt.
-
-Pięć decyzji domenowych: (1) detekcja z obrazu, (2) scoring matchu z bazą zewnętrzną, (3) deduplikacja vs istniejący katalog, (4) ranking propozycji, (5) telemetria akceptacji.
-
-## Stack
-
-| Warstwa | Wybór |
-|---|---|
-| Meta-framework | Astro 6 (SSR) |
-| UI | React 19 (islands) |
-| Typy | TypeScript strict |
-| Style | Tailwind 4 |
-| Backend | Astro endpoints (`src/pages/api/`) |
-| Auth | Supabase Auth (email/password + opcjonalnie Google OAuth) |
-| DB | Supabase Postgres + RLS |
-| Storage | Supabase Storage (bucket `photos/`) |
-| Vision LLM | Claude Sonnet 4.6 (multimodal) — bezpośrednio przez Anthropic API |
-| Walidacja LLM I/O | Zod schemas |
-| Book metadata | Google Books API (primary) + OpenLibrary (fallback) |
-| Deployment | Cloudflare Workers (z Workers Assets — `@astrojs/cloudflare` v13 wycofał Pages) |
-| Test framework | Vitest (unit) + Playwright (E2E) |
-| CI | GitHub Actions |
-
-## Komendy
-
-Wymagania: **Node.js ≥ 22.13.0** (`engines.node` w `package.json`).
-
-| Komenda | Co robi |
-|---|---|
-| `npm run dev` | Dev server na `http://localhost:4321/` z HMR |
-| `npm run build` | Produkcyjny build (`dist/`) pod Cloudflare Workers |
-| `npm run preview` | Preview produkcyjnego buildu lokalnie (wrangler) |
-| `npm run typecheck` | `astro check` — typy w `.astro` + `.ts/.tsx` (substytut `tsc --noEmit`) |
-| `npm run test` | Vitest run (jsdom, `tests/unit/**`) |
-| `npm run test:watch` | Vitest w trybie watch |
-| `npm run test:coverage` | Vitest run + raport pokrycia v8 (`coverage/`) |
-| `npm run test:e2e` | Playwright run (`tests/e2e/**`); wymaga jednorazowego `npx playwright install --with-deps` |
-| `npm run lint` | ESLint na całym repo (flat config, ESLint v9) |
-| `npm run lint:fix` | ESLint z autofixem |
-| `npm run format` | Prettier `--write .` (plugin Astro + Tailwind) |
-| `npm run format:check` | Prettier `--check .` |
-| `npm run astro -- add <integration>` | Dodanie integracji (np. `mdx`, `sitemap`) |
-| `npm run generate-types` | Regeneracja `worker-configuration.d.ts` z bindings Cloudflare (po zmianie `wrangler.jsonc`) |
-
-> **Pojedynczy test (Vitest):** `npx vitest run tests/unit/health.test.ts` (po ścieżce) lub `npx vitest -t "fragment nazwy"` (po nazwie).
-> **Pojedynczy spec (Playwright):** `npx playwright test tests/e2e/smoke.spec.ts` lub `npx playwright test -g "fragment"`. Wymaga uprzedniego `npx playwright install --with-deps` (~600 MB binariów przeglądarki — **nie** wciągane przez zwykłe `npm install`).
+- **Commit strategy**: atomic commit per faza implementacji (touched-set only); SHA write-back jako osobny follow-up commit; cleanup artefaktów sesyjnych spoza zakresu fazy w osobnych commitach. Wiadomości po polsku, prefix `feat(<change-id>):` dla kodu fazy, `chore(<change-id>):` dla SHA write-back / review fixes, `docs:` dla foundation/roadmap/lessons.
+- **Triage findings (`/10x-impl-review`)**: observation-level z evident-and-obvious fix → auto-apply Recommended bez interactive menu, raport w summary commit message. Warning+ zawsze przez menu. Critical → stop.
+- **Adaptacje literalne** (szczegół implementacyjny niezgodny z planem, ale intent kontraktu zachowany — przykłady: nazwa API biblioteki, ścieżka pliku env, format komendy CLI): zaaplikuj inline, oflaguj w komentarzu kodu + commit message, polish dokumentów raz przy `/10x-archive` lub osobnym `docs(<slice>): align ...` commitcie post-archive. **Nie** wracaj do `/10x-plan`. Reguła i precedensy: [lessons.md → „Adaptacje literalne wewnątrz fazy"](context/foundation/lessons.md). Stop & replan tylko dla zmian **kontraktu** (shape API, scope, DoD, decyzja architektoniczna).
+- **Manual verification**: zawsze user-only — Supabase Studio, przeglądarka, oko ludzkie. Agent nie symuluje („I checked Studio" jest niedozwolone).
+- **`.claude/` w repo**: skille kursowe i `.10x-cli-manifest.json` commitowane do repo jako część workflow (świadoma decyzja dla projektu zaliczeniowego 10xDevs — skille są load-bearing artefaktem, nie tylko tooling). Aktualizacje rzadko, traktować jak deps; osobny commit `chore: install/update 10x skill pack`.
+- **Roadmap Outcome drift po archive**: `/10x-archive` kopiuje Outcome verbatim do `## Done`. Jeśli implementacja zaadaptowała literalny szczegół (np. service-role → RLS-respecting), Outcome może być nieaktualny. Korekta = 2-linijkowy commit `docs(roadmap): align <slice-id> Outcome with actual implementation`.
+- **Branch per change** (od 2026-05-26): każdy slice/foundation/fix wykonujemy w branchu `change/<change-id>`, NIE bezpośrednio na main. Cały cykl (plan → implement → impl-review → archive) ląduje w branchu. Po `/10x-archive` w branchu: `git push origin change/<change-id>` + `gh pr create --title "<change-id>: <title>" --body "<auto-gen z plan-brief + impl-review summary>"`. User mergeuje PR (z opcjonalnym review w PR comments); GitHub Actions deploy.yml deployuje main → prod. **Migracje Supabase**: `supabase db push` ZAWSZE po merge do main (irreversible w prod DB; nie pchać w branchu — odrzucony PR zostawiłby zombi schema). Integration testy w branchu używają Vitest mocks; real DB integration odraczamy do po-merge. Wyjątki od reguły branch-only: planowanie/roadmapa edits (`/10x-plan`, `/10x-roadmap`) mogą lądować bezpośrednio na main jako standalone docs commits, gdy nie są związane z aktywnym implementation cycle. Reguła i precedens: [lessons.md → „Branch per change workflow"](context/foundation/lessons.md).
 
 ## Cloudflare adapter — specyfika
 
@@ -94,84 +55,6 @@ Dwa różne kanały. Nigdy ich nie miksuj.
 
 - `worker-configuration.d.ts` jest generowany (`npm run generate-types`) — nie edytuj ręcznie i nie commituj zmian wynikających z lokalnego dev runu, jeśli nie zmieniałeś `wrangler.jsonc`.
 - Lokalny dev używa Vite (nie miniflare) — niektóre Workers-only API (np. `caches.default`) trzeba testować dopiero przez `npm run preview`.
-
-## Architektura — schemat
-
-```
-Browser (React 19 islands) ─→ Astro SSR (Cloudflare Workers + Assets)
-                                   │
-            ┌──────────────────────┼──────────────────────┐
-            ▼                      ▼                      ▼
-       Supabase Auth         Supabase Postgres      Supabase Storage
-       (JWT + sesja)         (z RLS na user_id)     (zdjęcia półek)
-                                   │
-                                   ▼
-            ┌──────────────────────┼──────────────────────┐
-            ▼                      ▼                      ▼
-       Anthropic API          Google Books API        OpenLibrary API
-       (Sonnet 4.6 vision)    (primary metadata)      (fallback)
-```
-
-## Model danych (Postgres)
-
-8 tabel z RLS na `user_id = auth.uid()`:
-
-- `profiles` (id FK auth.users, display_name)
-- `shelves` (user_id, name, location, position_index)
-- `photos` (user_id, shelf_id, storage_path, status, vision_cost_usd, vision_latency_ms)
-- `detections` (photo_id, position_index, raw_title, raw_author, vision_confidence, status)
-- `book_candidates` (detection_id, source, external_id, title, authors, isbn_*, match_score, rank)
-- `books` (user_id, isbn_*, title, authors, source, source_external_id) — confirmed catalog
-- `shelf_entries` (book_id, shelf_id, position_index, photo_id, detection_id, is_current)
-- `corrections` (user_id, detection_id, original_raw_title, corrected_title, correction_type)
-
-Pełny SQL: [docs/prd.md](docs/prd.md#schemat-danych).
-
-## Struktura katalogów
-
-```
-bookshelf/
-├── src/
-│   ├── pages/              # Astro pages + /api/ endpoints
-│   ├── components/         # React islands (PhotoUploader, DetectionReview, BookCard...)
-│   ├── lib/                # konwencja: src/lib/<domain>/ = Zod schema.ts + helpers
-│   │   ├── auth/           # S-01: schema.ts (LoginSchema, SignupSchema)
-│   │   ├── shelves/        # S-02: schema.ts (CreateShelfSchema, UpdateShelfSchema, ShelfDTO)
-│   │   ├── http/           # F-02: response.ts (apiResponse/apiError/parseUuidParam)
-│   │   ├── middleware/     # F-02: handler.ts (auth guard split z Astro thin wrapper)
-│   │   ├── db/             # F-01: supabase.{server,browser}.ts + database.types.ts (generated)
-│   │   ├── vision/         # S-03 (planowany): klient Anthropic + prompt + Zod schema
-│   │   ├── books/          # S-04 (planowany): Google Books + OpenLibrary klienci + reconcile
-│   │   └── matching/       # S-04 (planowany): score, dedupe, isbn
-│   ├── middleware.ts
-│   └── env.d.ts
-├── supabase/
-│   ├── migrations/         # SQL migrations
-│   └── seed.sql
-├── tests/
-│   ├── unit/               # Vitest
-│   ├── integration/
-│   └── e2e/                # Playwright (z mock vision-response)
-├── .github/workflows/
-│   ├── ci.yml              # lint + typecheck + tests
-│   └── deploy.yml          # build + deploy CF Workers (cloudflare/wrangler-action@v3)
-├── docs/
-│   ├── prd.md              # PRD modułu (artefakt M1)
-│   └── plan-implementacji.md
-├── context/
-│   └── foundation/
-│       ├── prd.md          # foundation PRD (hand-off /10x-prd → /10x-tech-stack-selector)
-│       ├── tech-stack.md   # locked stack pick (hand-off → /10x-bootstrapper, /10x-infra-research)
-│       └── health-check.md # raport stanu projektu (re-genowany /10x-health-check)
-├── eslint.config.mjs       # ESLint v9 flat config
-├── vitest.config.ts        # Vitest config (jsdom + setupFiles)
-├── playwright.config.ts    # Playwright config (chromium + webServer)
-├── .prettierrc.json
-├── .prettierignore
-├── .editorconfig
-├── CLAUDE.md               # ten plik
-└── README.md
-```
 
 ## Konwencje
 
@@ -238,20 +121,70 @@ Header `Cache-Control: private, no-store` na każdej odpowiedzi z danymi per-use
 - `eslint-config-prettier` musi zostać ostatnim wpisem w `eslint.config.mjs` (wyłącza reguły kolidujące z formaterem).
 
 ### CI
-- GitHub Actions: lint + typecheck + vitest + playwright + deploy CF Workers (`cloudflare/wrangler-action@v3`, **NIE** `cloudflare/pages-action`)
-- Sekrety: `ANTHROPIC_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `CLOUDFLARE_API_TOKEN` w GitHub Secrets
+- GitHub Actions: lint + typecheck + vitest + playwright + deploy CF Workers (`cloudflare/wrangler-action@v4`)
+- Sekrety: `ANTHROPIC_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `CLOUDFLARE_API_TOKEN`, `PUBLIC_SUPABASE_URL`, `PUBLIC_SUPABASE_ANON_KEY` w GitHub Secrets
+- CI typecheck wymaga `npx wrangler types` step PRZED `astro check` (regeneruje gitignored `worker-configuration.d.ts`) — zob. lessons.md § „Generated artifacts w CI"
 
-### Workflow agenta
+## Model danych (Postgres)
 
-Defaults zwijające powtarzalne decyzje w pętli M2L2/L3 (`/10x-plan` → `/10x-implement` → `/10x-impl-review` → `/10x-archive`). Skille czytają tę sekcję jako instructions — nie pytaj o te decyzje per slice.
+8 tabel z RLS na `user_id = auth.uid()`:
 
-- **Commit strategy**: atomic commit per faza implementacji (touched-set only); SHA write-back jako osobny follow-up commit; cleanup artefaktów sesyjnych spoza zakresu fazy w osobnych commitach. Wiadomości po polsku, prefix `feat(<change-id>):` dla kodu fazy, `chore(<change-id>):` dla SHA write-back / review fixes, `docs:` dla foundation/roadmap/lessons.
-- **Triage findings (`/10x-impl-review`)**: observation-level z evident-and-obvious fix → auto-apply Recommended bez interactive menu, raport w summary commit message. Warning+ zawsze przez menu. Critical → stop.
-- **Adaptacje literalne** (szczegół implementacyjny niezgodny z planem, ale intent kontraktu zachowany — przykłady: nazwa API biblioteki, ścieżka pliku env, format komendy CLI): zaaplikuj inline, oflaguj w komentarzu kodu + commit message, polish dokumentów raz przy `/10x-archive` lub osobnym `docs(<slice>): align ...` commitcie post-archive. **Nie** wracaj do `/10x-plan`. Reguła i precedensy: [lessons.md → „Adaptacje literalne wewnątrz fazy"](context/foundation/lessons.md). Stop & replan tylko dla zmian **kontraktu** (shape API, scope, DoD, decyzja architektoniczna).
-- **Manual verification**: zawsze user-only — Supabase Studio, przeglądarka, oko ludzkie. Agent nie symuluje („I checked Studio" jest niedozwolone).
-- **`.claude/` w repo**: skille kursowe i `.10x-cli-manifest.json` commitowane do repo jako część workflow (świadoma decyzja dla projektu zaliczeniowego 10xDevs — skille są load-bearing artefaktem, nie tylko tooling). Aktualizacje rzadko, traktować jak deps; osobny commit `chore: install/update 10x skill pack`.
-- **Roadmap Outcome drift po archive**: `/10x-archive` kopiuje Outcome verbatim do `## Done`. Jeśli implementacja zaadaptowała literalny szczegół (np. service-role → RLS-respecting), Outcome może być nieaktualny. Korekta = 2-linijkowy commit `docs(roadmap): align <slice-id> Outcome with actual implementation`.
-- **Branch per change** (od 2026-05-26): każdy slice/foundation/fix wykonujemy w branchu `change/<change-id>`, NIE bezpośrednio na main. Cały cykl (plan → implement → impl-review → archive) ląduje w branchu. Po `/10x-archive` w branchu: `git push origin change/<change-id>` + `gh pr create --title "<change-id>: <title>" --body "<auto-gen z plan-brief + impl-review summary>"`. User mergeuje PR (z opcjonalnym review w PR comments); GitHub Actions deploy.yml deployuje main → prod. **Migracje Supabase**: `supabase db push` ZAWSZE po merge do main (irreversible w prod DB; nie pchać w branchu — odrzucony PR zostawiłby zombi schema). Integration testy w branchu używają Vitest mocks; real DB integration odraczamy do po-merge. Wyjątki od reguły branch-only: planowanie/roadmapa edits (`/10x-plan`, `/10x-roadmap`) mogą lądować bezpośrednio na main jako standalone docs commits, gdy nie są związane z aktywnym implementation cycle. Reguła i precedens: [lessons.md → „Branch per change workflow"](context/foundation/lessons.md).
+- `profiles` (id FK auth.users, display_name)
+- `shelves` (user_id, name, location, position_index)
+- `photos` (user_id, shelf_id, storage_path, status, vision_cost_usd, vision_latency_ms)
+- `detections` (photo_id, position_index, raw_title, raw_author, vision_confidence, status)
+- `book_candidates` (detection_id, source, external_id, title, authors, isbn_*, match_score, rank)
+- `books` (user_id, isbn_*, title, authors, source, source_external_id) — confirmed catalog
+- `shelf_entries` (book_id, shelf_id, position_index, photo_id, detection_id, is_current)
+- `corrections` (user_id, detection_id, original_raw_title, corrected_title, correction_type)
+
+Pełny SQL: [docs/prd.md](docs/prd.md#schemat-danych).
+
+## Struktura katalogów
+
+```
+bookshelf/
+├── src/
+│   ├── pages/              # Astro pages + /api/ endpoints
+│   ├── components/         # React islands (PhotoUploader, DetectionReview, BookCard...)
+│   ├── lib/                # konwencja: src/lib/<domain>/ = Zod schema.ts + helpers
+│   │   ├── auth/           # S-01: schema.ts (LoginSchema, SignupSchema)
+│   │   ├── shelves/        # S-02: schema.ts (CreateShelfSchema, UpdateShelfSchema, ShelfDTO)
+│   │   ├── http/           # F-02: response.ts (apiResponse/apiError/parseUuidParam)
+│   │   ├── middleware/     # F-02: handler.ts (auth guard split z Astro thin wrapper)
+│   │   ├── db/             # F-01: supabase.{server,browser}.ts + database.types.ts (generated)
+│   │   ├── vision/         # S-03 (planowany): klient Anthropic + prompt + Zod schema
+│   │   ├── books/          # S-04 (planowany): Google Books + OpenLibrary klienci + reconcile
+│   │   └── matching/       # S-04 (planowany): score, dedupe, isbn
+│   ├── middleware.ts
+│   └── env.d.ts
+├── supabase/
+│   ├── migrations/         # SQL migrations
+│   └── seed.sql
+├── tests/
+│   ├── unit/               # Vitest
+│   ├── integration/
+│   └── e2e/                # Playwright (z mock vision-response)
+├── .github/workflows/
+│   ├── ci.yml              # lint + typecheck + tests
+│   └── deploy.yml          # build + deploy CF Workers (cloudflare/wrangler-action@v4)
+├── docs/
+│   ├── prd.md              # PRD modułu (artefakt M1)
+│   └── plan-implementacji.md
+├── context/
+│   └── foundation/
+│       ├── prd.md          # foundation PRD (hand-off /10x-prd → /10x-tech-stack-selector)
+│       ├── tech-stack.md   # locked stack pick (hand-off → /10x-bootstrapper, /10x-infra-research)
+│       └── health-check.md # raport stanu projektu (re-genowany /10x-health-check)
+├── eslint.config.mjs       # ESLint v9 flat config
+├── vitest.config.ts        # Vitest config (jsdom + setupFiles)
+├── playwright.config.ts    # Playwright config (chromium + webServer)
+├── .prettierrc.json
+├── .prettierignore
+├── .editorconfig
+├── CLAUDE.md               # ten plik
+└── README.md
+```
 
 ## Decyzje świadomie odsunięte (NIE w MVP)
 
@@ -266,13 +199,11 @@ Defaults zwijające powtarzalne decyzje w pętli M2L2/L3 (`/10x-plan` → `/10x-
 - Offline mode / PWA cache
 - Image cropping w UI
 
-## Status
+## Status i milestone
 
-Aktualny, regenerowalny obraz stanu projektu (audit zależności + test runner + CI + braki configów): [@context/foundation/health-check.md](context/foundation/health-check.md). Regeneracja: `/10x-health-check`. Sekcja "Struktura katalogów" wyżej opisuje cel, nie obecny stan — wiele podkatalogów `src/lib/`, `supabase/migrations/`, `.github/workflows/` to jeszcze puste foldery.
+Aktualny, regenerowalny obraz stanu projektu (audit zależności + test runner + CI + braki configów): [@context/foundation/health-check.md](context/foundation/health-check.md). Regeneracja: `/10x-health-check`.
 
-## Najbliższe kroki
-
-Aktualny milestone: **M1 — schema + upload + vision (deadline 31.05.2026)**. Pełny kalendarz milestonów, ryzyka i definition-of-done: [@docs/plan-implementacji.md](docs/plan-implementacji.md). Schemat danych do migracji: [@docs/prd.md#schemat-danych](docs/prd.md#schemat-danych).
+Aktualny milestone, pełny kalendarz milestonów, ryzyka i definition-of-done: [@docs/plan-implementacji.md](docs/plan-implementacji.md). Schemat danych do migracji: [@docs/prd.md#schemat-danych](docs/prd.md#schemat-danych).
 
 > ⚠ **Firewall korporacyjny** (zob. memory): `github.com/releases` jest blokowany, więc instalacja Supabase CLI z binarki padnie na ETIMEDOUT. Używać tunelu / VPN albo wersji npm.
 
@@ -281,6 +212,7 @@ Aktualny milestone: **M1 — schema + upload + vision (deadline 31.05.2026)**. P
 - Pełna analiza projektu (poza tym repo): `c:\Projekty\10xDevs\analiza-projektu-bookshelf.md`
 - Wymogi certyfikacji 10xDevs 3.0: `c:\Projekty\10xDevs\analiza-projektu-kursowego.md` sekcja 1
 - Prework: `c:\Projekty\10xDevs\prework\`
+- Plan adopcji lekcji M1+M2: `c:\Projekty\10xDevs\analiza\m1m2-lessons-audit-plan.md`
 
 Te pliki **nie są** częścią projektu kursowego (nie commituj ich tu) — to prywatny meta-kontekst decyzyjny.
 
@@ -329,5 +261,3 @@ The lesson focus is safe throughput: isolated contexts, choosing the right execu
 - `context/changes/<change-id>/plan.md` - implementation input for any execution mode
 
 Skills must not write to `context/archive/`. Archived changes are immutable; if a resolved target path starts with `context/archive/`, abort with: "This change is archived. Open a new change with `/10x-new` instead."
-
-<!-- END @przeprogramowani/10x-cli -->
