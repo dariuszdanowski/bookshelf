@@ -76,10 +76,11 @@
       "Bash(rm -fr *)",
       "Bash(Remove-Item -Recurse -Force *)",
       "Bash(npx supabase db reset*)",
-      "Bash(npx wrangler kv:* delete*)",
+      "Bash(npx wrangler kv* delete*)",
       "Bash(npx wrangler r2 object delete*)",
       "Bash(gh repo delete*)",
       "Bash(gh release delete*)"
     ]
-  }
+  },
+  "enabledMcpjsonServers": ["cloudflare", "exa", "context7"]
 }
