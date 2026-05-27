@@ -24,7 +24,7 @@
     "format:check": "prettier --check ."
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.95.2",
+    "@anthropic-ai/sdk": "^0.99.0",
     "@astrojs/cloudflare": "^13.5.0",
     "@astrojs/react": "^5.0.4",
     "@supabase/ssr": "^0.10.3",
