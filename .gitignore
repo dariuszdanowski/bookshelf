@@ -156,3 +156,7 @@ worker-configuration.d.ts
 
 # IDE
 .idea/
+
+# Playwright
+test-results/
+playwright-report/
