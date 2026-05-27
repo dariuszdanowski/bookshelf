@@ -34,6 +34,7 @@ Zalogowany użytkownik wchodzi na `/upload`, wybiera istniejącą półkę, prze
 - Batch upload wielu zdjęć, kadrowanie w UI, własny per-user rate-limit (tylko mapowanie upstream 429/529).
 - Cloudflare Queues / async job model → post-MVP (sync wystarcza).
 - Ręczna edycja surowych detekcji → S-05.
+- Cleanup osieroconych obiektów Storage (browser upload OK, ale `POST /api/photos` padnie / user zamknie tab) → zaakceptowany MVP risk (leak Storage); cleanup job post-MVP. (F5 plan-review)
 
 ## Implementation Approach
 
@@ -44,6 +45,7 @@ Vertical slice w 4 fazach: (1) czysty domain module vision (testowalny w izolacj
 - **Idempotencja `process`**: przed insertem detekcji usuń istniejące dla `photo_id` (delete-then-insert), żeby re-trigger nie duplikował; status `photos` przechodzi `uploaded`→`processing`→`processed`|`failed`. Re-process z `failed`/`processed` dozwolony (reset do `processing`).
 - **Retry-with-thinking**: pierwszy `DetectionSchema.safeParse` fail → drugie `messages.create` z `thinking:{type:'enabled',budget_tokens:1536}`; drugi fail → INSERT `corrections(correction_type='parse_failure')` + `photos.status='failed'` + abort.
 - **Storage path**: klucz obiektu `{auth.uid()}/{uuid}.jpg` — pierwszy segment = uid, bo Storage RLS policy filtruje po `(storage.foldername(name))[1] = auth.uid()::text`.
+- **Browser Storage auth (zweryfikuj NAJPIERW — F1 plan-review)**: `supabase.browser.ts` to anon-key + sesja z cookies; nigdy nie był używany do Storage. PRZED resztą Phase 2 zrób spike: potwierdź w dev (przeglądarka), że browser client niesie JWT usera dla `storage.from('shelf-photos').upload()` (cookies `@supabase/ssr` muszą być czytelne dla JS, nie httpOnly). Jeśli NIE — fallback: server-issued signed upload URL (`storage.createSignedUploadUrl` przez RLS-scoped server client w nowym `POST /api/photos/upload-url`), browser PUT-uje na URL. Reszta architektury bez zmian.
 - **Migracja Storage** (`0005`): `supabase db push` **po merge** do main (branch rule); w branchu testy używają mocków, real Storage/vision smoke = manual post-merge.
 
 ## Phase 1: Vision domain module
@@ -101,11 +103,11 @@ Bucket + Storage RLS (migracja, push po merge) i endpoint rejestrujący wiersz `
 #### 2. Record endpoint
 **File**: `src/pages/api/photos/index.ts`
 **Intent**: `POST` waliduje `RecordPhotoSchema`, wstawia wiersz `photos` (user_id z `locals.user`, status 'uploaded'), zwraca `PhotoDTO`. `prerender=false`.
-**Contract**: SQLSTATE mapping wg CLAUDE.md; `23503` (shelf_id FK / RLS scope) → 404 `NOT_FOUND`. Sukces → 201 `{data:{photo}}`.
+**Contract**: SQLSTATE mapping wg CLAUDE.md; `23503` (shelf_id FK / RLS scope) → 404 `NOT_FOUND`. Sukces → 201 `{data:{photo}}`. **Walidacja `storage_path`** (F4 plan-review): musi zaczynać się od `${locals.user.id}/` → inaczej 400 `VALIDATION_ERROR` (defense-in-depth, fail fast zamiast 500 przy `process`).
 
 #### 3. Status endpoint
 **File**: `src/pages/api/photos/[id].ts`
-**Intent**: `GET` zwraca `PhotoDTO` + (gdy processed) listę `DetectionDTO`. `parseUuidParam`; PGRST116→404.
+**Intent**: `GET` zwraca `PhotoDTO` + (gdy processed) listę `DetectionDTO`. `parseUuidParam`; PGRST116→404. Uzasadnienie (F3 plan-review): page-reload persistence — po odświeżeniu UI pokazuje status/detekcje ostatniego zdjęcia i zasila stan retry; tani endpoint, zostaje.
 **Contract**: `{data:{photo, detections?}}`.
 
 ### Success Criteria:
@@ -114,9 +116,10 @@ Bucket + Storage RLS (migracja, push po merge) i endpoint rejestrujący wiersz `
 - Unit `GET /api/photos/[id]`: bad UUID → 404; not found → 404; ok → DTO: `npm test`
 - Typecheck + lint: `npm run typecheck && npm run lint`
 #### Manual Verification:
+- (spike, F1) Browser supabase client niesie sesję usera dla `storage.upload()` — zweryfikowane w dev (przeglądarka, RLS akceptuje) LUB wpięty fallback signed-URL
 - (po merge + `supabase db push`) bucket `shelf-photos` istnieje w Studio; upload jako user A nie jest widoczny dla usera B (Storage RLS)
 
-**Implementation Note**: Migracja NIE jest pushowana w branchu. Pauza na potwierdzenie zielonych testów.
+**Implementation Note**: Spike F1 wykonaj NAJPIERW (przed budową endpointu) — determinuje czy architektura uploadu zostaje, czy fallback. Migracja NIE jest pushowana w branchu. Pauza na potwierdzenie zielonych testów.
 
 ---
 
@@ -152,7 +155,7 @@ React island z drag-drop, client-side resize, browser→Storage upload, auto-cha
 
 #### 1. PhotoUploader island
 **File**: `src/components/PhotoUploader.tsx`
-**Intent**: Shelf selector (fetch `/api/shelves`), drag-drop + `<input type=file>`, canvas resize do ≤1568px JPEG q85, upload przez `supabase.browser` `storage.from('shelf-photos').upload('${userId}/${uuid}.jpg', blob)`, potem `POST /api/photos` → photoId, potem `POST .../process` (await), stany progress (Skeleton), render `DetectionDTO[]` (tytuł/autor/confidence + badge koloru), stan `failed` + „Spróbuj ponownie" (re-POST process).
+**Intent**: Shelf selector (fetch `/api/shelves`), drag-drop + `<input type=file>`, canvas resize do ≤1568px JPEG q85, upload przez `supabase.browser` `storage.from('shelf-photos').upload('${userId}/${uuid}.jpg', blob)`, potem `POST /api/photos` → photoId, potem `POST .../process` (await), stany progress (Skeleton), render `DetectionDTO[]` (tytuł/autor/confidence + badge koloru), stan `failed` **lub stale `processing`** + „Spróbuj ponownie" (re-POST process — idempotentny). (F2 plan-review: 'processing' też musi mieć recovery, bo sync disconnect zostawia ten stan.)
 **Contract**: fetch-shape jak w `ShelvesIsland.tsx`; błędy z `{error:{message}}`. Badge koloru mapuje nazwę palety → klasa Tailwind. Polish typographic quotes w JSX → curly-brace form (lessons.md).
 
 #### 2. Upload page
@@ -233,7 +236,8 @@ React island z drag-drop, client-side resize, browser→Storage upload, auto-cha
 - [ ] 2.2 Unit GET /api/photos/[id] (bad UUID→404, not found→404, ok DTO)
 - [ ] 2.3 Typecheck + lint
 #### Manual
-- [ ] 2.4 (post-merge) bucket istnieje + Storage RLS izoluje userów
+- [ ] 2.4 (spike F1) browser client niesie sesję dla Storage upload, lub fallback signed-URL wpięty
+- [ ] 2.5 (post-merge) bucket istnieje + Storage RLS izoluje userów
 
 ### Phase 3: Process endpoint (vision pipeline)
 #### Automated
