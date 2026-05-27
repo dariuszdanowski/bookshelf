@@ -8,7 +8,7 @@ BookShelf Catalog — cataloging app: shelf photo → vision-LLM detects titles 
 - **API error shape is fixed.** Success: `{ data }`. Failure: `{ error: { code, message } }` with `code` in `SCREAMING_SNAKE_CASE`. Always set `Cache-Control: private, no-store`. Return `404` for both "not found" and "owned by another user" — never reveal existence. Check `401` before resource fetch. `export const prerender = false` on every dynamic endpoint.
 - **No `any` in TypeScript.** Use `unknown` + narrowing. Every external I/O (LLM, API, form) goes through a Zod schema with `z.infer<>` types.
 - **Vision retry exactly once.** On Zod parse fail, retry with `thinking: { type: 'enabled' }`. Second fail → insert `corrections` row (`correction_type: 'parse_failure'`) and abort. No Opus escalation in M1.
-- **Deploy Workers, not Pages.** `npx wrangler deploy`, never `wrangler pages deploy`. CI uses `cloudflare/wrangler-action@v3`, not `cloudflare/pages-action` (`@astrojs/cloudflare` v13 dropped Pages).
+- **Deploy Workers, not Pages.** `npx wrangler deploy`, never `wrangler pages deploy`. CI uses `cloudflare/wrangler-action@v4`, not `cloudflare/pages-action` (`@astrojs/cloudflare` v13 dropped Pages).
 - **ESLint pinned at v9.** `eslint-plugin-react@7.x` peer is `eslint <=^9`. Do not bump ESLint without swapping the React plugin.
 
 ## Project structure
@@ -26,11 +26,11 @@ BookShelf Catalog — cataloging app: shelf photo → vision-LLM detects titles 
 
 ## Conventions
 
-Matching score thresholds: `≥0.75` auto-checked in UI; `0.55-0.75` user confirms; `<0.55` manual entry + `corrections` row. Typed Supabase clients at `src/lib/db/supabase.{server,browser}.ts`; service role only in API routes. Single vision-prompt source: `src/lib/vision/prompt.ts`. Lint/format config: `@eslint.config.mjs`, `@.prettierrc.json`.
+Matching score thresholds: `≥0.75` auto-checked in UI; `0.55-0.75` user confirms; `<0.55` manual entry + `corrections` row. Typed Supabase clients at `src/lib/db/supabase.{server,browser}.ts` — server client is RLS-respecting (anon key + user JWT from cookies), **not** service-role. Service-role is not a default data path and lives outside `src/lib/db/` — only narrow privileged routes if/when they arise. Single vision-prompt source: `src/lib/vision/prompt.ts`. Lint/format config: `@eslint.config.mjs`, `@.prettierrc.json`.
 
 ## Commits & PRs
 
-History mixes Polish prose with light Conventional Commits prefixes (`fix(scope):`, `infra:`, `docs:`, `chore:`). PRs target `main`. `.github/workflows/` empty (M1L5 work); run `npm run lint && npm run typecheck && npm run test` locally before pushing.
+History mixes Polish prose with light Conventional Commits prefixes (`fix(scope):`, `infra:`, `docs:`, `chore:`). PRs target `main` (branch-per-change: `change/<id>`). `.github/workflows/` wired: `ci.yml` (lint + typecheck + test + build on PR/push), `deploy.yml` (build + deploy to CF Workers + post-deploy `/api/health` smoke on push to main). Run `npm run lint && npm run typecheck && npm run test` locally before pushing.
 
 ## Deeper context
 
