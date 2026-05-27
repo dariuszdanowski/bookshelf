@@ -241,18 +241,18 @@ React island z drag-drop, client-side resize, browser→Storage upload, auto-cha
 
 ### Phase 3: Process endpoint (vision pipeline)
 #### Automated
-- [x] 3.1 Unit process: happy (detekcje+koszt+processed)
-- [x] 3.2 Unit process: idempotencja (re-process bez duplikatów)
-- [x] 3.3 Unit process: parse_failure→corrections+failed+400
-- [x] 3.4 Unit process: 429→RATE_LIMITED; download fail→500
-- [x] 3.5 Typecheck + lint
+- [x] 3.1 Unit process: happy (detekcje+koszt+processed) — 6181b8a
+- [x] 3.2 Unit process: idempotencja (re-process bez duplikatów) — 6181b8a
+- [x] 3.3 Unit process: parse_failure→corrections+failed+400 — 6181b8a
+- [x] 3.4 Unit process: 429→RATE_LIMITED; download fail→500 — 6181b8a
+- [x] 3.5 Typecheck + lint — 6181b8a
 #### Manual
 - [ ] 3.6 (post-merge) realny vision smoke + Worker Secret check
 
 ### Phase 4: UI — PhotoUploader + strona + e2e
 #### Automated
-- [ ] 4.1 Component test PhotoUploader (sekwencja upload→record→process, retry)
-- [ ] 4.2 Playwright golden path (mock vision) zielony
-- [ ] 4.3 Typecheck + lint + build
+- [x] 4.1 Component test PhotoUploader (sekwencja upload→record→process, retry)
+- [x] 4.2 Playwright golden path (mock vision) zielony
+- [x] 4.3 Typecheck + lint + build
 #### Manual
 - [ ] 4.4 (post-merge) realny upload w przeglądarce → progress → detekcje; failed→retry; nav link

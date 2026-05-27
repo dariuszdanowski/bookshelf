@@ -33,6 +33,13 @@ const user = Astro.locals.user;
           >
             Moje półki
           </a>
+          <a
+            href="/upload"
+            class="font-medium text-gray-700 hover:text-gray-900"
+            data-testid="nav-upload"
+          >
+            Skanuj półkę
+          </a>
           <span data-testid="user-email">{user.email}</span>
           <LogoutButton client:load />
         </header>
