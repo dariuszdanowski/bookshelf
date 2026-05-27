@@ -69,18 +69,27 @@ export default function PhotoUploader({ userId }: { userId: string }) {
   const [result, setResult] = useState<Result | null>(null);
   const [currentPhotoId, setCurrentPhotoId] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [shelvesError, setShelvesError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetch('/api/shelves')
-      .then((r) => r.json())
-      .then((json) => {
-        const typed = json as { data?: { shelves: ShelfDTO[] } };
-        const list = typed.data?.shelves ?? [];
+    // Wzorzec jak ShelvesIsland: sprawdź res.ok i zasurfuj envelope error
+    // (inaczej selektor utyka na „Ładowanie półek..." w nieskończoność).
+    (async () => {
+      try {
+        const res = await fetch('/api/shelves');
+        if (!res.ok) {
+          const body = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+          throw new Error(body.error?.message ?? `HTTP ${res.status}`);
+        }
+        const json = (await res.json()) as { data: { shelves: ShelfDTO[] } };
+        const list = json.data.shelves;
         setShelves(list);
         if (list.length > 0) setSelectedShelfId(list[0].id);
-      })
-      .catch(() => {});
+      } catch (err) {
+        setShelvesError(err instanceof Error ? err.message : 'Nie udało się pobrać półek.');
+      }
+    })();
   }, []);
 
   const processPhoto = useCallback(
@@ -191,7 +200,15 @@ export default function PhotoUploader({ userId }: { userId: string }) {
         <label htmlFor="shelf-select" className="mb-1 block text-sm font-medium text-gray-700">
           Półka
         </label>
-        {shelves.length === 0 ? (
+        {shelvesError ? (
+          <p
+            className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700"
+            role="alert"
+            data-testid="shelves-error"
+          >
+            {shelvesError}
+          </p>
+        ) : shelves.length === 0 ? (
           <p className="text-sm text-gray-500">Ładowanie półek...</p>
         ) : (
           <select

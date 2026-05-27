@@ -12,6 +12,13 @@ insert into storage.buckets (id, name, public)
 values ('shelf-photos', 'shelf-photos', false)
 on conflict (id) do nothing;
 
+-- Idempotencja: drop-if-exists przed create (Postgres nie ma
+-- „create policy if not exists"; precedens 0004). Pozwala na bezpieczny
+-- re-push tej migracji.
+drop policy if exists "shelf_photos_select_own" on storage.objects;
+drop policy if exists "shelf_photos_insert_own" on storage.objects;
+drop policy if exists "shelf_photos_delete_own" on storage.objects;
+
 -- SELECT: zalogowany user widzi tylko własne obiekty
 create policy "shelf_photos_select_own"
   on storage.objects for select

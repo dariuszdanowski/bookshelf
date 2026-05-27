@@ -16,6 +16,12 @@ export const prerender = false;
  * PGRST116 (no rows z `.single()`) → 404 NOT_FOUND.
  */
 export const GET: APIRoute = async ({ params, locals }) => {
+  // Symetria z index.ts/process.ts — middleware już 401-uje /api/*, ale guard
+  // czyni endpoint samowystarczalnym (401 przed enumeracją zasobu).
+  if (!locals.user) {
+    return apiError({ code: 'UNAUTHENTICATED', status: 401, message: 'Authentication required.' });
+  }
+
   const id = parseUuidParam(params.id);
   if (!id) {
     return apiError({ code: 'NOT_FOUND', status: 404, message: 'Not found.' });

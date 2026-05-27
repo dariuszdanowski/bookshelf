@@ -44,6 +44,7 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | S-11  | health-check-endpoint        | `GET /api/health` zwraca `{data:{status,version,timestamp}}` z F-02 envelope; whitelisted w middleware | F-02 | NFR (monitoring) | done     |
 | S-12  | loading-skeleton-component   | Generic React `<Skeleton />` (gray pulsing div) gotowy dla S-03/S-04/S-08 | — | UI substrate | done     |
 | S-13  | header-nav-when-auth         | header nav „Moje półki" → /shelves dla auth user'a + landing CTA pivot na /shelves (do czasu /library w S-08) | S-02 | UX polish | done     |
+| S-14  | photo-process-reload-recovery | po reloadzie /upload odzyskać stan utkniętego 'processing' (GET /api/photos/[id]) + retry | S-03 | UX recovery | proposed |
 
 ## Streams
 
@@ -267,6 +268,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 | S-10       | custom-404-page              | Custom Astro 404 page                                            | yes                   | Stream E bucket — eksperyment parallel |
 | S-11       | health-check-endpoint        | `GET /api/health` endpoint + middleware whitelist                | yes                   | Stream E bucket — eksperyment parallel |
 | S-12       | loading-skeleton-component   | Generic React `<Skeleton />` komponent                            | yes                   | Stream E bucket — eksperyment parallel |
+| S-14       | photo-process-reload-recovery | Reload-recovery utkniętego 'processing' na /upload (konsumuje GET /api/photos/[id]) | yes | Follow-up z S-03 impl-review (F2); happy-path retry już działa |
 
 ## Open Roadmap Questions
 

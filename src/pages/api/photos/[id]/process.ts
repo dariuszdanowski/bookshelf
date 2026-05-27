@@ -126,7 +126,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
   await locals.supabase.from('detections').delete().eq('photo_id', id);
 
   if (visionResult.detections.length > 0) {
-    await locals.supabase.from('detections').insert(
+    const { error: insertError } = await locals.supabase.from('detections').insert(
       visionResult.detections.map((d) => ({
         photo_id: id,
         position_index: d.position,
@@ -137,10 +137,25 @@ export const POST: APIRoute = async ({ params, locals }) => {
         status: 'pending',
       }))
     );
+    // Bez tego check'u: failed insert + flip do 'processed' = cicha utrata
+    // danych (detected_count kłamie, GET zwraca pustą listę). Flip do
+    // 'failed', by re-process był możliwy i status mówił prawdę.
+    if (insertError) {
+      await locals.supabase.from('photos').update({
+        status: 'failed',
+        error_message: insertError.message,
+      }).eq('id', id);
+      console.error('[api/photos/process POST] detections insert failed', {
+        name: insertError.name,
+        message: insertError.message,
+        code: insertError.code,
+      });
+      return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się zapisać detekcji.' });
+    }
   }
 
   // 7. Mark photo as processed with metrics
-  await locals.supabase.from('photos').update({
+  const { error: finalError } = await locals.supabase.from('photos').update({
     status: 'processed',
     vision_model: visionResult.model,
     vision_cost_usd: visionResult.costUsd,
@@ -150,12 +165,32 @@ export const POST: APIRoute = async ({ params, locals }) => {
     error_message: null,
   }).eq('id', id);
 
-  // 8. Re-fetch final state for response (canonical post-update shape)
-  const { data: updatedPhoto } = await locals.supabase
+  if (finalError) {
+    console.error('[api/photos/process POST] final status update failed', {
+      name: finalError.name,
+      message: finalError.message,
+      code: finalError.code,
+    });
+    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się zaktualizować statusu zdjęcia.' });
+  }
+
+  // 8. Re-fetch final state for response (canonical post-update shape).
+  // Praca JUŻ się udała (status flipnięty, detekcje zapisane) — gdyby re-fetch
+  // padł, nie chcemy raw throw omijającego envelope. Error-check + czysty 500.
+  const { data: updatedPhoto, error: refetchError } = await locals.supabase
     .from('photos')
     .select('id, shelf_id, status, detected_count, error_message, vision_cost_usd, vision_latency_ms, created_at')
     .eq('id', id)
     .single();
+
+  if (refetchError || !updatedPhoto) {
+    console.error('[api/photos/process POST] final re-fetch failed', {
+      name: refetchError?.name,
+      message: refetchError?.message,
+      code: refetchError?.code,
+    });
+    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Przetworzono, ale nie udało się odczytać stanu zdjęcia.' });
+  }
 
   const { data: detRows } = await locals.supabase
     .from('detections')
@@ -164,14 +199,14 @@ export const POST: APIRoute = async ({ params, locals }) => {
     .order('position_index', { ascending: true });
 
   const photoDto: PhotoDTO = {
-    id: updatedPhoto!.id,
-    shelf_id: updatedPhoto!.shelf_id,
-    status: updatedPhoto!.status,
-    detected_count: updatedPhoto!.detected_count,
-    error_message: updatedPhoto!.error_message,
-    vision_cost_usd: updatedPhoto!.vision_cost_usd,
-    vision_latency_ms: updatedPhoto!.vision_latency_ms,
-    created_at: updatedPhoto!.created_at,
+    id: updatedPhoto.id,
+    shelf_id: updatedPhoto.shelf_id,
+    status: updatedPhoto.status,
+    detected_count: updatedPhoto.detected_count,
+    error_message: updatedPhoto.error_message,
+    vision_cost_usd: updatedPhoto.vision_cost_usd,
+    vision_latency_ms: updatedPhoto.vision_latency_ms,
+    created_at: updatedPhoto.created_at,
   };
 
   const detections: DetectionDTO[] = (detRows ?? []).map((row) => ({
