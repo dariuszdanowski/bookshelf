@@ -3,7 +3,7 @@ project: "BookShelf Scanner"
 version: 1
 status: draft
 created: 2026-05-25
-updated: 2026-05-26
+updated: 2026-05-27
 prd_version: 1
 main_goal: speed
 top_blocker: time
@@ -33,7 +33,7 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | F-02  | api-response-contract        | (foundation) typowany kontrakt odpowiedzi API + guard     | —             | FR-004, NFR-privacy   | done     |
 | S-01  | email-password-auth          | zarejestrować się, zalogować, wylogować; ochrona ścieżek  | F-01, F-02    | FR-001, FR-003, FR-004 | done     |
 | S-02  | shelves-crud-and-purchased   | tworzyć/edytować/usuwać półki; auto-półka "Zakupione"     | S-01          | FR-005–009            | done     |
-| S-03  | shelf-photo-vision-detection | wgrać zdjęcie półki → rozpoznane detekcje grzbietów        | S-02          | FR-010–014, FR-039    | proposed |
+| S-03  | shelf-photo-vision-detection | wgrać zdjęcie półki → rozpoznane detekcje grzbietów        | S-02          | FR-010–014, FR-039    | done     |
 | S-04  | external-match-and-proposals | zobaczyć propozycje z bazy publicznej + flagi duplikatów  | S-03          | FR-015–018            | proposed |
 | S-05  | proposal-accept-to-catalog   | akceptować/odrzucać/korygować → katalog + widok półki     | S-04          | FR-019–024, FR-037    | proposed |
 | S-06  | add-purchase-flow            | dodać zakup (ręcznie/zdjęcie) na półkę "Zakupione"        | S-05, S-02    | FR-025–028            | proposed |
@@ -136,7 +136,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
   - Finalna paleta ~10 nazwanych kolorów grzbietu (Open Q2) — Owner: użytkownik. Block: no (kierunek: 11 sugerowanych kolorów w PRD; zamrozić przed S-08, bo kolor jest częścią kontraktu rozpoznawania).
   - Eskalacja modelu vision przy padających detekcjach (Open Q5) — Owner: użytkownik. Block: no (w MVP jeden model; Opus jako post-MVP fallback).
 - **Risk:** rdzeń ryzyka technicznego (recall ≥ 70%) + idempotentna persystencja detekcji (no-data-loss guardrail); reality check dał recall 100% / precision ~82% na polskiej półce, więc ryzyko częściowo zdjęte, ale to najdroższy i najbardziej zmienny krok pipeline'u.
-- **Status:** proposed
+- **Status:** done
 
 ### S-04: Matching z bazą publiczną + propozycje z dedupe
 
@@ -304,5 +304,6 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **S-12: Generic React `<Skeleton />` (gray pulsing div) gotowy dla S-03/S-04/S-08** — Archived 2026-05-26 → `context/archive/2026-05-26-loading-skeleton-component/`. Lesson: —. Substrate komponent — bez konsumenta teraz, ready dla przyszłych slice'ów loading states. (Stream E parallel experiment slice 4/4.)
 - **S-02: tworzyć/edytować/usuwać półki; auto-półka „Zakupione"** — Archived 2026-05-26 → `context/archive/2026-05-26-shelves-crud-and-purchased/`. Lesson: workflow „branch per change" zaadoptowany od tego slice'a — całość w `change/shelves-crud-and-purchased` + PR (zob. `lessons.md` § Branch per change workflow). Integration + E2E testy napisane z `describe.skip` na brak env (deferred do post-merge po `supabase db push` migracji 0004).
 - **S-13: header nav „Moje półki" → /shelves dla auth user'a + landing CTA pivot na /shelves (do czasu /library w S-08)** — Archived 2026-05-27 → `context/archive/2026-05-27-header-nav-when-auth/`. Lesson: —. UX gap fix po S-02 (nikt nigdzie nie linkował /shelves; landing CTA z S-09 prowadził do nieistniejącego /library). Po S-08 wrócimy do oryginalnej intencji S-09 z linkiem do /library.
+- **S-03: użytkownik może wgrać jedno zdjęcie półki (drag-drop / wybór z dysku) przypisane do wybranej fizycznej półki; system przetwarza je, wydobywa detekcje (tytuł, autor, pewność, dominujący kolor grzbietu z palety ~10), persistuje wszystkie detekcje przed matchingiem (idempotentny retry) i pokazuje status z paskiem postępu; koszt + latencja zapisane na rekordzie zdjęcia.** — Archived 2026-05-27 → `context/archive/2026-05-27-shelf-photo-vision-detection/`. Lesson: —. Follow-up S-14 (reload-recovery utkniętego 'processing') zarejestrowany z impl-review F2. Manual smoke (bucket, vision, Worker Secret) deferred do post-merge + `supabase db push`.
 
 (Pusta przy pierwszej generacji. `/10x-archive` dopisuje tu wpis — i przerzuca Status pozycji na `done` — gdy archiwizowana zmiana ma `Change ID` zgodny z pozycją roadmapy. NIE wypełniać ręcznie.)

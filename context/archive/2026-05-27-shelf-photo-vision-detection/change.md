@@ -1,10 +1,10 @@
 ---
 change_id: shelf-photo-vision-detection
 title: Upload zdjęcia półki + detekcja grzbietów (vision)
-status: impl_reviewed
+status: archived
 created: 2026-05-27
 updated: 2026-05-27
-archived_at: null
+archived_at: 2026-05-27T21:58:08Z
 ---
 
 ## Notes
