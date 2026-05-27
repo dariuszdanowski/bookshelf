@@ -236,7 +236,7 @@ React island z drag-drop, client-side resize, browser→Storage upload, auto-cha
 - [x] 2.2 Unit GET /api/photos/[id] (bad UUID→404, not found→404, ok DTO) — 5d59f40
 - [x] 2.3 Typecheck + lint — 5d59f40
 #### Manual
-- [ ] 2.4 (spike F1) browser client niesie sesję dla Storage upload, lub fallback signed-URL wpięty
+- [x] 2.4 (spike F1) browser client niesie sesję dla Storage upload, lub fallback signed-URL wpięty
 - [ ] 2.5 (post-merge) bucket istnieje + Storage RLS izoluje userów
 
 ### Phase 3: Process endpoint (vision pipeline)
@@ -251,8 +251,8 @@ React island z drag-drop, client-side resize, browser→Storage upload, auto-cha
 
 ### Phase 4: UI — PhotoUploader + strona + e2e
 #### Automated
-- [x] 4.1 Component test PhotoUploader (sekwencja upload→record→process, retry)
-- [x] 4.2 Playwright golden path (mock vision) zielony
-- [x] 4.3 Typecheck + lint + build
+- [x] 4.1 Component test PhotoUploader (sekwencja upload→record→process, retry) — c528886
+- [x] 4.2 Playwright golden path (mock vision) zielony — c528886
+- [x] 4.3 Typecheck + lint + build — c528886
 #### Manual
 - [ ] 4.4 (post-merge) realny upload w przeglądarce → progress → detekcje; failed→retry; nav link
