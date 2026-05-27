@@ -232,20 +232,20 @@ React island z drag-drop, client-side resize, browser→Storage upload, auto-cha
 
 ### Phase 2: Storage bucket + record endpoint
 #### Automated
-- [x] 2.1 Unit POST /api/photos (201, 400, 23503→404)
-- [x] 2.2 Unit GET /api/photos/[id] (bad UUID→404, not found→404, ok DTO)
-- [x] 2.3 Typecheck + lint
+- [x] 2.1 Unit POST /api/photos (201, 400, 23503→404) — 5d59f40
+- [x] 2.2 Unit GET /api/photos/[id] (bad UUID→404, not found→404, ok DTO) — 5d59f40
+- [x] 2.3 Typecheck + lint — 5d59f40
 #### Manual
 - [ ] 2.4 (spike F1) browser client niesie sesję dla Storage upload, lub fallback signed-URL wpięty
 - [ ] 2.5 (post-merge) bucket istnieje + Storage RLS izoluje userów
 
 ### Phase 3: Process endpoint (vision pipeline)
 #### Automated
-- [ ] 3.1 Unit process: happy (detekcje+koszt+processed)
-- [ ] 3.2 Unit process: idempotencja (re-process bez duplikatów)
-- [ ] 3.3 Unit process: parse_failure→corrections+failed+400
-- [ ] 3.4 Unit process: 429→RATE_LIMITED; download fail→500
-- [ ] 3.5 Typecheck + lint
+- [x] 3.1 Unit process: happy (detekcje+koszt+processed)
+- [x] 3.2 Unit process: idempotencja (re-process bez duplikatów)
+- [x] 3.3 Unit process: parse_failure→corrections+failed+400
+- [x] 3.4 Unit process: 429→RATE_LIMITED; download fail→500
+- [x] 3.5 Typecheck + lint
 #### Manual
 - [ ] 3.6 (post-merge) realny vision smoke + Worker Secret check
 
