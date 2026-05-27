@@ -1,0 +1,18 @@
+---
+import Layout from '../layouts/Layout.astro';
+import PhotoUploader from '../components/PhotoUploader.tsx';
+
+// Protected path: middleware ensures locals.user is non-null (redirect to /login for anon).
+const userId = Astro.locals.user!.id;
+---
+
+<Layout title="Skanuj półkę">
+  <main class="mx-auto max-w-2xl p-8">
+    <h1 class="mb-6 text-3xl font-bold">Skanuj półkę</h1>
+    <p class="mb-6 text-sm text-gray-600">
+      Wybierz półkę, a następnie wgraj zdjęcie — system wykryje tytuły i autorów grzbietów
+      widocznych na zdjęciu.
+    </p>
+    <PhotoUploader client:load userId={userId} />
+  </main>
+</Layout>
