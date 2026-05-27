@@ -225,10 +225,10 @@ React island z drag-drop, client-side resize, browser→Storage upload, auto-cha
 
 ### Phase 1: Vision domain module
 #### Automated
-- [ ] 1.1 Unit DetectionSchema (valid/invalid confidence, title, spine_color enum)
-- [ ] 1.2 Unit client.detectSpines (happy, retry-with-thinking, parse_failure) z mock SDK
-- [ ] 1.3 Typecheck passes
-- [ ] 1.4 Lint passes
+- [x] 1.1 Unit DetectionSchema (valid/invalid confidence, title, spine_color enum)
+- [x] 1.2 Unit client.detectSpines (happy, retry-with-thinking, parse_failure) z mock SDK
+- [x] 1.3 Typecheck passes
+- [x] 1.4 Lint passes
 
 ### Phase 2: Storage bucket + record endpoint
 #### Automated
