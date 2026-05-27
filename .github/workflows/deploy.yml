@@ -39,8 +39,41 @@ jobs:
           PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
 
       - name: Deploy to Cloudflare Workers
+        id: deploy
         uses: cloudflare/wrangler-action@v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: deploy
+
+      - name: Smoke test (post-deploy /api/health)
+        # Wykrywa zombie-deploy: build zielony, ale Worker padł na boot — np.
+        # brak PUBLIC_SUPABASE_* w Worker Secrets. Middleware konstruuje klienta
+        # Supabase dla KAŻDEJ trasy (także /api/health), więc przy brakujących
+        # sekretach bootstrap rzuca i /api/* zwraca 500 → smoke fail w ~30s
+        # zamiast czekać na user incident (precedens: 1.5h debug 2026-05-26).
+        #
+        # Adaptacja vs m1m2-audit D1: pojedynczy probe na /api/health zamiast
+        # health + auth-login z fake body. Powód: /api/auth/login zwraca generic
+        # 401 i dla złych creds, i dla błędnego anon-key (privacy-by-design,
+        # src/pages/api/auth/login.ts) — nie odróżnia "wired" od "drifted", więc
+        # dorzuca flakiness bez sygnału. URL z wrangler-action `deployment-url`
+        # output (Wrangler ≥3.81.0 structured output; repo na 4.x).
+        env:
+          DEPLOY_URL: ${{ steps.deploy.outputs.deployment-url }}
+        run: |
+          if [ -z "$DEPLOY_URL" ]; then
+            echo "::error::wrangler-action nie zwrócił deployment-url (workers.dev route wyłączony?)"
+            exit 1
+          fi
+          HEALTH_URL="$DEPLOY_URL/api/health"
+          echo "Smoke testing: $HEALTH_URL"
+          body=$(curl --fail-with-body --silent --show-error \
+            --retry 3 --retry-delay 3 --retry-connrefused --max-time 20 \
+            "$HEALTH_URL")
+          echo "Response body: $body"
+          echo "$body" | grep -q '"status":"ok"' || {
+            echo "::error::/api/health zwrócił 2xx ale body bez \"status\":\"ok\""
+            exit 1
+          }
+          echo "Smoke test OK"
