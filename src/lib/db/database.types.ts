@@ -178,6 +178,7 @@ export type Database = {
           spine_color: string | null
           status: string
           vision_confidence: number | null
+          vision_run_id: string
         }
         Insert: {
           bbox_x1?: number | null
@@ -194,6 +195,7 @@ export type Database = {
           spine_color?: string | null
           status?: string
           vision_confidence?: number | null
+          vision_run_id?: string
         }
         Update: {
           bbox_x1?: number | null
@@ -210,6 +212,7 @@ export type Database = {
           spine_color?: string | null
           status?: string
           vision_confidence?: number | null
+          vision_run_id?: string
         }
         Relationships: [
           {
@@ -217,6 +220,13 @@ export type Database = {
             columns: ["photo_id"]
             isOneToOne: false
             referencedRelation: "photos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "detections_vision_run_id_fkey"
+            columns: ["vision_run_id"]
+            isOneToOne: false
+            referencedRelation: "vision_runs"
             referencedColumns: ["id"]
           },
         ]
@@ -383,6 +393,53 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      vision_runs: {
+        Row: {
+          completed_at: string | null
+          cost_usd: number | null
+          created_at: string
+          error_message: string | null
+          id: string
+          latency_ms: number | null
+          model: string | null
+          photo_id: string
+          prompt_version: string | null
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          latency_ms?: number | null
+          model?: string | null
+          photo_id: string
+          prompt_version?: string | null
+          status: string
+        }
+        Update: {
+          completed_at?: string | null
+          cost_usd?: number | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          latency_ms?: number | null
+          model?: string | null
+          photo_id?: string
+          prompt_version?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vision_runs_photo_id_fkey"
+            columns: ["photo_id"]
+            isOneToOne: false
+            referencedRelation: "photos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
