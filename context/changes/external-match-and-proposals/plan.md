@@ -376,12 +376,12 @@ Read-only strona review pokazująca tierowane propozycje + flagi duplikatów; `/
 
 #### Automated
 
-- [x] 3.1 Unit: DetectionReview renderuje tiery + flagi + placeholder zero-match
-- [x] 3.2 Unit: GET /api/photos/[id] dołącza kandydatów + flagę przy matched
-- [x] 3.3 E2E: upload→detect→match→redirect→review pokazuje propozycje (mock)
-- [x] 3.4 Typecheck zielony
-- [x] 3.5 Lint zielony
-- [x] 3.6 Build zielony
+- [x] 3.1 Unit: DetectionReview renderuje tiery + flagi + placeholder zero-match — 5eaacb5
+- [x] 3.2 Unit: GET /api/photos/[id] dołącza kandydatów + flagę przy matched — 5eaacb5
+- [x] 3.3 E2E: upload→detect→match→redirect→review pokazuje propozycje (mock) — 5eaacb5
+- [x] 3.4 Typecheck zielony — 5eaacb5
+- [x] 3.5 Lint zielony — 5eaacb5
+- [x] 3.6 Build zielony — 5eaacb5
 
 #### Manual
 
