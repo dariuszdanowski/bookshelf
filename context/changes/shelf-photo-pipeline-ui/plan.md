@@ -450,18 +450,18 @@ Nowa strona `/shelves/[id].astro` renderuje `PhotoListIsland` — React komponen
 
 #### Automated
 
-- [x] 3.1 Typecheck pass: `npm run typecheck`
-- [x] 3.2 Lint pass: `npm run lint`
-- [x] 3.3 Vitest pass: `npm run test` (z nowym `PhotoListIsland.test.tsx`)
-- [x] 3.4 Astro build pass: `npm run build`
+- [x] 3.1 Typecheck pass: `npm run typecheck` — 46ed831
+- [x] 3.2 Lint pass: `npm run lint` — 46ed831
+- [x] 3.3 Vitest pass: `npm run test` (z nowym `PhotoListIsland.test.tsx`) — 46ed831
+- [x] 3.4 Astro build pass: `npm run build` — 46ed831
 
 #### Manual
 
-- [x] 3.5 `/shelves` pokazuje link „Zobacz zdjęcia →" na każdej półce
-- [x] 3.6 `/shelves/[id]` pokazuje listę zdjęć z miniaturkami i stage badge
-- [x] 3.7 „Run vision" na uploaded photo → po sukcesie wiersz pokazuje vision_done (refetch)
-- [x] 3.8 „Re-run vision" pokazuje confirm; po OK → nowy run, w Studio widać 2 succeeded + obie generacje detections
-- [x] 3.9 Double-click „Run vision" w 1s → drugi dostaje toast 409
-- [x] 3.10 `/photos/[id]` ma badge vision_run metadanych + akcje Ponów vision/match
-- [x] 3.11 Photo z tylko failed runs pokazuje stage uploaded + akcja Uruchom vision
-- [x] 3.12 Mobile responsive sanity check (<640px) — lista zdjęć nadal czytelna
+- [x] 3.5 `/shelves` pokazuje link „Zobacz zdjęcia →" na każdej półce — 46ed831
+- [x] 3.6 `/shelves/[id]` pokazuje listę zdjęć z miniaturkami i stage badge — 46ed831
+- [x] 3.7 „Run vision" na uploaded photo → po sukcesie wiersz pokazuje vision_done (refetch) — 46ed831
+- [x] 3.8 „Re-run vision" pokazuje confirm; po OK → nowy run, w Studio widać 2 succeeded + obie generacje detections — 46ed831
+- [x] 3.9 Double-click „Run vision" w 1s → drugi dostaje toast 409 — 46ed831
+- [x] 3.10 `/photos/[id]` ma badge vision_run metadanych + akcje Ponów vision/match — 46ed831
+- [x] 3.11 Photo z tylko failed runs pokazuje stage uploaded + akcja Uruchom vision — 46ed831
+- [x] 3.12 Mobile responsive sanity check (<640px) — lista zdjęć nadal czytelna — 46ed831
