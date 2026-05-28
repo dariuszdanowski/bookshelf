@@ -21,7 +21,6 @@ export default [
       'context/',
       'docs/',
       'supabase/migrations/',
-      'verify-phase3.mjs',
     ],
   },
 
