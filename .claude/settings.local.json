@@ -5,7 +5,15 @@
       "Bash(npm run *)",
       "Bash(npm install *)",
       "Skill(10x-lesson)",
-      "Bash(git *)"
+      "Bash(git *)",
+      "Bash(echo \"=== EXIT: $? ===\")"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "cloudflare",
+    "exa",
+    "context7",
+    "supabase"
+  ],
+  "enableAllProjectMcpServers": true
 }

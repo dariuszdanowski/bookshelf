@@ -3,9 +3,16 @@
   "configurations": [
     {
       "command": "./node_modules/.bin/astro dev",
-      "name": "Development server",
+      "name": "Development server (jak jest aktywne w .dev.vars)",
       "request": "launch",
       "type": "node-terminal"
+    },
+    {
+      "command": "npm run dev:local",
+      "name": "Dev server (local Supabase)",
+      "request": "launch",
+      "type": "node-terminal",
+      "preLaunchTask": "Pre-dev: env:local + supabase start"
     }
   ]
 }

@@ -2,7 +2,31 @@ import type { APIContext, MiddlewareNext } from 'astro';
 import type { AuthUser } from '@supabase/supabase-js';
 
 import { createServerSupabaseClient } from '../db/supabase.server';
+import { detectDbEnvironment, getSupabaseUrl, ENV_LABEL } from '../db/environment';
 import { apiError } from '../http/response';
+
+/**
+ * Jednorazowy banner przy pierwszym requeście — żeby przy `npm run dev:host`
+ * od razu było widać do którego Supabase jesteśmy podpięci (local vs prod).
+ * Module-level flag bo Astro nie ma natywnego on-server-start hooka; pierwszy
+ * request middleware = pierwsza okazja do logu w runtime.
+ */
+let bannerLogged = false;
+function logEnvBannerOnce(): void {
+  if (bannerLogged) return;
+  bannerLogged = true;
+  const dbEnv = detectDbEnvironment();
+  const url = getSupabaseUrl();
+  const marker = dbEnv === 'prod' ? '!!!' : '   ';
+  const line = '='.repeat(60);
+  console.log(`\n${line}`);
+  console.log(`${marker} Supabase target: ${ENV_LABEL[dbEnv]}`);
+  console.log(`${marker} URL: ${url || '(brak URL!)'}`);
+  if (dbEnv === 'prod') {
+    console.log(`${marker} UWAGA: mutacje idą na PRODUKCJĘ`);
+  }
+  console.log(`${line}\n`);
+}
 
 /**
  * Whitelist ścieżek nie wymagających sesji. Default secure — wszystko poza tą
@@ -30,6 +54,8 @@ export async function handleRequest(
   context: APIContext,
   next: MiddlewareNext
 ): Promise<Response> {
+  logEnvBannerOnce();
+
   // Bootstrap może paść przy missing env (createServerSupabaseClient rzuca
   // czytelnym Error'em). Bez catch raw 500 omija envelope contract dla /api/.
   // Strony pozwalamy padać do Astro default 500 page (brak envelope contract
