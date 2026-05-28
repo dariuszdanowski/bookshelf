@@ -1,10 +1,10 @@
 ---
 change_id: shelf-photo-pipeline-ui
 title: Transparent photo pipeline — shelf photo list with per-step manual controls
-status: implemented
+status: archived
 created: 2026-05-28
-updated: 2026-05-28
-archived_at: null
+updated: 2026-05-29
+archived_at: 2026-05-28T22:38:24Z
 ---
 
 ## Notes
