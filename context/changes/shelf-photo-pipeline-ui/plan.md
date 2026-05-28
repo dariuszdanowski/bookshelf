@@ -415,36 +415,36 @@ Nowa strona `/shelves/[id].astro` renderuje `PhotoListIsland` — React komponen
 
 #### Automated
 
-- [x] 1.1 Migration aplikuje się czysto przeciwko świeżej DB (`npx supabase db push` lub lokalny shadow `psql -f`)
-- [x] 1.2 Typecheck pass: `npm run typecheck`
-- [x] 1.3 Lint pass: `npm run lint`
-- [x] 1.4 Vitest pass: `npm run test`
-- [x] 1.5 `database.types.ts` zawiera typ `vision_runs` Tables row
+- [x] 1.1 Migration aplikuje się czysto przeciwko świeżej DB (`npx supabase db push` lub lokalny shadow `psql -f`) — 4d40633
+- [x] 1.2 Typecheck pass: `npm run typecheck` — 4d40633
+- [x] 1.3 Lint pass: `npm run lint` — 4d40633
+- [x] 1.4 Vitest pass: `npm run test` — 4d40633
+- [x] 1.5 `database.types.ts` zawiera typ `vision_runs` Tables row — 4d40633
 
 #### Manual
 
-- [x] 1.6 Supabase Studio: `select * from vision_runs` zwraca ≥1 wiersz per istniejący photo z detekcjami
-- [x] 1.7 `select count(*) from detections where vision_run_id is null` = 0
-- [x] 1.8 Dwukrotny `insert into vision_runs` z `status='running'` dla tego samego photo: drugi rzuca P0001
-- [x] 1.9 RLS isolation: user A nie widzi `vision_runs` user'a B w Studio (anon JWT A)
+- [x] 1.6 Supabase Studio: `select * from vision_runs` zwraca ≥1 wiersz per istniejący photo z detekcjami — 4d40633
+- [x] 1.7 `select count(*) from detections where vision_run_id is null` = 0 — 4d40633
+- [x] 1.8 Dwukrotny `insert into vision_runs` z `status='running'` dla tego samego photo: drugi rzuca P0001 — 4d40633
+- [x] 1.9 RLS isolation: user A nie widzi `vision_runs` user'a B w Studio (anon JWT A) — 4d40633
 
 ### Phase 2: API — versioned /process, run-scoped /match, list-by-shelf endpoint, CONFLICT code
 
 #### Automated
 
-- [ ] 2.1 Typecheck pass: `npm run typecheck`
-- [ ] 2.2 Lint pass: `npm run lint`
-- [ ] 2.3 Vitest pass: `npm run test` (z nowymi/zaktualizowanymi testami process / match / shelves photos)
-- [ ] 2.4 Test `process.test.ts`: P0001 mock → 409 CONFLICT z envelope
-- [ ] 2.5 Test `match.test.ts`: operuje tylko na detections z najnowszego succeeded run
+- [x] 2.1 Typecheck pass: `npm run typecheck`
+- [x] 2.2 Lint pass: `npm run lint`
+- [x] 2.3 Vitest pass: `npm run test` (z nowymi/zaktualizowanymi testami process / match / shelves photos)
+- [x] 2.4 Test `process.test.ts`: P0001 mock → 409 CONFLICT z envelope
+- [x] 2.5 Test `match.test.ts`: operuje tylko na detections z najnowszego succeeded run
 
 #### Manual
 
-- [ ] 2.6 `curl POST /process` dwa razy pod rząd: drugi zwraca 409 CONFLICT z Polish message
-- [ ] 2.7 Po sukcesie `/process`: w Studio nowy wiersz `vision_runs` succeeded + detections z `vision_run_id`
-- [ ] 2.8 Ponowny `/process` po >1min: nowy run, stare detections zachowane, `select latest succeeded` zwraca nowe
-- [ ] 2.9 `curl GET /api/shelves/<id>/photos` zwraca listę z poprawnym stage + ważne signed URL thumbnaila
-- [ ] 2.10 `src/lib/vision/AGENTS.md` zaktualizowany — bullet „Idempotencja" zastąpiony nowym „Wersjonowanie vision" + concurrency trigger note
+- [x] 2.6 `curl POST /process` dwa razy pod rząd: drugi zwraca 409 CONFLICT z Polish message
+- [x] 2.7 Po sukcesie `/process`: w Studio nowy wiersz `vision_runs` succeeded + detections z `vision_run_id`
+- [x] 2.8 Ponowny `/process` po >1min: nowy run, stare detections zachowane, `select latest succeeded` zwraca nowe
+- [x] 2.9 `curl GET /api/shelves/<id>/photos` zwraca listę z poprawnym stage + ważne signed URL thumbnaila
+- [x] 2.10 `src/lib/vision/AGENTS.md` zaktualizowany — bullet „Idempotencja" zastąpiony nowym „Wersjonowanie vision" + concurrency trigger note
 
 ### Phase 3: UI — /shelves/[id] page + PhotoListIsland + augmented DetectionReview + nawigacja
 

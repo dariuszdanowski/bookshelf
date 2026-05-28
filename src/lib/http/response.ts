@@ -13,7 +13,8 @@ export type ApiErrorCode =
   | 'NOT_FOUND'
   | 'VALIDATION_ERROR'
   | 'INTERNAL_ERROR'
-  | 'RATE_LIMITED';
+  | 'RATE_LIMITED'
+  | 'CONFLICT';
 
 const DEFAULT_HEADERS = {
   'Content-Type': 'application/json',

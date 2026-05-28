@@ -64,14 +64,41 @@ export const GET: APIRoute = async ({ params, locals }) => {
     created_at: data.created_at,
   };
 
-  if (data.status !== 'processed') {
-    return apiResponse({ data: { photo } });
+  // Latest succeeded vision_run — defines which detections to show
+  const { data: latestRun, error: runError } = await locals.supabase
+    .from('vision_runs')
+    .select('id, model, created_at, cost_usd, latency_ms')
+    .eq('photo_id', id)
+    .eq('status', 'succeeded')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (runError) {
+    console.error('[api/photos GET] vision_runs select failed', {
+      name: runError.name,
+      message: runError.message,
+      code: runError.code,
+    });
+    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się pobrać vision run.' });
   }
+
+  if (!latestRun) {
+    return apiResponse({ data: { photo, detections: [], vision_run: null } });
+  }
+
+  const visionRun = {
+    id: latestRun.id,
+    model: latestRun.model,
+    created_at: latestRun.created_at,
+    cost_usd: latestRun.cost_usd,
+    latency_ms: latestRun.latency_ms,
+  };
 
   const { data: detRows, error: detError } = await locals.supabase
     .from('detections')
     .select('id, position_index, raw_title, raw_author, vision_confidence, spine_color, bbox_x1, bbox_y1, bbox_x2, bbox_y2, status')
-    .eq('photo_id', id)
+    .eq('vision_run_id', latestRun.id)
     .order('position_index', { ascending: true });
 
   if (detError) {
@@ -87,7 +114,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
 
   if (rows.length === 0) {
     const detections: DetectionWithCandidatesDTO[] = [];
-    return apiResponse({ data: { photo, detections } });
+    return apiResponse({ data: { photo, detections, vision_run: visionRun } });
   }
 
   const detectionIds = rows.map((d) => d.id);
@@ -193,5 +220,5 @@ export const GET: APIRoute = async ({ params, locals }) => {
     };
   });
 
-  return apiResponse({ data: { photo, detections } });
+  return apiResponse({ data: { photo, detections, vision_run: visionRun } });
 };
