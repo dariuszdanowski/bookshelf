@@ -29,6 +29,28 @@ export type DetectionDTO = {
   bbox: { x1: number; y1: number; x2: number; y2: number } | null;
 };
 
+export type PhotoListItemDTO = {
+  id: string;
+  status: string;
+  stage: 'uploaded' | 'processing' | 'vision_done' | 'match_done' | 'confirmed';
+  created_at: string;
+  thumbnail_url: string | null;
+  detected_count: number;
+  matched_count: number;
+  confirmed_count: number;
+  latest_vision_run: {
+    id: string;
+    model: string | null;
+    created_at: string;
+    cost_usd: number | null;
+  } | null;
+  has_running_run: boolean;
+};
+
+export type ShelfPhotosResponse = {
+  photos: PhotoListItemDTO[];
+};
+
 export type DetectionWithCandidatesDTO = {
   id: string;
   position_index: number;

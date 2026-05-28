@@ -148,28 +148,37 @@ export default function ShelfListItem({ shelf, onUpdate, onDelete }: Props) {
           {shelf.book_count} {shelf.book_count === 1 ? 'książka' : 'książek'}
         </span>
       </div>
-      {!shelf.is_system && (
-        <div className="flex gap-2">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => setEditMode(true)}
-            className="inline-flex items-center justify-center rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-900 hover:bg-gray-100 disabled:opacity-50"
-            data-testid="shelf-item-edit-button"
-          >
-            Edytuj
-          </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={onDeleteClick}
-            className="inline-flex items-center justify-center rounded-md border border-red-300 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
-            data-testid="shelf-item-delete-button"
-          >
-            {busy ? 'Usuwam...' : 'Usuń'}
-          </button>
-        </div>
-      )}
+      <div className="flex gap-2">
+        <a
+          href={`/shelves/${shelf.id}`}
+          className="inline-flex items-center justify-center rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-900 hover:bg-gray-100"
+          data-testid="shelf-item-photos-link"
+        >
+          Zobacz zdjęcia →
+        </a>
+        {!shelf.is_system && (
+          <>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setEditMode(true)}
+              className="inline-flex items-center justify-center rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-900 hover:bg-gray-100 disabled:opacity-50"
+              data-testid="shelf-item-edit-button"
+            >
+              Edytuj
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={onDeleteClick}
+              className="inline-flex items-center justify-center rounded-md border border-red-300 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
+              data-testid="shelf-item-delete-button"
+            >
+              {busy ? 'Usuwam...' : 'Usuń'}
+            </button>
+          </>
+        )}
+      </div>
       {error && (
         <p className="text-sm text-red-700 sm:basis-full" role="alert">
           {error}

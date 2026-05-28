@@ -148,6 +148,39 @@ describe('PhotoUploader', () => {
     expect(mockUpload).toHaveBeenCalledTimes(1);
   });
 
+  it('match-only retry: vision succeeded but match failed → retry re-runs match only (no re-process)', async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(jsonResponse({ data: { shelves: mockShelves } }))
+      .mockResolvedValueOnce(jsonResponse({ data: { photo: { ...mockPhoto, status: 'uploaded' } } }, 201))
+      .mockResolvedValueOnce(jsonResponse({ data: { photo: mockPhoto, detections: mockDetections } }))
+      .mockResolvedValueOnce(jsonResponse({ error: { code: 'RATE_LIMITED', message: 'Rate limit' } }, 429))
+      .mockResolvedValueOnce(jsonResponse(mockMatchResult));
+
+    render(<PhotoUploader userId={USER_ID} />);
+    await waitFor(() => expect(screen.getByTestId('shelf-select')).toBeInTheDocument());
+
+    await triggerFileUpload(new File(['fake'], 'shelf.jpg', { type: 'image/jpeg' }));
+
+    // Vision succeeded, match failed → error state; retry button offers match-only re-run
+    await waitFor(() => expect(screen.getByTestId('retry-button')).toBeInTheDocument(), { timeout: 5000 });
+    expect(screen.getByTestId('retry-button')).toHaveTextContent('Spróbuj dopasować ponownie');
+
+    fireEvent.click(screen.getByTestId('retry-button'));
+
+    await waitFor(() => {
+      expect(window.location.href).toBe(`/photos/${PHOTO_ID}`);
+    }, { timeout: 5000 });
+
+    // 5 calls: shelves, record, process (OK), match (fail), match (retry) — process NOT re-run
+    expect(fetchMock).toHaveBeenCalledTimes(5);
+    const processCalls = fetchMock.mock.calls.filter((c) => /\/process$/.test(String(c[0])));
+    const matchCalls = fetchMock.mock.calls.filter((c) => /\/match$/.test(String(c[0])));
+    expect(processCalls).toHaveLength(1);
+    expect(matchCalls).toHaveLength(2);
+    expect(mockUpload).toHaveBeenCalledTimes(1);
+  });
+
   it('shows error area on storage upload failure (no retry-button, back button shown)', async () => {
     mockUpload.mockResolvedValue({ error: { message: 'Storage error' } });
     vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(

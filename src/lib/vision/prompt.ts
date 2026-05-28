@@ -1,3 +1,5 @@
+export const PROMPT_VERSION = 'v1';
+
 // Paleta kolorów grzbietów — load-bearing (zamrożona Q2, S-08 filtruje po spine_color).
 // Zmiana = migracja danych w detections. Nie modyfikować bez świadomej decyzji.
 export const SPINE_COLORS = [

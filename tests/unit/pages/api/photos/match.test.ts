@@ -14,6 +14,8 @@ import { POST } from '../../../../../src/pages/api/photos/[id]/match';
 
 const USER_ID = '00000000-0000-4000-8000-000000000001';
 const PHOTO_ID = '00000000-0000-4000-8000-000000000003';
+const RUN_ID_1 = '00000000-0000-4000-8000-000000000090';
+const RUN_ID_2 = '00000000-0000-4000-8000-000000000091';
 const DET_ID_1 = '00000000-0000-4000-8000-000000000010';
 const DET_ID_2 = '00000000-0000-4000-8000-000000000011';
 
@@ -37,21 +39,28 @@ const detectionRow = {
   position_index: 1,
 };
 
+// Latest succeeded run row returned by the vision_runs query
+const latestRunRow = { id: RUN_ID_1 };
+
 function makeSupabase(opts: {
   photoResult?: { data: { id: string } | null; error: { code?: string; name: string; message: string } | null };
+  latestRunResult?: { data: { id: string } | null; error: { code?: string; name?: string; message?: string } | null };
   detectionsResult?: { data: typeof detectionRow[] | null; error: null };
   booksResult?: { data: { id: string; title: string; authors: string[]; isbn_13: string | null; isbn_10: string | null }[] | null; error: null };
   deleteCandidatesError?: { name: string; message: string; code?: string } | null;
   insertCandidatesError?: { name: string; message: string; code?: string } | null;
   trackInsertions?: { candidates: unknown[][] };
+  trackRunIdUsed?: { runId: string | null };
 }) {
   const {
     photoResult = { data: { id: PHOTO_ID }, error: null },
+    latestRunResult = { data: latestRunRow, error: null },
     detectionsResult = { data: [detectionRow], error: null },
     booksResult = { data: [], error: null },
     deleteCandidatesError = null,
     insertCandidatesError = null,
     trackInsertions,
+    trackRunIdUsed,
   } = opts;
 
   const fromFn = vi.fn((table: string) => {
@@ -63,12 +72,33 @@ function makeSupabase(opts: {
       };
     }
 
-    if (table === 'detections') {
+    if (table === 'vision_runs') {
       return {
         select: vi.fn(() => ({
           eq: vi.fn(() => ({
-            neq: vi.fn().mockResolvedValue(detectionsResult),
+            eq: vi.fn(() => ({
+              order: vi.fn(() => ({
+                limit: vi.fn(() => ({
+                  maybeSingle: vi.fn().mockResolvedValue(latestRunResult),
+                })),
+              })),
+            })),
           })),
+        })),
+      };
+    }
+
+    if (table === 'detections') {
+      return {
+        select: vi.fn(() => ({
+          eq: vi.fn((col: string, val: string) => {
+            if (col === 'vision_run_id' && trackRunIdUsed) {
+              trackRunIdUsed.runId = val;
+            }
+            return {
+              neq: vi.fn().mockResolvedValue(detectionsResult),
+            };
+          }),
         })),
         update: vi.fn(() => ({
           eq: vi.fn().mockResolvedValue({ error: null }),
@@ -141,6 +171,28 @@ describe('POST /api/photos/[id]/match', () => {
     expect(res.status).toBe(404);
   });
 
+  it('returns 404 when no succeeded vision_run exists for photo', async () => {
+    const { supabase } = makeSupabase({
+      latestRunResult: { data: null, error: null },
+    });
+    const res = await POST(makeContext(supabase) as never);
+    expect(res.status).toBe(404);
+    const json = (await res.json()) as { error: { code: string } };
+    expect(json.error.code).toBe('NOT_FOUND');
+  });
+
+  it('operates ONLY on detections from the latest succeeded run (run-scoped)', async () => {
+    const trackRunIdUsed: { runId: string | null } = { runId: null };
+    const { supabase } = makeSupabase({
+      latestRunResult: { data: { id: RUN_ID_2 }, error: null },
+      trackRunIdUsed,
+    });
+
+    await POST(makeContext(supabase) as never);
+    // Must query detections by vision_run_id of the latest succeeded run, not by photo_id
+    expect(trackRunIdUsed.runId).toBe(RUN_ID_2);
+  });
+
   it('happy path: returns 200 with matched detections and candidates', async () => {
     const { supabase } = makeSupabase({});
     const res = await POST(makeContext(supabase) as never);
@@ -161,19 +213,9 @@ describe('POST /api/photos/[id]/match', () => {
 
     await POST(makeContext(supabase) as never);
 
-    const deleteCalls = fromFn.mock.calls
-      .filter(([t]) => t === 'book_candidates')
-      .map(() => 'delete');
+    const deleteCalls = fromFn.mock.calls.filter(([t]) => t === 'book_candidates');
     expect(deleteCalls.length).toBeGreaterThanOrEqual(1);
     expect(trackInsertions.candidates).toHaveLength(1);
-  });
-
-  it('updates detection status to matched', async () => {
-    const { supabase, fromFn } = makeSupabase({});
-    await POST(makeContext(supabase) as never);
-
-    const detUpdateCalls = fromFn.mock.calls.filter(([t]) => t === 'detections');
-    expect(detUpdateCalls.length).toBeGreaterThan(0);
   });
 
   it('graceful degrade: empty detections returns matched=0', async () => {
@@ -188,10 +230,8 @@ describe('POST /api/photos/[id]/match', () => {
 
   it('returns RATE_LIMITED (429) when all detections rate-limited', async () => {
     mockSearchGoogleBooks.mockResolvedValue({ ok: false, reason: 'rate_limited' });
-
     const { supabase } = makeSupabase({});
     const res = await POST(makeContext(supabase) as never);
-
     expect(res.status).toBe(429);
     const json = (await res.json()) as { error: { code: string } };
     expect(json.error.code).toBe('RATE_LIMITED');
@@ -209,8 +249,8 @@ describe('POST /api/photos/[id]/match', () => {
     });
 
     mockSearchGoogleBooks
-      .mockResolvedValueOnce({ ok: false, reason: 'rate_limited' }) // first detection
-      .mockResolvedValueOnce({ ok: true, candidates: [googleCandidate] }); // second detection
+      .mockResolvedValueOnce({ ok: false, reason: 'rate_limited' })
+      .mockResolvedValueOnce({ ok: true, candidates: [googleCandidate] });
 
     const res = await POST(makeContext(supabase) as never);
     expect(res.status).toBe(200);
@@ -220,7 +260,6 @@ describe('POST /api/photos/[id]/match', () => {
     const trackInsertions: { candidates: unknown[][] } = { candidates: [] };
     const { supabase } = makeSupabase({ trackInsertions });
 
-    // Two candidates from Google
     mockSearchGoogleBooks.mockResolvedValueOnce({
       ok: true,
       candidates: [
@@ -238,10 +277,8 @@ describe('POST /api/photos/[id]/match', () => {
 
   it('calls searchOpenLibrary for ISBN-enrichment when Google returns isbn', async () => {
     mockSearchOpenLibrary.mockResolvedValueOnce({ ok: false, reason: 'empty' });
-
     const { supabase } = makeSupabase({});
     await POST(makeContext(supabase) as never);
-
     expect(mockSearchOpenLibrary).toHaveBeenCalledWith(
       expect.objectContaining({ isbn: googleCandidate.isbn13 })
     );
@@ -252,10 +289,8 @@ describe('POST /api/photos/[id]/match', () => {
       ok: true,
       candidates: [{ ...googleCandidate, isbn13: null, isbn10: null }],
     });
-
     const { supabase } = makeSupabase({});
     await POST(makeContext(supabase) as never);
-
     expect(mockSearchOpenLibrary).not.toHaveBeenCalled();
   });
 });

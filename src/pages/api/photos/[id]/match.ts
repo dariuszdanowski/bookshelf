@@ -117,11 +117,34 @@ export const POST: APIRoute = async ({ params, locals }) => {
     return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się pobrać zdjęcia.' });
   }
 
-  // All non-rejected detections for this photo (re-match is safe: delete-then-insert)
+  // Latest succeeded vision_run for this photo
+  const { data: latestRun, error: runError } = await locals.supabase
+    .from('vision_runs')
+    .select('id')
+    .eq('photo_id', id)
+    .eq('status', 'succeeded')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (runError) {
+    console.error('[api/photos/match POST] vision_runs select failed', {
+      name: runError.name,
+      message: runError.message,
+      code: runError.code,
+    });
+    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się pobrać vision run.' });
+  }
+
+  if (!latestRun) {
+    return apiError({ code: 'NOT_FOUND', status: 404, message: 'Brak zakończonego vision run dla tego zdjęcia.' });
+  }
+
+  // Non-rejected detections from the latest succeeded run only
   const { data: detectionRows, error: detError } = await locals.supabase
     .from('detections')
     .select('id, raw_title, raw_author, status, position_index')
-    .eq('photo_id', id)
+    .eq('vision_run_id', latestRun.id)
     .neq('status', 'rejected');
 
   if (detError) {
@@ -268,15 +291,29 @@ export const POST: APIRoute = async ({ params, locals }) => {
       }
     }
 
-    await locals.supabase.from('detections').update({ status: 'matched' }).eq('id', det.id);
-    matchedCount++;
+    const { error: statusError } = await locals.supabase
+      .from('detections')
+      .update({ status: 'matched' })
+      .eq('id', det.id);
+
+    if (statusError) {
+      console.error('[api/photos/match POST] detections status update failed', {
+        name: statusError.name,
+        message: statusError.message,
+        code: statusError.code,
+        detection_id: det.id,
+      });
+    } else {
+      matchedCount++;
+    }
 
     responseDetections.push({
       id: det.id,
       raw_title: det.raw_title ?? '',
       raw_author: det.raw_author,
       position_index: det.position_index,
-      status: 'matched',
+      // status flip mógł paść — raportuj realny stan, nie zakładaj 'matched'
+      status: statusError ? det.status : 'matched',
       candidates: candidates.map((c, idx) => ({
         source: c.source,
         externalId: c.externalId,
