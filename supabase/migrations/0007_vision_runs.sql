@@ -96,7 +96,7 @@ where exists (select 1 from public.detections where photo_id = p.id);
 -- 6. Wire existing detections to their synthetic vision_run
 update public.detections d
 set vision_run_id = (
-  select id from public.vision_runs where photo_id = d.photo_id limit 1
+  select id from public.vision_runs where photo_id = d.photo_id order by created_at limit 1
 )
 where vision_run_id is null;
 
