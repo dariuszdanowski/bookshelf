@@ -148,8 +148,11 @@ dist/
 
 # Cloudflare
 .wrangler/
-.dev.vars
+.dev.vars*
 worker-configuration.d.ts
+
+# MCP config (contains personal access tokens — each dev sets locally)
+.mcp.json
 
 # OS
 .DS_Store
