@@ -5,12 +5,14 @@ import type { DetectionDTO, PhotoDTO } from '../lib/photos/schema';
 import type { ShelfDTO } from '../lib/shelves/schema';
 import Skeleton from './Skeleton';
 
-type UploadStage = 'idle' | 'resizing' | 'uploading' | 'recording' | 'processing' | 'done' | 'error';
+type UploadStage = 'idle' | 'uploading' | 'recording' | 'processing' | 'done' | 'error';
 
 type Result = {
   photo: PhotoDTO;
   detections: DetectionDTO[];
 };
+
+const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15 MB cap (photon pamięć Worker 128MB)
 
 const SPINE_COLOR_MAP: Record<string, string> = {
   czerwony: 'bg-red-200 text-red-800',
@@ -27,39 +29,6 @@ const SPINE_COLOR_MAP: Record<string, string> = {
   szary: 'bg-gray-300 text-gray-800',
 };
 
-const MAX_PX = 1568;
-const JPEG_QUALITY = 0.85;
-
-async function resizeToBlob(file: File): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      const { width, height } = img;
-      const scale = Math.min(1, MAX_PX / Math.max(width, height));
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.round(width * scale);
-      canvas.height = Math.round(height * scale);
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return reject(new Error('Canvas context unavailable'));
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob(
-        (blob) => {
-          if (blob) resolve(blob);
-          else reject(new Error('Canvas toBlob failed'));
-        },
-        'image/jpeg',
-        JPEG_QUALITY
-      );
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error('Image load failed'));
-    };
-    img.src = url;
-  });
-}
 
 export default function PhotoUploader({ userId }: { userId: string }) {
   const [shelves, setShelves] = useState<ShelfDTO[]>([]);
@@ -119,16 +88,17 @@ export default function PhotoUploader({ userId }: { userId: string }) {
       setCurrentPhotoId(null);
 
       try {
-        setStage('resizing');
-        const blob = await resizeToBlob(file);
+        if (file.size > MAX_FILE_SIZE_BYTES) {
+          throw new Error(`Plik jest za duży (max 15 MB). Wybierz mniejsze zdjęcie.`);
+        }
 
         setStage('uploading');
         const supabase = createBrowserSupabaseClient();
-        const ext = 'jpg';
+        const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg';
         const storagePath = `${userId}/${crypto.randomUUID()}.${ext}`;
         const { error: upErr } = await supabase.storage
           .from('shelf-photos')
-          .upload(storagePath, blob, { contentType: 'image/jpeg', upsert: false });
+          .upload(storagePath, file, { contentType: file.type || 'image/jpeg', upsert: false });
         if (upErr) throw new Error(upErr.message);
 
         setStage('recording');
@@ -185,7 +155,6 @@ export default function PhotoUploader({ userId }: { userId: string }) {
 
   const stageLabel: Record<UploadStage, string> = {
     idle: '',
-    resizing: 'Kompresja obrazu...',
     uploading: 'Wgrywanie do Storage...',
     recording: 'Zapisywanie rekordu...',
     processing: 'Analiza vision (może zająć ~10s)...',
@@ -241,7 +210,7 @@ export default function PhotoUploader({ userId }: { userId: string }) {
           <p className="mb-2 text-sm font-medium text-gray-700">
             Przeciągnij zdjęcie półki lub kliknij, by wybrać
           </p>
-          <p className="text-xs text-gray-500">JPEG, PNG, WebP — zostanie skompresowane do max 1568px</p>
+          <p className="text-xs text-gray-500">JPEG, PNG, WebP — max 15 MB (serwer przetwarza oryginał)</p>
           <input
             ref={fileInputRef}
             data-testid="file-input"

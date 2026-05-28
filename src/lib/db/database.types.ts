@@ -164,6 +164,10 @@ export type Database = {
       }
       detections: {
         Row: {
+          bbox_x1: number | null
+          bbox_x2: number | null
+          bbox_y1: number | null
+          bbox_y2: number | null
           created_at: string
           id: string
           photo_id: string
@@ -176,6 +180,10 @@ export type Database = {
           vision_confidence: number | null
         }
         Insert: {
+          bbox_x1?: number | null
+          bbox_x2?: number | null
+          bbox_y1?: number | null
+          bbox_y2?: number | null
           created_at?: string
           id?: string
           photo_id: string
@@ -188,6 +196,10 @@ export type Database = {
           vision_confidence?: number | null
         }
         Update: {
+          bbox_x1?: number | null
+          bbox_x2?: number | null
+          bbox_y1?: number | null
+          bbox_y2?: number | null
           created_at?: string
           id?: string
           photo_id?: string

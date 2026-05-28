@@ -24,4 +24,5 @@ export type DetectionDTO = {
   raw_author: string | null;
   vision_confidence: number | null;
   spine_color: string | null;
+  bbox: { x1: number; y1: number; x2: number; y2: number } | null;
 };

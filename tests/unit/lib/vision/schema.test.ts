@@ -84,4 +84,40 @@ describe('DetectionSchema', () => {
     expect(result.success).toBe(true);
     if (result.success) expect(result.data).toHaveLength(2);
   });
+
+  // bbox tests (best-effort optional field)
+  it('accepts item with bbox present', () => {
+    const result = DetectionSchema.safeParse([{ ...validItem, bbox: [0.1, 0.05, 0.25, 0.95] }]);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data[0].bbox).toEqual([0.1, 0.05, 0.25, 0.95]);
+  });
+
+  it('accepts item with bbox: null', () => {
+    const result = DetectionSchema.safeParse([{ ...validItem, bbox: null }]);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data[0].bbox).toBeNull();
+  });
+
+  it('accepts item without bbox field (undefined → optional)', () => {
+    const result = DetectionSchema.safeParse([{ ...validItem }]);
+    expect(result.success).toBe(true);
+  });
+
+  it('strips bbox to null when out-of-range (>1) — best-effort field', () => {
+    const result = DetectionSchema.safeParse([{ ...validItem, bbox: [0.1, 0.05, 1.5, 0.95] }]);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data[0].bbox).toBeNull();
+  });
+
+  it('strips bbox to null when out-of-range (<0) — best-effort field', () => {
+    const result = DetectionSchema.safeParse([{ ...validItem, bbox: [-0.1, 0.05, 0.25, 0.95] }]);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data[0].bbox).toBeNull();
+  });
+
+  it('strips bbox to null with wrong number of elements — best-effort field', () => {
+    const result = DetectionSchema.safeParse([{ ...validItem, bbox: [0.1, 0.05, 0.25] }]);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data[0].bbox).toBeNull();
+  });
 });

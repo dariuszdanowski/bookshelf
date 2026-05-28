@@ -20,6 +20,7 @@ declare namespace Cloudflare {
     PUBLIC_SUPABASE_ANON_KEY: string;
     SUPABASE_SERVICE_ROLE_KEY: string;
     ANTHROPIC_API_KEY: string;
+    GOOGLE_BOOKS_API_KEY?: string;
   }
 }
 

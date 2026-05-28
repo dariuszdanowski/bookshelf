@@ -62,7 +62,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
 
   const { data: detRows, error: detError } = await locals.supabase
     .from('detections')
-    .select('position_index, raw_title, raw_author, vision_confidence, spine_color')
+    .select('position_index, raw_title, raw_author, vision_confidence, spine_color, bbox_x1, bbox_y1, bbox_x2, bbox_y2')
     .eq('photo_id', id)
     .order('position_index', { ascending: true });
 
@@ -81,6 +81,10 @@ export const GET: APIRoute = async ({ params, locals }) => {
     raw_author: row.raw_author,
     vision_confidence: row.vision_confidence,
     spine_color: row.spine_color,
+    bbox:
+      row.bbox_x1 != null && row.bbox_y1 != null && row.bbox_x2 != null && row.bbox_y2 != null
+        ? { x1: row.bbox_x1, y1: row.bbox_y1, x2: row.bbox_x2, y2: row.bbox_y2 }
+        : null,
   }));
 
   return apiResponse({ data: { photo, detections } });
