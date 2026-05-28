@@ -17,6 +17,8 @@ export default function PhotoUploader({ userId }: { userId: string }) {
   const [currentPhotoId, setCurrentPhotoId] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [shelvesError, setShelvesError] = useState<string | null>(null);
+  // true after vision succeeds but before match completes — retry can skip vision
+  const [canRetryMatchOnly, setCanRetryMatchOnly] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -39,8 +41,23 @@ export default function PhotoUploader({ userId }: { userId: string }) {
     })();
   }, []);
 
+  const runMatch = useCallback(async (photoId: string) => {
+    setStage('matching');
+    const matchRes = await fetch(`/api/photos/${photoId}/match`, { method: 'POST' });
+    const matchJson = (await matchRes.json()) as {
+      data?: unknown;
+      error?: { message?: string };
+    };
+    if (!matchRes.ok || !matchJson.data) {
+      throw new Error(matchJson.error?.message ?? `Błąd matchowania (${matchRes.status})`);
+    }
+    setCanRetryMatchOnly(false);
+    window.location.href = `/photos/${photoId}`;
+  }, []);
+
   const processPhoto = useCallback(
     async (photoId: string) => {
+      setCanRetryMatchOnly(false);
       setStage('processing');
       const processRes = await fetch(`/api/photos/${photoId}/process`, { method: 'POST' });
       const processJson = (await processRes.json()) as {
@@ -51,19 +68,11 @@ export default function PhotoUploader({ userId }: { userId: string }) {
         throw new Error(processJson.error?.message ?? `Błąd przetwarzania (${processRes.status})`);
       }
 
-      setStage('matching');
-      const matchRes = await fetch(`/api/photos/${photoId}/match`, { method: 'POST' });
-      const matchJson = (await matchRes.json()) as {
-        data?: unknown;
-        error?: { message?: string };
-      };
-      if (!matchRes.ok || !matchJson.data) {
-        throw new Error(matchJson.error?.message ?? `Błąd matchowania (${matchRes.status})`);
-      }
-
-      window.location.href = `/photos/${photoId}`;
+      // Vision succeeded — detections are persisted; match can be retried without re-running vision
+      setCanRetryMatchOnly(true);
+      await runMatch(photoId);
     },
-    []
+    [runMatch]
   );
 
   const handleFile = useCallback(
@@ -119,13 +128,17 @@ export default function PhotoUploader({ userId }: { userId: string }) {
     if (!currentPhotoId) return;
     setErrorMsg(null);
     try {
-      await processPhoto(currentPhotoId);
+      if (canRetryMatchOnly) {
+        await runMatch(currentPhotoId);
+      } else {
+        await processPhoto(currentPhotoId);
+      }
       setStage('done');
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Nieznany błąd');
       setStage('error');
     }
-  }, [currentPhotoId, processPhoto]);
+  }, [currentPhotoId, canRetryMatchOnly, runMatch, processPhoto]);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -235,7 +248,7 @@ export default function PhotoUploader({ userId }: { userId: string }) {
               onClick={() => void handleRetry()}
               className="rounded bg-red-600 px-3 py-1 text-sm text-white hover:bg-red-700"
             >
-              Spróbuj ponownie
+              {canRetryMatchOnly ? 'Spróbuj dopasować ponownie' : 'Spróbuj ponownie'}
             </button>
           )}
           {!currentPhotoId && (
