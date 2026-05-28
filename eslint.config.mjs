@@ -73,6 +73,13 @@ export default [
   },
 
   {
+    files: ['scripts/**/*.{js,mjs,cjs}'],
+    languageOptions: {
+      globals: { ...globals.node },
+    },
+  },
+
+  {
     files: ['tests/**/*.{ts,tsx}'],
     languageOptions: {
       globals: { ...globals.node, ...globals.browser },
