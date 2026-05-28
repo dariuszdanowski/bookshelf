@@ -1,0 +1,21 @@
+---
+import { detectDbEnvironment, getSupabaseUrl, ENV_LABEL } from '../lib/db/environment';
+
+const dbEnv = detectDbEnvironment();
+const url = getSupabaseUrl();
+
+const styles: Record<typeof dbEnv, string> = {
+  local: 'bg-green-600 ring-green-300',
+  prod: 'bg-red-600 ring-red-300 animate-pulse',
+  unknown: 'bg-yellow-500 ring-yellow-300',
+};
+---
+
+<div
+  class={`fixed bottom-2 right-2 z-[9999] rounded-md px-3 py-1.5 text-xs font-bold text-white shadow-lg ring-2 ${styles[dbEnv]}`}
+  data-testid="env-badge"
+  data-env={dbEnv}
+  title={`Supabase: ${url || '(brak URL)'}`}
+>
+  {ENV_LABEL[dbEnv]}
+</div>

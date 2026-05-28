@@ -1,0 +1,135 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Supabase: start (lokalny stack w WSL)",
+      "detail": "npx supabase start — Postgres + Studio + GoTrue + Storage + Realtime + Edge Runtime",
+      "type": "process",
+      "windows": {
+        "command": "wsl.exe",
+        "args": ["-e", "bash", "-lc", "cd /mnt/c/Projekty/10xDevs/bookshelf && npm run db:start"]
+      },
+      "command": "npm",
+      "args": ["run", "db:start"],
+      "presentation": { "panel": "dedicated", "reveal": "always", "clear": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "Supabase: stop",
+      "detail": "npx supabase stop — zachowuje wolumen z danymi",
+      "type": "process",
+      "windows": {
+        "command": "wsl.exe",
+        "args": ["-e", "bash", "-lc", "cd /mnt/c/Projekty/10xDevs/bookshelf && npm run db:stop"]
+      },
+      "command": "npm",
+      "args": ["run", "db:stop"],
+      "presentation": { "panel": "dedicated", "reveal": "always" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Supabase: status",
+      "detail": "URLs + keys + stan kontenerów",
+      "type": "process",
+      "windows": {
+        "command": "wsl.exe",
+        "args": ["-e", "bash", "-lc", "cd /mnt/c/Projekty/10xDevs/bookshelf && npm run db:status"]
+      },
+      "command": "npm",
+      "args": ["run", "db:status"],
+      "presentation": { "panel": "dedicated", "reveal": "always" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Supabase: db reset (drop + replay + seed)",
+      "detail": "UWAGA: usuwa wszystkie dane lokalnej DB i odtwarza schema z migracji + seed.sql",
+      "type": "process",
+      "windows": {
+        "command": "wsl.exe",
+        "args": ["-e", "bash", "-lc", "cd /mnt/c/Projekty/10xDevs/bookshelf && npm run db:reset"]
+      },
+      "command": "npm",
+      "args": ["run", "db:reset"],
+      "presentation": { "panel": "dedicated", "reveal": "always", "clear": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "Supabase: db migrate (apply pending)",
+      "detail": "npx supabase migration up — dogrywa migracje bez resetu danych",
+      "type": "process",
+      "windows": {
+        "command": "wsl.exe",
+        "args": ["-e", "bash", "-lc", "cd /mnt/c/Projekty/10xDevs/bookshelf && npm run db:migrate"]
+      },
+      "command": "npm",
+      "args": ["run", "db:migrate"],
+      "presentation": { "panel": "dedicated", "reveal": "always" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Supabase: db push (REMOTE PROD) — tylko po merge do main",
+      "detail": "Push migracji na produkcyjną bazę. Wymaga aktywnego profilu remote w .dev.vars.",
+      "type": "process",
+      "windows": {
+        "command": "wsl.exe",
+        "args": ["-e", "bash", "-lc", "cd /mnt/c/Projekty/10xDevs/bookshelf && npm run db:push"]
+      },
+      "command": "npm",
+      "args": ["run", "db:push"],
+      "presentation": { "panel": "dedicated", "reveal": "always", "clear": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "Env: switch to LOCAL (.dev.vars.local → .dev.vars)",
+      "detail": "Aktywuje profil lokalny; istniejący remote backupowany do .dev.vars.remote.bak",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "env:local"],
+      "presentation": { "panel": "shared", "reveal": "always" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Env: switch to REMOTE (.dev.vars.remote.bak → .dev.vars)",
+      "detail": "Przywraca profil remote z backupu",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "env:remote"],
+      "presentation": { "panel": "shared", "reveal": "always" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Env: status",
+      "detail": "Sprawdza który profil .dev.vars jest aktywny",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "env:status"],
+      "presentation": { "panel": "shared", "reveal": "always" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Pre-dev: env:local + supabase start",
+      "detail": "Compound dla preLaunchTask w launch.json — przepina .dev.vars na lokalny i startuje Supabase. Astro odpala launch config.",
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "Env: switch to LOCAL (.dev.vars.local → .dev.vars)",
+        "Supabase: start (lokalny stack w WSL)"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Dev: full local stack (env + supabase + astro)",
+      "detail": "Przełącza na profil lokalny (z WSL IP), startuje Supabase w WSL, odpala Astro dev w Windows",
+      "type": "shell",
+      "command": "npm",
+      "args": ["run", "dev"],
+      "dependsOrder": "sequence",
+      "dependsOn": [
+        "Env: switch to LOCAL (.dev.vars.local → .dev.vars)",
+        "Supabase: start (lokalny stack w WSL)"
+      ],
+      "presentation": { "panel": "dedicated", "reveal": "always", "clear": true },
+      "isBackground": true,
+      "problemMatcher": []
+    }
+  ]
+}

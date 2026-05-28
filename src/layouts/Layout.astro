@@ -1,6 +1,8 @@
 ---
 import '../styles/global.css';
 import LogoutButton from '../components/LogoutButton.tsx';
+import EnvBadge from '../components/EnvBadge.astro';
+import { detectDbEnvironment, ENV_LABEL } from '../lib/db/environment';
 
 interface Props {
   title?: string;
@@ -8,6 +10,8 @@ interface Props {
 
 const { title = 'BookShelf Catalog' } = Astro.props;
 const user = Astro.locals.user;
+const dbEnv = detectDbEnvironment();
+const titleWithEnv = `[${ENV_LABEL[dbEnv]}] ${title}`;
 ---
 
 <!doctype html>
@@ -17,7 +21,7 @@ const user = Astro.locals.user;
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="generator" content={Astro.generator} />
-    <title>{title}</title>
+    <title>{titleWithEnv}</title>
   </head>
   <body>
     {
@@ -46,5 +50,6 @@ const user = Astro.locals.user;
       )
     }
     <slot />
+    <EnvBadge />
   </body>
 </html>
