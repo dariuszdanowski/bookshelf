@@ -291,15 +291,29 @@ export const POST: APIRoute = async ({ params, locals }) => {
       }
     }
 
-    await locals.supabase.from('detections').update({ status: 'matched' }).eq('id', det.id);
-    matchedCount++;
+    const { error: statusError } = await locals.supabase
+      .from('detections')
+      .update({ status: 'matched' })
+      .eq('id', det.id);
+
+    if (statusError) {
+      console.error('[api/photos/match POST] detections status update failed', {
+        name: statusError.name,
+        message: statusError.message,
+        code: statusError.code,
+        detection_id: det.id,
+      });
+    } else {
+      matchedCount++;
+    }
 
     responseDetections.push({
       id: det.id,
       raw_title: det.raw_title ?? '',
       raw_author: det.raw_author,
       position_index: det.position_index,
-      status: 'matched',
+      // status flip mógł paść — raportuj realny stan, nie zakładaj 'matched'
+      status: statusError ? det.status : 'matched',
       candidates: candidates.map((c, idx) => ({
         source: c.source,
         externalId: c.externalId,
