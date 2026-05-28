@@ -45,6 +45,7 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | S-12  | loading-skeleton-component   | Generic React `<Skeleton />` (gray pulsing div) gotowy dla S-03/S-04/S-08 | — | UI substrate | done     |
 | S-13  | header-nav-when-auth         | header nav „Moje półki" → /shelves dla auth user'a + landing CTA pivot na /shelves (do czasu /library w S-08) | S-02 | UX polish | done     |
 | S-14  | photo-process-reload-recovery | po reloadzie /upload odzyskać stan utkniętego 'processing' (GET /api/photos/[id]) + retry | S-03 | UX recovery | proposed |
+| S-15  | review-page-nav-entry         | link do strony review (/photos/[id]) z poziomu list półek / katalogu; breadcrumbs | S-04 | UX polish | proposed |
 
 ## Streams
 

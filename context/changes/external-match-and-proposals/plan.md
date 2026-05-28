@@ -357,14 +357,14 @@ Read-only strona review pokazująca tierowane propozycje + flagi duplikatów; `/
 
 #### Automated
 
-- [x] 2.1 Unit: isbn.ts (checksum 10/13, konwersja, 979-edge, normalizacja)
-- [x] 2.2 Unit: score.ts (titleSim, authorSim neutral, isbnBonus, progi)
-- [x] 2.3 Unit: dedupe.ts (reconcile ISBN, fuzzy bez-ISBN, exact/edition catalog)
-- [x] 2.4 Unit: googleBooks/openLibrary z mock fetch (kaskada, Zod, rate_limited/empty)
-- [x] 2.5 Unit: match.ts endpoint (idempotencja, graceful degrade, all-rate-limited, status→matched)
-- [x] 2.6 Typecheck zielony
-- [x] 2.7 Lint zielony
-- [x] 2.8 Build zielony
+- [x] 2.1 Unit: isbn.ts (checksum 10/13, konwersja, 979-edge, normalizacja) — a2026cc
+- [x] 2.2 Unit: score.ts (titleSim, authorSim neutral, isbnBonus, progi) — a2026cc
+- [x] 2.3 Unit: dedupe.ts (reconcile ISBN, fuzzy bez-ISBN, exact/edition catalog) — a2026cc
+- [x] 2.4 Unit: googleBooks/openLibrary z mock fetch (kaskada, Zod, rate_limited/empty) — a2026cc
+- [x] 2.5 Unit: match.ts endpoint (idempotencja, graceful degrade, all-rate-limited, status→matched) — a2026cc
+- [x] 2.6 Typecheck zielony — a2026cc
+- [x] 2.7 Lint zielony — a2026cc
+- [x] 2.8 Build zielony — a2026cc
 
 #### Manual
 
@@ -376,12 +376,12 @@ Read-only strona review pokazująca tierowane propozycje + flagi duplikatów; `/
 
 #### Automated
 
-- [ ] 3.1 Unit: DetectionReview renderuje tiery + flagi + placeholder zero-match
-- [ ] 3.2 Unit: GET /api/photos/[id] dołącza kandydatów + flagę przy matched
-- [ ] 3.3 E2E: upload→detect→match→redirect→review pokazuje propozycje (mock)
-- [ ] 3.4 Typecheck zielony
-- [ ] 3.5 Lint zielony
-- [ ] 3.6 Build zielony
+- [x] 3.1 Unit: DetectionReview renderuje tiery + flagi + placeholder zero-match
+- [x] 3.2 Unit: GET /api/photos/[id] dołącza kandydatów + flagę przy matched
+- [x] 3.3 E2E: upload→detect→match→redirect→review pokazuje propozycje (mock)
+- [x] 3.4 Typecheck zielony
+- [x] 3.5 Lint zielony
+- [x] 3.6 Build zielony
 
 #### Manual
 

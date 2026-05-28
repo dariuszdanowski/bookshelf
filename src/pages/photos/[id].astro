@@ -1,0 +1,31 @@
+---
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro';
+import DetectionReview from '../../components/DetectionReview.tsx';
+
+// Protected path: middleware ensures locals.user is non-null (redirect to /login for anon).
+if (!Astro.locals.user) {
+  return Astro.redirect('/login');
+}
+
+const { id } = Astro.params;
+if (!id) {
+  return Astro.redirect('/upload');
+}
+---
+
+<Layout title="Propozycje książek">
+  <main class="mx-auto max-w-3xl p-8">
+    <div class="mb-6">
+      <a href="/upload" class="text-sm text-blue-600 hover:text-blue-800">
+        &larr; Skanuj kolejne zdjęcie
+      </a>
+    </div>
+    <h1 class="mb-2 text-3xl font-bold">Propozycje książek</h1>
+    <p class="mb-6 text-sm text-gray-600">
+      Przejrzyj dopasowania. Zielone — wysoka pewność. Żółte — sprawdź przed akceptacją.
+    </p>
+    <DetectionReview client:load photoId={id} />
+  </main>
+</Layout>
