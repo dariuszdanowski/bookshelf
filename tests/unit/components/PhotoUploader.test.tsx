@@ -32,6 +32,7 @@ const mockPhoto = {
 const mockDetections = [
   { position_index: 1, raw_title: 'Solaris', raw_author: 'Stanisław Lem', vision_confidence: 0.95, spine_color: 'niebieski' },
 ];
+const mockMatchResult = { data: { matched: 1, detections: [] } };
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -40,42 +41,15 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
-function setupCanvasMock() {
-  const mockBlob = new Blob(['fake-image'], { type: 'image/jpeg' });
-  const originalCreateElement = document.createElement.bind(document);
-  vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
-    if (tag === 'canvas') {
-      const canvas = originalCreateElement('canvas') as HTMLCanvasElement;
-      (canvas.getContext as unknown as (id: string) => unknown) = () => ({ drawImage: vi.fn() });
-      canvas.toBlob = (cb: BlobCallback) => setTimeout(() => cb(mockBlob), 0);
-      return canvas;
-    }
-    return originalCreateElement(tag);
-  });
-}
-
-function setupImageMock() {
-  Object.defineProperty(window, 'Image', {
-    configurable: true,
-    writable: true,
-    value: class MockImage {
-      onload: (() => void) | null = null;
-      onerror: (() => void) | null = null;
-      width = 800;
-      height = 600;
-      set src(_val: string) {
-        setTimeout(() => this.onload?.(), 0);
-      }
-    },
-  });
-  vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:fake');
-  vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
-}
+const originalLocation = window.location;
 
 beforeEach(() => {
   vi.clearAllMocks();
-  setupCanvasMock();
-  setupImageMock();
+  Object.defineProperty(window, 'location', {
+    configurable: true,
+    writable: true,
+    value: { href: '' },
+  });
   Object.defineProperty(global, 'crypto', {
     configurable: true,
     value: { randomUUID: () => MOCK_UUID },
@@ -85,6 +59,11 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  Object.defineProperty(window, 'location', {
+    configurable: true,
+    writable: true,
+    value: originalLocation,
+  });
 });
 
 async function triggerFileUpload(file: File) {
@@ -103,12 +82,13 @@ describe('PhotoUploader', () => {
     expect(screen.getByTestId('drop-zone')).toBeInTheDocument();
   });
 
-  it('happy path: upload→record→process sequence, detections rendered', async () => {
+  it('happy path: upload→record→process→match→redirect to review page', async () => {
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(jsonResponse({ data: { shelves: mockShelves } }))
       .mockResolvedValueOnce(jsonResponse({ data: { photo: { ...mockPhoto, status: 'uploaded' } } }, 201))
-      .mockResolvedValueOnce(jsonResponse({ data: { photo: mockPhoto, detections: mockDetections } }));
+      .mockResolvedValueOnce(jsonResponse({ data: { photo: mockPhoto, detections: mockDetections } }))
+      .mockResolvedValueOnce(jsonResponse(mockMatchResult));
 
     render(<PhotoUploader userId={USER_ID} />);
     await waitFor(() => expect(screen.getByTestId('shelf-select')).toBeInTheDocument());
@@ -118,31 +98,33 @@ describe('PhotoUploader', () => {
     // Progress appears
     await waitFor(() => expect(screen.getByTestId('progress-area')).toBeInTheDocument());
 
-    // Results after processing
-    await waitFor(() => expect(screen.getByTestId('results-area')).toBeInTheDocument(), { timeout: 5000 });
-    expect(screen.getByTestId('detections-list')).toBeInTheDocument();
-    expect(screen.getByTestId('detection-item-0')).toHaveTextContent('Solaris');
+    // Redirects to review page after process+match
+    await waitFor(() => {
+      expect(window.location.href).toBe(`/photos/${PHOTO_ID}`);
+    }, { timeout: 5000 });
 
-    // Sequence: shelves fetch, record POST, process POST
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    // Sequence: shelves fetch, record POST, process POST, match POST
+    expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(fetchMock.mock.calls[1][0]).toBe('/api/photos');
     expect(fetchMock.mock.calls[2][0]).toMatch(/\/api\/photos\/.+\/process/);
+    expect(fetchMock.mock.calls[3][0]).toMatch(/\/api\/photos\/.+\/match/);
 
-    // Storage upload called with correct path
+    // Storage upload called with correct path and original file
     expect(mockUpload).toHaveBeenCalledWith(
       `${USER_ID}/${MOCK_UUID}.jpg`,
-      expect.any(Blob),
+      expect.any(File),
       expect.objectContaining({ contentType: 'image/jpeg' })
     );
   });
 
-  it('retry button re-triggers process only (no re-upload)', async () => {
+  it('retry button re-triggers process+match (no re-upload)', async () => {
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(jsonResponse({ data: { shelves: mockShelves } }))
       .mockResolvedValueOnce(jsonResponse({ data: { photo: { ...mockPhoto, status: 'uploaded' } } }, 201))
       .mockResolvedValueOnce(jsonResponse({ error: { code: 'INTERNAL_ERROR', message: 'Vision down' } }, 500))
-      .mockResolvedValueOnce(jsonResponse({ data: { photo: mockPhoto, detections: mockDetections } }));
+      .mockResolvedValueOnce(jsonResponse({ data: { photo: mockPhoto, detections: mockDetections } }))
+      .mockResolvedValueOnce(jsonResponse(mockMatchResult));
 
     render(<PhotoUploader userId={USER_ID} />);
     await waitFor(() => expect(screen.getByTestId('shelf-select')).toBeInTheDocument());
@@ -153,11 +135,16 @@ describe('PhotoUploader', () => {
 
     fireEvent.click(screen.getByTestId('retry-button'));
 
-    await waitFor(() => expect(screen.getByTestId('results-area')).toBeInTheDocument(), { timeout: 5000 });
+    // After retry: redirects to review page
+    await waitFor(() => {
+      expect(window.location.href).toBe(`/photos/${PHOTO_ID}`);
+    }, { timeout: 5000 });
 
-    // 4th call = process retry (no extra storage upload)
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    // 5 calls: shelves, record, process (fail), process (retry), match (retry)
+    expect(fetchMock).toHaveBeenCalledTimes(5);
     expect(fetchMock.mock.calls[3][0]).toMatch(/\/api\/photos\/.+\/process/);
+    expect(fetchMock.mock.calls[4][0]).toMatch(/\/api\/photos\/.+\/match/);
+    // Storage upload called only once (no re-upload on retry)
     expect(mockUpload).toHaveBeenCalledTimes(1);
   });
 

@@ -2,9 +2,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock vision client — hoisted so it's available in the mock factory
 const mockDetectSpines = vi.hoisted(() => vi.fn());
+const mockDeriveWorkingCopy = vi.hoisted(() =>
+  vi.fn().mockResolvedValue({ bytes: new Uint8Array([0xff, 0xd8, 0xff]), mediaType: 'image/jpeg' as const })
+);
 
 vi.mock('../../../../../src/lib/vision/client', () => ({
   detectSpines: mockDetectSpines,
+}));
+
+vi.mock('../../../../../src/lib/images/resize', () => ({
+  deriveWorkingCopy: mockDeriveWorkingCopy,
 }));
 
 import { POST } from '../../../../../src/pages/api/photos/[id]/process';
@@ -22,6 +29,7 @@ type PhotoFinalRow = {
 type DetRow = {
   position_index: number; raw_title: string | null; raw_author: string | null;
   vision_confidence: number | null; spine_color: string | null;
+  bbox_x1: number | null; bbox_y1: number | null; bbox_x2: number | null; bbox_y2: number | null;
 };
 
 const photoSelectRow: PhotoSelectRow = { id: PHOTO_ID, storage_path: STORAGE_PATH, status: 'uploaded' };
@@ -31,12 +39,18 @@ const photoFinalRow: PhotoFinalRow = {
   created_at: '2026-05-27T10:00:00Z',
 };
 const detectionRows: DetRow[] = [
-  { position_index: 1, raw_title: 'Solaris', raw_author: 'Stanisław Lem', vision_confidence: 0.95, spine_color: 'niebieski' },
+  {
+    position_index: 1, raw_title: 'Solaris', raw_author: 'Stanisław Lem', vision_confidence: 0.95, spine_color: 'niebieski',
+    bbox_x1: 0.1, bbox_y1: 0.05, bbox_x2: 0.25, bbox_y2: 0.95,
+  },
 ];
 
 const validVisionResult = {
   ok: true as const,
-  detections: [{ position: 1, title: 'Solaris', author: 'Stanisław Lem', confidence: 0.95, spine_color: 'niebieski' as const }],
+  detections: [{
+    position: 1, title: 'Solaris', author: 'Stanisław Lem', confidence: 0.95,
+    spine_color: 'niebieski' as const, bbox: [0.1, 0.05, 0.25, 0.95] as [number, number, number, number],
+  }],
   model: 'claude-sonnet-4-6',
   costUsd: 0.005,
   latencyMs: 5000,
@@ -137,6 +151,7 @@ function makeContext(
 beforeEach(() => {
   vi.clearAllMocks();
   mockDetectSpines.mockResolvedValue(validVisionResult);
+  mockDeriveWorkingCopy.mockResolvedValue({ bytes: new Uint8Array([0xff, 0xd8, 0xff]), mediaType: 'image/jpeg' as const });
 });
 
 describe('POST /api/photos/[id]/process', () => {
@@ -247,5 +262,57 @@ describe('POST /api/photos/[id]/process', () => {
     const res = await POST(makeContext(supabase) as never);
     expect(res.status).toBe(429);
     expect((await res.json() as { error: { code: string } }).error.code).toBe('RATE_LIMITED');
+  });
+
+  it('bbox: inserts bbox_x1..y2 when vision returns bbox', async () => {
+    const trackInsertions: { detections: unknown[][] } = { detections: [] };
+    const { supabase } = makeSupabase({ trackInsertions });
+
+    mockDetectSpines.mockResolvedValueOnce({
+      ...validVisionResult,
+      detections: [{ ...validVisionResult.detections[0], bbox: [0.1, 0.05, 0.25, 0.95] as [number, number, number, number] }],
+    });
+
+    await POST(makeContext(supabase) as never);
+    expect(trackInsertions.detections).toHaveLength(1);
+    const row = (trackInsertions.detections[0] as { bbox_x1: number; bbox_y1: number; bbox_x2: number; bbox_y2: number }[])[0];
+    expect(row.bbox_x1).toBeCloseTo(0.1);
+    expect(row.bbox_y1).toBeCloseTo(0.05);
+    expect(row.bbox_x2).toBeCloseTo(0.25);
+    expect(row.bbox_y2).toBeCloseTo(0.95);
+  });
+
+  it('bbox: inserts null bbox_x1..y2 when vision returns no bbox', async () => {
+    const trackInsertions: { detections: unknown[][] } = { detections: [] };
+    const { supabase } = makeSupabase({ trackInsertions });
+
+    mockDetectSpines.mockResolvedValueOnce({
+      ...validVisionResult,
+      detections: [{ ...validVisionResult.detections[0], bbox: undefined }],
+    });
+
+    await POST(makeContext(supabase) as never);
+    expect(trackInsertions.detections).toHaveLength(1);
+    const row = (trackInsertions.detections[0] as { bbox_x1: unknown; bbox_y1: unknown }[])[0];
+    expect(row.bbox_x1).toBeNull();
+    expect(row.bbox_y1).toBeNull();
+  });
+
+  it('deriveWorkingCopy failure returns 500', async () => {
+    mockDeriveWorkingCopy.mockRejectedValueOnce(new Error('photon crash'));
+    const { supabase } = makeSupabase({});
+
+    const res = await POST(makeContext(supabase) as never);
+    expect(res.status).toBe(500);
+    const json = (await res.json()) as { error: { code: string } };
+    expect(json.error.code).toBe('INTERNAL_ERROR');
+  });
+
+  it('passes image/jpeg to detectSpines (hardcoded from deriveWorkingCopy)', async () => {
+    const { supabase } = makeSupabase({});
+    await POST(makeContext(supabase) as never);
+    expect(mockDetectSpines).toHaveBeenCalledWith(
+      expect.objectContaining({ mediaType: 'image/jpeg' })
+    );
   });
 });

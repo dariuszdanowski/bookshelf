@@ -1,25 +1,43 @@
 import { expect, test } from '@playwright/test';
 
 /**
- * Golden path E2E dla S-03:
+ * Golden path E2E dla S-04:
  *  1. Signup nowego usera.
  *  2. /upload → widoczny uploader.
  *  3. Mock endpointu process (intercept) → symuluje sukces z detekcjami.
- *  4. Upload mock-obrazu → widoczna lista detekcji.
+ *  4. Mock endpointu match (intercept) → symuluje sukces z kandydatami.
+ *  5. Mock GET /api/photos/[id] → symuluje odpowiedź z kandydatami.
+ *  6. Upload mock-obrazu → redirect na /photos/[id] → propozycje widoczne.
  *
- * Vision API jest mockowane przez interceptowanie /api/photos/<id>/process.
- * Nie wymaga ANTHROPIC_API_KEY ani prawdziwego vision call.
+ * Vision API i Google Books są mockowane przez interceptowanie endpointów.
+ * Nie wymaga ANTHROPIC_API_KEY ani GOOGLE_BOOKS_API_KEY ani prawdziwych calli.
  * Bucket shelf-photos i Storage RLS weryfikowane manualnie po merge.
  */
 
 const STAMP = Date.now();
 const EMAIL = `e2e-upload-${STAMP}@example.com`;
 const PASSWORD = 'E2eUploadPass!23';
+const PHOTO_ID = '00000000-0000-4000-8000-aaaaaaaaaaaa';
+
+const MOCK_RECORD_RESPONSE = {
+  data: {
+    photo: {
+      id: PHOTO_ID,
+      shelf_id: '00000000-0000-4000-8000-bbbbbbbbbbbb',
+      status: 'uploaded',
+      detected_count: null,
+      error_message: null,
+      vision_cost_usd: null,
+      vision_latency_ms: null,
+      created_at: new Date().toISOString(),
+    },
+  },
+};
 
 const MOCK_PROCESS_RESPONSE = {
   data: {
     photo: {
-      id: '00000000-0000-4000-8000-aaaaaaaaaaaa',
+      id: PHOTO_ID,
       shelf_id: '00000000-0000-4000-8000-bbbbbbbbbbbb',
       status: 'processed',
       detected_count: 2,
@@ -35,22 +53,82 @@ const MOCK_PROCESS_RESPONSE = {
   },
 };
 
-const MOCK_RECORD_RESPONSE = {
+const MOCK_MATCH_RESPONSE = {
   data: {
-    photo: {
-      id: '00000000-0000-4000-8000-aaaaaaaaaaaa',
-      shelf_id: '00000000-0000-4000-8000-bbbbbbbbbbbb',
-      status: 'uploaded',
-      detected_count: null,
-      error_message: null,
-      vision_cost_usd: null,
-      vision_latency_ms: null,
-      created_at: new Date().toISOString(),
-    },
+    matched: 2,
+    detections: [
+      {
+        id: '00000000-0000-4000-8000-000000000010',
+        raw_title: 'Solaris',
+        raw_author: 'Stanisław Lem',
+        position_index: 1,
+        status: 'matched',
+        candidates: [
+          {
+            source: 'google_books',
+            externalId: 'gb-solaris',
+            title: 'Solaris',
+            authors: ['Stanisław Lem'],
+            isbn10: null,
+            isbn13: '9780156027601',
+            publisher: 'Harvest Books',
+            publishedYear: 1987,
+            coverUrl: null,
+            matchScore: 0.92,
+            rank: 1,
+          },
+        ],
+        duplicate: null,
+      },
+    ],
   },
 };
 
-test('upload flow: signup → /upload → wybór półki → upload → detekcje widoczne', async ({ page }) => {
+const MOCK_PHOTO_GET_RESPONSE = {
+  data: {
+    photo: {
+      id: PHOTO_ID,
+      shelf_id: '00000000-0000-4000-8000-bbbbbbbbbbbb',
+      status: 'processed',
+      detected_count: 2,
+      error_message: null,
+      vision_cost_usd: 0.005,
+      vision_latency_ms: 4200,
+      created_at: new Date().toISOString(),
+    },
+    detections: [
+      {
+        id: '00000000-0000-4000-8000-000000000010',
+        position_index: 1,
+        raw_title: 'Solaris',
+        raw_author: 'Stanisław Lem',
+        vision_confidence: 0.95,
+        spine_color: 'niebieski',
+        bbox: null,
+        status: 'matched',
+        candidates: [
+          {
+            id: '00000000-0000-4000-8000-000000000020',
+            source: 'google_books',
+            externalId: 'gb-solaris',
+            title: 'Solaris',
+            authors: ['Stanisław Lem'],
+            isbn10: null,
+            isbn13: '9780156027601',
+            publisher: 'Harvest Books',
+            publishedYear: 1987,
+            coverUrl: null,
+            matchScore: 0.92,
+            rank: 1,
+          },
+        ],
+        duplicate: null,
+      },
+    ],
+  },
+};
+
+test('upload flow: signup → /upload → wybór półki → upload → redirect → propozycje widoczne', async ({ page }) => {
   // 1. Signup — wait for networkidle so React island hydrates before clicking
   await page.goto('/signup');
   await page.waitForLoadState('networkidle');
@@ -65,7 +143,7 @@ test('upload flow: signup → /upload → wybór półki → upload → detekcje
   await page.waitForURL('/upload', { timeout: 5_000 });
   await expect(page.getByTestId('photo-uploader')).toBeVisible();
 
-  // Override URL.createObjectURL in the live page so the canvas Image.onload always
+  // Override URL.createObjectURL in the live page so the Image.onload always
   // fires with a valid tiny PNG, regardless of the test blob content.
   await page.evaluate(() => {
     const TINY_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
@@ -95,7 +173,7 @@ test('upload flow: signup → /upload → wybór półki → upload → detekcje
   });
 
   // 6. Intercept /api/photos/*/process
-  await page.route('**/api/photos/*/process', (route) => {
+  await page.route(`**/api/photos/${PHOTO_ID}/process`, (route) => {
     void route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -103,13 +181,37 @@ test('upload flow: signup → /upload → wybór półki → upload → detekcje
     });
   });
 
-  // 7. Upload a real minimal JPEG (fake bytes cause Image load failed in real browser)
+  // 7. Intercept /api/photos/*/match
+  await page.route(`**/api/photos/${PHOTO_ID}/match`, (route) => {
+    void route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(MOCK_MATCH_RESPONSE),
+    });
+  });
+
+  // 8. Intercept GET /api/photos/[id] (used by DetectionReview on review page)
+  await page.route(`**/api/photos/${PHOTO_ID}`, (route) => {
+    if (route.request().method() === 'GET') {
+      void route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_PHOTO_GET_RESPONSE),
+      });
+    } else {
+      void route.continue();
+    }
+  });
+
+  // 9. Upload a real minimal JPEG
   const fileInput = page.getByTestId('file-input');
   await fileInput.setInputFiles('tests/fixtures/test-shelf.jpg');
 
-  // 8. Detections list appears
-  await expect(page.getByTestId('results-area')).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByTestId('detections-list')).toBeVisible();
-  await expect(page.getByTestId('detection-item-0')).toContainText('Solaris');
-  await expect(page.getByTestId('detection-item-1')).toContainText('Dune');
+  // 10. Wait for redirect to review page
+  await page.waitForURL(`/photos/${PHOTO_ID}`, { timeout: 15_000 });
+
+  // 11. Review page shows proposals
+  await expect(page.getByTestId('detection-review')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId('detection-card-1')).toBeVisible();
+  await expect(page.getByTestId('tier-badge-high')).toBeVisible();
 });

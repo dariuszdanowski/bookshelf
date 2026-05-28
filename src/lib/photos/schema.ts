@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import type { BookCandidateDTO } from '../books/schema';
+
 export const RecordPhotoSchema = z.object({
   shelf_id: z.uuid(),
   storage_path: z.string().min(1),
@@ -24,4 +26,18 @@ export type DetectionDTO = {
   raw_author: string | null;
   vision_confidence: number | null;
   spine_color: string | null;
+  bbox: { x1: number; y1: number; x2: number; y2: number } | null;
+};
+
+export type DetectionWithCandidatesDTO = {
+  id: string;
+  position_index: number;
+  raw_title: string;
+  raw_author: string | null;
+  vision_confidence: number | null;
+  spine_color: string | null;
+  bbox: { x1: number; y1: number; x2: number; y2: number } | null;
+  status: string;
+  candidates: BookCandidateDTO[];
+  duplicate: { type: 'exact' | 'edition'; shelfHint?: string } | null;
 };

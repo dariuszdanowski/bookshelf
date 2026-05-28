@@ -1,8 +1,10 @@
 ---
 change_id: external-match-and-proposals
-status: preparing
+status: implemented
 created: 2026-05-28
 updated: 2026-05-28
+implemented_at: 2026-05-28
+
 roadmap_ref: S-04
 ---
 

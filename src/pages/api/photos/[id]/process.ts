@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 
 import { detectSpines } from '../../../../lib/vision/client';
+import { deriveWorkingCopy } from '../../../../lib/images/resize';
 import { type PhotoDTO, type DetectionDTO } from '../../../../lib/photos/schema';
 import { apiError, apiResponse, parseUuidParam } from '../../../../lib/http/response';
 
@@ -15,12 +16,6 @@ function toBase64(buffer: ArrayBuffer): string {
     binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
   }
   return btoa(binary);
-}
-
-function detectMediaType(storagePath: string): 'image/jpeg' | 'image/png' | 'image/webp' {
-  if (storagePath.endsWith('.png')) return 'image/png';
-  if (storagePath.endsWith('.webp')) return 'image/webp';
-  return 'image/jpeg';
 }
 
 /**
@@ -81,8 +76,25 @@ export const POST: APIRoute = async ({ params, locals }) => {
     return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się pobrać zdjęcia z Storage.' });
   }
 
-  const base64 = toBase64(await blob.arrayBuffer());
-  const mediaType = detectMediaType(photo.storage_path);
+  const originalBuffer = await blob.arrayBuffer();
+
+  let workingBytes: Uint8Array;
+  let mediaType: 'image/jpeg';
+  try {
+    const wc = await deriveWorkingCopy(originalBuffer);
+    workingBytes = wc.bytes;
+    mediaType = wc.mediaType;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[api/photos/process POST] photon deriveWorkingCopy failed', {
+      name: err instanceof Error ? err.name : 'UnknownError',
+      message: msg,
+    });
+    await locals.supabase.from('photos').update({ status: 'failed', error_message: msg }).eq('id', id);
+    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się przetworzyć obrazu.' });
+  }
+
+  const base64 = toBase64(workingBytes.buffer as ArrayBuffer);
 
   // 4. Call vision LLM (propagate Anthropic errors except 429/529)
   let visionResult: Awaited<ReturnType<typeof detectSpines>>;
@@ -135,6 +147,11 @@ export const POST: APIRoute = async ({ params, locals }) => {
         vision_confidence: d.confidence,
         spine_color: d.spine_color ?? null,
         status: 'pending',
+        // bbox: best-effort z vision; null gdy brak/niepoprawne — nigdy nie blokuje
+        bbox_x1: d.bbox?.[0] ?? null,
+        bbox_y1: d.bbox?.[1] ?? null,
+        bbox_x2: d.bbox?.[2] ?? null,
+        bbox_y2: d.bbox?.[3] ?? null,
       }))
     );
     // Bez tego check'u: failed insert + flip do 'processed' = cicha utrata
@@ -194,7 +211,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
 
   const { data: detRows } = await locals.supabase
     .from('detections')
-    .select('position_index, raw_title, raw_author, vision_confidence, spine_color')
+    .select('position_index, raw_title, raw_author, vision_confidence, spine_color, bbox_x1, bbox_y1, bbox_x2, bbox_y2')
     .eq('photo_id', id)
     .order('position_index', { ascending: true });
 
@@ -215,6 +232,10 @@ export const POST: APIRoute = async ({ params, locals }) => {
     raw_author: row.raw_author,
     vision_confidence: row.vision_confidence,
     spine_color: row.spine_color,
+    bbox:
+      row.bbox_x1 != null && row.bbox_y1 != null && row.bbox_x2 != null && row.bbox_y2 != null
+        ? { x1: row.bbox_x1, y1: row.bbox_y1, x2: row.bbox_x2, y2: row.bbox_y2 }
+        : null,
   }));
 
   return apiResponse({ data: { photo: photoDto, detections } });

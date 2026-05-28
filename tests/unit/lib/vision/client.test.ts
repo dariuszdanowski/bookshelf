@@ -10,7 +10,7 @@ vi.mock('@anthropic-ai/sdk', () => {
   return { default: MockAnthropic };
 });
 
-import { detectSpines } from '../../../../src/lib/vision/client';
+import { detectSpines, stripCodeFences } from '../../../../src/lib/vision/client';
 import { SPINE_COLORS } from '../../../../src/lib/vision/prompt';
 
 function makeAnthropicResponse(
@@ -156,5 +156,47 @@ describe('detectSpines', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.model).toBe('claude-sonnet-4-6-custom');
+  });
+
+  it('parses response wrapped in ```json code fences', async () => {
+    const fenced = '```json\n' + JSON.stringify([validDetection]) + '\n```';
+    mockCreate.mockResolvedValueOnce(makeAnthropicResponse(fenced));
+
+    const result = await detectSpines({ base64: 'img', mediaType: 'image/jpeg' });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.detections[0].title).toBe('Solaris');
+  });
+
+  it('parses response wrapped in plain ``` code fences', async () => {
+    const fenced = '```\n' + JSON.stringify([validDetection]) + '\n```';
+    mockCreate.mockResolvedValueOnce(makeAnthropicResponse(fenced));
+
+    const result = await detectSpines({ base64: 'img', mediaType: 'image/jpeg' });
+
+    expect(result.ok).toBe(true);
+  });
+});
+
+describe('stripCodeFences', () => {
+  it('strips ```json ... ``` wrapper', () => {
+    expect(stripCodeFences('```json\n[1,2,3]\n```')).toBe('[1,2,3]');
+  });
+
+  it('strips ``` ... ``` without language tag', () => {
+    expect(stripCodeFences('```\n[1,2,3]\n```')).toBe('[1,2,3]');
+  });
+
+  it('leaves plain JSON untouched', () => {
+    expect(stripCodeFences('[{"a":1}]')).toBe('[{"a":1}]');
+  });
+
+  it('trims surrounding whitespace', () => {
+    expect(stripCodeFences('  [1,2,3]  ')).toBe('[1,2,3]');
+  });
+
+  it('strips fence with trailing whitespace on opening line', () => {
+    expect(stripCodeFences('```json  \n[1]\n```')).toBe('[1]');
   });
 });

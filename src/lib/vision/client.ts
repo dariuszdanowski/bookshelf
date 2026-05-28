@@ -39,11 +39,25 @@ function calcCost(usage: { input_tokens: number; output_tokens: number }): numbe
   );
 }
 
-function tryParseDetections(text: string): { ok: true; data: Detection[] } | { ok: false } {
+// Claude wraps JSON in markdown code fences despite prompt instructions — strip before parsing
+export function stripCodeFences(text: string): string {
+  return text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+}
+
+function tryParseDetections(
+  text: string,
+  attempt: 'first' | 'retry'
+): { ok: true; data: Detection[] } | { ok: false } {
+  console.log(`[vision:raw-response:${attempt}]`, text);
   try {
-    const result = DetectionSchema.safeParse(JSON.parse(text));
+    const parsed = JSON.parse(stripCodeFences(text));
+    const result = DetectionSchema.safeParse(parsed);
+    if (!result.success) {
+      console.error(`[vision:parse-fail:${attempt}]`, JSON.stringify(result.error.issues));
+    }
     return result.success ? { ok: true, data: result.data } : { ok: false };
-  } catch {
+  } catch (e) {
+    console.error(`[vision:json-fail:${attempt}]`, String(e));
     return { ok: false };
   }
 }
@@ -55,6 +69,13 @@ export async function detectSpines(input: {
   const apiKey = env?.ANTHROPIC_API_KEY ?? import.meta.env.ANTHROPIC_API_KEY;
   const client = new Anthropic({ apiKey });
   const start = Date.now();
+
+  console.log('[vision:request]', {
+    model: MODEL,
+    mediaType: input.mediaType,
+    base64Bytes: input.base64.length,
+    systemPrompt: VISION_SYSTEM_PROMPT,
+  });
 
   const messages: Anthropic.MessageParam[] = [
     { role: 'user', content: buildUserContent(input.base64, input.mediaType) },
@@ -68,8 +89,13 @@ export async function detectSpines(input: {
     messages,
   });
 
-  const firstParsed = tryParseDetections(extractText(first.content));
+  const firstParsed = tryParseDetections(extractText(first.content), 'first');
   if (firstParsed.ok) {
+    console.log('[vision:success:first]', {
+      detectionCount: firstParsed.data.length,
+      costUsd: calcCost(first.usage),
+      latencyMs: Date.now() - start,
+    });
     return {
       ok: true,
       detections: firstParsed.data,
@@ -80,6 +106,7 @@ export async function detectSpines(input: {
   }
 
   // Retry once with extended thinking (ZodError/JSON-parse-fail fallback)
+  console.log('[vision:retry-with-thinking]');
   const retry = await client.messages.create({
     model: MODEL,
     max_tokens: MAX_TOKENS,
@@ -88,10 +115,15 @@ export async function detectSpines(input: {
     messages,
   });
 
-  const retryParsed = tryParseDetections(extractText(retry.content));
+  const retryParsed = tryParseDetections(extractText(retry.content), 'retry');
   const totalCost = calcCost(first.usage) + calcCost(retry.usage);
 
   if (retryParsed.ok) {
+    console.log('[vision:success:retry]', {
+      detectionCount: retryParsed.data.length,
+      costUsd: totalCost,
+      latencyMs: Date.now() - start,
+    });
     return {
       ok: true,
       detections: retryParsed.data,
@@ -101,5 +133,6 @@ export async function detectSpines(input: {
     };
   }
 
+  console.error('[vision:parse-failure-final]', { latencyMs: Date.now() - start, totalCost });
   return { ok: false, reason: 'parse_failure', latencyMs: Date.now() - start };
 }
