@@ -432,36 +432,36 @@ Nowa strona `/shelves/[id].astro` renderuje `PhotoListIsland` — React komponen
 
 #### Automated
 
-- [x] 2.1 Typecheck pass: `npm run typecheck`
-- [x] 2.2 Lint pass: `npm run lint`
-- [x] 2.3 Vitest pass: `npm run test` (z nowymi/zaktualizowanymi testami process / match / shelves photos)
-- [x] 2.4 Test `process.test.ts`: P0001 mock → 409 CONFLICT z envelope
-- [x] 2.5 Test `match.test.ts`: operuje tylko na detections z najnowszego succeeded run
+- [x] 2.1 Typecheck pass: `npm run typecheck` — 99c8410
+- [x] 2.2 Lint pass: `npm run lint` — 99c8410
+- [x] 2.3 Vitest pass: `npm run test` (z nowymi/zaktualizowanymi testami process / match / shelves photos) — 99c8410
+- [x] 2.4 Test `process.test.ts`: P0001 mock → 409 CONFLICT z envelope — 99c8410
+- [x] 2.5 Test `match.test.ts`: operuje tylko na detections z najnowszego succeeded run — 99c8410
 
 #### Manual
 
-- [x] 2.6 `curl POST /process` dwa razy pod rząd: drugi zwraca 409 CONFLICT z Polish message
-- [x] 2.7 Po sukcesie `/process`: w Studio nowy wiersz `vision_runs` succeeded + detections z `vision_run_id`
-- [x] 2.8 Ponowny `/process` po >1min: nowy run, stare detections zachowane, `select latest succeeded` zwraca nowe
-- [x] 2.9 `curl GET /api/shelves/<id>/photos` zwraca listę z poprawnym stage + ważne signed URL thumbnaila
-- [x] 2.10 `src/lib/vision/AGENTS.md` zaktualizowany — bullet „Idempotencja" zastąpiony nowym „Wersjonowanie vision" + concurrency trigger note
+- [x] 2.6 `curl POST /process` dwa razy pod rząd: drugi zwraca 409 CONFLICT z Polish message — 99c8410
+- [x] 2.7 Po sukcesie `/process`: w Studio nowy wiersz `vision_runs` succeeded + detections z `vision_run_id` — 99c8410
+- [x] 2.8 Ponowny `/process` po >1min: nowy run, stare detections zachowane, `select latest succeeded` zwraca nowe — 99c8410
+- [x] 2.9 `curl GET /api/shelves/<id>/photos` zwraca listę z poprawnym stage + ważne signed URL thumbnaila — 99c8410
+- [x] 2.10 `src/lib/vision/AGENTS.md` zaktualizowany — bullet „Idempotencja" zastąpiony nowym „Wersjonowanie vision" + concurrency trigger note — 99c8410
 
 ### Phase 3: UI — /shelves/[id] page + PhotoListIsland + augmented DetectionReview + nawigacja
 
 #### Automated
 
-- [ ] 3.1 Typecheck pass: `npm run typecheck`
-- [ ] 3.2 Lint pass: `npm run lint`
-- [ ] 3.3 Vitest pass: `npm run test` (z nowym `PhotoListIsland.test.tsx`)
-- [ ] 3.4 Astro build pass: `npm run build`
+- [x] 3.1 Typecheck pass: `npm run typecheck`
+- [x] 3.2 Lint pass: `npm run lint`
+- [x] 3.3 Vitest pass: `npm run test` (z nowym `PhotoListIsland.test.tsx`)
+- [x] 3.4 Astro build pass: `npm run build`
 
 #### Manual
 
-- [ ] 3.5 `/shelves` pokazuje link „Zobacz zdjęcia →" na każdej półce
-- [ ] 3.6 `/shelves/[id]` pokazuje listę zdjęć z miniaturkami i stage badge
-- [ ] 3.7 „Run vision" na uploaded photo → po sukcesie wiersz pokazuje vision_done (refetch)
-- [ ] 3.8 „Re-run vision" pokazuje confirm; po OK → nowy run, w Studio widać 2 succeeded + obie generacje detections
-- [ ] 3.9 Double-click „Run vision" w 1s → drugi dostaje toast 409
-- [ ] 3.10 `/photos/[id]` ma badge vision_run metadanych + akcje Ponów vision/match
-- [ ] 3.11 Photo z tylko failed runs pokazuje stage uploaded + akcja Uruchom vision
-- [ ] 3.12 Mobile responsive sanity check (<640px) — lista zdjęć nadal czytelna
+- [x] 3.5 `/shelves` pokazuje link „Zobacz zdjęcia →" na każdej półce
+- [x] 3.6 `/shelves/[id]` pokazuje listę zdjęć z miniaturkami i stage badge
+- [x] 3.7 „Run vision" na uploaded photo → po sukcesie wiersz pokazuje vision_done (refetch)
+- [x] 3.8 „Re-run vision" pokazuje confirm; po OK → nowy run, w Studio widać 2 succeeded + obie generacje detections
+- [x] 3.9 Double-click „Run vision" w 1s → drugi dostaje toast 409
+- [x] 3.10 `/photos/[id]` ma badge vision_run metadanych + akcje Ponów vision/match
+- [x] 3.11 Photo z tylko failed runs pokazuje stage uploaded + akcja Uruchom vision
+- [x] 3.12 Mobile responsive sanity check (<640px) — lista zdjęć nadal czytelna

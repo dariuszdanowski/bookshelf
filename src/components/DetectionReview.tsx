@@ -189,19 +189,39 @@ function DetectionCard({ detection }: { detection: DetectionWithCandidatesDTO })
   );
 }
 
+type VisionRunMeta = {
+  id: string;
+  model: string | null;
+  created_at: string;
+  cost_usd: number | null;
+  latency_ms: number | null;
+};
+
 type ApiResponse = {
   data?: {
     photo: PhotoDTO;
     detections?: DetectionWithCandidatesDTO[];
+    vision_run: VisionRunMeta | null;
   };
   error?: { message?: string };
 };
+
+function relativeTime(dateStr: string): string {
+  const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
+  if (diff < 60) return 'przed chwilą';
+  if (diff < 3600) return `${Math.floor(diff / 60)} min temu`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} godz. temu`;
+  return `${Math.floor(diff / 86400)} dni temu`;
+}
 
 export default function DetectionReview({ photoId }: { photoId: string }) {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [photo, setPhoto] = useState<PhotoDTO | null>(null);
   const [detections, setDetections] = useState<DetectionWithCandidatesDTO[]>([]);
+  const [visionRun, setVisionRun] = useState<VisionRunMeta | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionMsg, setActionMsg] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -215,6 +235,7 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
         }
         setPhoto(json.data.photo);
         setDetections(json.data.detections ?? []);
+        setVisionRun(json.data.vision_run ?? null);
       } catch (err) {
         if (!cancelled) setErrorMsg(err instanceof Error ? err.message : 'Nie udało się załadować propozycji.');
       } finally {
@@ -223,6 +244,61 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
     })();
     return () => { cancelled = true; };
   }, [photoId]);
+
+  async function handleRerunVision() {
+    if (
+      !window.confirm(
+        'Uruchomimy nowy vision run. Poprzednie wyniki zostaną w historii. Koszt: ~$0.01 + ~10s. OK?'
+      )
+    ) {
+      return;
+    }
+    setActionBusy(true);
+    setActionMsg(null);
+    try {
+      const res = await fetch(`/api/photos/${photoId}/process`, { method: 'POST' });
+      const json = (await res.json()) as { data?: unknown; error?: { message?: string } };
+      if (res.status === 409) {
+        setActionMsg('Vision run w toku, poczekaj 1 minutę.');
+        return;
+      }
+      if (res.status === 429) {
+        setActionMsg('Rate limit, spróbuj za chwilę.');
+        return;
+      }
+      if (!res.ok) {
+        setActionMsg(json.error?.message ?? `Błąd (${res.status})`);
+        return;
+      }
+      window.location.reload();
+    } catch (err) {
+      setActionMsg(err instanceof Error ? err.message : 'Błąd sieci.');
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  async function handleRerunMatch() {
+    setActionBusy(true);
+    setActionMsg(null);
+    try {
+      const res = await fetch(`/api/photos/${photoId}/match`, { method: 'POST' });
+      const json = (await res.json()) as { data?: unknown; error?: { message?: string } };
+      if (res.status === 429) {
+        setActionMsg('Rate limit, spróbuj za chwilę.');
+        return;
+      }
+      if (!res.ok) {
+        setActionMsg(json.error?.message ?? `Błąd matchowania (${res.status})`);
+        return;
+      }
+      window.location.reload();
+    } catch (err) {
+      setActionMsg(err instanceof Error ? err.message : 'Błąd sieci.');
+    } finally {
+      setActionBusy(false);
+    }
+  }
 
   if (loading) {
     return (
@@ -263,6 +339,48 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
 
   return (
     <div data-testid="detection-review">
+      {/* Vision run metadata panel + re-run actions */}
+      {visionRun && (
+        <div
+          data-testid="vision-run-panel"
+          className="mb-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3"
+        >
+          <p className="text-xs text-gray-500">
+            Vision: {visionRun.model ?? 'model'} &bull;{' '}
+            {relativeTime(visionRun.created_at)}
+            {visionRun.cost_usd != null &&
+              ` · $${visionRun.cost_usd.toFixed(4)}`}
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              data-testid="rerun-vision-button"
+              disabled={actionBusy}
+              onClick={() => void handleRerunVision()}
+              className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              {actionBusy ? 'Uruchamiam...' : 'Ponów vision (nowy run)'}
+            </button>
+            <button
+              data-testid="rerun-match-button"
+              disabled={actionBusy}
+              onClick={() => void handleRerunMatch()}
+              className="inline-flex items-center rounded-md border border-blue-300 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+            >
+              {actionBusy ? 'Dopasowuję...' : 'Ponów match'}
+            </button>
+          </div>
+          {actionMsg && (
+            <p
+              data-testid="action-message"
+              className="mt-1 text-xs text-amber-700"
+              role="alert"
+            >
+              {actionMsg}
+            </p>
+          )}
+        </div>
+      )}
+
       <p className="mb-4 text-sm text-gray-600">
         Wykryto <strong>{detections.length}</strong> książek &bull; dopasowano <strong>{matchedCount}</strong>
         {photo?.vision_cost_usd != null && (

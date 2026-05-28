@@ -1,0 +1,46 @@
+---
+export const prerender = false;
+
+import Layout from '../../layouts/Layout.astro';
+import PhotoListIsland from '../../components/PhotoListIsland.tsx';
+import { parseUuidParam } from '../../lib/http/response';
+
+if (!Astro.locals.user) {
+  return Astro.redirect('/login');
+}
+
+const id = parseUuidParam(Astro.params.id);
+if (!id) {
+  return Astro.redirect('/shelves');
+}
+
+const { data: shelf, error: shelfError } = await Astro.locals.supabase
+  .from('shelves')
+  .select('name')
+  .eq('id', id)
+  .single();
+
+if (shelfError || !shelf) {
+  return Astro.redirect('/shelves');
+}
+---
+
+<Layout title={`Zdjęcia: ${shelf.name}`}>
+  <main class="mx-auto max-w-4xl p-8">
+    <div class="mb-4 text-sm text-gray-500">
+      <a href="/shelves" class="text-blue-600 hover:text-blue-800">Moje półki</a>
+      <span class="mx-1">&rsaquo;</span>
+      <span>{shelf.name}</span>
+    </div>
+    <div class="mb-6 flex items-center justify-between">
+      <h1 class="text-3xl font-bold">{shelf.name}</h1>
+      <a
+        href={`/upload?shelf=${id}`}
+        class="inline-flex items-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+      >
+        + Dodaj zdjęcie
+      </a>
+    </div>
+    <PhotoListIsland client:load shelfId={id} shelfName={shelf.name} />
+  </main>
+</Layout>
