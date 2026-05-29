@@ -35,7 +35,7 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | S-02  | shelves-crud-and-purchased   | tworzyć/edytować/usuwać półki; auto-półka "Zakupione"     | S-01          | FR-005–009            | done     |
 | S-03  | shelf-photo-vision-detection | wgrać zdjęcie półki → rozpoznane detekcje grzbietów        | S-02          | FR-010–014, FR-039    | done     |
 | S-04  | external-match-and-proposals | zobaczyć propozycje z bazy publicznej + flagi duplikatów  | S-03          | FR-015–018            | done     |
-| S-05  | proposal-accept-to-catalog   | akceptować/odrzucać/korygować → katalog + widok półki     | S-04          | FR-019–024, FR-037    | proposed |
+| S-05  | proposal-accept-to-catalog   | akceptować/odrzucać/korygować → katalog + widok półki     | S-04          | FR-019–024, FR-037    | done     |
 | S-06  | add-purchase-flow            | dodać zakup (ręcznie/zdjęcie) na półkę "Zakupione"        | S-05, S-02    | FR-025–028            | proposed |
 | S-07  | move-book-and-history        | przenieść książkę między półkami z historią lokalizacji   | S-05, S-02    | FR-029–031, FR-038    | proposed |
 | S-08  | catalog-search-and-filters   | wyszukać katalog pełnotekstowo + filtry (kolor/półka/status) | S-05, S-02 | FR-032–036            | proposed |
@@ -164,7 +164,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** domyka gwiazdę przewodnią (Flow A end-to-end) i niesie KPI acceptance-rate + time-to-first-shelf; największa wartość produktu, więc sekwencjonowana najwcześniej, jak pozwalają prerekwizyty — opóźnienie tu opóźnia walidację całej hipotezy.
-- **Status:** proposed
+- **Status:** done
 
 ### S-06: Flow B — dodaj zakup na półkę "Zakupione"
 
@@ -307,5 +307,6 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **S-13: header nav „Moje półki" → /shelves dla auth user'a + landing CTA pivot na /shelves (do czasu /library w S-08)** — Archived 2026-05-27 → `context/archive/2026-05-27-header-nav-when-auth/`. Lesson: —. UX gap fix po S-02 (nikt nigdzie nie linkował /shelves; landing CTA z S-09 prowadził do nieistniejącego /library). Po S-08 wrócimy do oryginalnej intencji S-09 z linkiem do /library.
 - **S-03: użytkownik może wgrać jedno zdjęcie półki (drag-drop / wybór z dysku) przypisane do wybranej fizycznej półki; system przetwarza je, wydobywa detekcje (tytuł, autor, pewność, dominujący kolor grzbietu z palety ~10), persistuje wszystkie detekcje przed matchingiem (idempotentny retry) i pokazuje status z paskiem postępu; koszt + latencja zapisane na rekordzie zdjęcia.** — Archived 2026-05-27 → `context/archive/2026-05-27-shelf-photo-vision-detection/`. Lesson: —. Follow-up S-14 (reload-recovery utkniętego 'processing') zarejestrowany z impl-review F2. Manual smoke (bucket, vision, Worker Secret) deferred do post-merge + `supabase db push`.
 - **S-04: dla każdej detekcji system odpytuje Google Books (primary) + OpenLibrary (fallback), buduje kandydatów z metadanymi, liczy pewność dopasowania i progresję (≥ 0.75 pre-zaznaczone / 0.55–0.75 wymaga potwierdzenia / < 0.55 "wpisz ręcznie"), sprawdza duplikat w katalogu (ISBN lub fuzzy tytuł+autor) i flaguje "duplikat z półki X" / "masz inną edycję"; użytkownik widzi listę propozycji (najlepszy + 2–4 alternatywy).** — Archived 2026-05-29 → `context/archive/2026-05-28-external-match-and-proposals/`. Lesson: —. Rozszerzony zakres (bbox 0..1 + `photos.original_path` + region model, migracja 0006) jako substrat pod przyszłą re-analizę fragmentów — zob. memory `s04-detection-spatial-region-model`. Manual smoke (realny /match, polski OCR, idempotencja, prod review z okładkami) deferred do post-merge + `supabase db push`.
+- **S-05: użytkownik może akceptować (hurtowo pre-zaznaczone lub po kolei), odrzucać lub korygować pola (tytuł/autor/wydawnictwo/rok) przed akceptacją, oraz wpisać książkę ręcznie, gdy brak matchu; zaakceptowana książka trafia do katalogu ze statusem przeczytania = nie przeczytana i pozycją na półce ("od lewej"); użytkownik widzi półkę z okładkami w kolejności od lewej i przełącza status przeczytania jednym kliknięciem; każda korekta/odrzucenie zapisane jako sygnał telemetryczny.** — Archived 2026-05-29 → `context/archive/2026-05-29-proposal-accept-to-catalog/`. Lesson: RLS join-tabel waliduj OBA FK (lessons.md); helper confirm bez transakcji — obserwuj błędy zapisów (impl-review F1 fix). Manual smoke (accept/bulk/correct/reject/widok półki/toggle) deferred do post-merge + `supabase db push` (migracje 0008+0009).
 
 (Pusta przy pierwszej generacji. `/10x-archive` dopisuje tu wpis — i przerzuca Status pozycji na `done` — gdy archiwizowana zmiana ma `Change ID` zgodny z pozycją roadmapy. NIE wypełniać ręcznie.)
