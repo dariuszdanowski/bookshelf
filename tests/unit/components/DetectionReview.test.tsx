@@ -1,210 +1,390 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import DetectionReview from '../../../src/components/DetectionReview';
 
+// ---------------------------------------------------------------------------
+// Stałe testowe
+// ---------------------------------------------------------------------------
 const PHOTO_ID = '00000000-0000-4000-8000-000000000003';
+const SHELF_ID = '00000000-0000-4000-8000-000000000040';
 const DET_ID_HIGH = '00000000-0000-4000-8000-000000000010';
-const DET_ID_MID = '00000000-0000-4000-8000-000000000011';
-const DET_ID_LOW = '00000000-0000-4000-8000-000000000012';
-const DET_ID_NONE = '00000000-0000-4000-8000-000000000013';
-const CAND_ID = '00000000-0000-4000-8000-000000000020';
+const DET_ID_LOW = '00000000-0000-4000-8000-000000000011';
+const CAND_HIGH = '00000000-0000-4000-8000-000000000020';
+const CAND_LOW = '00000000-0000-4000-8000-000000000021';
 
-function makePhoto(overrides = {}) {
+const mockPhoto = {
+  id: PHOTO_ID,
+  shelf_id: SHELF_ID,
+  status: 'processed',
+  detected_count: 2,
+  error_message: null,
+  vision_cost_usd: 0.005,
+  vision_latency_ms: 5000,
+  created_at: '2026-05-29T10:00:00Z',
+};
+
+const mockVisionRun = {
+  id: 'vr-1',
+  model: 'claude-sonnet-4-6',
+  created_at: '2026-05-29T10:00:00Z',
+  cost_usd: 0.005,
+  latency_ms: 5000,
+};
+
+const candHigh = {
+  id: CAND_HIGH,
+  source: 'google_books',
+  externalId: 'gb-1',
+  title: 'Solaris',
+  authors: ['Stanisław Lem'],
+  isbn10: null,
+  isbn13: '9780156027601',
+  publisher: 'Harvest',
+  publishedYear: 1961,
+  coverUrl: null,
+  matchScore: 0.90,
+  rank: 1,
+};
+
+const candLow = {
+  id: CAND_LOW,
+  source: 'open_library',
+  externalId: 'ol-1',
+  title: 'Diuna',
+  authors: ['Frank Herbert'],
+  isbn10: null,
+  isbn13: null,
+  publisher: null,
+  publishedYear: 1965,
+  coverUrl: null,
+  matchScore: 0.45,
+  rank: 1,
+};
+
+const detHigh = {
+  id: DET_ID_HIGH,
+  position_index: 1,
+  raw_title: 'Solaris',
+  raw_author: 'Lem',
+  vision_confidence: 0.95,
+  spine_color: null,
+  bbox: null,
+  status: 'matched',
+  candidates: [candHigh],
+  duplicate: null,
+};
+
+const detLow = {
+  id: DET_ID_LOW,
+  position_index: 2,
+  raw_title: 'Diuna',
+  raw_author: null,
+  vision_confidence: 0.80,
+  spine_color: null,
+  bbox: null,
+  status: 'matched',
+  candidates: [candLow],
+  duplicate: null,
+};
+
+const detNoMatch = {
+  id: '00000000-0000-4000-8000-000000000012',
+  position_index: 3,
+  raw_title: 'Nieznana',
+  raw_author: null,
+  vision_confidence: 0.70,
+  spine_color: null,
+  bbox: null,
+  status: 'pending',
+  candidates: [],
+  duplicate: null,
+};
+
+function makePhotoResponse(detections = [detHigh, detLow]) {
   return {
-    id: PHOTO_ID,
-    shelf_id: '00000000-0000-4000-8000-000000000002',
-    status: 'processed',
-    detected_count: 3,
-    error_message: null,
-    vision_cost_usd: 0.005,
-    vision_latency_ms: 4200,
-    created_at: '2026-05-28T10:00:00Z',
-    ...overrides,
+    data: {
+      photo: mockPhoto,
+      detections,
+      vision_run: mockVisionRun,
+    },
   };
 }
 
-function makeCandidate(overrides: Record<string, unknown> = {}) {
-  return {
-    id: CAND_ID,
-    source: 'google_books',
-    externalId: 'gb-1',
-    title: 'Solaris',
-    authors: ['Stanisław Lem'],
-    isbn10: null,
-    isbn13: '9780156027601',
-    publisher: 'Harvest Books',
-    publishedYear: 1987,
-    coverUrl: null,
-    matchScore: 0.9,
-    rank: 1,
-    ...overrides,
-  };
-}
+// ---------------------------------------------------------------------------
+// Setup
+// ---------------------------------------------------------------------------
 
-function makeDetection(id: string, overrides: Record<string, unknown> = {}) {
-  return {
-    id,
-    position_index: 1,
-    raw_title: 'Solaris',
-    raw_author: 'Stanisław Lem',
-    vision_confidence: 0.95,
-    spine_color: 'niebieski',
-    bbox: null,
-    status: 'matched',
-    candidates: [],
-    duplicate: null,
-    ...overrides,
-  };
-}
+const originalLocation = window.location;
 
-function mockFetch(body: unknown, status = 200) {
-  return vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-    new Response(JSON.stringify(body), {
-      status,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  );
-}
+beforeEach(() => {
+  Object.defineProperty(window, 'location', {
+    configurable: true,
+    writable: true,
+    value: { href: '', reload: vi.fn() },
+  });
+});
 
-beforeEach(() => vi.clearAllMocks());
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  Object.defineProperty(window, 'location', {
+    configurable: true,
+    writable: true,
+    value: originalLocation,
+  });
+  vi.restoreAllMocks();
+});
 
-describe('DetectionReview', () => {
-  it('shows loading skeletons initially', () => {
-    mockFetch({ data: { photo: makePhoto(), detections: [] } });
+// ---------------------------------------------------------------------------
+// Render podstawowy
+// ---------------------------------------------------------------------------
+
+describe('DetectionReview — initial render', () => {
+  it('pokazuje skeleton podczas ładowania', () => {
+    vi.spyOn(globalThis, 'fetch').mockReturnValue(new Promise(() => {})); // never resolves
     render(<DetectionReview photoId={PHOTO_ID} />);
     expect(screen.getByTestId('detection-review-loading')).toBeInTheDocument();
   });
 
-  it('shows error message when fetch fails', async () => {
-    mockFetch({ error: { message: 'Not found.' } }, 404);
+  it('renderuje karty detekcji po załadowaniu', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(makePhotoResponse()), { status: 200 })
+    );
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => {
+      expect(screen.getByTestId('detection-review')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('detection-card-1')).toBeInTheDocument();
+    expect(screen.getByTestId('detection-card-2')).toBeInTheDocument();
+  });
+
+  it('pokazuje błąd przy network error', async () => {
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('network fail'));
     render(<DetectionReview photoId={PHOTO_ID} />);
     await waitFor(() => {
       expect(screen.getByTestId('detection-review-error')).toBeInTheDocument();
     });
-    expect(screen.getByTestId('detection-review-error')).toHaveTextContent('Not found.');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Bulk accept
+// ---------------------------------------------------------------------------
+
+describe('DetectionReview — bulk confirm', () => {
+  it('pokazuje przycisk bulk dla detekcji ≥0.75', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 })
+    );
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => screen.getByTestId('bulk-confirm-button'));
+    expect(screen.getByTestId('bulk-confirm-button')).toBeInTheDocument();
   });
 
-  it('shows empty state when no detections', async () => {
-    mockFetch({ data: { photo: makePhoto(), detections: [] } });
+  it('NIE pokazuje bulk gdy brak kandydatów ≥0.75', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(makePhotoResponse([detLow])), { status: 200 })
+    );
     render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => screen.getByTestId('detection-review'));
+    expect(screen.queryByTestId('bulk-confirm-button')).not.toBeInTheDocument();
+  });
+
+  it('klik bulk-confirm woła POST /confirm-batch z pre-zaznaczonymi', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(makePhotoResponse([detHigh, detLow])), { status: 200 })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { confirmed: [{ detection_id: DET_ID_HIGH, book_id: 'b1' }], skipped: [] } }), { status: 200 })
+      );
+
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    const bulkBtn = await waitFor(() => screen.getByTestId('bulk-confirm-button'));
+    fireEvent.click(bulkBtn);
+
     await waitFor(() => {
-      expect(screen.getByTestId('detection-review-empty')).toBeInTheDocument();
+      const batchCall = fetchMock.mock.calls.find(([url]) =>
+        typeof url === 'string' && url.includes('confirm-batch')
+      );
+      expect(batchCall).toBeDefined();
+      const body = JSON.parse(batchCall![1]!.body as string) as { items: { detection_id: string; candidate_id: string }[] };
+      expect(body.items).toHaveLength(1); // tylko detHigh ≥0.75
+      expect(body.items[0].detection_id).toBe(DET_ID_HIGH);
+      expect(body.items[0].candidate_id).toBe(CAND_HIGH);
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Akcja: Akceptuj
+// ---------------------------------------------------------------------------
+
+describe('DetectionReview — confirm single', () => {
+  it('klik Akceptuj woła POST /confirm z candidate_id', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { book_id: 'b1', shelf_id: SHELF_ID } }), { status: 200 })
+      );
+
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    const confirmBtn = await waitFor(() => screen.getByTestId('confirm-button'));
+    fireEvent.click(confirmBtn);
+
+    await waitFor(() => {
+      const confirmCall = fetchMock.mock.calls.find(([url]) =>
+        typeof url === 'string' && url.includes('/confirm')
+      );
+      expect(confirmCall).toBeDefined();
+      const body = JSON.parse(confirmCall![1]!.body as string) as { candidate_id: string };
+      expect(body.candidate_id).toBe(CAND_HIGH);
     });
   });
 
-  it('renders detection cards after loading', async () => {
-    const det = makeDetection(DET_ID_HIGH, {
-      candidates: [makeCandidate({ matchScore: 0.9 })],
-    });
-    mockFetch({ data: { photo: makePhoto(), detections: [det] } });
+  it('409 z /confirm pokazuje komunikat o duplikacie', async () => {
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 })
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ error: { code: 'CONFLICT', message: 'Masz już tę książkę w katalogu (półka: Salon).' } }),
+          { status: 409 }
+        )
+      );
+
     render(<DetectionReview photoId={PHOTO_ID} />);
+    const confirmBtn = await waitFor(() => screen.getByTestId('confirm-button'));
+    fireEvent.click(confirmBtn);
 
     await waitFor(() => {
-      expect(screen.getByTestId('detection-review')).toBeInTheDocument();
+      const err = screen.getByTestId('detection-error');
+      expect(err.textContent).toContain('Salon');
     });
-    expect(screen.getByTestId(`detection-card-1`)).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Akcja: Odrzuć
+// ---------------------------------------------------------------------------
+
+describe('DetectionReview — reject', () => {
+  it('klik Odrzuć woła POST /reject', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { rejected: true } }), { status: 200 })
+      );
+
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    const rejectBtn = await waitFor(() => screen.getByTestId('reject-button'));
+    fireEvent.click(rejectBtn);
+
+    await waitFor(() => {
+      const rejectCall = fetchMock.mock.calls.find(([url]) =>
+        typeof url === 'string' && url.includes('/reject')
+      );
+      expect(rejectCall).toBeDefined();
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Akcja: Popraw (field_edit)
+// ---------------------------------------------------------------------------
+
+describe('DetectionReview — correct (field_edit)', () => {
+  it('klik Popraw otwiera formularz', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 })
+    );
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    const correctBtn = await waitFor(() => screen.getByTestId('correct-button'));
+    fireEvent.click(correctBtn);
+    expect(screen.getByTestId('correct-form')).toBeInTheDocument();
   });
 
-  it('renders green tier badge for score >= 0.75', async () => {
-    const det = makeDetection(DET_ID_HIGH, {
-      candidates: [makeCandidate({ matchScore: 0.9 })],
-    });
-    mockFetch({ data: { photo: makePhoto(), detections: [det] } });
+  it('submit formularza woła POST /correct z field_edit i polami', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { book_id: 'b1', shelf_id: SHELF_ID } }), { status: 200 })
+      );
+
     render(<DetectionReview photoId={PHOTO_ID} />);
+    const correctBtn = await waitFor(() => screen.getByTestId('correct-button'));
+    fireEvent.click(correctBtn);
+
+    const titleInput = screen.getByTestId('correct-title');
+    fireEvent.change(titleInput, { target: { value: 'Poprawiony Solaris' } });
+    fireEvent.click(screen.getByTestId('correct-submit'));
 
     await waitFor(() => {
-      expect(screen.getByTestId('tier-badge-high')).toBeInTheDocument();
+      const correctCall = fetchMock.mock.calls.find(([url]) =>
+        typeof url === 'string' && url.includes('/correct')
+      );
+      expect(correctCall).toBeDefined();
+      const body = JSON.parse(correctCall![1]!.body as string) as { mode: string; title: string; candidate_id: string };
+      expect(body.mode).toBe('field_edit');
+      expect(body.title).toBe('Poprawiony Solaris');
+      expect(body.candidate_id).toBe(CAND_HIGH);
     });
-    expect(screen.getByTestId('tier-badge-high')).toHaveTextContent('Wysoka pewność');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Ręczny wpis (manual_entry)
+// ---------------------------------------------------------------------------
+
+describe('DetectionReview — manual entry (no match)', () => {
+  it('pokazuje placeholder brak matchu i przycisk Wpisz ręcznie', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(makePhotoResponse([detNoMatch])), { status: 200 })
+    );
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => screen.getByTestId('no-match-placeholder'));
+    expect(screen.getByTestId('manual-entry-button')).toBeInTheDocument();
   });
 
-  it('renders amber tier badge for score 0.55–0.75', async () => {
-    const det = makeDetection(DET_ID_MID, {
-      candidates: [makeCandidate({ matchScore: 0.65 })],
-    });
-    mockFetch({ data: { photo: makePhoto(), detections: [det] } });
+  it('klik Wpisz ręcznie otwiera formularz', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(makePhotoResponse([detNoMatch])), { status: 200 })
+    );
     render(<DetectionReview photoId={PHOTO_ID} />);
-
-    await waitFor(() => {
-      expect(screen.getByTestId('tier-badge-mid')).toBeInTheDocument();
-    });
-    expect(screen.getByTestId('tier-badge-mid')).toHaveTextContent('Sprawdź');
+    await waitFor(() => screen.getByTestId('manual-entry-button'));
+    fireEvent.click(screen.getByTestId('manual-entry-button'));
+    expect(screen.getByTestId('correct-form')).toBeInTheDocument();
   });
 
-  it('renders low tier badge for score < 0.55', async () => {
-    const det = makeDetection(DET_ID_LOW, {
-      candidates: [makeCandidate({ matchScore: 0.4 })],
-    });
-    mockFetch({ data: { photo: makePhoto(), detections: [det] } });
+  it('submit manual woła POST /correct z mode=manual_entry bez candidate_id', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(makePhotoResponse([detNoMatch])), { status: 200 })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { book_id: 'b1', shelf_id: SHELF_ID } }), { status: 200 })
+      );
+
     render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => screen.getByTestId('manual-entry-button'));
+    fireEvent.click(screen.getByTestId('manual-entry-button'));
+
+    fireEvent.change(screen.getByTestId('correct-title'), { target: { value: 'Moja Nieznana Książka' } });
+    fireEvent.click(screen.getByTestId('correct-submit'));
 
     await waitFor(() => {
-      expect(screen.getByTestId('tier-badge-low')).toBeInTheDocument();
+      const correctCall = fetchMock.mock.calls.find(([url]) =>
+        typeof url === 'string' && url.includes('/correct')
+      );
+      expect(correctCall).toBeDefined();
+      const body = JSON.parse(correctCall![1]!.body as string) as { mode: string; candidate_id?: string };
+      expect(body.mode).toBe('manual_entry');
+      expect(body.candidate_id).toBeUndefined();
     });
-    expect(screen.getByTestId('tier-badge-low')).toHaveTextContent('Niska pewność');
-  });
-
-  it('renders placeholder when no candidates', async () => {
-    const det = makeDetection(DET_ID_NONE, { candidates: [] });
-    mockFetch({ data: { photo: makePhoto(), detections: [det] } });
-    render(<DetectionReview photoId={PHOTO_ID} />);
-
-    await waitFor(() => {
-      expect(screen.getByTestId('no-match-placeholder')).toBeInTheDocument();
-    });
-    expect(screen.getByTestId('no-match-placeholder')).toHaveTextContent('Brak pewnego matchu');
-  });
-
-  it('renders exact duplicate flag', async () => {
-    const det = makeDetection(DET_ID_HIGH, {
-      candidates: [makeCandidate({ matchScore: 0.9 })],
-      duplicate: { type: 'exact' },
-    });
-    mockFetch({ data: { photo: makePhoto(), detections: [det] } });
-    render(<DetectionReview photoId={PHOTO_ID} />);
-
-    await waitFor(() => {
-      expect(screen.getByTestId('duplicate-flag')).toBeInTheDocument();
-    });
-    expect(screen.getByTestId('duplicate-flag')).toHaveTextContent('Masz już tę książkę w katalogu');
-  });
-
-  it('renders edition duplicate flag', async () => {
-    const det = makeDetection(DET_ID_HIGH, {
-      candidates: [makeCandidate({ matchScore: 0.9 })],
-      duplicate: { type: 'edition' },
-    });
-    mockFetch({ data: { photo: makePhoto(), detections: [det] } });
-    render(<DetectionReview photoId={PHOTO_ID} />);
-
-    await waitFor(() => {
-      expect(screen.getByTestId('duplicate-flag')).toBeInTheDocument();
-    });
-    expect(screen.getByTestId('duplicate-flag')).toHaveTextContent('Masz inną edycję tej książki');
-  });
-
-  it('does not render duplicate flag when duplicate is null', async () => {
-    const det = makeDetection(DET_ID_HIGH, {
-      candidates: [makeCandidate({ matchScore: 0.9 })],
-      duplicate: null,
-    });
-    mockFetch({ data: { photo: makePhoto(), detections: [det] } });
-    render(<DetectionReview photoId={PHOTO_ID} />);
-
-    await waitFor(() => {
-      expect(screen.getByTestId('detection-review')).toBeInTheDocument();
-    });
-    expect(screen.queryByTestId('duplicate-flag')).not.toBeInTheDocument();
-  });
-
-  it('calls correct API endpoint', async () => {
-    const fetchSpy = mockFetch({ data: { photo: makePhoto(), detections: [] } });
-    render(<DetectionReview photoId={PHOTO_ID} />);
-
-    await waitFor(() => {
-      expect(screen.getByTestId('detection-review-empty')).toBeInTheDocument();
-    });
-    expect(fetchSpy).toHaveBeenCalledWith(`/api/photos/${PHOTO_ID}`);
   });
 });

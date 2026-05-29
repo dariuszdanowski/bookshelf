@@ -14,22 +14,28 @@ export const prerender = false;
  * 401 przed dotarciem do tego handler'a). Sortowanie: „Zakupione" first, potem
  * name ASC.
  *
- * `book_count: 0` placeholder do czasu S-05 (books table jeszcze nie istnieje
- * w schema). Field obecny w response shape żeby S-08 (catalog search) nie
- * musiał zmieniać kontraktu po dodaniu count'u.
+ * book_count: realny count z shelf_entries (is_current=true) pobierany
+ * równolegle z shelves — JS-tally do Map<shelf_id, number>, bez N+1.
+ * PostgREST nie wyraża GROUP BY count w jednym wywołaniu; JS agregacja
+ * to idiom repo (analogicznie do candidatesByDetId Map w photos/[id].ts).
  */
 export const GET: APIRoute = async ({ locals }) => {
-  const { data, error } = await locals.supabase
-    .from('shelves')
-    .select('id, name, location, position_index, created_at')
-    // „Zakupione" first (boolean DESC: true=1, false=0), potem alfabetycznie.
-    .order('name', { ascending: true });
+  const [shelvesResult, entriesResult] = await Promise.all([
+    locals.supabase
+      .from('shelves')
+      .select('id, name, location, position_index, created_at')
+      .order('name', { ascending: true }),
+    locals.supabase
+      .from('shelf_entries')
+      .select('shelf_id')
+      .eq('is_current', true),
+  ]);
 
-  if (error) {
+  if (shelvesResult.error) {
     console.error('[api/shelves GET] supabase select failed', {
-      name: error.name,
-      message: error.message,
-      code: 'code' in error ? error.code : undefined,
+      name: shelvesResult.error.name,
+      message: shelvesResult.error.message,
+      code: 'code' in shelvesResult.error ? shelvesResult.error.code : undefined,
     });
     return apiError({
       code: 'INTERNAL_ERROR',
@@ -38,10 +44,26 @@ export const GET: APIRoute = async ({ locals }) => {
     });
   }
 
-  // Sort po stronie aplikacji żeby „Zakupione" zawsze first (Supabase JS
-  // klient nie wspiera computed-column order; SQL `(name='Zakupione') desc`
-  // wymaga `rpc()` albo raw query — prościej zrobić mały JS sort).
-  const sorted = [...(data ?? [])].sort((a, b) => {
+  if (entriesResult.error) {
+    console.error('[api/shelves GET] shelf_entries select failed', {
+      name: entriesResult.error.name,
+      message: entriesResult.error.message,
+    });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się pobrać listy półek.',
+    });
+  }
+
+  // Zlicz książki per półka w JS
+  const countByShelf = new Map<string, number>();
+  for (const row of (entriesResult.data ?? [])) {
+    countByShelf.set(row.shelf_id, (countByShelf.get(row.shelf_id) ?? 0) + 1);
+  }
+
+  // Sort po stronie aplikacji żeby „Zakupione" zawsze first
+  const sorted = [...(shelvesResult.data ?? [])].sort((a, b) => {
     if (a.name === 'Zakupione') return -1;
     if (b.name === 'Zakupione') return 1;
     return a.name.localeCompare(b.name, 'pl');
@@ -53,7 +75,7 @@ export const GET: APIRoute = async ({ locals }) => {
     location: row.location,
     position_index: row.position_index,
     is_system: row.name === 'Zakupione',
-    book_count: 0,
+    book_count: countByShelf.get(row.id) ?? 0,
     created_at: row.created_at,
   }));
 
