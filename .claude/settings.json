@@ -1,6 +1,8 @@
 {
   "permissions": {
     "allow": [
+      "Bash(git push*)",
+      "Bash(git merge*)",
       "Bash(npm run typecheck)",
       "Bash(npm run test)",
       "Bash(npm run test:*)",
@@ -42,26 +44,6 @@
       "Bash(npx vitest*)",
       "Bash(npx playwright --version*)"
     ],
-    "ask": [
-      "Bash(git push*)",
-      "Bash(git merge*)",
-      "Bash(git rebase*)",
-      "Bash(git cherry-pick*)",
-      "Bash(gh pr create*)",
-      "Bash(gh pr merge*)",
-      "Bash(gh pr close*)",
-      "Bash(gh pr comment*)",
-      "Bash(npm install *)",
-      "Bash(npm uninstall *)",
-      "Bash(npm update*)",
-      "Bash(npm i *)",
-      "Bash(npm audit fix*)",
-      "Bash(npx wrangler deploy*)",
-      "Bash(npx wrangler secret*)",
-      "Bash(npx supabase db push*)",
-      "Bash(npx supabase migration*)",
-      "Bash(npx playwright install*)"
-    ],
     "deny": [
       "Bash(git push --force*)",
       "Bash(git push -f *)",
@@ -80,7 +62,28 @@
       "Bash(npx wrangler r2 object delete*)",
       "Bash(gh repo delete*)",
       "Bash(gh release delete*)"
+    ],
+    "ask": [
+      "Bash(git rebase*)",
+      "Bash(git cherry-pick*)",
+      "Bash(gh pr create*)",
+      "Bash(gh pr merge*)",
+      "Bash(gh pr close*)",
+      "Bash(gh pr comment*)",
+      "Bash(npm install *)",
+      "Bash(npm uninstall *)",
+      "Bash(npm update*)",
+      "Bash(npm i *)",
+      "Bash(npm audit fix*)",
+      "Bash(npx wrangler deploy*)",
+      "Bash(npx wrangler secret*)",
+      "Bash(npx supabase migration*)",
+      "Bash(npx playwright install*)"
     ]
   },
-  "enabledMcpjsonServers": ["cloudflare", "exa", "context7"]
+  "enabledMcpjsonServers": [
+    "cloudflare",
+    "exa",
+    "context7"
+  ]
 }
