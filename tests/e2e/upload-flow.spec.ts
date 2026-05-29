@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 /**
  * Golden path E2E dla S-04:
- *  1. Signup nowego usera.
+ *  1. Auth: współdzielona sesja z auth.setup.ts (storageState) — bez signup.
  *  2. /upload → widoczny uploader.
  *  3. Mock endpointu process (intercept) → symuluje sukces z detekcjami.
  *  4. Mock endpointu match (intercept) → symuluje sukces z kandydatami.
@@ -14,9 +14,6 @@ import { expect, test } from '@playwright/test';
  * Bucket shelf-photos i Storage RLS weryfikowane manualnie po merge.
  */
 
-const STAMP = Date.now();
-const EMAIL = `e2e-upload-${STAMP}@example.com`;
-const PASSWORD = 'E2eUploadPass!23';
 const PHOTO_ID = '00000000-0000-4000-8000-aaaaaaaaaaaa';
 
 const MOCK_RECORD_RESPONSE = {
@@ -128,19 +125,10 @@ const MOCK_PHOTO_GET_RESPONSE = {
   },
 };
 
-test('upload flow: signup → /upload → wybór półki → upload → redirect → propozycje widoczne', async ({ page }) => {
-  // 1. Signup — wait for networkidle so React island hydrates before clicking
-  await page.goto('/signup');
+test('upload flow: /upload → wybór półki → upload → redirect → propozycje widoczne', async ({ page }) => {
+  // Sesja z współdzielonego storageState — od razu na /upload (bez signup per-test)
+  await page.goto('/upload');
   await page.waitForLoadState('networkidle');
-  await page.fill('input[name="email"]', EMAIL);
-  await page.fill('input[name="display_name"]', `E2E Upload ${STAMP}`);
-  await page.fill('input[name="password"]', PASSWORD);
-  await page.click('[data-testid="submit-signup"]');
-  await page.waitForURL('/', { timeout: 10_000 });
-
-  // 2. Navigate to /upload via nav link
-  await page.getByTestId('nav-upload').click();
-  await page.waitForURL('/upload', { timeout: 5_000 });
   await expect(page.getByTestId('photo-uploader')).toBeVisible();
 
   // Override URL.createObjectURL in the live page so the Image.onload always

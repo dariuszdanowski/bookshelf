@@ -11,12 +11,8 @@ import { expect, test } from '@playwright/test';
  *  - DetectionReview augmentation: vision_run badge + akcje
  *
  * API vision/match/storage mockowane przez page.route() intercept.
- * Supabase auth real (signup) — test user tworzony per-run i kasowany via cleanup.
+ * Auth: współdzielona sesja z auth.setup.ts (storageState) — bez signup per-test.
  */
-
-const STAMP = Date.now();
-const EMAIL = `e2e-pipeline-ui-${STAMP}@example.com`;
-const PASSWORD = 'E2ePipelinePass!23';
 
 const PHOTO_ID = '00000000-0000-4000-8000-cccccccccccc';
 const SHELF_ID_MOCK = '00000000-0000-4000-8000-dddddddddddd';
@@ -147,17 +143,10 @@ const MOCK_PHOTO_GET = {
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-/** Signup + navigate to /shelves */
-async function signupAndGoToShelves(page: import('@playwright/test').Page) {
-  await page.goto('/signup');
+/** Navigate to /shelves (sesja z współdzielonego storageState — bez signup) */
+async function goToShelves(page: import('@playwright/test').Page) {
+  await page.goto('/shelves');
   await page.waitForLoadState('networkidle');
-  await page.fill('input[name="email"]', EMAIL);
-  await page.fill('input[name="display_name"]', `E2E Pipeline ${STAMP}`);
-  await page.fill('input[name="password"]', PASSWORD);
-  await page.click('[data-testid="submit-signup"]');
-  await page.waitForURL('/', { timeout: 15_000 });
-  await page.getByTestId('nav-shelves').click();
-  await page.waitForURL('/shelves', { timeout: 5_000 });
 }
 
 /** Upload flow: mock all API + Storage, trigger file input, wait for redirect to /photos/[id] */
@@ -237,7 +226,7 @@ async function uploadAndGetToReviewPage(
 //  TEST 1 — /shelves: ShelfListItem shows "Zobacz zdjęcia →" link
 // ══════════════════════════════════════════════════════════════════════════════
 test('3.5 /shelves: każda półka ma link "Zobacz zdjęcia →"', async ({ page }) => {
-  await signupAndGoToShelves(page);
+  await goToShelves(page);
   // Wait for ShelvesIsland to hydrate and render shelf items
   await expect(
     page.getByTestId('photo-list').or(page.locator('[data-testid^="shelf-item-"]'))
@@ -259,7 +248,7 @@ test('3.5 /shelves: każda półka ma link "Zobacz zdjęcia →"', async ({ page
 //  TEST 2 — /shelves/[id]: PhotoListIsland renders with stage badges + actions
 // ══════════════════════════════════════════════════════════════════════════════
 test('3.6 /shelves/[id]: PhotoListIsland renders photo list with stage badge', async ({ page }) => {
-  await signupAndGoToShelves(page);
+  await goToShelves(page);
   await page.waitForSelector('[data-testid^="shelf-item-"]', { timeout: 10_000 });
 
   // Click first "Zobacz zdjęcia →" link
@@ -296,7 +285,7 @@ test('3.6 /shelves/[id]: PhotoListIsland renders photo list with stage badge', a
 //  TEST 3 — Run vision → stage changes to vision_done
 // ══════════════════════════════════════════════════════════════════════════════
 test('3.7 Run vision button → po sukcesie stage=vision_done (refetch)', async ({ page }) => {
-  await signupAndGoToShelves(page);
+  await goToShelves(page);
   await page.waitForSelector('[data-testid^="shelf-item-"]', { timeout: 10_000 });
 
   // Set up mocks before navigation
@@ -338,7 +327,7 @@ test('3.7 Run vision button → po sukcesie stage=vision_done (refetch)', async 
 //  TEST 4 — Re-run vision: confirm cancel → no fetch; confirm OK → fetch called
 // ══════════════════════════════════════════════════════════════════════════════
 test('3.8 Re-run vision: confirm cancel → brak procesu; OK → wywołuje /process', async ({ page }) => {
-  await signupAndGoToShelves(page);
+  await goToShelves(page);
   await page.waitForSelector('[data-testid^="shelf-item-"]', { timeout: 10_000 });
 
   const processRequests: string[] = [];
@@ -381,7 +370,7 @@ test('3.8 Re-run vision: confirm cancel → brak procesu; OK → wywołuje /proc
 //  TEST 5 — Double-click Run vision → 409 toast
 // ══════════════════════════════════════════════════════════════════════════════
 test('3.9 Double-click Run vision → toast "Run już w toku"', async ({ page }) => {
-  await signupAndGoToShelves(page);
+  await goToShelves(page);
   await page.waitForSelector('[data-testid^="shelf-item-"]', { timeout: 10_000 });
 
   let processCallCount = 0;
@@ -431,7 +420,7 @@ test('3.9 Double-click Run vision → toast "Run już w toku"', async ({ page })
 //  TEST 6 — /photos/[id]: DetectionReview shows vision_run panel + action buttons
 // ══════════════════════════════════════════════════════════════════════════════
 test('3.10 /photos/[id]: vision_run panel widoczny + przyciski Ponów vision / Ponów match', async ({ page }) => {
-  await signupAndGoToShelves(page);
+  await goToShelves(page);
 
   // Get a real shelf id from the shelf items
   await page.waitForSelector('[data-testid^="shelf-item-"]', { timeout: 10_000 });
@@ -459,7 +448,7 @@ test('3.10 /photos/[id]: vision_run panel widoczny + przyciski Ponów vision / P
 //  TEST 7 — /shelves/[id]: photo with all-failed runs shows stage=uploaded
 // ══════════════════════════════════════════════════════════════════════════════
 test('3.11 Photo z tylko failed runs pokazuje stage=uploaded + Uruchom vision', async ({ page }) => {
-  await signupAndGoToShelves(page);
+  await goToShelves(page);
   await page.waitForSelector('[data-testid^="shelf-item-"]', { timeout: 10_000 });
 
   const FAILED_PHOTO_ID = '00000000-0000-4000-8000-fffffffffffg';
@@ -502,7 +491,7 @@ test('3.11 Photo z tylko failed runs pokazuje stage=uploaded + Uruchom vision', 
 // ══════════════════════════════════════════════════════════════════════════════
 test('3.12 Mobile: /shelves/[id] czytelna na 375px', async ({ page }) => {
   // Sign up first with default viewport, then switch to mobile
-  await signupAndGoToShelves(page);
+  await goToShelves(page);
   await page.setViewportSize({ width: 375, height: 812 });
   await page.waitForSelector('[data-testid^="shelf-item-"]', { timeout: 10_000 });
 

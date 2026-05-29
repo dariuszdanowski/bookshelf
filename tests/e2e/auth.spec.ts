@@ -27,6 +27,9 @@ const displayName = `E2E User ${stamp}`;
 
 let createdUserId = '';
 
+// auth.spec testuje sam signup/login — musi startować anonimowo, bez współdzielonej sesji.
+test.use({ storageState: { cookies: [], origins: [] } });
+
 test.describe.configure({ mode: 'serial' });
 
 test.describe('auth golden path', () => {

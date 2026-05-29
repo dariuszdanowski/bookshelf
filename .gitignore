@@ -163,3 +163,4 @@ worker-configuration.d.ts
 # Playwright
 test-results/
 playwright-report/
+tests/e2e/.auth/

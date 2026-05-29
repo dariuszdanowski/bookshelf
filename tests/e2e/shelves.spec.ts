@@ -17,24 +17,14 @@ import { expect, test } from '@playwright/test';
  */
 
 const STAMP = Date.now();
-const EMAIL = `e2e-shelves-${STAMP}@example.com`;
-const PASSWORD = 'E2eShelvesPass!23';
 const SHELF_NAME = `E2E Półka ${STAMP}`;
 const SHELF_NAME_RENAMED = `E2E Półka Renamed ${STAMP}`;
 const SHELF_LOCATION = 'Salon, regał testowy';
 
-test('signup → /shelves → create → edit → delete (system Zakupione protected)', async ({
+test('/shelves → create → edit → delete (system Zakupione protected)', async ({
   page,
 }) => {
-  // 1. Signup
-  await page.goto('/signup');
-  await page.getByTestId('signup-email').fill(EMAIL);
-  await page.getByTestId('signup-password').fill(PASSWORD);
-  await page.getByTestId('signup-submit').click();
-  // Auto-login → redirect na /
-  await page.waitForURL('/', { timeout: 10_000 });
-
-  // 2. /shelves z systemową
+  // Sesja z współdzielonego storageState — od razu na /shelves (bez signup per-test)
   await page.goto('/shelves');
   await expect(page.getByTestId('shelves-island')).toBeVisible();
 
@@ -57,9 +47,11 @@ test('signup → /shelves → create → edit → delete (system Zakupione prote
     .locator('[data-testid^="shelf-item-"]')
     .filter({ hasText: SHELF_NAME });
   await newShelfRow.getByTestId('shelf-item-edit-button').click();
-  const editName = newShelfRow.getByTestId('shelf-item-edit-name');
+  // edit-mode: nazwa jest teraz w <input> (value), więc filtr hasText nie matchuje
+  // już wiersza — input edycji jest jedyny na stronie (jeden wiersz w edit-mode naraz)
+  const editName = page.getByTestId('shelf-item-edit-name');
   await editName.fill(SHELF_NAME_RENAMED);
-  await newShelfRow.getByRole('button', { name: 'Zapisz' }).click();
+  await page.getByRole('button', { name: 'Zapisz' }).click();
 
   const renamedShelf = page
     .getByTestId('shelf-item-name')
