@@ -359,13 +359,13 @@ Playwright spec dowodzący gwiazdy przewodniej: upload → detect → match → 
 ### Phase 2: Endpointy decyzji + helper
 
 #### Automated
-- [ ] 2.1 Unit confirm: accept→book+shelf_entry+correction(accept)+status, position z detekcji, dup→409, bad UUID→404, re-confirm confirmed→skip/409 bez duplikatu (guard idempotencji)
-- [ ] 2.2 Unit correct: field_edit nadpisuje+correction(field_edit); manual→source=manual+correction(manual_entry); dup→409
-- [ ] 2.3 Unit reject: status→rejected+correction(reject); brak→404
-- [ ] 2.4 Unit confirm-batch: wiele accept, raport confirmed/skipped, dup nie wywraca reszty, pusta→400
-- [ ] 2.5 Typecheck zielony
-- [ ] 2.6 Lint zielony
-- [ ] 2.7 Build zielony
+- [x] 2.1 Unit confirm: accept→book+shelf_entry+correction(accept)+status, position z detekcji, dup→409, bad UUID→404, re-confirm confirmed→skip/409 bez duplikatu (guard idempotencji) — 84d8ccf
+- [x] 2.2 Unit correct: field_edit nadpisuje+correction(field_edit); manual→source=manual+correction(manual_entry); dup→409 — 84d8ccf
+- [x] 2.3 Unit reject: status→rejected+correction(reject); brak→404 — 84d8ccf
+- [x] 2.4 Unit confirm-batch: wiele accept w jednym wywołaniu, raport confirmed/skipped, dup nie wywraca reszty; pusta→400 — 84d8ccf
+- [x] 2.5 Typecheck zielony — 84d8ccf
+- [x] 2.6 Lint zielony — 84d8ccf
+- [x] 2.7 Build zielony — 84d8ccf
 
 #### Manual
 - [ ] 2.8 Lokalny stack: accept wstawia books+shelf_entries+corrections; powtórny ISBN→409 bez duplikatu
