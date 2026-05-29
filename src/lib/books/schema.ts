@@ -136,6 +136,15 @@ export const UpdateBookReadSchema = z
   .strict(); // odrzuca dodatkowe pola (inne pola books nie są edytowalne przez ten endpoint)
 export type UpdateBookReadInput = z.infer<typeof UpdateBookReadSchema>;
 
+// POST /api/books/[id]/move — przeniesienie książki na inną półkę (S-07).
+// Zapisuje wersjonowaną historię lokalizacji (FR-038); shelf_id z klienta walidowany RLS (oba-FK, 0009).
+export const MoveBookSchema = z
+  .object({
+    shelf_id: z.uuid(),
+  })
+  .strict();
+export type MoveBookInput = z.infer<typeof MoveBookSchema>;
+
 // POST /api/books — ręczny zakup (Flow B, S-06). Książka ląduje na „Zakupione".
 // title wymagany; reszta opcjonalna; purchase_date pominięte → endpoint ustawia dziś.
 export const AddPurchaseSchema = z
