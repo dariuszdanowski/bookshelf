@@ -1,8 +1,28 @@
 import type { ShelfBookDTO } from '../lib/books/schema';
 
+/** Mapa nazwanych kolorów grzbietu (SPINE_COLORS) → swatch CSS dla wyników wyszukiwarki. */
+const SPINE_COLOR_CSS: Record<string, string> = {
+  czerwony: '#dc2626',
+  pomarańczowy: '#ea580c',
+  żółty: '#eab308',
+  zielony: '#16a34a',
+  niebieski: '#2563eb',
+  granatowy: '#1e3a8a',
+  fioletowy: '#7c3aed',
+  różowy: '#ec4899',
+  brązowy: '#92400e',
+  czarny: '#000000',
+  biały: '#f5f5f5',
+  szary: '#6b7280',
+};
+
 type BookCardProps = {
   book: ShelfBookDTO;
   onToggleRead: (id: string, currentValue: boolean) => void;
+  /** S-08: nazwa półki w wynikach wyszukiwarki (opcjonalne; ShelfBooksIsland nie podaje). */
+  shelfName?: string;
+  /** S-08: kolor grzbietu (swatch) w wynikach. */
+  spineColor?: string | null;
 };
 
 /**
@@ -11,9 +31,10 @@ type BookCardProps = {
  *
  * NFR a11y: alt = „tytuł — autor" (lub sam tytuł gdy brak autora).
  */
-export default function BookCard({ book, onToggleRead }: BookCardProps) {
+export default function BookCard({ book, onToggleRead, shelfName, spineColor }: BookCardProps) {
   const authorsStr = book.authors.join(', ');
   const altText = authorsStr ? `${book.title} — ${authorsStr}` : book.title;
+  const swatch = spineColor ? SPINE_COLOR_CSS[spineColor] : undefined;
 
   return (
     <div
@@ -59,6 +80,27 @@ export default function BookCard({ book, onToggleRead }: BookCardProps) {
         )}
         {book.published_year && (
           <p className="mt-0.5 text-xs text-gray-400">{book.published_year}</p>
+        )}
+        {(shelfName || swatch) && (
+          <div className="mt-1 flex items-center gap-1.5">
+            {swatch && (
+              <span
+                data-testid={`spine-swatch-${book.id}`}
+                className="inline-block h-3 w-3 flex-shrink-0 rounded-full border border-gray-300"
+                style={{ backgroundColor: swatch }}
+                title={spineColor ?? undefined}
+                aria-label={spineColor ? `Kolor grzbietu: ${spineColor}` : undefined}
+              />
+            )}
+            {shelfName && (
+              <span
+                data-testid={`shelf-badge-${book.id}`}
+                className="truncate rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600"
+              >
+                {shelfName}
+              </span>
+            )}
+          </div>
         )}
       </div>
 
