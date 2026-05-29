@@ -108,7 +108,7 @@ bookshelf/
 ├── docs/
 │   ├── prd.md              # PRD modułu
 │   └── plan-implementacji.md
-└── .github/workflows/      # CI: lint + typecheck + tests + deploy
+└── .github/workflows/      # ci.yml: lint+typecheck+vitest+playwright(E2E, lokalna Supabase) · deploy.yml: build+deploy
 ```
 
 ## Status i dokumentacja

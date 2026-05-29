@@ -93,7 +93,7 @@ Kategorie unit testów (bez zmian od ostatniego raportu — sweep depów był no
 - `tests/unit/components/LogoutButton.test.tsx` (2) — React island
 - pozostałe: middleware, response helpers, auth schema
 
-Outstanding manual step (dalej, od poprzednich raportów): `npx playwright install --with-deps` (~600 MB browser binaries). Świadomie skipowane z agent fixes — wymaga sieci/firewalla. 0 e2e tests odpalanych w CI (Playwright config gotowy, golden-path spec czeka na binarki).
+**E2E w CI** (PR #15, 2026-05-29): job `e2e` w `ci.yml` — efemeryczna lokalna Supabase (`supabase start` = migracje+seed, darmowy gate walidacji migracji) + chromium + `playwright test`; ostatni run **29 passed / 2 skipped** (mock vision browser-side, bez ANTHROPIC, zero kosztu LLM). **Lokalne** binarki Playwright (`npx playwright install --with-deps`) pozostają opcjonalne dla dev loop — CI instaluje własne.
 
 ## CI/CD
 

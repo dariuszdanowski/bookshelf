@@ -41,3 +41,66 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  e2e:
+    # E2E (Playwright) na efemerycznej lokalnej Supabase. Osobny job od `verify`:
+    # inny setup (Docker/Supabase/browsers), nie blokuje feedbacku lint/unit.
+    # Vision/match/storage mockowane browser-side (page.route) → bez ANTHROPIC_API_KEY,
+    # bez kosztu LLM. `supabase start` aplikuje migracje + seed = darmowy gate walidacji
+    # migracji (złapałby klasę bugów 42P17).
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22.13.0'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Cloudflare Worker types
+        # Dev server (webServer w playwright.config.ts) ładuje moduł serwerowy
+        # typujący `cloudflare:workers`; regeneracja gitignored artefaktu jak w `verify`.
+        run: npx wrangler types
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase
+        # Stawia kontenery, aplikuje wszystkie migracje + seed.sql na świeżej bazie.
+        run: supabase start
+
+      - name: Write .dev.vars (local Supabase)
+        # Astro dev czyta env wyłącznie z .dev.vars (CLAUDE.md env matrix). Klucze
+        # bierzemy runtime z `supabase status -o env` (odporne na format kluczy CLI).
+        # ANTHROPIC_API_KEY dummy — vision mockowany browser-side, realny klucz zbędny.
+        run: |
+          eval "$(supabase status -o env)"
+          {
+            echo "PUBLIC_SUPABASE_URL=${API_URL}"
+            echo "PUBLIC_SUPABASE_ANON_KEY=${ANON_KEY}"
+            echo "SUPABASE_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}"
+            echo "ANTHROPIC_API_KEY=dummy-not-used-in-e2e"
+          } > .dev.vars
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        # webServer w configu sam startuje `npm run dev` (czyta świeży .dev.vars) i
+        # czeka na :4321. CI=true (auto) włącza retries/workers/forbidOnly.
+        run: npx playwright test
+
+      - name: Upload Playwright report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

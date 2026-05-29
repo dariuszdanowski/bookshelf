@@ -30,7 +30,7 @@ Matching score thresholds: `≥0.75` auto-checked in UI; `0.55-0.75` user confir
 
 ## Commits & PRs
 
-History mixes Polish prose with light Conventional Commits prefixes (`fix(scope):`, `infra:`, `docs:`, `chore:`). PRs target `main` (branch-per-change: `change/<id>`). `.github/workflows/` wired: `ci.yml` (lint + typecheck + test + build on PR/push), `deploy.yml` (build + deploy to CF Workers + post-deploy `/api/health` smoke on push to main). Run `npm run lint && npm run typecheck && npm run test` locally before pushing.
+History mixes Polish prose with light Conventional Commits prefixes (`fix(scope):`, `infra:`, `docs:`, `chore:`). PRs target `main` (branch-per-change: `change/<id>`). `.github/workflows/` wired: `ci.yml` (job `verify`: lint + typecheck + vitest + build; job `e2e`: Playwright on ephemeral local Supabase — on PR/push), `deploy.yml` (build + deploy to CF Workers + post-deploy `/api/health` smoke on push to main). Run `npm run lint && npm run typecheck && npm run test` locally before pushing.
 
 ## Deeper context
 
