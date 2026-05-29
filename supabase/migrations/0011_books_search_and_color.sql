@@ -6,15 +6,30 @@
 
 alter table books add column spine_color text;
 
+-- array_to_string() jest STABLE (nie IMMUTABLE), więc Postgres odrzuca jej
+-- bezpośrednie użycie w GENERATED ALWAYS ... STORED (SQLSTATE 42P17). Owijamy
+-- wyrażenie w IMMUTABLE helper — output zależy wyłącznie od argumentów, więc
+-- oznaczenie IMMUTABLE jest poprawne. (Adaptacja literalna: pierwszy kontakt z
+-- realnym Postgresem przy db push po merge; Vitest mockuje DB.)
+create or replace function books_search_text(
+  p_title text,
+  p_authors text[],
+  p_publisher text
+)
+returns text
+language sql
+immutable
+as $$
+  select lower(
+    coalesce(p_title, '') || ' ' ||
+    array_to_string(coalesce(p_authors, '{}'), ' ') || ' ' ||
+    coalesce(p_publisher, '')
+  );
+$$;
+
 alter table books
   add column search_text text
-  generated always as (
-    lower(
-      coalesce(title, '') || ' ' ||
-      array_to_string(authors, ' ') || ' ' ||
-      coalesce(publisher, '')
-    )
-  ) stored;
+  generated always as (books_search_text(title, authors, publisher)) stored;
 
 -- Backfill koloru dla istniejących książek z fotografii (przez aktualny wpis półkowy → detekcja).
 update books
