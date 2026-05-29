@@ -97,6 +97,34 @@ export default function CatalogSearchIsland() {
     }
   }
 
+  async function handleMove(bookId: string, targetShelfId: string) {
+    const target = shelves.find((s) => s.id === targetShelfId);
+    // Zapamiętaj poprzednie wartości do rollbacku.
+    let prevShelf: { shelf_id: string; shelf_name: string } | null = null;
+    setBooks((prev) =>
+      prev.map((b) => {
+        if (b.id !== bookId) return b;
+        prevShelf = { shelf_id: b.shelf_id, shelf_name: b.shelf_name };
+        return { ...b, shelf_id: targetShelfId, shelf_name: target?.name ?? b.shelf_name };
+      })
+    );
+    const rollback = () => {
+      if (!prevShelf) return;
+      const restore = prevShelf;
+      setBooks((prev) => prev.map((b) => (b.id === bookId ? { ...b, ...restore } : b)));
+    };
+    try {
+      const res = await fetch(`/api/books/${bookId}/move`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shelf_id: targetShelfId }),
+      });
+      if (!res.ok) rollback();
+    } catch {
+      rollback();
+    }
+  }
+
   function toggleShelf(id: string) {
     setSelectedShelfIds((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]));
   }
@@ -203,6 +231,9 @@ export default function CatalogSearchIsland() {
                   onToggleRead={handleToggleRead}
                   shelfName={b.shelf_name}
                   spineColor={b.spine_color}
+                  shelves={shelves}
+                  currentShelfId={b.shelf_id}
+                  onMove={handleMove}
                 />
               ))}
             </div>

@@ -184,17 +184,17 @@ Brak migracji w tym slice — kolumny `is_current`/`confirmed_at` istnieją od 0
 ### Phase 1: Warstwa danych — endpoint + walidacja
 
 #### Automated
-- [x] 1.1 Typecheck przechodzi: `npm run typecheck`
-- [x] 1.2 Lint przechodzi: `npm run lint`
-- [x] 1.3 Unit przechodzą (move.test.ts zielony, brak regresji): `npm run test`
+- [x] 1.1 Typecheck przechodzi: `npm run typecheck` — b5b4132
+- [x] 1.2 Lint przechodzi: `npm run lint` — b5b4132
+- [x] 1.3 Unit przechodzą (move.test.ts zielony, brak regresji): `npm run test` — b5b4132
 
 ### Phase 2: UI — kontrolka przeniesienia + podpięcie wysp
 
 #### Automated
-- [ ] 2.1 Typecheck przechodzi: `npm run typecheck`
-- [ ] 2.2 Lint przechodzi: `npm run lint`
-- [ ] 2.3 Unit przechodzą: `npm run test`
-- [ ] 2.4 E2E przechodzi: `npx playwright test move-book`
+- [x] 2.1 Typecheck przechodzi: `npm run typecheck`
+- [x] 2.2 Lint przechodzi: `npm run lint`
+- [x] 2.3 Unit przechodzą: `npm run test`
+- [x] 2.4 E2E przechodzi: `npx playwright test move-book`
 
 #### Manual
 - [ ] 2.5 `/library`: picker przenosi książkę; po odświeżeniu nowa półka, zachowany is_read/purchase_date
