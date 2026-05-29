@@ -1,8 +1,9 @@
 ---
 change_id: move-book-and-history
-status: impl_reviewed
+status: archived
 created: 2026-05-30
 updated: 2026-05-30
+archived_at: 2026-05-30T23:06:37Z
 
 roadmap_ref: S-07
 ---

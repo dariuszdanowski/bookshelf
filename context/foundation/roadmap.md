@@ -3,7 +3,7 @@ project: "BookShelf Scanner"
 version: 1
 status: draft
 created: 2026-05-25
-updated: 2026-05-29
+updated: 2026-05-30
 prd_version: 1
 main_goal: speed
 top_blocker: time
@@ -37,7 +37,7 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | S-04  | external-match-and-proposals | zobaczyć propozycje z bazy publicznej + flagi duplikatów  | S-03          | FR-015–018            | done     |
 | S-05  | proposal-accept-to-catalog   | akceptować/odrzucać/korygować → katalog + widok półki     | S-04          | FR-019–024, FR-037    | done     |
 | S-06  | add-purchase-flow            | dodać zakup (ręcznie/zdjęcie) na półkę "Zakupione"        | S-05, S-02    | FR-025–028            | done     |
-| S-07  | move-book-and-history        | przenieść książkę między półkami z historią lokalizacji   | S-05, S-02    | FR-029–031, FR-038    | proposed |
+| S-07  | move-book-and-history        | przenieść książkę między półkami z historią lokalizacji   | S-05, S-02    | FR-029–031, FR-038    | done     |
 | S-08  | catalog-search-and-filters   | wyszukać katalog pełnotekstowo + filtry (kolor/półka/status) | S-05, S-02 | FR-032–036            | done     |
 | S-09  | landing-auth-cta             | niezalogowany na `/` widzi CTA do logowania i rejestracji; zalogowany — CTA do biblioteki; logout redirektuje na `/login` zamiast `/` | S-01 | FR-001 (UX adjacent)  | done     |
 | S-10  | custom-404-page              | Astro renderuje custom 404 page (Layout + conditional CTA) zamiast default białej strony | — (S-01 adjacent) | UX polish | done     |
@@ -190,7 +190,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** wersjonowana historia lokalizacji (FR-038) to dług, który tanio zaciągnąć od razu, a drogo dorobić wstecz po nagromadzeniu danych bez kolumny historii.
-- **Status:** proposed
+- **Status:** done
 
 ### S-08: Wyszukiwarka katalogu — pełnotekst + filtry
 
@@ -313,5 +313,6 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **S-05: użytkownik może akceptować (hurtowo pre-zaznaczone lub po kolei), odrzucać lub korygować pola (tytuł/autor/wydawnictwo/rok) przed akceptacją, oraz wpisać książkę ręcznie, gdy brak matchu; zaakceptowana książka trafia do katalogu ze statusem przeczytania = nie przeczytana i pozycją na półce ("od lewej"); użytkownik widzi półkę z okładkami w kolejności od lewej i przełącza status przeczytania jednym kliknięciem; każda korekta/odrzucenie zapisane jako sygnał telemetryczny.** — Archived 2026-05-29 → `context/archive/2026-05-29-proposal-accept-to-catalog/`. Lesson: RLS join-tabel waliduj OBA FK (lessons.md); helper confirm bez transakcji — obserwuj błędy zapisów (impl-review F1 fix). Manual smoke (accept/bulk/correct/reject/widok półki/toggle) deferred do post-merge + `supabase db push` (migracje 0008+0009).
 - **S-06: użytkownik może otworzyć „Dodaj zakup" z dowolnego widoku, wybrać metodę (zdjęcie stosu → pipeline rozpoznawania LUB wpisanie ręczne), wpisać tytuł + autora, ustawić opcjonalną datę zakupu (domyślnie dziś) i zatwierdzić; książka ląduje na wirtualnej półce „Zakupione" ze statusem nie przeczytana; ścieżka ręczna ≤ 90 s.** — Archived 2026-05-29 → `context/archive/2026-05-29-add-purchase-flow/`. Lesson: —. Manual entry = świeży `POST /api/books` (helper confirm jest detection-bound); migracja 0010 `books.purchase_date`. Świadome cuty: data na ścieżce zdjęcia (NULL), render daty, telemetria Flow B (odroczone). Manual smoke (≤90s ręczny, upload preset Zakupione) deferred do post-merge + `supabase db push` (migracja 0010).
 - **S-08: użytkownik może wyszukać książkę pełnotekstowo (tytuł, autor, wydawnictwo), filtrować po kolorze grzbietu, półce (multi-select) i statusie przeczytania, kombinować filtry; wyniki pokazują nazwę półki + pozycję + status; brak wyników → „nie masz tej książki".** — Archived 2026-05-29 → `context/archive/2026-05-29-catalog-search-and-filters/`. Lesson: —. `/library` + `GET /api/books/search` (2-zapytaniowy, RLS×2, escaped ILIKE); migracja 0011 `books.spine_color` (denorm z detekcji + backfill) + `search_text` GENERATED. Świadome cięcie: „krótki opis" (FR-032) odroczony → S-17. Manual smoke (US-03/04) deferred do post-merge + `supabase db push` (migracja 0011).
+- **S-07: użytkownik może przenieść książkę z dowolnej półki (w tym "Zakupione") na inną przez akcję "Przenieś na półkę X"; data zakupu i ręczne metadane pozostają na rekordzie książki; system zapisuje wersjonowaną historię lokalizacji (poprzednia oznaczona jako historyczna, nowa jako aktualna), tak by katalog odpowiadał "gdzie ta książka jest dziś i gdzie była".** — Archived 2026-05-30 → `context/archive/2026-05-30-move-book-and-history/`. Lesson: —. Realizacja bez migracji/rpc (plan-review F1: typ `Database.Functions` pusty, nieregenerowalny w branchu) — dwa typowane zapisy w `POST /api/books/[id]/move` (INSERT bieżący max+1 → UPDATE stary na `is_current=false`), insert-first → książka nigdy bez bieżącej półki; non-atomic zgodny z `confirm.ts`. UI: picker `<select>` w BookCard + optimistic w obu wyspach. Świadome cięcie: widok historii lokalizacji (timeline) odroczony — materializujemy dane, nie ekran. Manual smoke (2.5–2.7) user-only post-merge.
 
 (Pusta przy pierwszej generacji. `/10x-archive` dopisuje tu wpis — i przerzuca Status pozycji na `done` — gdy archiwizowana zmiana ma `Change ID` zgodny z pozycją roadmapy. NIE wypełniać ręcznie.)
