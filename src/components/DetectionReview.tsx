@@ -509,6 +509,7 @@ type VisionRunMeta = {
 type ApiResponse = {
   data?: {
     photo: PhotoDTO;
+    photo_url?: string | null;
     detections?: DetectionWithCandidatesDTO[];
     vision_run: VisionRunMeta | null;
   };

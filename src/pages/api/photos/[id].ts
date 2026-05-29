@@ -37,7 +37,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
 
   const { data, error } = await locals.supabase
     .from('photos')
-    .select('id, shelf_id, status, detected_count, error_message, vision_cost_usd, vision_latency_ms, created_at')
+    .select('id, shelf_id, storage_path, status, detected_count, error_message, vision_cost_usd, vision_latency_ms, created_at')
     .eq('id', id)
     .single();
 
@@ -64,6 +64,25 @@ export const GET: APIRoute = async ({ params, locals }) => {
     created_at: data.created_at,
   };
 
+  let photo_url: string | null = null;
+  try {
+    const { data: signed, error: signedError } = await locals.supabase.storage
+      .from('shelf-photos')
+      .createSignedUrl(data.storage_path, 3600);
+    if (signedError) {
+      console.error('[api/photos GET] createSignedUrl failed', {
+        name: signedError.name,
+        message: signedError.message,
+      });
+    } else {
+      photo_url = signed?.signedUrl ?? null;
+    }
+  } catch (err) {
+    console.error('[api/photos GET] createSignedUrl threw', {
+      message: err instanceof Error ? err.message : String(err),
+    });
+  }
+
   // Latest succeeded vision_run — defines which detections to show
   const { data: latestRun, error: runError } = await locals.supabase
     .from('vision_runs')
@@ -84,7 +103,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
   }
 
   if (!latestRun) {
-    return apiResponse({ data: { photo, detections: [], vision_run: null } });
+    return apiResponse({ data: { photo, photo_url, detections: [], vision_run: null } });
   }
 
   const visionRun = {
@@ -114,7 +133,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
 
   if (rows.length === 0) {
     const detections: DetectionWithCandidatesDTO[] = [];
-    return apiResponse({ data: { photo, detections, vision_run: visionRun } });
+    return apiResponse({ data: { photo, photo_url, detections, vision_run: visionRun } });
   }
 
   const detectionIds = rows.map((d) => d.id);
@@ -220,5 +239,5 @@ export const GET: APIRoute = async ({ params, locals }) => {
     };
   });
 
-  return apiResponse({ data: { photo, detections, vision_run: visionRun } });
+  return apiResponse({ data: { photo, photo_url, detections, vision_run: visionRun } });
 };

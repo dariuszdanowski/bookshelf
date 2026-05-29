@@ -13,6 +13,7 @@ const CAND_ID_1 = '00000000-0000-4000-8000-000000000020';
 type PhotoRow = {
   id: string;
   shelf_id: string;
+  storage_path: string;
   status: string;
   detected_count: number | null;
   error_message: string | null;
@@ -68,6 +69,7 @@ const uploadedRow: PhotoRow = {
   vision_cost_usd: null,
   vision_latency_ms: null,
   created_at: '2026-05-27T10:00:00Z',
+  storage_path: 'user-abc/photo-123.jpg',
 };
 
 const processedRow: PhotoRow = {
@@ -134,6 +136,7 @@ function makeSupabase(opts: {
     data: { id: string; title: string; authors: string[]; isbn_13: string | null; isbn_10: string | null }[] | null;
     error: { code?: string; message?: string; name?: string } | null;
   };
+  storageResult?: { data: { signedUrl: string } | null; error: { name: string; message: string } | null };
 }) {
   const {
     photoResult,
@@ -141,9 +144,10 @@ function makeSupabase(opts: {
     detectionResult,
     candidatesResult = { data: [], error: null },
     booksResult = { data: [], error: null },
+    storageResult = { data: { signedUrl: 'https://example.com/photo.jpg' }, error: null },
   } = opts;
 
-  return vi.fn((table: string) => {
+  const fromFn = vi.fn((table: string) => {
     if (table === 'photos') {
       return {
         select: vi.fn(() => ({
@@ -198,16 +202,24 @@ function makeSupabase(opts: {
 
     return {};
   });
+
+  const storage = {
+    from: vi.fn(() => ({
+      createSignedUrl: vi.fn().mockResolvedValue(storageResult),
+    })),
+  };
+
+  return { from: fromFn, storage };
 }
 
 function makeContext(
   params: { id: string | undefined },
-  fromFn: ReturnType<typeof makeSupabase>
+  supabase: ReturnType<typeof makeSupabase>
 ) {
   return {
     params,
     locals: {
-      supabase: { from: fromFn } as never,
+      supabase: supabase as never,
       user: { id: USER_ID } as never,
     },
   };
@@ -217,35 +229,35 @@ beforeEach(() => vi.clearAllMocks());
 
 describe('GET /api/photos/[id]', () => {
   it('returns 404 for malformed UUID', async () => {
-    const from = makeSupabase({ photoResult: { data: null, error: null } });
-    const res = await GET(makeContext({ id: 'not-a-uuid' }, from) as never);
+    const supabase = makeSupabase({ photoResult: { data: null, error: null } });
+    const res = await GET(makeContext({ id: 'not-a-uuid' }, supabase) as never);
     expect(res.status).toBe(404);
     const json = (await res.json()) as { error: { code: string } };
     expect(json.error.code).toBe('NOT_FOUND');
   });
 
   it('returns 404 for undefined id', async () => {
-    const from = makeSupabase({ photoResult: { data: null, error: null } });
-    const res = await GET(makeContext({ id: undefined }, from) as never);
+    const supabase = makeSupabase({ photoResult: { data: null, error: null } });
+    const res = await GET(makeContext({ id: undefined }, supabase) as never);
     expect(res.status).toBe(404);
   });
 
   it('returns 404 on PGRST116 (photo not found or RLS scoped out)', async () => {
-    const from = makeSupabase({
+    const supabase = makeSupabase({
       photoResult: { data: null, error: { code: 'PGRST116', message: 'no rows', name: 'PostgrestError' } },
     });
-    const res = await GET(makeContext({ id: PHOTO_ID }, from) as never);
+    const res = await GET(makeContext({ id: PHOTO_ID }, supabase) as never);
     expect(res.status).toBe(404);
     const json = (await res.json()) as { error: { code: string } };
     expect(json.error.code).toBe('NOT_FOUND');
   });
 
   it('returns photo + empty detections when no succeeded vision_run exists', async () => {
-    const from = makeSupabase({
+    const supabase = makeSupabase({
       photoResult: { data: uploadedRow, error: null },
       latestRunResult: { data: null, error: null },
     });
-    const res = await GET(makeContext({ id: PHOTO_ID }, from) as never);
+    const res = await GET(makeContext({ id: PHOTO_ID }, supabase) as never);
     expect(res.status).toBe(200);
 
     const json = (await res.json()) as {
@@ -258,14 +270,14 @@ describe('GET /api/photos/[id]', () => {
   });
 
   it('returns photo + detections + vision_run metadata for processed photo', async () => {
-    const from = makeSupabase({
+    const supabase = makeSupabase({
       photoResult: { data: processedRow, error: null },
       detectionResult: { data: detectionRows, error: null },
       candidatesResult: { data: [candidateRow], error: null },
       booksResult: { data: [], error: null },
     });
 
-    const res = await GET(makeContext({ id: PHOTO_ID }, from) as never);
+    const res = await GET(makeContext({ id: PHOTO_ID }, supabase) as never);
     expect(res.status).toBe(200);
 
     const json = (await res.json()) as {
@@ -305,14 +317,14 @@ describe('GET /api/photos/[id]', () => {
       isbn_10: null,
     };
 
-    const from = makeSupabase({
+    const supabase = makeSupabase({
       photoResult: { data: processedRow, error: null },
       detectionResult: { data: [detectionRows[0]], error: null },
       candidatesResult: { data: [candidateRow], error: null },
       booksResult: { data: [existingBook], error: null },
     });
 
-    const res = await GET(makeContext({ id: PHOTO_ID }, from) as never);
+    const res = await GET(makeContext({ id: PHOTO_ID }, supabase) as never);
     const json = (await res.json()) as {
       data: { detections: { duplicate: { type: string } | null }[] };
     };
@@ -320,11 +332,11 @@ describe('GET /api/photos/[id]', () => {
   });
 
   it('returns bbox when all bbox fields are present', async () => {
-    const from = makeSupabase({
+    const supabase = makeSupabase({
       photoResult: { data: processedRow, error: null },
       detectionResult: { data: [detectionRows[0]], error: null },
     });
-    const res = await GET(makeContext({ id: PHOTO_ID }, from) as never);
+    const res = await GET(makeContext({ id: PHOTO_ID }, supabase) as never);
     const json = (await res.json()) as {
       data: { detections: { bbox: { x1: number } | null }[] };
     };
@@ -332,11 +344,11 @@ describe('GET /api/photos/[id]', () => {
   });
 
   it('returns null bbox when bbox fields are null', async () => {
-    const from = makeSupabase({
+    const supabase = makeSupabase({
       photoResult: { data: processedRow, error: null },
       detectionResult: { data: [detectionRows[1]], error: null },
     });
-    const res = await GET(makeContext({ id: PHOTO_ID }, from) as never);
+    const res = await GET(makeContext({ id: PHOTO_ID }, supabase) as never);
     const json = (await res.json()) as {
       data: { detections: { bbox: null }[] };
     };
@@ -344,32 +356,56 @@ describe('GET /api/photos/[id]', () => {
   });
 
   it('returns 500 INTERNAL_ERROR on unexpected supabase error', async () => {
-    const from = makeSupabase({
+    const supabase = makeSupabase({
       photoResult: { data: null, error: { code: '99999', message: 'db error', name: 'PostgrestError' } },
     });
-    const res = await GET(makeContext({ id: PHOTO_ID }, from) as never);
+    const res = await GET(makeContext({ id: PHOTO_ID }, supabase) as never);
     expect(res.status).toBe(500);
     const json = (await res.json()) as { error: { code: string } };
     expect(json.error.code).toBe('INTERNAL_ERROR');
   });
 
   it('returns 500 when detections fetch fails', async () => {
-    const from = makeSupabase({
+    const supabase = makeSupabase({
       photoResult: { data: processedRow, error: null },
       detectionResult: { data: null, error: { code: '99999', message: 'det error', name: 'PostgrestError' } },
     });
-    const res = await GET(makeContext({ id: PHOTO_ID }, from) as never);
+    const res = await GET(makeContext({ id: PHOTO_ID }, supabase) as never);
     expect(res.status).toBe(500);
   });
 
   it('returns 500 when book_candidates fetch fails', async () => {
-    const from = makeSupabase({
+    const supabase = makeSupabase({
       photoResult: { data: processedRow, error: null },
       detectionResult: { data: detectionRows, error: null },
       candidatesResult: { data: null, error: { code: '99999', message: 'cand error', name: 'PostgrestError' } },
       booksResult: { data: [], error: null },
     });
-    const res = await GET(makeContext({ id: PHOTO_ID }, from) as never);
+    const res = await GET(makeContext({ id: PHOTO_ID }, supabase) as never);
     expect(res.status).toBe(500);
+  });
+
+  it('returns photo_url as signed URL string in happy path', async () => {
+    const supabase = makeSupabase({
+      photoResult: { data: uploadedRow, error: null },
+      latestRunResult: { data: null, error: null },
+      storageResult: { data: { signedUrl: 'https://example.com/signed-photo.jpg' }, error: null },
+    });
+    const res = await GET(makeContext({ id: PHOTO_ID }, supabase) as never);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { data: { photo_url: string | null } };
+    expect(json.data.photo_url).toBe('https://example.com/signed-photo.jpg');
+  });
+
+  it('returns photo_url as null when storage createSignedUrl returns error', async () => {
+    const supabase = makeSupabase({
+      photoResult: { data: uploadedRow, error: null },
+      latestRunResult: { data: null, error: null },
+      storageResult: { data: null, error: { name: 'StorageError', message: 'bucket not found' } },
+    });
+    const res = await GET(makeContext({ id: PHOTO_ID }, supabase) as never);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { data: { photo_url: string | null } };
+    expect(json.data.photo_url).toBeNull();
   });
 });
