@@ -176,7 +176,7 @@ Odnotowanie, że E2E chodzi w CI — w README, AGENTS.md i health-check.
 
 #### Automated
 
-- [x] 2.1 lint + typecheck zielone po edycjach docs
+- [x] 2.1 lint + typecheck zielone po edycjach docs — 8ca853e
 
 #### Manual
 

@@ -1,7 +1,7 @@
 ---
 change_id: e2e-in-ci
 title: Wpięcie testów E2E (Playwright) w pipeline CI
-status: implementing
+status: implemented
 created: 2026-05-29
 updated: 2026-05-29
 archived_at: null
