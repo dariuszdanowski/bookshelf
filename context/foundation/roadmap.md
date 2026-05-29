@@ -3,7 +3,7 @@ project: "BookShelf Scanner"
 version: 1
 status: draft
 created: 2026-05-25
-updated: 2026-05-27
+updated: 2026-05-29
 prd_version: 1
 main_goal: speed
 top_blocker: time
@@ -34,7 +34,7 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | S-01  | email-password-auth          | zarejestrować się, zalogować, wylogować; ochrona ścieżek  | F-01, F-02    | FR-001, FR-003, FR-004 | done     |
 | S-02  | shelves-crud-and-purchased   | tworzyć/edytować/usuwać półki; auto-półka "Zakupione"     | S-01          | FR-005–009            | done     |
 | S-03  | shelf-photo-vision-detection | wgrać zdjęcie półki → rozpoznane detekcje grzbietów        | S-02          | FR-010–014, FR-039    | done     |
-| S-04  | external-match-and-proposals | zobaczyć propozycje z bazy publicznej + flagi duplikatów  | S-03          | FR-015–018            | proposed |
+| S-04  | external-match-and-proposals | zobaczyć propozycje z bazy publicznej + flagi duplikatów  | S-03          | FR-015–018            | done     |
 | S-05  | proposal-accept-to-catalog   | akceptować/odrzucać/korygować → katalog + widok półki     | S-04          | FR-019–024, FR-037    | proposed |
 | S-06  | add-purchase-flow            | dodać zakup (ręcznie/zdjęcie) na półkę "Zakupione"        | S-05, S-02    | FR-025–028            | proposed |
 | S-07  | move-book-and-history        | przenieść książkę między półkami z historią lokalizacji   | S-05, S-02    | FR-029–031, FR-038    | proposed |
@@ -152,7 +152,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
   - Polityka matchingu książek bez ISBN (Open Q4) — Owner: użytkownik. Block: no (kierunek: fuzzy tytuł+autor z wyższym progiem; liczba z telemetrii pierwszych półek).
   - Komunikat UI dla różnych wydań tej samej książki (Open Q3) — Owner: użytkownik. Block: no (decyzja: różne ISBN = różne rekordy + flaga edycji; doszlifowanie UX na realnych kolekcjach).
 - **Risk:** progi i polityka bez-ISBN nietestowane na realnych danych — za liberalny próg "pre-zaznaczone" zaniża acceptance rate (Primary KPI); telemetria korekt jest jedynym wiarygodnym sygnałem do strojenia.
-- **Status:** proposed
+- **Status:** done
 
 ### S-05: Akceptacja propozycji → katalog + widok półki  ★ north star
 
@@ -306,5 +306,6 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **S-02: tworzyć/edytować/usuwać półki; auto-półka „Zakupione"** — Archived 2026-05-26 → `context/archive/2026-05-26-shelves-crud-and-purchased/`. Lesson: workflow „branch per change" zaadoptowany od tego slice'a — całość w `change/shelves-crud-and-purchased` + PR (zob. `lessons.md` § Branch per change workflow). Integration + E2E testy napisane z `describe.skip` na brak env (deferred do post-merge po `supabase db push` migracji 0004).
 - **S-13: header nav „Moje półki" → /shelves dla auth user'a + landing CTA pivot na /shelves (do czasu /library w S-08)** — Archived 2026-05-27 → `context/archive/2026-05-27-header-nav-when-auth/`. Lesson: —. UX gap fix po S-02 (nikt nigdzie nie linkował /shelves; landing CTA z S-09 prowadził do nieistniejącego /library). Po S-08 wrócimy do oryginalnej intencji S-09 z linkiem do /library.
 - **S-03: użytkownik może wgrać jedno zdjęcie półki (drag-drop / wybór z dysku) przypisane do wybranej fizycznej półki; system przetwarza je, wydobywa detekcje (tytuł, autor, pewność, dominujący kolor grzbietu z palety ~10), persistuje wszystkie detekcje przed matchingiem (idempotentny retry) i pokazuje status z paskiem postępu; koszt + latencja zapisane na rekordzie zdjęcia.** — Archived 2026-05-27 → `context/archive/2026-05-27-shelf-photo-vision-detection/`. Lesson: —. Follow-up S-14 (reload-recovery utkniętego 'processing') zarejestrowany z impl-review F2. Manual smoke (bucket, vision, Worker Secret) deferred do post-merge + `supabase db push`.
+- **S-04: dla każdej detekcji system odpytuje Google Books (primary) + OpenLibrary (fallback), buduje kandydatów z metadanymi, liczy pewność dopasowania i progresję (≥ 0.75 pre-zaznaczone / 0.55–0.75 wymaga potwierdzenia / < 0.55 "wpisz ręcznie"), sprawdza duplikat w katalogu (ISBN lub fuzzy tytuł+autor) i flaguje "duplikat z półki X" / "masz inną edycję"; użytkownik widzi listę propozycji (najlepszy + 2–4 alternatywy).** — Archived 2026-05-29 → `context/archive/2026-05-28-external-match-and-proposals/`. Lesson: —. Rozszerzony zakres (bbox 0..1 + `photos.original_path` + region model, migracja 0006) jako substrat pod przyszłą re-analizę fragmentów — zob. memory `s04-detection-spatial-region-model`. Manual smoke (realny /match, polski OCR, idempotencja, prod review z okładkami) deferred do post-merge + `supabase db push`.
 
 (Pusta przy pierwszej generacji. `/10x-archive` dopisuje tu wpis — i przerzuca Status pozycji na `done` — gdy archiwizowana zmiana ma `Change ID` zgodny z pozycją roadmapy. NIE wypełniać ręcznie.)

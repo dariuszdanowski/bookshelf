@@ -1,9 +1,10 @@
 ---
 change_id: external-match-and-proposals
-status: impl_reviewed
+status: archived
 created: 2026-05-28
 updated: 2026-05-29
 implemented_at: 2026-05-28
+archived_at: 2026-05-29T06:37:28Z
 
 roadmap_ref: S-04
 ---
