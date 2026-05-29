@@ -46,6 +46,7 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | S-13  | header-nav-when-auth         | header nav „Moje półki" → /shelves dla auth user'a + landing CTA pivot na /shelves (do czasu /library w S-08) | S-02 | UX polish | done     |
 | S-14  | photo-process-reload-recovery | po reloadzie /upload odzyskać stan utkniętego 'processing' (GET /api/photos/[id]) + retry | S-03 | UX recovery | proposed |
 | S-15  | review-page-nav-entry         | link do strony review (/photos/[id]) z poziomu list półek / katalogu; breadcrumbs | S-04 | UX polish | proposed |
+| S-16  | photo-upload-dedup            | przy wgraniu zdjęcia: wykryj identyczne (hash treści SHA-256), ostrzeż i zaproponuj reuse istniejących detekcji zamiast ponownego (płatnego) vision | S-03 | FR-039 (koszt), NFR (no-dup) | proposed |
 
 ## Streams
 
@@ -270,6 +271,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 | S-11       | health-check-endpoint        | `GET /api/health` endpoint + middleware whitelist                | yes                   | Stream E bucket — eksperyment parallel |
 | S-12       | loading-skeleton-component   | Generic React `<Skeleton />` komponent                            | yes                   | Stream E bucket — eksperyment parallel |
 | S-14       | photo-process-reload-recovery | Reload-recovery utkniętego 'processing' na /upload (konsumuje GET /api/photos/[id]) | yes | Follow-up z S-03 impl-review (F2); happy-path retry już działa |
+| S-16       | photo-upload-dedup           | Dedup zdjęć przy uploadzie (hash treści + reuse detekcji)         | no                    | Czeka na domknięcie S-05; sframe'uj (`/10x-frame`) — kierunek: SHA-256 treści + reuse istniejących detekcji (oszczędność vision FR-039), user może świadomie kontynuować mimo trafienia. Open: dokładny hash vs perceptual, UX akcji (auto-redirect vs przycisk) |
 
 ## Open Roadmap Questions
 
