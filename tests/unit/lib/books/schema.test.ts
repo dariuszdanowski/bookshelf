@@ -4,6 +4,7 @@ import {
   CorrectDetectionSchema,
   ConfirmBatchSchema,
   UpdateBookReadSchema,
+  AddPurchaseSchema,
 } from '../../../../src/lib/books/schema';
 
 // ---------------------------------------------------------------------------
@@ -219,6 +220,59 @@ describe('UpdateBookReadSchema', () => {
 
   it('odrzuca dodatkowe pola (.strict())', () => {
     const result = UpdateBookReadSchema.safeParse({ is_read: true, title: 'hack' });
+    expect(result.success).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// AddPurchaseSchema (S-06 Flow B)
+// ---------------------------------------------------------------------------
+
+describe('AddPurchaseSchema', () => {
+  it('akceptuje minimalny (tylko title)', () => {
+    const result = AddPurchaseSchema.safeParse({ title: 'Wiedźmin' });
+    expect(result.success).toBe(true);
+  });
+
+  it('akceptuje pełny zakup z datą i metadanymi', () => {
+    const result = AddPurchaseSchema.safeParse({
+      title: 'Wiedźmin: Ostatnie życzenie',
+      authors: ['Andrzej Sapkowski'],
+      publisher: 'superNOWA',
+      published_year: 1993,
+      isbn_13: '9788375780635',
+      purchase_date: '2026-05-29',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('odrzuca brak title', () => {
+    const result = AddPurchaseSchema.safeParse({ authors: ['X'] });
+    expect(result.success).toBe(false);
+  });
+
+  it('odrzuca pusty title', () => {
+    const result = AddPurchaseSchema.safeParse({ title: '' });
+    expect(result.success).toBe(false);
+  });
+
+  it('odrzuca złą datę (nie YYYY-MM-DD)', () => {
+    const result = AddPurchaseSchema.safeParse({ title: 'X', purchase_date: '29-05-2026' });
+    expect(result.success).toBe(false);
+  });
+
+  it('odrzuca zły isbn_13 (nie 13 cyfr)', () => {
+    const result = AddPurchaseSchema.safeParse({ title: 'X', isbn_13: '978-83' });
+    expect(result.success).toBe(false);
+  });
+
+  it('odrzuca rok spoza zakresu', () => {
+    expect(AddPurchaseSchema.safeParse({ title: 'X', published_year: 999 }).success).toBe(false);
+    expect(AddPurchaseSchema.safeParse({ title: 'X', published_year: 2101 }).success).toBe(false);
+  });
+
+  it('odrzuca dodatkowe pola (.strict)', () => {
+    const result = AddPurchaseSchema.safeParse({ title: 'X', user_id: 'hack' });
     expect(result.success).toBe(false);
   });
 });
