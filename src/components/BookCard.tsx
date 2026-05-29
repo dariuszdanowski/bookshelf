@@ -1,4 +1,5 @@
 import type { ShelfBookDTO } from '../lib/books/schema';
+import type { ShelfDTO } from '../lib/shelves/schema';
 
 /** Mapa nazwanych kolorów grzbietu (SPINE_COLORS) → swatch CSS dla wyników wyszukiwarki. */
 const SPINE_COLOR_CSS: Record<string, string> = {
@@ -23,6 +24,12 @@ type BookCardProps = {
   shelfName?: string;
   /** S-08: kolor grzbietu (swatch) w wynikach. */
   spineColor?: string | null;
+  /** S-07: lista półek do pickera „Przenieś na półkę…". Gdy brak — picker się nie renderuje. */
+  shelves?: ShelfDTO[];
+  /** S-07: id bieżącej półki książki — wykluczane z opcji pickera. */
+  currentShelfId?: string;
+  /** S-07: handler przeniesienia (optimistic po stronie rodzica). */
+  onMove?: (bookId: string, targetShelfId: string) => void;
 };
 
 /**
@@ -31,10 +38,19 @@ type BookCardProps = {
  *
  * NFR a11y: alt = „tytuł — autor" (lub sam tytuł gdy brak autora).
  */
-export default function BookCard({ book, onToggleRead, shelfName, spineColor }: BookCardProps) {
+export default function BookCard({
+  book,
+  onToggleRead,
+  shelfName,
+  spineColor,
+  shelves,
+  currentShelfId,
+  onMove,
+}: BookCardProps) {
   const authorsStr = book.authors.join(', ');
   const altText = authorsStr ? `${book.title} — ${authorsStr}` : book.title;
   const swatch = spineColor ? SPINE_COLOR_CSS[spineColor] : undefined;
+  const moveTargets = (shelves ?? []).filter((s) => s.id !== currentShelfId);
 
   return (
     <div
@@ -117,6 +133,27 @@ export default function BookCard({ book, onToggleRead, shelfName, spineColor }: 
       >
         {book.is_read ? '✓ Przeczytana' : 'Nie przeczytana'}
       </button>
+
+      {/* Przeniesienie na inną półkę (S-07) — tylko gdy podano shelves + onMove */}
+      {onMove && moveTargets.length > 0 && (
+        <select
+          data-testid={`move-book-${book.id}`}
+          value=""
+          aria-label={`Przenieś „${book.title}" na inną półkę`}
+          onChange={(e) => {
+            const target = e.target.value;
+            if (target) onMove(book.id, target);
+          }}
+          className="w-full rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-600 hover:bg-gray-50"
+        >
+          <option value="">{'Przenieś na półkę…'}</option>
+          {moveTargets.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </select>
+      )}
     </div>
   );
 }

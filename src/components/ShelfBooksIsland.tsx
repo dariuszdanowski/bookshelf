@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { ShelfBookDTO } from '../lib/books/schema';
+import type { ShelfDTO } from '../lib/shelves/schema';
 import BookCard from './BookCard';
 import Skeleton from './Skeleton';
 
@@ -16,6 +17,7 @@ type ApiResponse = {
  */
 export default function ShelfBooksIsland({ shelfId }: Props) {
   const [books, setBooks] = useState<ShelfBookDTO[]>([]);
+  const [shelves, setShelves] = useState<ShelfDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -39,6 +41,22 @@ export default function ShelfBooksIsland({ shelfId }: Props) {
     return () => { cancelled = true; };
   }, [shelfId]);
 
+  // Lista półek do pickera „Przenieś na półkę…"
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/shelves');
+        if (!res.ok) return;
+        const json = (await res.json()) as { data: { shelves: ShelfDTO[] } };
+        if (!cancelled) setShelves(json.data.shelves);
+      } catch {
+        /* picker po prostu się nie pokaże */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   async function handleToggleRead(bookId: string, currentValue: boolean) {
     // Optimistic update
     setBooks((prev) =>
@@ -61,6 +79,35 @@ export default function ShelfBooksIsland({ shelfId }: Props) {
       setBooks((prev) =>
         prev.map((b) => (b.id === bookId ? { ...b, is_read: currentValue } : b))
       );
+    }
+  }
+
+  async function handleMove(bookId: string, targetShelfId: string) {
+    // Optimistic: książka znika z bieżącej półki. Zapamiętaj do rollbacku.
+    let removed: { book: ShelfBookDTO; index: number } | null = null;
+    setBooks((prev) => {
+      const index = prev.findIndex((b) => b.id === bookId);
+      if (index >= 0) removed = { book: prev[index], index };
+      return prev.filter((b) => b.id !== bookId);
+    });
+    const rollback = () => {
+      if (!removed) return;
+      const { book, index } = removed;
+      setBooks((prev) => {
+        const next = [...prev];
+        next.splice(Math.min(index, next.length), 0, book);
+        return next;
+      });
+    };
+    try {
+      const res = await fetch(`/api/books/${bookId}/move`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shelf_id: targetShelfId }),
+      });
+      if (!res.ok) rollback();
+    } catch {
+      rollback();
     }
   }
 
@@ -109,7 +156,14 @@ export default function ShelfBooksIsland({ shelfId }: Props) {
       className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
     >
       {books.map((book) => (
-        <BookCard key={book.id} book={book} onToggleRead={handleToggleRead} />
+        <BookCard
+          key={book.id}
+          book={book}
+          onToggleRead={handleToggleRead}
+          shelves={shelves}
+          currentShelfId={shelfId}
+          onMove={handleMove}
+        />
       ))}
     </div>
   );
