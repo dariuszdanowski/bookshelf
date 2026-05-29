@@ -163,10 +163,10 @@ Odnotowanie, że E2E chodzi w CI — w README, AGENTS.md i health-check.
 
 #### Automated
 
-- [x] 1.1 Workflow YAML parsuje się (gh workflow view / yaml lint)
-- [ ] 1.2 Job `e2e` zielony na PR change/e2e-in-ci (gh run watch)
-- [ ] 1.3 Job `verify` nadal zielony (brak regresji)
-- [ ] 1.4 `supabase start` aplikuje migracje 0001–0011 bez błędu (log)
+- [x] 1.1 Workflow YAML parsuje się (gh workflow view / yaml lint) — 50005ab
+- [x] 1.2 Job `e2e` zielony na PR change/e2e-in-ci (gh run watch) — 50005ab
+- [x] 1.3 Job `verify` nadal zielony (brak regresji) — 50005ab
+- [x] 1.4 `supabase start` aplikuje migracje 0001–0011 bez błędu (log) — 50005ab
 
 #### Manual
 
@@ -176,7 +176,7 @@ Odnotowanie, że E2E chodzi w CI — w README, AGENTS.md i health-check.
 
 #### Automated
 
-- [ ] 2.1 lint + typecheck zielone po edycjach docs
+- [x] 2.1 lint + typecheck zielone po edycjach docs
 
 #### Manual
 
