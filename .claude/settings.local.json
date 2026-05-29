@@ -15,15 +15,20 @@
       "Bash(gh pr create*)",
       "Bash(gh pr comment*)",
       "Bash(npx playwright test*)",
-      "Bash(npx supabase migration list*)"
+      "Bash(npx supabase migration list*)",
+      "Skill(10x-plan)",
+      "Skill(10x-implement)",
+      "Skill(10x-impl-review)",
+      "Skill(10x-archive)",
+      "PowerShell(Get-Process *)"
     ],
     "defaultMode": "acceptEdits"
   },
+  "enableAllProjectMcpServers": true,
   "enabledMcpjsonServers": [
     "cloudflare",
     "exa",
     "context7",
     "supabase"
-  ],
-  "enableAllProjectMcpServers": true
+  ]
 }
