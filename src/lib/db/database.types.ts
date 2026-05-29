@@ -86,8 +86,10 @@ export type Database = {
           published_year: number | null
           publisher: string | null
           purchase_date: string | null
+          search_text: string | null
           source: string | null
           source_external_id: string | null
+          spine_color: string | null
           title: string
           user_id: string
         }
@@ -105,6 +107,7 @@ export type Database = {
           purchase_date?: string | null
           source?: string | null
           source_external_id?: string | null
+          spine_color?: string | null
           title: string
           user_id: string
         }
@@ -122,6 +125,7 @@ export type Database = {
           purchase_date?: string | null
           source?: string | null
           source_external_id?: string | null
+          spine_color?: string | null
           title?: string
           user_id?: string
         }

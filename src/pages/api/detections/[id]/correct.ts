@@ -54,7 +54,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   // Pobierz detekcję
   const { data: detection, error: detError } = await locals.supabase
     .from('detections')
-    .select('id, status, photo_id, position_index, raw_title')
+    .select('id, status, photo_id, position_index, raw_title, spine_color')
     .eq('id', detectionId)
     .maybeSingle();
 
@@ -124,6 +124,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       cover_url: candidate.cover_url,
       source: candidate.source,
       source_external_id: candidate.external_id,
+      spine_color: detection.spine_color,
     };
     correctionType = 'field_edit';
     correctedFields = {
@@ -142,6 +143,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       cover_url: null,
       source: 'manual',
       source_external_id: null,
+      spine_color: detection.spine_color,
     };
     correctionType = 'manual_entry';
     correctedFields = { title: input.title, authors: input.authors };

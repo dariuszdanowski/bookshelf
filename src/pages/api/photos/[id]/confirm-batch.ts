@@ -71,7 +71,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   // Pobierz detekcje (RLS, filtrujemy po photo_id żeby uniknąć cross-photo inject)
   const { data: detRows, error: detError } = await locals.supabase
     .from('detections')
-    .select('id, status, photo_id, position_index, raw_title')
+    .select('id, status, photo_id, position_index, raw_title, spine_color')
     .in('id', detectionIds)
     .eq('photo_id', photoId);
 
@@ -142,6 +142,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
           cover_url: candidate.cover_url,
           source: candidate.source,
           source_external_id: candidate.external_id,
+          spine_color: detection.spine_color,
         },
         correctionType: 'accept',
       });

@@ -5,6 +5,7 @@ import {
   ConfirmBatchSchema,
   UpdateBookReadSchema,
   AddPurchaseSchema,
+  SearchBooksQuerySchema,
 } from '../../../../src/lib/books/schema';
 
 // ---------------------------------------------------------------------------
@@ -274,5 +275,41 @@ describe('AddPurchaseSchema', () => {
   it('odrzuca dodatkowe pola (.strict)', () => {
     const result = AddPurchaseSchema.safeParse({ title: 'X', user_id: 'hack' });
     expect(result.success).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SearchBooksQuerySchema (S-08)
+// ---------------------------------------------------------------------------
+
+describe('SearchBooksQuerySchema', () => {
+  it('akceptuje pusty obiekt (wszystkie filtry opcjonalne)', () => {
+    expect(SearchBooksQuerySchema.safeParse({}).success).toBe(true);
+  });
+
+  it('akceptuje pełny zestaw filtrów', () => {
+    const result = SearchBooksQuerySchema.safeParse({
+      q: 'smok',
+      color: 'czerwony',
+      shelf_ids: ['00000000-0000-4000-8000-000000000001'],
+      read: 'unread',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('odrzuca kolor spoza palety', () => {
+    expect(SearchBooksQuerySchema.safeParse({ color: 'turkusowy' }).success).toBe(false);
+  });
+
+  it('odrzuca nieznany status read', () => {
+    expect(SearchBooksQuerySchema.safeParse({ read: 'maybe' }).success).toBe(false);
+  });
+
+  it('akceptuje read=all', () => {
+    expect(SearchBooksQuerySchema.safeParse({ read: 'all' }).success).toBe(true);
+  });
+
+  it('odrzuca shelf_ids z nie-UUID', () => {
+    expect(SearchBooksQuerySchema.safeParse({ shelf_ids: ['nie-uuid'] }).success).toBe(false);
   });
 });

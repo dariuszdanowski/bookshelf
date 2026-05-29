@@ -13,6 +13,8 @@ export type ConfirmBookInput = {
   cover_url: string | null;
   source: string | null;
   source_external_id: string | null;
+  /** Dominujący kolor grzbietu z detekcji (S-08 filtr); null dla manual/Flow-B. */
+  spine_color: string | null;
 };
 
 export type ConfirmDetectionArgs = {
@@ -93,6 +95,7 @@ export async function confirmDetectionToCatalog(
       cover_url: book.cover_url,
       source: book.source,
       source_external_id: book.source_external_id,
+      spine_color: book.spine_color,
     })
     .select('id')
     .single();
