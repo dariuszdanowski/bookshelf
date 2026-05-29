@@ -201,5 +201,6 @@ test('upload flow: /upload → wybór półki → upload → redirect → propoz
   // 11. Review page shows proposals
   await expect(page.getByTestId('detection-review')).toBeVisible({ timeout: 10_000 });
   await expect(page.getByTestId('detection-card-1')).toBeVisible();
-  await expect(page.getByTestId('tier-badge-high')).toBeVisible();
+  // S-05: DetectionReview przepisany — tier-badge-high zastąpiony przez confirm-button + bulk
+  await expect(page.getByTestId('confirm-button').first()).toBeVisible();
 });
