@@ -157,8 +157,9 @@ Header `Cache-Control: private, no-store` na każdej odpowiedzi z danymi per-use
 
 ### Testy
 - **Vitest** dla unit: matching, dedupe, isbn validation, vision response parsing. Config: `vitest.config.ts` (jsdom env, setup w `tests/unit/setup.ts`, coverage v8).
-- **Playwright** dla E2E: jeden golden path (`tests/e2e/upload-flow.spec.ts`) z **mock** vision-response. Config: `playwright.config.ts` (chromium project, `webServer` startuje `npm run dev` na :4321).
-- Real vision tylko w manualnym smoke test (nie w CI — flaky + drogi).
+- **Playwright** dla E2E: golden paths w `tests/e2e/` (auth, shelves, upload-flow, shelf-photo-pipeline-ui, smoke) z **mock** vision/match/external przez `page.route`. Config: `playwright.config.ts` (chromium + projekty `setup`/`cleanup`; współdzielona sesja przez storageState = 1 signup/run; `webServer` startuje `npm run dev` na :4321).
+- **E2E = pełnoprawna część pętli weryfikacji**: przy każdej realizacji/weryfikacji zmiany uruchamiaj Playwright na równi z `vitest`/`typecheck`/`lint` — NIE pomijaj. Wyjątek tylko gdy zmiana ewidentnie nie dotyka warstwy UI/flow (odnotuj to świadomie).
+- **Koszt = twardy guardrail**: NIGDY nie wywołuj realnego vision/LLM w automatach (Anthropic API = fizyczne pieniądze). E2E zawsze mockuje vision/match/external (`page.route`). Realny vision wyłącznie w **manualnym** smoke (user-only), nie w CI (flaky + drogi).
 - Browser binaries Playwrighta **nie są** wciągane przez `npm install` — pierwszy `npm run test:e2e` na świeżej maszynie wymaga `npx playwright install --with-deps`.
 
 ### Lint / format
