@@ -347,14 +347,14 @@ Playwright spec dowodzący gwiazdy przewodniej: upload → detect → match → 
 ### Phase 1: Substrat danych
 
 #### Automated
-- [ ] 1.1 Migracja 0008 aplikuje się czysto: `npx supabase db reset`
-- [ ] 1.2 Typecheck zielony
-- [ ] 1.3 Lint zielony
-- [ ] 1.4 Build zielony
-- [ ] 1.5 Unit: books/schema.ts (confirm/correct-both/batch/read — valid+invalid)
+- [ ] 1.1 Migracja 0008 aplikuje się czysto: `npx supabase db reset` — deferred: lokalny stack AV-blocked; weryfikacja po merge + `supabase db push`
+- [x] 1.2 Typecheck zielony — 25637f1
+- [x] 1.3 Lint zielony — 25637f1
+- [x] 1.4 Build zielony — 25637f1
+- [x] 1.5 Unit: books/schema.ts (confirm/correct-both/batch/read — valid+invalid) — 25637f1
 
 #### Manual
-- [ ] 1.6 Studio: books.is_read (default false) + nowy CHECK corrections widoczne
+- [ ] 1.6 Studio: books.is_read (default false) + nowy CHECK corrections widoczne — deferred: po merge + `supabase db push`
 
 ### Phase 2: Endpointy decyzji + helper
 
