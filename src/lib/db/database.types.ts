@@ -79,6 +79,7 @@ export type Database = {
           cover_url: string | null
           created_at: string
           id: string
+          is_read: boolean
           isbn_10: string | null
           isbn_13: string | null
           notes: string | null
@@ -94,6 +95,7 @@ export type Database = {
           cover_url?: string | null
           created_at?: string
           id?: string
+          is_read?: boolean
           isbn_10?: string | null
           isbn_13?: string | null
           notes?: string | null
@@ -109,6 +111,7 @@ export type Database = {
           cover_url?: string | null
           created_at?: string
           id?: string
+          is_read?: boolean
           isbn_10?: string | null
           isbn_13?: string | null
           notes?: string | null
