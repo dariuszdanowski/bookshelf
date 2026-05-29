@@ -185,6 +185,17 @@ describe('POST /api/books/:id/move', () => {
     expect(insertFn).toHaveBeenCalled();
   });
 
+  it('returns 500 when historical update fails after insert (book left on two shelves, logged)', async () => {
+    const { context, insertFn, updateEqFn } = makeContext({
+      currentEntry: { id: 'entry-1', shelf_id: CURRENT_SHELF },
+      updateError: { code: '99999', message: 'boom', name: 'PostgrestError' },
+    });
+    const res = await POST(context as never);
+    expect(res.status).toBe(500);
+    expect(insertFn).toHaveBeenCalled();
+    expect(updateEqFn).toHaveBeenCalledWith('id', 'entry-1');
+  });
+
   it('moves the book: insert new current (max+1) + mark old historical, returns 200', async () => {
     const { context, insertFn, updateEqFn } = makeContext({
       currentEntry: { id: 'entry-1', shelf_id: CURRENT_SHELF },

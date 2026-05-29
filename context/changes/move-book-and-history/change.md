@@ -1,6 +1,6 @@
 ---
 change_id: move-book-and-history
-status: implemented
+status: impl_reviewed
 created: 2026-05-30
 updated: 2026-05-30
 
