@@ -44,6 +44,13 @@ const titleWithEnv = `[${ENV_LABEL[dbEnv]}] ${title}`;
           >
             Skanuj półkę
           </a>
+          <a
+            href="/purchase"
+            class="font-medium text-gray-700 hover:text-gray-900"
+            data-testid="nav-add-purchase"
+          >
+            Dodaj zakup
+          </a>
           <span data-testid="user-email">{user.email}</span>
           <LogoutButton client:load />
         </header>

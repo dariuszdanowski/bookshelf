@@ -4,6 +4,8 @@ import PhotoUploader from '../components/PhotoUploader.tsx';
 
 // Protected path: middleware ensures locals.user is non-null (redirect to /login for anon).
 const userId = Astro.locals.user!.id;
+// Flow B „Dodaj zakup → zdjęcie" linkuje z ?shelf=<Zakupione>; preset preselektuje półkę.
+const presetShelfId = Astro.url.searchParams.get('shelf') ?? undefined;
 ---
 
 <Layout title="Skanuj półkę">
@@ -13,6 +15,6 @@ const userId = Astro.locals.user!.id;
       Wybierz półkę, a następnie wgraj zdjęcie — system wykryje tytuły i autorów grzbietów
       widocznych na zdjęciu.
     </p>
-    <PhotoUploader client:load userId={userId} />
+    <PhotoUploader client:load userId={userId} presetShelfId={presetShelfId} />
   </main>
 </Layout>
