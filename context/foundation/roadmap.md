@@ -38,7 +38,7 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | S-05  | proposal-accept-to-catalog   | akceptować/odrzucać/korygować → katalog + widok półki     | S-04          | FR-019–024, FR-037    | done     |
 | S-06  | add-purchase-flow            | dodać zakup (ręcznie/zdjęcie) na półkę "Zakupione"        | S-05, S-02    | FR-025–028            | done     |
 | S-07  | move-book-and-history        | przenieść książkę między półkami z historią lokalizacji   | S-05, S-02    | FR-029–031, FR-038    | proposed |
-| S-08  | catalog-search-and-filters   | wyszukać katalog pełnotekstowo + filtry (kolor/półka/status) | S-05, S-02 | FR-032–036            | proposed |
+| S-08  | catalog-search-and-filters   | wyszukać katalog pełnotekstowo + filtry (kolor/półka/status) | S-05, S-02 | FR-032–036            | done     |
 | S-09  | landing-auth-cta             | niezalogowany na `/` widzi CTA do logowania i rejestracji; zalogowany — CTA do biblioteki; logout redirektuje na `/login` zamiast `/` | S-01 | FR-001 (UX adjacent)  | done     |
 | S-10  | custom-404-page              | Astro renderuje custom 404 page (Layout + conditional CTA) zamiast default białej strony | — (S-01 adjacent) | UX polish | done     |
 | S-11  | health-check-endpoint        | `GET /api/health` zwraca `{data:{status,version,timestamp}}` z F-02 envelope; whitelisted w middleware | F-02 | NFR (monitoring) | done     |
@@ -47,6 +47,7 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | S-14  | photo-process-reload-recovery | po reloadzie /upload odzyskać stan utkniętego 'processing' (GET /api/photos/[id]) + retry | S-03 | UX recovery | proposed |
 | S-15  | review-page-nav-entry         | link do strony review (/photos/[id]) z poziomu list półek / katalogu; breadcrumbs | S-04 | UX polish | proposed |
 | S-16  | photo-upload-dedup            | przy wgraniu zdjęcia: wykryj identyczne (hash treści SHA-256), ostrzeż i zaproponuj reuse istniejących detekcji zamiast ponownego (płatnego) vision | S-03 | FR-039 (koszt), NFR (no-dup) | proposed |
+| S-17  | catalog-description-search    | full-text obejmuje „krótki opis z publicznej bazy" — capture opisu w klientach S-04 + confirm + backfill (re-fetch), rozszerzenie search_text | S-08 | FR-032 (opis, domknięcie) | proposed |
 
 ## Streams
 
@@ -202,7 +203,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **Unknowns:**
   - ~~Finalna paleta nazwanych kolorów grzbietu (Open Q2)~~ **ZAMROŻONA 2026-05-29** → `src/lib/vision/prompt.ts` `SPINE_COLORS` (12 kolorów) jest single source of truth. S-08 filtruje po tej liście; zmiana = migracja danych w `detections.spine_color`.
 - **Risk:** p95 < 1 s na ~1000 wyników + kombinowalne filtry to KPI find-in-house i in-bookstore; niezindeksowane pole opisu/koloru rozjeżdża wydajność, a niezamrożona paleta unieważnia zindeksowane wartości.
-- **Status:** proposed
+- **Status:** done
 
 ### S-09: Landing page — CTA dla niezalogowanych + skrót dla zalogowanych
 
@@ -311,5 +312,6 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **S-04: dla każdej detekcji system odpytuje Google Books (primary) + OpenLibrary (fallback), buduje kandydatów z metadanymi, liczy pewność dopasowania i progresję (≥ 0.75 pre-zaznaczone / 0.55–0.75 wymaga potwierdzenia / < 0.55 "wpisz ręcznie"), sprawdza duplikat w katalogu (ISBN lub fuzzy tytuł+autor) i flaguje "duplikat z półki X" / "masz inną edycję"; użytkownik widzi listę propozycji (najlepszy + 2–4 alternatywy).** — Archived 2026-05-29 → `context/archive/2026-05-28-external-match-and-proposals/`. Lesson: —. Rozszerzony zakres (bbox 0..1 + `photos.original_path` + region model, migracja 0006) jako substrat pod przyszłą re-analizę fragmentów — zob. memory `s04-detection-spatial-region-model`. Manual smoke (realny /match, polski OCR, idempotencja, prod review z okładkami) deferred do post-merge + `supabase db push`.
 - **S-05: użytkownik może akceptować (hurtowo pre-zaznaczone lub po kolei), odrzucać lub korygować pola (tytuł/autor/wydawnictwo/rok) przed akceptacją, oraz wpisać książkę ręcznie, gdy brak matchu; zaakceptowana książka trafia do katalogu ze statusem przeczytania = nie przeczytana i pozycją na półce ("od lewej"); użytkownik widzi półkę z okładkami w kolejności od lewej i przełącza status przeczytania jednym kliknięciem; każda korekta/odrzucenie zapisane jako sygnał telemetryczny.** — Archived 2026-05-29 → `context/archive/2026-05-29-proposal-accept-to-catalog/`. Lesson: RLS join-tabel waliduj OBA FK (lessons.md); helper confirm bez transakcji — obserwuj błędy zapisów (impl-review F1 fix). Manual smoke (accept/bulk/correct/reject/widok półki/toggle) deferred do post-merge + `supabase db push` (migracje 0008+0009).
 - **S-06: użytkownik może otworzyć „Dodaj zakup" z dowolnego widoku, wybrać metodę (zdjęcie stosu → pipeline rozpoznawania LUB wpisanie ręczne), wpisać tytuł + autora, ustawić opcjonalną datę zakupu (domyślnie dziś) i zatwierdzić; książka ląduje na wirtualnej półce „Zakupione" ze statusem nie przeczytana; ścieżka ręczna ≤ 90 s.** — Archived 2026-05-29 → `context/archive/2026-05-29-add-purchase-flow/`. Lesson: —. Manual entry = świeży `POST /api/books` (helper confirm jest detection-bound); migracja 0010 `books.purchase_date`. Świadome cuty: data na ścieżce zdjęcia (NULL), render daty, telemetria Flow B (odroczone). Manual smoke (≤90s ręczny, upload preset Zakupione) deferred do post-merge + `supabase db push` (migracja 0010).
+- **S-08: użytkownik może wyszukać książkę pełnotekstowo (tytuł, autor, wydawnictwo), filtrować po kolorze grzbietu, półce (multi-select) i statusie przeczytania, kombinować filtry; wyniki pokazują nazwę półki + pozycję + status; brak wyników → „nie masz tej książki".** — Archived 2026-05-29 → `context/archive/2026-05-29-catalog-search-and-filters/`. Lesson: —. `/library` + `GET /api/books/search` (2-zapytaniowy, RLS×2, escaped ILIKE); migracja 0011 `books.spine_color` (denorm z detekcji + backfill) + `search_text` GENERATED. Świadome cięcie: „krótki opis" (FR-032) odroczony → S-17. Manual smoke (US-03/04) deferred do post-merge + `supabase db push` (migracja 0011).
 
 (Pusta przy pierwszej generacji. `/10x-archive` dopisuje tu wpis — i przerzuca Status pozycji na `done` — gdy archiwizowana zmiana ma `Change ID` zgodny z pozycją roadmapy. NIE wypełniać ręcznie.)

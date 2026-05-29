@@ -68,4 +68,23 @@ describe('BookCard', () => {
     const placeholder = screen.getByRole('img', { name: 'Solaris' });
     expect(placeholder).toBeInTheDocument();
   });
+
+  // S-08: opcjonalne propsy shelfName/spineColor (wyniki wyszukiwarki)
+  it('NIE renderuje badge półki ani swatcha gdy propsy nie podane (regress ShelfBooksIsland)', () => {
+    render(<BookCard book={baseBook} onToggleRead={vi.fn()} />);
+    expect(screen.queryByTestId(`shelf-badge-${BOOK_ID}`)).not.toBeInTheDocument();
+    expect(screen.queryByTestId(`spine-swatch-${BOOK_ID}`)).not.toBeInTheDocument();
+  });
+
+  it('renderuje badge nazwy półki gdy shelfName podany', () => {
+    render(<BookCard book={baseBook} onToggleRead={vi.fn()} shelfName="Salon" />);
+    expect(screen.getByTestId(`shelf-badge-${BOOK_ID}`).textContent).toBe('Salon');
+  });
+
+  it('renderuje swatch koloru gdy spineColor podany (z aria-label)', () => {
+    render(<BookCard book={baseBook} onToggleRead={vi.fn()} spineColor="czerwony" />);
+    const swatch = screen.getByTestId(`spine-swatch-${BOOK_ID}`);
+    expect(swatch).toBeInTheDocument();
+    expect(swatch).toHaveAttribute('aria-label', 'Kolor grzbietu: czerwony');
+  });
 });

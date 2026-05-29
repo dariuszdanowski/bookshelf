@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { SPINE_COLORS } from '../vision/prompt';
 
 // ---------------------------------------------------------------------------
 // Typy wewnętrzne (matching engine, S-04)
@@ -56,6 +57,22 @@ export type ShelfBookDTO = {
   position_index: number | null;
   is_read: boolean;
 };
+
+// DTO dla wyników wyszukiwarki katalogu (S-08) — ShelfBookDTO + nazwa półki + kolor
+export type CatalogBookDTO = ShelfBookDTO & {
+  shelf_id: string;
+  shelf_name: string;
+  spine_color: string | null;
+};
+
+// GET /api/books/search — parametry zapytania (wszystkie opcjonalne, kombinowalne)
+export const SearchBooksQuerySchema = z.object({
+  q: z.string().trim().max(200).optional(),
+  color: z.enum(SPINE_COLORS).optional(),
+  shelf_ids: z.array(z.uuid()).optional(),
+  read: z.enum(['read', 'unread', 'all']).optional(),
+});
+export type SearchBooksQuery = z.infer<typeof SearchBooksQuerySchema>;
 
 // ---------------------------------------------------------------------------
 // Schematy decyzji katalogowych (S-05)

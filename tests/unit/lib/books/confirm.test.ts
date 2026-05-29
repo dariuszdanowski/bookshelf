@@ -99,6 +99,7 @@ const BASE_BOOK = {
   cover_url: 'https://example.com/cover.jpg',
   source: 'google_books',
   source_external_id: 'gb-123',
+  spine_color: 'niebieski',
 };
 
 beforeEach(() => vi.clearAllMocks());
@@ -166,6 +167,37 @@ describe('confirmDetectionToCatalog — exact-dup', () => {
 // ---------------------------------------------------------------------------
 
 describe('confirmDetectionToCatalog — sukces', () => {
+  it('przekazuje spine_color do books insert (S-08 denormalizacja)', async () => {
+    const insertFn = vi.fn(() => ({ select: vi.fn(() => ({ single: vi.fn().mockResolvedValue({ data: { id: 'b1' }, error: null }) })) }));
+    const supabase = {
+      from: vi.fn((table: string) => {
+        if (table === 'books') {
+          return {
+            select: vi.fn(() => ({ eq: vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }) })) })) })),
+            insert: insertFn,
+          };
+        }
+        if (table === 'shelf_entries') {
+          return {
+            select: vi.fn(() => ({ eq: vi.fn(() => ({ eq: vi.fn(() => ({ order: vi.fn(() => ({ limit: vi.fn(() => ({ maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }) })) })) })) })) })),
+            insert: vi.fn().mockResolvedValue({ error: null }),
+          };
+        }
+        if (table === 'detections') return { update: vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ error: null }) })) };
+        if (table === 'corrections') return { insert: vi.fn().mockResolvedValue({ error: null }) };
+        return {};
+      }),
+    } as unknown as Parameters<typeof confirmDetectionToCatalog>[0];
+
+    await confirmDetectionToCatalog(supabase, 'user-1', {
+      detection: { ...BASE_DETECTION, status: 'pending' },
+      shelfId: 'shelf-1',
+      book: { ...BASE_BOOK, isbn_13: null, spine_color: 'czerwony' },
+      correctionType: 'accept',
+    });
+    expect(insertFn).toHaveBeenCalledWith(expect.objectContaining({ spine_color: 'czerwony' }));
+  });
+
   it('tworzy book + shelf_entry z position z detekcji + correction(accept)', async () => {
     const supabase = makeSupabaseMock({});
     const result = await confirmDetectionToCatalog(supabase, 'user-1', {
