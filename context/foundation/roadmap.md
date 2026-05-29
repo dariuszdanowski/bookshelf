@@ -200,7 +200,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **Parallel with:** S-06, S-07
 - **Blockers:** —
 - **Unknowns:**
-  - Finalna paleta nazwanych kolorów grzbietu (Open Q2) — Owner: użytkownik. Block: no (kierunek dany; MUSI być zamrożona przed implementacją filtra, bo zmiana unieważnia już zindeksowane wartości — patrz Open Roadmap Questions).
+  - ~~Finalna paleta nazwanych kolorów grzbietu (Open Q2)~~ **ZAMROŻONA 2026-05-29** → `src/lib/vision/prompt.ts` `SPINE_COLORS` (12 kolorów) jest single source of truth. S-08 filtruje po tej liście; zmiana = migracja danych w `detections.spine_color`.
 - **Risk:** p95 < 1 s na ~1000 wyników + kombinowalne filtry to KPI find-in-house i in-bookstore; niezindeksowane pole opisu/koloru rozjeżdża wydajność, a niezamrożona paleta unieważnia zindeksowane wartości.
 - **Status:** proposed
 
@@ -276,7 +276,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 ## Open Roadmap Questions
 
 1. **Strojenie progów pewności dopasowania (FR-016: 0.75 / 0.55).** Owner: użytkownik. Block: `S-04` (nieblokujące startu; wartości startowe, strojenie z telemetrii korekt po ~1 mies. używania na realnej kolekcji).
-2. **Finalna paleta nazwanych kolorów grzbietu (FR-011, FR-033).** Owner: użytkownik. Block: `S-03`, `S-08` (cross-cutting; ~11 sugerowanych kolorów w PRD, ale precyzyjna lista MUSI być zamrożona przed `S-08`, bo paleta jest częścią kontraktu rozpoznawania i jej zmiana unieważnia już zindeksowane wartości).
+2. ~~**Finalna paleta nazwanych kolorów grzbietu (FR-011, FR-033).**~~ **ROZSTRZYGNIĘTE 2026-05-29.** Zamrożona lista 12 kolorów w `src/lib/vision/prompt.ts` `SPINE_COLORS`: czerwony, pomarańczowy, żółty, zielony, niebieski, granatowy, fioletowy, różowy, brązowy, czarny, biały, szary (+ `null` = „nie pasuje żaden"). To kontrakt rozpoznawania (vision prompt) i filtra S-08 — single source of truth. Zmiana wymaga migracji `detections.spine_color`.
 3. **Komunikat UI dla różnych wydań tej samej książki (FR-017).** Owner: użytkownik. Block: `S-04` (decyzja kierunkowa: różne ISBN = różne rekordy + flaga "masz inną edycję"; doszlifowanie wording'u na testach UX z realnymi kolekcjami).
 4. **Polityka matchingu książek bez ISBN (FR-017).** Owner: użytkownik. Block: `S-04` (kierunek: fuzzy tytuł+autor z wyższym progiem niż przy ISBN; konkretny próg z telemetrii pierwszych przetworzonych półek).
 5. **Eskalacja modelu rozpoznawania (Sonnet → Opus) przy padających detekcjach.** Owner: użytkownik. Block: `roadmap-wide` / post-MVP (w MVP jeden model; ścieżka eskalacji jako świadomy post-MVP follow-up).
