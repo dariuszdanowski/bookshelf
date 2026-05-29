@@ -36,7 +36,7 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | S-03  | shelf-photo-vision-detection | wgrać zdjęcie półki → rozpoznane detekcje grzbietów        | S-02          | FR-010–014, FR-039    | done     |
 | S-04  | external-match-and-proposals | zobaczyć propozycje z bazy publicznej + flagi duplikatów  | S-03          | FR-015–018            | done     |
 | S-05  | proposal-accept-to-catalog   | akceptować/odrzucać/korygować → katalog + widok półki     | S-04          | FR-019–024, FR-037    | done     |
-| S-06  | add-purchase-flow            | dodać zakup (ręcznie/zdjęcie) na półkę "Zakupione"        | S-05, S-02    | FR-025–028            | proposed |
+| S-06  | add-purchase-flow            | dodać zakup (ręcznie/zdjęcie) na półkę "Zakupione"        | S-05, S-02    | FR-025–028            | done     |
 | S-07  | move-book-and-history        | przenieść książkę między półkami z historią lokalizacji   | S-05, S-02    | FR-029–031, FR-038    | proposed |
 | S-08  | catalog-search-and-filters   | wyszukać katalog pełnotekstowo + filtry (kolor/półka/status) | S-05, S-02 | FR-032–036            | proposed |
 | S-09  | landing-auth-cta             | niezalogowany na `/` widzi CTA do logowania i rejestracji; zalogowany — CTA do biblioteki; logout redirektuje na `/login` zamiast `/` | S-01 | FR-001 (UX adjacent)  | done     |
@@ -177,7 +177,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** 90 s Time-to-add-purchase to próg utrzymania nawyku (Flow B używany dziesiątki razy w roku); przekombinowany formularz zabija KPI — ścieżka ręczna musi być wolna od tarcia. Ścieżka "zdjęcie stosu" deleguje do łańcucha S-03→S-05, więc nie duplikuje vision.
-- **Status:** proposed
+- **Status:** done
 
 ### S-07: Przenoszenie książek + wersjonowana historia lokalizacji
 
@@ -200,7 +200,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **Parallel with:** S-06, S-07
 - **Blockers:** —
 - **Unknowns:**
-  - Finalna paleta nazwanych kolorów grzbietu (Open Q2) — Owner: użytkownik. Block: no (kierunek dany; MUSI być zamrożona przed implementacją filtra, bo zmiana unieważnia już zindeksowane wartości — patrz Open Roadmap Questions).
+  - ~~Finalna paleta nazwanych kolorów grzbietu (Open Q2)~~ **ZAMROŻONA 2026-05-29** → `src/lib/vision/prompt.ts` `SPINE_COLORS` (12 kolorów) jest single source of truth. S-08 filtruje po tej liście; zmiana = migracja danych w `detections.spine_color`.
 - **Risk:** p95 < 1 s na ~1000 wyników + kombinowalne filtry to KPI find-in-house i in-bookstore; niezindeksowane pole opisu/koloru rozjeżdża wydajność, a niezamrożona paleta unieważnia zindeksowane wartości.
 - **Status:** proposed
 
@@ -276,7 +276,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 ## Open Roadmap Questions
 
 1. **Strojenie progów pewności dopasowania (FR-016: 0.75 / 0.55).** Owner: użytkownik. Block: `S-04` (nieblokujące startu; wartości startowe, strojenie z telemetrii korekt po ~1 mies. używania na realnej kolekcji).
-2. **Finalna paleta nazwanych kolorów grzbietu (FR-011, FR-033).** Owner: użytkownik. Block: `S-03`, `S-08` (cross-cutting; ~11 sugerowanych kolorów w PRD, ale precyzyjna lista MUSI być zamrożona przed `S-08`, bo paleta jest częścią kontraktu rozpoznawania i jej zmiana unieważnia już zindeksowane wartości).
+2. ~~**Finalna paleta nazwanych kolorów grzbietu (FR-011, FR-033).**~~ **ROZSTRZYGNIĘTE 2026-05-29.** Zamrożona lista 12 kolorów w `src/lib/vision/prompt.ts` `SPINE_COLORS`: czerwony, pomarańczowy, żółty, zielony, niebieski, granatowy, fioletowy, różowy, brązowy, czarny, biały, szary (+ `null` = „nie pasuje żaden"). To kontrakt rozpoznawania (vision prompt) i filtra S-08 — single source of truth. Zmiana wymaga migracji `detections.spine_color`.
 3. **Komunikat UI dla różnych wydań tej samej książki (FR-017).** Owner: użytkownik. Block: `S-04` (decyzja kierunkowa: różne ISBN = różne rekordy + flaga "masz inną edycję"; doszlifowanie wording'u na testach UX z realnymi kolekcjami).
 4. **Polityka matchingu książek bez ISBN (FR-017).** Owner: użytkownik. Block: `S-04` (kierunek: fuzzy tytuł+autor z wyższym progiem niż przy ISBN; konkretny próg z telemetrii pierwszych przetworzonych półek).
 5. **Eskalacja modelu rozpoznawania (Sonnet → Opus) przy padających detekcjach.** Owner: użytkownik. Block: `roadmap-wide` / post-MVP (w MVP jeden model; ścieżka eskalacji jako świadomy post-MVP follow-up).
@@ -310,5 +310,6 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **S-03: użytkownik może wgrać jedno zdjęcie półki (drag-drop / wybór z dysku) przypisane do wybranej fizycznej półki; system przetwarza je, wydobywa detekcje (tytuł, autor, pewność, dominujący kolor grzbietu z palety ~10), persistuje wszystkie detekcje przed matchingiem (idempotentny retry) i pokazuje status z paskiem postępu; koszt + latencja zapisane na rekordzie zdjęcia.** — Archived 2026-05-27 → `context/archive/2026-05-27-shelf-photo-vision-detection/`. Lesson: —. Follow-up S-14 (reload-recovery utkniętego 'processing') zarejestrowany z impl-review F2. Manual smoke (bucket, vision, Worker Secret) deferred do post-merge + `supabase db push`.
 - **S-04: dla każdej detekcji system odpytuje Google Books (primary) + OpenLibrary (fallback), buduje kandydatów z metadanymi, liczy pewność dopasowania i progresję (≥ 0.75 pre-zaznaczone / 0.55–0.75 wymaga potwierdzenia / < 0.55 "wpisz ręcznie"), sprawdza duplikat w katalogu (ISBN lub fuzzy tytuł+autor) i flaguje "duplikat z półki X" / "masz inną edycję"; użytkownik widzi listę propozycji (najlepszy + 2–4 alternatywy).** — Archived 2026-05-29 → `context/archive/2026-05-28-external-match-and-proposals/`. Lesson: —. Rozszerzony zakres (bbox 0..1 + `photos.original_path` + region model, migracja 0006) jako substrat pod przyszłą re-analizę fragmentów — zob. memory `s04-detection-spatial-region-model`. Manual smoke (realny /match, polski OCR, idempotencja, prod review z okładkami) deferred do post-merge + `supabase db push`.
 - **S-05: użytkownik może akceptować (hurtowo pre-zaznaczone lub po kolei), odrzucać lub korygować pola (tytuł/autor/wydawnictwo/rok) przed akceptacją, oraz wpisać książkę ręcznie, gdy brak matchu; zaakceptowana książka trafia do katalogu ze statusem przeczytania = nie przeczytana i pozycją na półce ("od lewej"); użytkownik widzi półkę z okładkami w kolejności od lewej i przełącza status przeczytania jednym kliknięciem; każda korekta/odrzucenie zapisane jako sygnał telemetryczny.** — Archived 2026-05-29 → `context/archive/2026-05-29-proposal-accept-to-catalog/`. Lesson: RLS join-tabel waliduj OBA FK (lessons.md); helper confirm bez transakcji — obserwuj błędy zapisów (impl-review F1 fix). Manual smoke (accept/bulk/correct/reject/widok półki/toggle) deferred do post-merge + `supabase db push` (migracje 0008+0009).
+- **S-06: użytkownik może otworzyć „Dodaj zakup" z dowolnego widoku, wybrać metodę (zdjęcie stosu → pipeline rozpoznawania LUB wpisanie ręczne), wpisać tytuł + autora, ustawić opcjonalną datę zakupu (domyślnie dziś) i zatwierdzić; książka ląduje na wirtualnej półce „Zakupione" ze statusem nie przeczytana; ścieżka ręczna ≤ 90 s.** — Archived 2026-05-29 → `context/archive/2026-05-29-add-purchase-flow/`. Lesson: —. Manual entry = świeży `POST /api/books` (helper confirm jest detection-bound); migracja 0010 `books.purchase_date`. Świadome cuty: data na ścieżce zdjęcia (NULL), render daty, telemetria Flow B (odroczone). Manual smoke (≤90s ręczny, upload preset Zakupione) deferred do post-merge + `supabase db push` (migracja 0010).
 
 (Pusta przy pierwszej generacji. `/10x-archive` dopisuje tu wpis — i przerzuca Status pozycji na `done` — gdy archiwizowana zmiana ma `Change ID` zgodny z pozycją roadmapy. NIE wypełniać ręcznie.)

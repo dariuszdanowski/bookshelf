@@ -9,7 +9,13 @@ type UploadStage = 'idle' | 'uploading' | 'recording' | 'processing' | 'matching
 
 const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15 MB cap (photon pamięć Worker 128MB)
 
-export default function PhotoUploader({ userId }: { userId: string }) {
+export default function PhotoUploader({
+  userId,
+  presetShelfId,
+}: {
+  userId: string;
+  presetShelfId?: string;
+}) {
   const [shelves, setShelves] = useState<ShelfDTO[]>([]);
   const [selectedShelfId, setSelectedShelfId] = useState('');
   const [stage, setStage] = useState<UploadStage>('idle');
@@ -34,12 +40,16 @@ export default function PhotoUploader({ userId }: { userId: string }) {
         const json = (await res.json()) as { data: { shelves: ShelfDTO[] } };
         const list = json.data.shelves;
         setShelves(list);
-        if (list.length > 0) setSelectedShelfId(list[0].id);
+        // Preset (np. Flow B „Dodaj zakup → zdjęcie" → ?shelf=Zakupione) ma
+        // pierwszeństwo, gdy istnieje na liście; inaczej pierwsza półka.
+        const preset = presetShelfId && list.some((s) => s.id === presetShelfId) ? presetShelfId : null;
+        if (preset) setSelectedShelfId(preset);
+        else if (list.length > 0) setSelectedShelfId(list[0].id);
       } catch (err) {
         setShelvesError(err instanceof Error ? err.message : 'Nie udało się pobrać półek.');
       }
     })();
-  }, []);
+  }, [presetShelfId]);
 
   const runMatch = useCallback(async (photoId: string) => {
     setStage('matching');

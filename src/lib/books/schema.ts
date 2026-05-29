@@ -118,3 +118,23 @@ export const UpdateBookReadSchema = z
   })
   .strict(); // odrzuca dodatkowe pola (inne pola books nie są edytowalne przez ten endpoint)
 export type UpdateBookReadInput = z.infer<typeof UpdateBookReadSchema>;
+
+// POST /api/books — ręczny zakup (Flow B, S-06). Książka ląduje na „Zakupione".
+// title wymagany; reszta opcjonalna; purchase_date pominięte → endpoint ustawia dziś.
+export const AddPurchaseSchema = z
+  .object({
+    title: z.string().min(1, 'Tytuł nie może być pusty').max(300),
+    authors: z.array(z.string().min(1).max(200)).optional(),
+    publisher: z.string().max(200).optional(),
+    published_year: z
+      .number()
+      .int()
+      .min(1000, 'Rok musi być po 1000')
+      .max(2100, 'Rok musi być przed 2100')
+      .optional(),
+    isbn_13: z.string().regex(/^\d{13}$/).optional(),
+    isbn_10: z.string().regex(/^\d{9}[\dX]$/).optional(),
+    purchase_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data w formacie YYYY-MM-DD').optional(),
+  })
+  .strict();
+export type AddPurchaseInput = z.infer<typeof AddPurchaseSchema>;

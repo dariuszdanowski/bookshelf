@@ -85,6 +85,7 @@ export type Database = {
           notes: string | null
           published_year: number | null
           publisher: string | null
+          purchase_date: string | null
           source: string | null
           source_external_id: string | null
           title: string
@@ -101,6 +102,7 @@ export type Database = {
           notes?: string | null
           published_year?: number | null
           publisher?: string | null
+          purchase_date?: string | null
           source?: string | null
           source_external_id?: string | null
           title: string
@@ -117,6 +119,7 @@ export type Database = {
           notes?: string | null
           published_year?: number | null
           publisher?: string | null
+          purchase_date?: string | null
           source?: string | null
           source_external_id?: string | null
           title?: string
