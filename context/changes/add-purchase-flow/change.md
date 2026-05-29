@@ -1,8 +1,9 @@
 ---
 change_id: add-purchase-flow
-status: planning
+status: impl_reviewed
 created: 2026-05-29
 updated: 2026-05-29
+implemented_at: 2026-05-29
 
 roadmap_ref: S-06
 ---
