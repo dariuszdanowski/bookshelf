@@ -191,10 +191,10 @@ Brak migracji w tym slice — kolumny `is_current`/`confirmed_at` istnieją od 0
 ### Phase 2: UI — kontrolka przeniesienia + podpięcie wysp
 
 #### Automated
-- [x] 2.1 Typecheck przechodzi: `npm run typecheck`
-- [x] 2.2 Lint przechodzi: `npm run lint`
-- [x] 2.3 Unit przechodzą: `npm run test`
-- [x] 2.4 E2E przechodzi: `npx playwright test move-book`
+- [x] 2.1 Typecheck przechodzi: `npm run typecheck` — ce6ffa1
+- [x] 2.2 Lint przechodzi: `npm run lint` — ce6ffa1
+- [x] 2.3 Unit przechodzą: `npm run test` — ce6ffa1
+- [x] 2.4 E2E przechodzi: `npx playwright test move-book` — ce6ffa1
 
 #### Manual
 - [ ] 2.5 `/library`: picker przenosi książkę; po odświeżeniu nowa półka, zachowany is_read/purchase_date
