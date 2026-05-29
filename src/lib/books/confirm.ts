@@ -36,7 +36,8 @@ export type ConfirmDetectionArgs = {
 export type ConfirmResult =
   | { ok: true; bookId: string }
   | { ok: false; reason: 'duplicate'; shelfHint?: string }
-  | { ok: false; reason: 'already_confirmed' };
+  | { ok: false; reason: 'already_confirmed' }
+  | { ok: false; reason: 'write_failed' };
 
 /**
  * Jedna ścieżka detekcja → katalog.
@@ -120,7 +121,7 @@ export async function confirmDetectionToCatalog(
     positionIndex = (maxRow?.position_index ?? 0) + 1;
   }
 
-  await supabase.from('shelf_entries').insert({
+  const { error: entryError } = await supabase.from('shelf_entries').insert({
     book_id: bookId,
     shelf_id: shelfId,
     position_index: positionIndex,
@@ -129,11 +130,37 @@ export async function confirmDetectionToCatalog(
     is_current: true,
   });
 
-  // 4. UPDATE detections.status = 'confirmed'
-  await supabase.from('detections').update({ status: 'confirmed' }).eq('id', detection.id);
+  // Brak transakcji w PostgREST: jeśli shelf_entries padnie, książka zostałaby
+  // sierotą w katalogu (niewidoczna w /books, ale blokująca re-add przez dup
+  // pre-check). Best-effort rollback — kasujemy świeżo utworzoną książkę i
+  // zwracamy błąd zapisu, żeby endpoint nie raportował fałszywego sukcesu.
+  if (entryError) {
+    console.error('[confirm] shelf_entries insert failed — rolling back book', {
+      name: entryError.name,
+      message: entryError.message,
+      code: entryError.code,
+    });
+    await supabase.from('books').delete().eq('id', bookId);
+    return { ok: false, reason: 'write_failed' };
+  }
 
-  // 5. INSERT corrections (telemetria)
-  await supabase.from('corrections').insert({
+  // 4. UPDATE detections.status = 'confirmed'
+  // Jeśli to padnie, guard idempotencji nie zadziała przy retry → ryzyko
+  // duplikatu dla książek bez ISBN. Logujemy żeby było diagnozowalne.
+  const { error: statusError } = await supabase
+    .from('detections')
+    .update({ status: 'confirmed' })
+    .eq('id', detection.id);
+  if (statusError) {
+    console.error('[confirm] detections status update failed', {
+      name: statusError.name,
+      message: statusError.message,
+      code: statusError.code,
+    });
+  }
+
+  // 5. INSERT corrections (telemetria) — porażka tu nie wpływa na katalog
+  const { error: correctionError } = await supabase.from('corrections').insert({
     user_id: userId,
     detection_id: detection.id,
     original_raw_title: detection.raw_title,
@@ -141,6 +168,13 @@ export async function confirmDetectionToCatalog(
     corrected_authors: correctedFields?.authors ?? null,
     correction_type: correctionType,
   });
+  if (correctionError) {
+    console.error('[confirm] corrections insert failed (telemetria)', {
+      name: correctionError.name,
+      message: correctionError.message,
+      code: correctionError.code,
+    });
+  }
 
   return { ok: true, bookId };
 }

@@ -42,6 +42,9 @@ function makeSupabaseMock(overrides: {
               single: vi.fn().mockResolvedValue(cfg.booksInsert),
             })),
           })),
+          delete: vi.fn(() => ({
+            eq: vi.fn().mockResolvedValue({ data: null, error: null }),
+          })),
         };
       }
       if (table === 'shelf_entries') {
@@ -198,5 +201,49 @@ describe('confirmDetectionToCatalog — sukces', () => {
       correctionType: 'accept',
     });
     expect(result).toEqual({ ok: false, reason: 'duplicate' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Rollback przy porażce shelf_entries (F1 impl-review fix)
+// ---------------------------------------------------------------------------
+
+describe('confirmDetectionToCatalog — write_failed rollback', () => {
+  it('przy porażce shelf_entries insert kasuje orphan book i zwraca write_failed', async () => {
+    const deleteEqFn = vi.fn().mockResolvedValue({ data: null, error: null });
+    const supabase = {
+      from: vi.fn((table: string) => {
+        if (table === 'books') {
+          return {
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                eq: vi.fn(() => ({ maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }) })),
+              })),
+            })),
+            insert: vi.fn(() => ({
+              select: vi.fn(() => ({ single: vi.fn().mockResolvedValue({ data: { id: 'orphan-id' }, error: null }) })),
+            })),
+            delete: vi.fn(() => ({ eq: deleteEqFn })),
+          };
+        }
+        if (table === 'shelf_entries') {
+          return {
+            insert: vi.fn().mockResolvedValue({ error: { code: '23503', name: 'PostgrestError', message: 'fk fail' } }),
+          };
+        }
+        return {};
+      }),
+    } as unknown as Parameters<typeof confirmDetectionToCatalog>[0];
+
+    const result = await confirmDetectionToCatalog(supabase, 'user-1', {
+      detection: { ...BASE_DETECTION, position_index: 3 },
+      shelfId: 'shelf-1',
+      book: { ...BASE_BOOK, isbn_13: null }, // skip pre-check, dojdź do shelf_entries
+      correctionType: 'accept',
+    });
+
+    expect(result).toEqual({ ok: false, reason: 'write_failed' });
+    // Rollback: books.delete().eq('id', 'orphan-id') wywołane
+    expect(deleteEqFn).toHaveBeenCalledWith('id', 'orphan-id');
   });
 });

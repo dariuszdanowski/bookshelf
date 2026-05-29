@@ -165,6 +165,9 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     if (result.reason === 'already_confirmed') {
       return apiError({ code: 'CONFLICT', status: 409, message: 'Detekcja została już zaakceptowana.' });
     }
+    if (result.reason === 'write_failed') {
+      return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się zapisać książki do katalogu.' });
+    }
     const msg = result.shelfHint
       ? `Masz już tę książkę w katalogu (półka: ${result.shelfHint}).`
       : 'Masz już tę książkę w katalogu.';

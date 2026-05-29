@@ -562,17 +562,9 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
 
   function handleDecided(detectionId: string) {
     setDecidedIds((prev) => new Set([...prev, detectionId]));
-    // Gdy wszystkie detekcje zdecydowane → redirect na półkę
-    setDetections((prev) => {
-      const remaining = prev.filter((d) => d.id !== detectionId && !decidedIds.has(d.id));
-      if (remaining.length === 1 && remaining[0].id === detectionId) {
-        // ostatnia właśnie zdecydowana
-      }
-      return prev;
-    });
   }
 
-  // Redirect gdy wszystkie zdecydowane
+  // Redirect gdy wszystkie zdecydowane (osobny useEffect na świeżym stanie)
   useEffect(() => {
     if (detections.length > 0 && detections.every((d) => decidedIds.has(d.id)) && photo?.shelf_id) {
       window.location.href = `/shelves/${photo.shelf_id}`;

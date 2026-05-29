@@ -120,33 +120,43 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       continue;
     }
 
-    const result = await confirmDetectionToCatalog(locals.supabase, locals.user.id, {
-      detection: {
-        id: detection.id,
-        status: detection.status,
-        photo_id: detection.photo_id,
-        position_index: detection.position_index,
-        raw_title: detection.raw_title,
-      },
-      shelfId: photo.shelf_id,
-      book: {
-        title: candidate.title,
-        authors: candidate.authors,
-        isbn_10: candidate.isbn_10,
-        isbn_13: candidate.isbn_13,
-        publisher: candidate.publisher,
-        published_year: candidate.published_year,
-        cover_url: candidate.cover_url,
-        source: candidate.source,
-        source_external_id: candidate.external_id,
-      },
-      correctionType: 'accept',
-    });
+    // try/catch per item — nieoczekiwany throw (nie-23505 błąd DB) z helpera
+    // nie może wywrócić całego batcha; izolujemy do skipped reason:'error'.
+    try {
+      const result = await confirmDetectionToCatalog(locals.supabase, locals.user.id, {
+        detection: {
+          id: detection.id,
+          status: detection.status,
+          photo_id: detection.photo_id,
+          position_index: detection.position_index,
+          raw_title: detection.raw_title,
+        },
+        shelfId: photo.shelf_id,
+        book: {
+          title: candidate.title,
+          authors: candidate.authors,
+          isbn_10: candidate.isbn_10,
+          isbn_13: candidate.isbn_13,
+          publisher: candidate.publisher,
+          published_year: candidate.published_year,
+          cover_url: candidate.cover_url,
+          source: candidate.source,
+          source_external_id: candidate.external_id,
+        },
+        correctionType: 'accept',
+      });
 
-    if (result.ok) {
-      confirmed.push({ detection_id: item.detection_id, book_id: result.bookId });
-    } else {
-      skipped.push({ detection_id: item.detection_id, reason: result.reason });
+      if (result.ok) {
+        confirmed.push({ detection_id: item.detection_id, book_id: result.bookId });
+      } else {
+        skipped.push({ detection_id: item.detection_id, reason: result.reason });
+      }
+    } catch (err) {
+      console.error('[api/photos confirm-batch] helper threw for detection', {
+        detection_id: item.detection_id,
+        message: err instanceof Error ? err.message : String(err),
+      });
+      skipped.push({ detection_id: item.detection_id, reason: 'error' });
     }
   }
 
