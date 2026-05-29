@@ -84,6 +84,13 @@
 - **Rule**: W JSX attribute zawierającym polish typographic quotes używaj curly-brace expression form: `placeholder={'tekst „X"'}` (string literal w JS expression), nie attribute literal `placeholder="tekst „X""`. Alternatywnie: HTML entities `&bdquo;` / `&rdquo;`. JSX attribute delimiter MUSI być standardowy `"` (U+0022); typograficzne quotes TYLKO w treści wewnątrz JS expression.
 - **Applies to**: implement, impl-review
 
+## RLS na join-tabeli: waliduj OBA FK, nie tylko jeden
+
+- **Context**: Polityki RLS na tabelach łączących (`shelf_entries`: book_id + shelf_id; `book_candidates`: detection_id; przyszłe junction tables). `supabase/migrations/0002_rls_policies.sql`.
+- **Problem**: `shelf_entries_insert_own` sprawdza tylko `exists(books where id=book_id and user_id=auth.uid())` — NIE waliduje `shelf_id`. User mógłby wstawić własną książkę na CUDZĄ półkę (shelf_id z innego usera). S-05 tego nie eksponuje, bo `confirm.ts`/`correct.ts`/`confirm-batch.ts` derywują `shelf_id` z `photo.shelf_id` (server-side, RLS-scoped, nigdy z request body). Ale luka jest latentna dla każdego przyszłego endpointu przyjmującego `shelf_id` z klienta (S-07 move-book „Przenieś na półkę X"). Wykryte w impl-review S-05 (F5).
+- **Rule**: Polityka RLS INSERT/UPDATE na join-tabeli musi walidować ownership KAŻDEGO FK wskazującego na zasób per-user, nie tylko jednego. Dla `shelf_entries` dociśnij o `exists(shelves where id=shelf_id and user_id=auth.uid())` ZANIM zjawi się endpoint przyjmujący `shelf_id` z klienta. Reguła ogólna: gdy endpoint derywuje powiązany klucz server-side, RLS jednego FK wystarcza do czasu; gdy klient może podać drugi klucz, RLS musi go pokrywać — nie polegać na tym, że „endpoint i tak waliduje".
+- **Applies to**: plan, plan-review, implement, impl-review
+
 ## Onboarding docs (CLAUDE.md + AGENTS.md) dryfują niezależnie → rule-review na OBA
 
 - **Context**: Projekt utrzymuje dwa pliki onboardingowe dla agentów: `CLAUDE.md` (pełny rule set, czytany przez Claude Code) i root `AGENTS.md` (zwięzły cross-tool onboarding, czytany przez Cursor/Copilot/inne narzędzia). Oba opisują ten sam stan repo (stack, CI/CD, konwencje Supabase/API). Każda zmiana infrastruktury lub konwencji powinna trafić do OBU.

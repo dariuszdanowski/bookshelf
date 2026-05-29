@@ -47,9 +47,10 @@ export type UpdateShelfInput = z.infer<typeof UpdateShelfSchema>;
 /**
  * Shape rzeczywistej półki w response API.
  *
- * `is_system: true` dla `name === 'Zakupione'` (computed na endpoincie, nie w
- * DB) — semantycznie ułatwia UI guard.
- * `book_count: 0` placeholder do czasu S-05 (books table jeszcze nie istnieje).
+ * `is_system: true` dla `name === 'Zakupione'` (computed na endpoincie, nie w DB).
+ * `book_count` — realny count z shelf_entries (is_current=true), wyliczany
+ * przez GET /api/shelves przez JS-tally z równoległego zapytania. POST (nowa
+ * półka) zwraca 0 bo świeżo utworzona półka nie ma jeszcze wpisów.
  */
 export type ShelfDTO = {
   id: string;

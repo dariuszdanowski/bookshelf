@@ -10,24 +10,58 @@ type Row = {
   created_at: string;
 };
 
-function makeListContext(rows: Row[] | null, error: { code?: string; message?: string; name?: string } | null = null) {
-  const orderFn = vi.fn().mockResolvedValue({ data: rows, error });
-  const selectFn = vi.fn(() => ({ order: orderFn }));
-  const fromFn = vi.fn(() => ({ select: selectFn }));
+type EntryRow = { shelf_id: string };
+type PgError = { code?: string; message?: string; name?: string } | null;
+
+/**
+ * GET /api/shelves używa Promise.all([shelves, shelf_entries]).
+ * Każde wywołanie `from()` trafia na inną tabelę — fromMock rozgałęzia po nazwie.
+ */
+function makeListContext(opts: {
+  shelfRows: Row[] | null;
+  shelfError?: PgError;
+  entryRows?: EntryRow[] | null;
+  entryError?: PgError;
+}) {
+  const {
+    shelfRows,
+    shelfError = null,
+    entryRows = [],
+    entryError = null,
+  } = opts;
+
+  const fromMock = vi.fn((table: string) => {
+    if (table === 'shelves') {
+      return {
+        select: vi.fn(() => ({
+          order: vi.fn().mockResolvedValue({ data: shelfRows, error: shelfError }),
+        })),
+      };
+    }
+    if (table === 'shelf_entries') {
+      return {
+        select: vi.fn(() => ({
+          eq: vi.fn().mockResolvedValue({ data: entryRows, error: entryError }),
+        })),
+      };
+    }
+    return {};
+  });
+
   return {
     context: {
       locals: {
-        supabase: { from: fromFn } as never,
+        supabase: { from: fromMock } as never,
         user: { id: 'user-1', email: 't@test' } as never,
       },
     },
-    fromFn,
+    fromMock,
   };
 }
 
 function makeCreateContext(opts: {
   body: unknown;
-  insertResult: { data: Row | null; error: { code?: string; message?: string; name?: string } | null };
+  insertResult: { data: Row | null; error: PgError };
   user?: { id: string; email: string } | null;
 }) {
   const singleFn = vi.fn().mockResolvedValue(opts.insertResult);
@@ -56,29 +90,11 @@ beforeEach(() => vi.clearAllMocks());
 describe('GET /api/shelves', () => {
   it('returns sorted shelves with "Zakupione" first, then alphabetical', async () => {
     const rows: Row[] = [
-      {
-        id: 'a-id',
-        name: 'Belletrystyka',
-        location: null,
-        position_index: 0,
-        created_at: '2026-05-26T10:00:00Z',
-      },
-      {
-        id: 'z-id',
-        name: 'Zakupione',
-        location: null,
-        position_index: 0,
-        created_at: '2026-05-26T08:00:00Z',
-      },
-      {
-        id: 'n-id',
-        name: 'Nauka',
-        location: 'Gabinet',
-        position_index: 0,
-        created_at: '2026-05-26T09:00:00Z',
-      },
+      { id: 'a-id', name: 'Belletrystyka', location: null, position_index: 0, created_at: '2026-05-26T10:00:00Z' },
+      { id: 'z-id', name: 'Zakupione', location: null, position_index: 0, created_at: '2026-05-26T08:00:00Z' },
+      { id: 'n-id', name: 'Nauka', location: 'Gabinet', position_index: 0, created_at: '2026-05-26T09:00:00Z' },
     ];
-    const { context } = makeListContext(rows);
+    const { context } = makeListContext({ shelfRows: rows });
 
     const res = await GET(context as never);
     expect(res.status).toBe(200);
@@ -86,21 +102,58 @@ describe('GET /api/shelves', () => {
 
     const json = (await res.json()) as { data: { shelves: { name: string; is_system: boolean; book_count: number }[] } };
     expect(json.data.shelves).toHaveLength(3);
+    // Zakupione first — 0 książek (brak wpisów w entryRows)
     expect(json.data.shelves[0]).toMatchObject({ name: 'Zakupione', is_system: true, book_count: 0 });
     expect(json.data.shelves[1]).toMatchObject({ name: 'Belletrystyka', is_system: false });
     expect(json.data.shelves[2]).toMatchObject({ name: 'Nauka', is_system: false });
   });
 
+  it('populates book_count from shelf_entries JS-tally', async () => {
+    const rows: Row[] = [
+      { id: 's1', name: 'Salon', location: null, position_index: 0, created_at: '2026-05-26T10:00:00Z' },
+      { id: 's2', name: 'Biuro', location: null, position_index: 0, created_at: '2026-05-26T10:00:00Z' },
+    ];
+    const entryRows: EntryRow[] = [
+      { shelf_id: 's1' },
+      { shelf_id: 's1' },
+      { shelf_id: 's1' },
+      { shelf_id: 's2' },
+    ];
+    const { context } = makeListContext({ shelfRows: rows, entryRows });
+
+    const res = await GET(context as never);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { data: { shelves: { name: string; book_count: number }[] } };
+    const salon = json.data.shelves.find((s) => s.name === 'Salon');
+    const biuro = json.data.shelves.find((s) => s.name === 'Biuro');
+    expect(salon?.book_count).toBe(3);
+    expect(biuro?.book_count).toBe(1);
+  });
+
   it('returns empty list for user with no shelves', async () => {
-    const { context } = makeListContext([]);
+    const { context } = makeListContext({ shelfRows: [] });
     const res = await GET(context as never);
     expect(res.status).toBe(200);
     const json = (await res.json()) as { data: { shelves: unknown[] } };
     expect(json.data.shelves).toEqual([]);
   });
 
-  it('returns 500 INTERNAL_ERROR on supabase error', async () => {
-    const { context } = makeListContext(null, { name: 'PostgrestError', message: 'oops', code: 'XXXXX' });
+  it('returns 500 INTERNAL_ERROR on supabase shelves error', async () => {
+    const { context } = makeListContext({
+      shelfRows: null,
+      shelfError: { name: 'PostgrestError', message: 'oops', code: 'XXXXX' },
+    });
+    const res = await GET(context as never);
+    expect(res.status).toBe(500);
+    const json = (await res.json()) as { error: { code: string } };
+    expect(json.error.code).toBe('INTERNAL_ERROR');
+  });
+
+  it('returns 500 INTERNAL_ERROR on shelf_entries error', async () => {
+    const { context } = makeListContext({
+      shelfRows: [{ id: 's1', name: 'Salon', location: null, position_index: 0, created_at: '2026-01-01T00:00:00Z' }],
+      entryError: { name: 'PostgrestError', message: 'fail', code: 'XXXXX' },
+    });
     const res = await GET(context as never);
     expect(res.status).toBe(500);
     const json = (await res.json()) as { error: { code: string } };
@@ -117,7 +170,7 @@ describe('POST /api/shelves', () => {
     created_at: '2026-05-26T12:00:00Z',
   };
 
-  it('creates shelf with name only and returns 201', async () => {
+  it('creates shelf with name only and returns 201 with book_count: 0', async () => {
     const { context, insertFn } = makeCreateContext({
       body: { name: 'Test' },
       insertResult: { data: validRow, error: null },
@@ -128,7 +181,7 @@ describe('POST /api/shelves', () => {
     const json = (await res.json()) as { data: { shelf: { name: string; is_system: boolean; book_count: number } } };
     expect(json.data.shelf.name).toBe('Test');
     expect(json.data.shelf.is_system).toBe(false);
-    expect(json.data.shelf.book_count).toBe(0);
+    expect(json.data.shelf.book_count).toBe(0); // Nowa półka zawsze 0
     expect(insertFn).toHaveBeenCalledWith(expect.objectContaining({ user_id: 'user-1', name: 'Test', location: null }));
   });
 
@@ -162,7 +215,7 @@ describe('POST /api/shelves', () => {
     });
     const res = await POST(context as never);
     expect(res.status).toBe(400);
-    expect(insertFn).not.toHaveBeenCalled(); // Zod rejected przed DB call.
+    expect(insertFn).not.toHaveBeenCalled();
   });
 
   it('returns 400 with "już istnieje" on Postgres 23505 (unique violation)', async () => {

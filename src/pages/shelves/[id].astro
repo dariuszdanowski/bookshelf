@@ -3,6 +3,7 @@ export const prerender = false;
 
 import Layout from '../../layouts/Layout.astro';
 import PhotoListIsland from '../../components/PhotoListIsland.tsx';
+import ShelfBooksIsland from '../../components/ShelfBooksIsland.tsx';
 import { parseUuidParam } from '../../lib/http/response';
 
 if (!Astro.locals.user) {
@@ -25,7 +26,7 @@ if (shelfError || !shelf) {
 }
 ---
 
-<Layout title={`Zdjęcia: ${shelf.name}`}>
+<Layout title={`${shelf.name} — półka`}>
   <main class="mx-auto max-w-4xl p-8">
     <div class="mb-4 text-sm text-gray-500">
       <a href="/shelves" class="text-blue-600 hover:text-blue-800">Moje półki</a>
@@ -41,6 +42,17 @@ if (shelfError || !shelf) {
         + Dodaj zdjęcie
       </a>
     </div>
-    <PhotoListIsland client:load shelfId={id} shelfName={shelf.name} />
+
+    <!-- Sekcja książek (S-05) — grid okładek z togglem przeczytania -->
+    <section class="mb-10">
+      <h2 class="mb-3 text-lg font-semibold text-gray-800">Książki na półce</h2>
+      <ShelfBooksIsland client:load shelfId={id} />
+    </section>
+
+    <!-- Sekcja zdjęć -->
+    <section>
+      <h2 class="mb-3 text-lg font-semibold text-gray-800">Zdjęcia</h2>
+      <PhotoListIsland client:load shelfId={id} shelfName={shelf.name} />
+    </section>
   </main>
 </Layout>

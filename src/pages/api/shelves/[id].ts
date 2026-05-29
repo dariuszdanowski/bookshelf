@@ -104,7 +104,7 @@ export const PATCH: APIRoute = async ({ request, params, locals }) => {
     location: data.location,
     position_index: data.position_index,
     is_system: data.name === 'Zakupione',
-    book_count: 0,
+    book_count: 0, // PATCH nie potrzebuje realnego count — zwraca 0, GET list wylicza JS-tally
     created_at: data.created_at,
   };
 
