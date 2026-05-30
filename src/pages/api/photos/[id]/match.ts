@@ -70,7 +70,17 @@ async function matchDetection(
     }),
   }));
 
-  const topCandidates = dedupeCandidates(scored).slice(0, MAX_CANDIDATES);
+  const deduped = dedupeCandidates(scored).slice(0, MAX_CANDIDATES);
+
+  // Enrich candidates missing a cover but having an ISBN with OL ISBN cover URL.
+  // OL covers endpoint works by ISBN even when search result lacks cover_i.
+  const topCandidates = deduped.map((c) => {
+    if (c.coverUrl) return c;
+    const isbn = c.isbn13 ?? c.isbn10;
+    if (!isbn) return c;
+    return { ...c, coverUrl: `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg` };
+  });
+
   const duplicate = topCandidates.length > 0
     ? checkCatalogDuplicate(topCandidates[0], existingBooks)
     : null;
