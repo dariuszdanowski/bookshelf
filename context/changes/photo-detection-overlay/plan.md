@@ -198,19 +198,19 @@ Brak — `bbox` istnieje od migracji 0006; ten slice tylko renderuje istniejące
 
 #### Automated
 
-- [x] 1.1 Typecheck: `npm run typecheck`
-- [x] 1.2 Lint: `npm run lint`
-- [x] 1.3 Unit testy zielone: `npm run test`
-- [x] 1.4 `GET /api/photos/[id]` zwraca `photo_url` (happy) i `null` przy błędzie storage (asercje w `id.test.ts`)
+- [x] 1.1 Typecheck: `npm run typecheck` — f8e82f5
+- [x] 1.2 Lint: `npm run lint` — f8e82f5
+- [x] 1.3 Unit testy zielone: `npm run test` — f8e82f5
+- [x] 1.4 `GET /api/photos/[id]` zwraca `photo_url` (happy) i `null` przy błędzie storage (asercje w `id.test.ts`) — f8e82f5
 
 ### Phase 2: UI — komponent overlay + wpięcie w review
 
 #### Automated
 
-- [ ] 2.1 Typecheck: `npm run typecheck`
-- [ ] 2.2 Lint: `npm run lint`
-- [ ] 2.3 Unit testy zielone (w tym `PhotoDetectionOverlay.test.tsx`): `npm run test`
-- [ ] 2.4 E2E review zielone (overlay + marker widoczne): `npm run test:e2e`
+- [x] 2.1 Typecheck: `npm run typecheck`
+- [x] 2.2 Lint: `npm run lint`
+- [x] 2.3 Unit testy zielone (w tym `PhotoDetectionOverlay.test.tsx`): `npm run test`
+- [x] 2.4 E2E review zielone (overlay + marker widoczne): `npm run test:e2e`
 
 #### Manual
 
