@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import type { PhotoDTO, DetectionWithCandidatesDTO } from '../lib/photos/schema';
+import PhotoDetectionOverlay from './PhotoDetectionOverlay';
 import Skeleton from './Skeleton';
 
 const MATCH_HIGH = 0.75;
@@ -509,6 +510,7 @@ type VisionRunMeta = {
 type ApiResponse = {
   data?: {
     photo: PhotoDTO;
+    photo_url?: string | null;
     detections?: DetectionWithCandidatesDTO[];
     vision_run: VisionRunMeta | null;
   };
@@ -531,6 +533,7 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [photo, setPhoto] = useState<PhotoDTO | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [detections, setDetections] = useState<DetectionWithCandidatesDTO[]>([]);
   const [visionRun, setVisionRun] = useState<VisionRunMeta | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
@@ -549,6 +552,7 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
           throw new Error(json.error?.message ?? `HTTP ${res.status}`);
         }
         setPhoto(json.data.photo);
+        setPhotoUrl(json.data.photo_url ?? null);
         setDetections(json.data.detections ?? []);
         setVisionRun(json.data.vision_run ?? null);
       } catch (err) {
@@ -708,6 +712,11 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
 
   return (
     <div data-testid="detection-review">
+      {/* Zdjęcie z ramkami detekcji */}
+      {detections.length > 0 && (
+        <PhotoDetectionOverlay photoUrl={photoUrl} detections={detections} />
+      )}
+
       {/* Vision run metadata panel */}
       {visionRun && (
         <div

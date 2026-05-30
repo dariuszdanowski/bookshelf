@@ -44,7 +44,7 @@ const MOCK_DETECTION = {
   raw_author: 'Stanisław Lem',
   vision_confidence: 0.95,
   spine_color: 'niebieski',
-  bbox: null,
+  bbox: { x1: 0.1, y1: 0.05, x2: 0.3, y2: 0.95 },
   status: 'matched',
   candidates: [
     {
@@ -133,9 +133,13 @@ const MOCK_MATCH_RESPONSE = {
   data: { matched: 1, detections: [MOCK_DETECTION] },
 };
 
+// tiny 1×1 transparent PNG — used as photo_url in E2E to avoid hitting storage
+const TINY_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+
 const MOCK_PHOTO_GET = {
   data: {
     photo: MOCK_PHOTO_BASE,
+    photo_url: TINY_PNG,
     detections: [MOCK_DETECTION],
     vision_run: MOCK_VISION_RUN,
   },
@@ -442,6 +446,10 @@ test('3.10 /photos/[id]: vision_run panel widoczny + przyciski Ponów vision / P
   // Action buttons present
   await expect(page.getByTestId('rerun-vision-button')).toBeVisible();
   await expect(page.getByTestId('rerun-match-button')).toBeVisible();
+
+  // Photo overlay visible (photo_url provided + detection with bbox)
+  await expect(page.getByTestId('photo-overlay')).toBeVisible({ timeout: 5_000 });
+  await expect(page.getByTestId('bbox-marker-1')).toBeVisible({ timeout: 3_000 });
 });
 
 // ══════════════════════════════════════════════════════════════════════════════

@@ -48,6 +48,9 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | S-15  | review-page-nav-entry         | link do strony review (/photos/[id]) z poziomu list półek / katalogu; breadcrumbs | S-04 | UX polish | proposed |
 | S-16  | photo-upload-dedup            | przy wgraniu zdjęcia: wykryj identyczne (hash treści SHA-256), ostrzeż i zaproponuj reuse istniejących detekcji zamiast ponownego (płatnego) vision | S-03 | FR-039 (koszt), NFR (no-dup) | proposed |
 | S-17  | catalog-description-search    | full-text obejmuje „krótki opis z publicznej bazy" — capture opisu w klientach S-04 + confirm + backfill (re-fetch), rozszerzenie search_text | S-08 | FR-032 (opis, domknięcie) | proposed |
+| S-18  | photo-detection-overlay       | kliknąć zdjęcie w review → zobaczyć pełny obraz z numerowanymi ramkami (bbox) detekcji + skorelowaną numerowaną listą wykrytych pozycji | S-04, S-05 | FR-010–014 (UX domknięcie) | done     |
+| S-19  | manual-cover-match            | w review ręcznie wyszukać Google Books i wybrać trafienie (z okładką + ISBN + metadanymi), gdy auto-match pudłuje lub brak okładki — zastępuje aktywnego kandydata | S-04, S-05 | FR-015–018 (UX domknięcie) | proposed |
+| S-20  | shelf-statistics              | zobaczyć liczbę zdjęć obok liczby książek na liście półek + blok agregatów (zdjęcia / wykryte / skatalogowane) na widoku półki | S-03, S-05 | FR (UX) | proposed |
 
 ## Streams
 
@@ -273,6 +276,9 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 | S-12       | loading-skeleton-component   | Generic React `<Skeleton />` komponent                            | yes                   | Stream E bucket — eksperyment parallel |
 | S-14       | photo-process-reload-recovery | Reload-recovery utkniętego 'processing' na /upload (konsumuje GET /api/photos/[id]) | yes | Follow-up z S-03 impl-review (F2); happy-path retry już działa |
 | S-16       | photo-upload-dedup           | Dedup zdjęć przy uploadzie (hash treści + reuse detekcji)         | no                    | Czeka na domknięcie S-05; sframe'uj (`/10x-frame`) — kierunek: SHA-256 treści + reuse istniejących detekcji (oszczędność vision FR-039), user może świadomie kontynuować mimo trafienia. Open: dokładny hash vs perceptual, UX akcji (auto-redirect vs przycisk) |
+| S-18       | photo-detection-overlay      | Pełne zdjęcie z numerowanymi ramkami detekcji w review            | yes                   | Substrat S-04 (`bbox` 0..1 w DB+DTO, `photos.original_path`) gotowy; doda signed URL pełnego zdjęcia do `GET /api/photos/[id]` + overlay renderujący `DetectionDTO.bbox` z numerkami skorelowanymi z `position_index`. Realizowany 1. (B) |
+| S-19       | manual-cover-match           | Ręczne wyszukiwanie Google Books + wybór okładki w review         | yes                   | Pełny picker: nowy endpoint search (reuse `src/lib/books/googleBooks.ts`) + UI w `DetectionReview`; wybór nadpisuje aktywnego kandydata (cover_url + metadane). Realizowany 2. (C) |
+| S-20       | shelf-statistics             | photo_count na liście półek (obok książek) + agregaty na widoku półki | yes                | #1 obie liczby (rozszerz `ShelfListItemDTO` o `photo_count` z `photos`); #2 blok agregatów na `/shelves/[id]` (suma zdjęć / wykrytych / skatalogowanych). Realizowany 3. (A) |
 
 ## Open Roadmap Questions
 
