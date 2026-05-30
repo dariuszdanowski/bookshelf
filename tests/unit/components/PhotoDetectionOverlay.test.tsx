@@ -44,7 +44,7 @@ describe('PhotoDetectionOverlay', () => {
       <PhotoDetectionOverlay photoUrl={PHOTO_URL} detections={[]} />
     );
     const img = screen.getByAltText('Zdjęcie półki z wykrytymi książkami') as HTMLImageElement;
-    expect(img.src).toBe(PHOTO_URL);
+    expect(img.getAttribute('src')).toBe(PHOTO_URL);
   });
 
   it('renders bbox marker for detection with bbox (after img load)', async () => {

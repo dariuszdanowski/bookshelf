@@ -1,10 +1,10 @@
 ---
 change_id: photo-detection-overlay
 title: Pełne zdjęcie z numerowanymi ramkami detekcji w widoku review
-status: implemented
+status: archived
 created: 2026-05-30
 updated: 2026-05-30
-archived_at: null
+archived_at: 2026-05-30T00:35:19Z
 ---
 
 ## Notes
