@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 
+import type { BookCandidateDTO } from '../lib/books/schema';
 import type { PhotoDTO, DetectionWithCandidatesDTO } from '../lib/photos/schema';
 import PhotoDetectionOverlay from './PhotoDetectionOverlay';
 import Skeleton from './Skeleton';
@@ -216,14 +217,17 @@ function CorrectForm({
 
 type DecisionState = 'pending' | 'decided' | 'error';
 
-type DetectionCardProps = {
-  detection: DetectionWithCandidatesDTO;
-  onDecided: (detectionId: string) => void;
-};
+// ---------------------------------------------------------------------------
+// Hook decyzji — współdzielona logika akceptacji/odrzucenia/korekty per detekcja.
+// Wyekstrahowany z DetectionCard, by 3 tryby prezentacji (Karty/Lista/Kafelki)
+// nie duplikowały wywołań API. Render-specific UI (showAlts, showCorrectForm)
+// zostaje lokalny w każdym wariancie prezentacji.
+// ---------------------------------------------------------------------------
 
-function DetectionCard({ detection, onDecided }: DetectionCardProps) {
-  const [showAlts, setShowAlts] = useState(false);
-  const [showCorrectForm, setShowCorrectForm] = useState(false);
+function useDetectionDecision(
+  detection: DetectionWithCandidatesDTO,
+  onDecided: (detectionId: string) => void
+) {
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
   const [state, setState] = useState<DecisionState>('pending');
   const [busy, setBusy] = useState(false);
@@ -233,20 +237,6 @@ function DetectionCard({ detection, onDecided }: DetectionCardProps) {
   const alts = detection.candidates.slice(1);
   const activeCandidateId = selectedCandidateId ?? top?.id ?? null;
   const activeCandidate = detection.candidates.find((c) => c.id === activeCandidateId) ?? top;
-
-  if (state === 'decided') {
-    return (
-      <div
-        data-testid={`detection-card-${detection.position_index}`}
-        className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 flex items-center gap-2"
-      >
-        <svg className="text-green-600 flex-shrink-0" width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
-          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-        </svg>
-        <span className="text-sm text-green-700 font-medium">{detection.raw_title}</span>
-      </div>
-    );
-  }
 
   async function handleConfirm() {
     if (!activeCandidateId) return;
@@ -296,10 +286,63 @@ function DetectionCard({ detection, onDecided }: DetectionCardProps) {
     }
   }
 
+  // Po sukcesie korekty: detekcja zdecydowana. Komponent przechodzi w widok
+  // 'decided' (early return), więc reset lokalnego showCorrectForm jest zbędny.
   function handleCorrectSuccess() {
-    setShowCorrectForm(false);
     setState('decided');
     onDecided(detection.id);
+  }
+
+  return {
+    selectedCandidateId,
+    setSelectedCandidateId,
+    state,
+    busy,
+    errorMsg,
+    top,
+    alts,
+    activeCandidateId,
+    activeCandidate,
+    handleConfirm,
+    handleReject,
+    handleCorrectSuccess,
+  };
+}
+
+type DetectionCardProps = {
+  detection: DetectionWithCandidatesDTO;
+  onDecided: (detectionId: string) => void;
+};
+
+function DetectionCard({ detection, onDecided }: DetectionCardProps) {
+  const [showAlts, setShowAlts] = useState(false);
+  const [showCorrectForm, setShowCorrectForm] = useState(false);
+  const {
+    setSelectedCandidateId,
+    state,
+    busy,
+    errorMsg,
+    top,
+    alts,
+    activeCandidateId,
+    activeCandidate,
+    handleConfirm,
+    handleReject,
+    handleCorrectSuccess,
+  } = useDetectionDecision(detection, onDecided);
+
+  if (state === 'decided') {
+    return (
+      <div
+        data-testid={`detection-card-${detection.position_index}`}
+        className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 flex items-center gap-2"
+      >
+        <svg className="text-green-600 flex-shrink-0" width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+        </svg>
+        <span className="text-sm text-green-700 font-medium">{detection.raw_title}</span>
+      </div>
+    );
   }
 
   const isHigh = activeCandidate && getMatchTier(activeCandidate.matchScore) === 'high';
@@ -506,6 +549,358 @@ function DetectionCard({ detection, onDecided }: DetectionCardProps) {
 }
 
 // ---------------------------------------------------------------------------
+// Modal korekty — opakowuje istniejący CorrectForm dla trybów Lista/Kafelki
+// (w trybie Karty korekta zostaje inline). Zamknięcie: Esc lub klik w tło.
+// ---------------------------------------------------------------------------
+
+export function CorrectionModal({
+  children,
+  onClose,
+}: {
+  children: React.ReactNode;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        data-testid="correction-modal"
+        role="dialog"
+        aria-modal="true"
+        className="max-h-[90vh] w-full max-w-md overflow-auto rounded-xl bg-white p-4 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// Wspólny modal korekty dla trybów Lista/Kafelki — wybiera tryb field_edit vs
+// manual_entry na podstawie obecności kandydata i pre-wypełnia z activeCandidate.
+function DetectionCorrectionModal({
+  detection,
+  activeCandidate,
+  activeCandidateId,
+  onClose,
+  onSuccess,
+}: {
+  detection: DetectionWithCandidatesDTO;
+  activeCandidate: BookCandidateDTO | null;
+  activeCandidateId: string | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  const hasMatch = detection.candidates.length > 0;
+  return (
+    <CorrectionModal onClose={onClose}>
+      <CorrectForm
+        mode={hasMatch ? 'field_edit' : 'manual_entry'}
+        candidateId={hasMatch ? (activeCandidateId ?? undefined) : undefined}
+        detectionId={detection.id}
+        initialTitle={activeCandidate?.title ?? ''}
+        initialAuthors={activeCandidate?.authors.join(', ') ?? ''}
+        initialPublisher={activeCandidate?.publisher ?? ''}
+        initialYear={activeCandidate?.publishedYear ? String(activeCandidate.publishedYear) : ''}
+        onSuccess={onSuccess}
+        onCancel={onClose}
+      />
+    </CorrectionModal>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Wiersz detekcji (tryb Lista) — kompakt 1-linia, akcje na top-kandydacie,
+// korekta przez modal. Współdzieli logikę decyzji z Kartami (useDetectionDecision).
+// ---------------------------------------------------------------------------
+
+type DetectionRowProps = {
+  detection: DetectionWithCandidatesDTO;
+  onDecided: (detectionId: string) => void;
+};
+
+export function DetectionRow({ detection, onDecided }: DetectionRowProps) {
+  const [showModal, setShowModal] = useState(false);
+  const {
+    state,
+    busy,
+    errorMsg,
+    top,
+    activeCandidateId,
+    activeCandidate,
+    handleConfirm,
+    handleReject,
+    handleCorrectSuccess,
+  } = useDetectionDecision(detection, onDecided);
+
+  if (state === 'decided') {
+    return (
+      <div
+        data-testid={`detection-row-${detection.position_index}`}
+        className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2"
+      >
+        <svg className="flex-shrink-0 text-green-600" width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+        </svg>
+        <span className="truncate text-sm font-medium text-green-700">{detection.raw_title}</span>
+      </div>
+    );
+  }
+
+  const displayTitle = activeCandidate?.title ?? detection.raw_title;
+  const displayAuthor =
+    (activeCandidate?.authors.length ? activeCandidate.authors.join(', ') : detection.raw_author) ?? '';
+
+  return (
+    <div
+      data-testid={`detection-row-${detection.position_index}`}
+      className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-gray-200 bg-white px-3 py-2"
+    >
+      <span className="text-xs font-medium text-gray-400">#{detection.position_index}</span>
+
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <span className="truncate text-sm font-medium text-gray-800">{displayTitle}</span>
+        {displayAuthor && (
+          <span className="truncate text-xs text-gray-500">&mdash; {displayAuthor}</span>
+        )}
+        {detection.duplicate && (
+          <span
+            data-testid="duplicate-flag"
+            className={`flex-shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${
+              detection.duplicate.type === 'exact'
+                ? 'bg-red-100 text-red-700'
+                : 'bg-orange-100 text-orange-700'
+            }`}
+          >
+            {detection.duplicate.type === 'exact' ? 'Duplikat' : 'Inna edycja'}
+          </span>
+        )}
+      </div>
+
+      {activeCandidate ? (
+        <span
+          className={`flex-shrink-0 rounded px-2 py-0.5 text-xs font-medium ${TIER_STYLES[getMatchTier(activeCandidate.matchScore)].badge}`}
+        >
+          {Math.round(activeCandidate.matchScore * 100)}%
+        </span>
+      ) : (
+        <span data-testid="no-match-placeholder" className="flex-shrink-0 text-xs text-gray-400">
+          Brak matchu
+        </span>
+      )}
+
+      {errorMsg && (
+        <span data-testid="detection-error" className="w-full text-xs text-red-600" role="alert">
+          {errorMsg}
+        </span>
+      )}
+
+      <div className="flex flex-shrink-0 gap-1">
+        {top && (
+          <button
+            data-testid="confirm-button"
+            disabled={busy || !activeCandidateId}
+            onClick={() => void handleConfirm()}
+            className="rounded bg-green-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
+          >
+            {busy ? '...' : 'Akceptuj'}
+          </button>
+        )}
+        <button
+          data-testid="reject-button"
+          disabled={busy}
+          onClick={() => void handleReject()}
+          className="rounded border border-red-300 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
+        >
+          Odrzuć
+        </button>
+        {top ? (
+          <button
+            data-testid="correct-button"
+            disabled={busy}
+            onClick={() => setShowModal(true)}
+            className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            Popraw
+          </button>
+        ) : (
+          <button
+            data-testid="manual-entry-button"
+            onClick={() => setShowModal(true)}
+            className="rounded border border-blue-300 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
+          >
+            Wpisz ręcznie
+          </button>
+        )}
+      </div>
+
+      {showModal && (
+        <DetectionCorrectionModal
+          detection={detection}
+          activeCandidate={activeCandidate}
+          activeCandidateId={activeCandidateId}
+          onClose={() => setShowModal(false)}
+          onSuccess={() => {
+            setShowModal(false);
+            handleCorrectSuccess();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Kafelek detekcji (tryb Kafelki) — okładka + tytuł + badge + mini-akcje;
+// korekta przez modal. Współdzieli logikę decyzji (useDetectionDecision).
+// ---------------------------------------------------------------------------
+
+type DetectionTileProps = {
+  detection: DetectionWithCandidatesDTO;
+  onDecided: (detectionId: string) => void;
+};
+
+export function DetectionTile({ detection, onDecided }: DetectionTileProps) {
+  const [showModal, setShowModal] = useState(false);
+  const {
+    state,
+    busy,
+    errorMsg,
+    top,
+    activeCandidateId,
+    activeCandidate,
+    handleConfirm,
+    handleReject,
+    handleCorrectSuccess,
+  } = useDetectionDecision(detection, onDecided);
+
+  if (state === 'decided') {
+    return (
+      <div
+        data-testid={`detection-tile-${detection.position_index}`}
+        className="flex flex-col items-center justify-center rounded-xl border border-green-200 bg-green-50 p-3 text-center"
+      >
+        <svg className="text-green-600" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+        </svg>
+        <span className="mt-1 w-full truncate text-xs font-medium text-green-700">{detection.raw_title}</span>
+      </div>
+    );
+  }
+
+  const displayTitle = activeCandidate?.title ?? detection.raw_title;
+
+  return (
+    <div
+      data-testid={`detection-tile-${detection.position_index}`}
+      className="flex flex-col rounded-xl border border-gray-200 bg-white p-3 shadow-sm"
+    >
+      <div className="flex justify-center">
+        <CoverImage url={activeCandidate?.coverUrl ?? null} title={displayTitle} />
+      </div>
+
+      <div className="mt-2 flex items-center gap-1">
+        <span className="text-xs font-medium text-gray-400">#{detection.position_index}</span>
+        {activeCandidate ? (
+          <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${TIER_STYLES[getMatchTier(activeCandidate.matchScore)].badge}`}>
+            {Math.round(activeCandidate.matchScore * 100)}%
+          </span>
+        ) : (
+          <span data-testid="no-match-placeholder" className="text-xs text-gray-400">
+            Brak matchu
+          </span>
+        )}
+      </div>
+
+      <p className="mt-1 line-clamp-2 text-sm font-medium text-gray-800" title={displayTitle}>
+        {displayTitle}
+      </p>
+
+      {detection.duplicate && (
+        <span
+          data-testid="duplicate-flag"
+          className={`mt-1 w-fit rounded px-1.5 py-0.5 text-[10px] font-medium ${
+            detection.duplicate.type === 'exact'
+              ? 'bg-red-100 text-red-700'
+              : 'bg-orange-100 text-orange-700'
+          }`}
+        >
+          {detection.duplicate.type === 'exact' ? 'Duplikat' : 'Inna edycja'}
+        </span>
+      )}
+
+      {errorMsg && (
+        <p data-testid="detection-error" className="mt-1 text-xs text-red-600" role="alert">
+          {errorMsg}
+        </p>
+      )}
+
+      <div className="mt-2 flex flex-wrap gap-1">
+        {top && (
+          <button
+            data-testid="confirm-button"
+            disabled={busy || !activeCandidateId}
+            onClick={() => void handleConfirm()}
+            className="rounded bg-green-600 px-2 py-1 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
+          >
+            {busy ? '...' : 'Akceptuj'}
+          </button>
+        )}
+        <button
+          data-testid="reject-button"
+          disabled={busy}
+          onClick={() => void handleReject()}
+          className="rounded border border-red-300 bg-red-50 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
+        >
+          Odrzuć
+        </button>
+        {top ? (
+          <button
+            data-testid="correct-button"
+            disabled={busy}
+            onClick={() => setShowModal(true)}
+            className="rounded border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            Popraw
+          </button>
+        ) : (
+          <button
+            data-testid="manual-entry-button"
+            onClick={() => setShowModal(true)}
+            className="rounded border border-blue-300 bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
+          >
+            Wpisz ręcznie
+          </button>
+        )}
+      </div>
+
+      {showModal && (
+        <DetectionCorrectionModal
+          detection={detection}
+          activeCandidate={activeCandidate}
+          activeCandidateId={activeCandidateId}
+          onClose={() => setShowModal(false)}
+          onSuccess={() => {
+            setShowModal(false);
+            handleCorrectSuccess();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Typy głównego komponentu
 // ---------------------------------------------------------------------------
 
@@ -536,6 +931,100 @@ function relativeTime(dateStr: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Tryb prezentacji listy detekcji (Karty / Lista / Kafelki)
+// ---------------------------------------------------------------------------
+
+export type DetectionViewMode = 'cards' | 'list' | 'tiles';
+
+export const VIEW_MODE_STORAGE_KEY = 'bookshelf:detection-view-mode';
+const VIEW_MODES: readonly DetectionViewMode[] = ['cards', 'list', 'tiles'];
+const VIEW_MODE_LABELS: Record<DetectionViewMode, string> = {
+  cards: 'Karty',
+  list: 'Lista',
+  tiles: 'Kafelki',
+};
+
+function isViewMode(v: unknown): v is DetectionViewMode {
+  return typeof v === 'string' && (VIEW_MODES as readonly string[]).includes(v);
+}
+
+// Default zależny od szerokości. W SSR oraz jsdom (brak window.matchMedia)
+// świadomie zwracamy 'cards' — inaczej testy review oczekujące kart by padły.
+// Do 'list' schodzimy WYŁĄCZNIE przy pozytywnym dopasowaniu mobile.
+function defaultViewMode(): DetectionViewMode {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return 'cards';
+  }
+  return window.matchMedia('(min-width: 640px)').matches ? 'cards' : 'list';
+}
+
+function readStoredViewMode(): DetectionViewMode {
+  if (typeof window === 'undefined') return 'cards';
+  try {
+    const stored = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+    if (isViewMode(stored)) return stored; // walidacja: śmieciowa wartość → default
+  } catch {
+    // localStorage niedostępny (tryb prywatny / wyłączony) — fallback do default
+  }
+  return defaultViewMode();
+}
+
+export function useDetectionViewMode(): [DetectionViewMode, (m: DetectionViewMode) => void] {
+  // Start od 'cards' (hydration-safe); preferencję czytamy po mount, gdy window istnieje.
+  const [mode, setModeState] = useState<DetectionViewMode>('cards');
+
+  useEffect(() => {
+    setModeState(readStoredViewMode());
+  }, []);
+
+  const setMode = (m: DetectionViewMode) => {
+    setModeState(m);
+    try {
+      window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, m);
+    } catch {
+      // zapis niemożliwy — preferencja zostaje tylko w pamięci sesji
+    }
+  };
+
+  return [mode, setMode];
+}
+
+export function ViewModeSwitcher({
+  mode,
+  onChange,
+}: {
+  mode: DetectionViewMode;
+  onChange: (m: DetectionViewMode) => void;
+}) {
+  return (
+    <div
+      data-testid="view-mode-switcher"
+      role="group"
+      aria-label="Tryb prezentacji listy"
+      className="mb-4 inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5"
+    >
+      {VIEW_MODES.map((m) => {
+        const active = m === mode;
+        return (
+          <button
+            key={m}
+            type="button"
+            data-testid={`view-mode-${m}`}
+            aria-pressed={active}
+            onClick={() => onChange(m)}
+            className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+              active ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {VIEW_MODE_LABELS[m]}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Główny komponent
 // ---------------------------------------------------------------------------
 
@@ -550,6 +1039,7 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
   const [actionMsg, setActionMsg] = useState<string | null>(null);
   const [decidedIds, setDecidedIds] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [viewMode, setViewMode] = useDetectionViewMode();
 
   useEffect(() => {
     let cancelled = false;
@@ -789,15 +1279,27 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
         )}
       </p>
 
-      <div className="space-y-4">
-        {detections.map((det) => (
-          <DetectionCard
-            key={det.id}
-            detection={det}
-            onDecided={handleDecided}
-          />
-        ))}
-      </div>
+      <ViewModeSwitcher mode={viewMode} onChange={setViewMode} />
+
+      {viewMode === 'list' ? (
+        <div className="space-y-2">
+          {detections.map((det) => (
+            <DetectionRow key={det.id} detection={det} onDecided={handleDecided} />
+          ))}
+        </div>
+      ) : viewMode === 'tiles' ? (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+          {detections.map((det) => (
+            <DetectionTile key={det.id} detection={det} onDecided={handleDecided} />
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {detections.map((det) => (
+            <DetectionCard key={det.id} detection={det} onDecided={handleDecided} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
