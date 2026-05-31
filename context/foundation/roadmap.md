@@ -51,6 +51,7 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | S-18  | photo-detection-overlay       | kliknąć zdjęcie w review → zobaczyć pełny obraz z numerowanymi ramkami (bbox) detekcji + skorelowaną numerowaną listą wykrytych pozycji | S-04, S-05 | FR-010–014 (UX domknięcie) | done     |
 | S-19  | manual-cover-match            | w review ręcznie wyszukać Google Books i wybrać trafienie (z okładką + ISBN + metadanymi), gdy auto-match pudłuje lub brak okładki — zastępuje aktywnego kandydata | S-04, S-05 | FR-015–018 (UX domknięcie) | proposed |
 | S-20  | shelf-statistics              | zobaczyć liczbę zdjęć obok liczby książek na liście półek + blok agregatów (zdjęcia / wykryte / skatalogowane) na widoku półki | S-03, S-05 | FR (UX) | proposed |
+| S-21  | vision-spine-crop-reocr       | poprawić precyzję detekcji na gęsto ustawionych półkach — każdy grzbiet z niską pewnością (`vision_confidence < 0.7`) re-analizowany przez Claude na wyciętym cropie (bbox z S-04) zamiast całego zdjęcia | S-04, S-18 | FR-010–014, FR-039 | proposed |
 
 ## Streams
 
@@ -256,6 +257,21 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **Risk:** zero — czysty substrate, izolowany plik + test.
 - **Status:** done
 
+### S-21: Re-OCR grzbietów z niską pewnością na wyciętym cropie
+
+- **Outcome:** przy przetwarzaniu zdjęcia system automatycznie re-analizuje detekcje z `vision_confidence < 0.7` poprzez wysłanie do Claude wyciętego cropa grzbietu (ze `storage_path` + bbox 0..1 z S-04) zamiast pełnego zdjęcia; po re-OCR aktualizuje `raw_title`, `raw_author`, `vision_confidence` na detekcji; użytkownik widzi poprawione tytuły w widoku review bez dodatkowej akcji.
+- **Change ID:** vision-spine-crop-reocr
+- **PRD refs:** FR-010–014 (jakość detekcji), FR-039 (koszt — cropping pozwala użyć mniejszego kontekstu)
+- **Prerequisites:** S-04 (bbox 0..1 w DB i `storage_path` oryginalnego zdjęcia), S-18 (overlay potwierdził poprawność bbox w UI)
+- **Parallel with:** S-19, S-20
+- **Blockers:** —
+- **Unknowns:**
+  - Czy re-OCR na wyciętym grzbiecie faktycznie poprawia precyzję vs pełne zdjęcie dla Claude (Open Q — wymaga A/B testu na realnych danych przed implementacją). Inspiracja: `suxrobgm/bookshelf-scanner` (GitHub, marzec 2026) — YOLO + Moondream2 pipeline stosuje crop-first i raportuje lepszą dokładność na tłoczonych polskich tytułach; dla naszego serverless stack YOLO odpada (GPU), ale crop z istniejących bbox jest tani.
+  - Próg `confidence < 0.7` do kalibracji na realnych danych telemetrii (`corrections` table).
+  - Koszt: N re-OCR calls × cena Claude Sonnet per detection — ograniczyć tylko do detekcji z niską pewnością + cap per photo (np. max 10 re-OCR).
+- **Risk:** Dodatkowy koszt Anthropic API per zdjęcie; efekt może być marginalny jeśli Claude i tak już widzi grzbiet wystarczająco dobrze na pełnym zdjęciu. Realizować dopiero gdy telemetria korekt (`corrections.correction_type = 'title_typo'`) wskazuje pattern złych detekcji na gęstych półkach — nie implementować spekulatywnie.
+- **Status:** proposed
+
 ## Backlog Handoff
 
 | Roadmap ID | Change ID                    | Suggested issue title                                            | Ready for `/10x-plan` | Notes                                  |
@@ -279,6 +295,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 | S-18       | photo-detection-overlay      | Pełne zdjęcie z numerowanymi ramkami detekcji w review            | yes                   | Substrat S-04 (`bbox` 0..1 w DB+DTO, `photos.original_path`) gotowy; doda signed URL pełnego zdjęcia do `GET /api/photos/[id]` + overlay renderujący `DetectionDTO.bbox` z numerkami skorelowanymi z `position_index`. Realizowany 1. (B) |
 | S-19       | manual-cover-match           | Ręczne wyszukiwanie Google Books + wybór okładki w review         | yes                   | Pełny picker: nowy endpoint search (reuse `src/lib/books/googleBooks.ts`) + UI w `DetectionReview`; wybór nadpisuje aktywnego kandydata (cover_url + metadane). Realizowany 2. (C) |
 | S-20       | shelf-statistics             | photo_count na liście półek (obok książek) + agregaty na widoku półki | yes                | #1 obie liczby (rozszerz `ShelfListItemDTO` o `photo_count` z `photos`); #2 blok agregatów na `/shelves/[id]` (suma zdjęć / wykrytych / skatalogowanych). Realizowany 3. (A) |
+| S-21       | vision-spine-crop-reocr      | Re-OCR grzbietów z niską pewnością na wyciętym cropie (bbox z S-04)  | no                 | **Nie planować przed weryfikacją hipotezy** — realizować dopiero gdy telemetria `corrections` pokaże pattern złych detekcji na gęstych półkach. Inspiracja: `suxrobgm/bookshelf-scanner` (crop-first pipeline). Unknowns: skuteczność vs pełne zdjęcie, próg confidence, cap kosztu per photo. |
 
 ## Open Roadmap Questions
 

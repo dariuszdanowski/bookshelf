@@ -70,7 +70,17 @@ async function matchDetection(
     }),
   }));
 
-  const topCandidates = dedupeCandidates(scored).slice(0, MAX_CANDIDATES);
+  const deduped = dedupeCandidates(scored).slice(0, MAX_CANDIDATES);
+
+  // Enrich candidates missing a cover but having an ISBN with OL ISBN cover URL.
+  // OL covers endpoint works by ISBN even when search result lacks cover_i.
+  const topCandidates = deduped.map((c) => {
+    if (c.coverUrl) return c;
+    const isbn = c.isbn13 ?? c.isbn10;
+    if (!isbn) return c;
+    return { ...c, coverUrl: `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg?default=false` };
+  });
+
   const duplicate = topCandidates.length > 0
     ? checkCatalogDuplicate(topCandidates[0], existingBooks)
     : null;
@@ -191,6 +201,21 @@ export const POST: APIRoute = async ({ params, locals }) => {
   let matchedCount = 0;
   let allRateLimited = true;
 
+  type CandidateRow = {
+    detection_id: string;
+    source: string;
+    external_id: string;
+    title: string;
+    authors: string[];
+    isbn_10: string | null;
+    isbn_13: string | null;
+    publisher: string | null;
+    published_year: number | null;
+    cover_url: string | null;
+    match_score: number;
+    rank: number;
+  };
+
   type DetectionResponseItem = {
     id: string;
     raw_title: string;
@@ -214,6 +239,10 @@ export const POST: APIRoute = async ({ params, locals }) => {
   };
 
   const responseDetections: DetectionResponseItem[] = [];
+  // Collect all candidate rows and matched IDs for 3 batch DB ops instead of 3×N
+  const allCandidateRows: CandidateRow[] = [];
+  const processedDetectionIds: string[] = []; // processed (non-rate-limited, non-rejected)
+  const matchedDetectionIds: string[] = [];   // will be updated to 'matched'
 
   for (let i = 0; i < detectionRows.length; i++) {
     const det = detectionRows[i];
@@ -250,11 +279,12 @@ export const POST: APIRoute = async ({ params, locals }) => {
       continue;
     }
 
-    // Idempotent persist: delete then insert
-    await locals.supabase.from('book_candidates').delete().eq('detection_id', det.id);
+    processedDetectionIds.push(det.id);
+    matchedDetectionIds.push(det.id);
 
-    if (candidates.length > 0) {
-      const rows = candidates.map((c, idx) => ({
+    for (let idx = 0; idx < candidates.length; idx++) {
+      const c = candidates[idx];
+      allCandidateRows.push({
         detection_id: det.id,
         source: c.source,
         external_id: c.externalId,
@@ -267,44 +297,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
         cover_url: c.coverUrl,
         match_score: c.matchScore,
         rank: idx + 1,
-      }));
-
-      const { error: insertError } = await locals.supabase.from('book_candidates').insert(rows);
-
-      if (insertError) {
-        console.error('[api/photos/match POST] book_candidates insert failed', {
-          name: insertError.name,
-          message: insertError.message,
-          code: insertError.code,
-          detection_id: det.id,
-        });
-        responseDetections.push({
-          id: det.id,
-          raw_title: det.raw_title ?? '',
-          raw_author: det.raw_author,
-          position_index: det.position_index,
-          status: det.status,
-          candidates: [],
-          duplicate: null,
-        });
-        continue;
-      }
-    }
-
-    const { error: statusError } = await locals.supabase
-      .from('detections')
-      .update({ status: 'matched' })
-      .eq('id', det.id);
-
-    if (statusError) {
-      console.error('[api/photos/match POST] detections status update failed', {
-        name: statusError.name,
-        message: statusError.message,
-        code: statusError.code,
-        detection_id: det.id,
       });
-    } else {
-      matchedCount++;
     }
 
     responseDetections.push({
@@ -312,8 +305,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
       raw_title: det.raw_title ?? '',
       raw_author: det.raw_author,
       position_index: det.position_index,
-      // status flip mógł paść — raportuj realny stan, nie zakładaj 'matched'
-      status: statusError ? det.status : 'matched',
+      status: 'matched',
       candidates: candidates.map((c, idx) => ({
         source: c.source,
         externalId: c.externalId,
@@ -329,6 +321,50 @@ export const POST: APIRoute = async ({ params, locals }) => {
       })),
       duplicate,
     });
+  }
+
+  // BATCH DB operations: 3 subrequests instead of 3×N
+  // 1. Delete old candidates for all processed detections
+  if (processedDetectionIds.length > 0) {
+    await locals.supabase
+      .from('book_candidates')
+      .delete()
+      .in('detection_id', processedDetectionIds);
+  }
+
+  // 2. Insert all candidates in one call
+  if (allCandidateRows.length > 0) {
+    const { error: insertError } = await locals.supabase
+      .from('book_candidates')
+      .insert(allCandidateRows);
+
+    if (insertError) {
+      console.error('[api/photos/match POST] batch book_candidates insert failed', {
+        name: insertError.name,
+        message: insertError.message,
+        code: insertError.code,
+        count: allCandidateRows.length,
+      });
+      return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się zapisać kandydatów.' });
+    }
+  }
+
+  // 3. Update all matched detection statuses in one call
+  if (matchedDetectionIds.length > 0) {
+    const { error: statusError } = await locals.supabase
+      .from('detections')
+      .update({ status: 'matched' })
+      .in('id', matchedDetectionIds);
+
+    if (statusError) {
+      console.error('[api/photos/match POST] batch detections status update failed', {
+        name: statusError.name,
+        message: statusError.message,
+        code: statusError.code,
+      });
+    } else {
+      matchedCount = matchedDetectionIds.length;
+    }
   }
 
   // Return 429 only when every detection failed with rate_limited

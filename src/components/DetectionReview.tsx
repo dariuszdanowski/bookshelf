@@ -34,7 +34,9 @@ const TIER_STYLES: Record<MatchTier, { border: string; badge: string; label: str
 };
 
 function CoverImage({ url, title }: { url: string | null; title: string }) {
-  if (!url) {
+  const [failed, setFailed] = useState(false);
+
+  if (!url || failed) {
     return (
       <div
         className="h-20 w-14 flex-shrink-0 rounded bg-gray-100 text-gray-300 flex items-center justify-center"
@@ -46,12 +48,14 @@ function CoverImage({ url, title }: { url: string | null; title: string }) {
       </div>
     );
   }
+
   return (
     <img
       src={url}
       alt={`Okładka: ${title}`}
       className="h-20 w-14 flex-shrink-0 rounded object-cover"
       loading="lazy"
+      onError={() => setFailed(true)}
     />
   );
 }
@@ -63,6 +67,8 @@ function CoverImage({ url, title }: { url: string | null; title: string }) {
 type CorrectFormProps = {
   initialTitle?: string;
   initialAuthors?: string;
+  initialPublisher?: string;
+  initialYear?: string;
   mode: 'field_edit' | 'manual_entry';
   candidateId?: string;
   detectionId: string;
@@ -73,6 +79,8 @@ type CorrectFormProps = {
 function CorrectForm({
   initialTitle = '',
   initialAuthors = '',
+  initialPublisher = '',
+  initialYear = '',
   mode,
   candidateId,
   detectionId,
@@ -81,8 +89,8 @@ function CorrectForm({
 }: CorrectFormProps) {
   const [title, setTitle] = useState(initialTitle);
   const [authors, setAuthors] = useState(initialAuthors);
-  const [publisher, setPublisher] = useState('');
-  const [year, setYear] = useState('');
+  const [publisher, setPublisher] = useState(initialPublisher);
+  const [year, setYear] = useState(initialYear);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -446,6 +454,8 @@ function DetectionCard({ detection, onDecided }: DetectionCardProps) {
           detectionId={detection.id}
           initialTitle={activeCandidate?.title ?? ''}
           initialAuthors={activeCandidate?.authors.join(', ') ?? ''}
+          initialPublisher={activeCandidate?.publisher ?? ''}
+          initialYear={activeCandidate?.publishedYear ? String(activeCandidate.publishedYear) : ''}
           onSuccess={handleCorrectSuccess}
           onCancel={() => setShowCorrectForm(false)}
         />
