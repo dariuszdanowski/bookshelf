@@ -1,10 +1,10 @@
 ---
 change_id: detection-list-views
 title: Tryby prezentacji listy detekcji w review — Karty / Lista / Kafelki
-status: impl_reviewed
+status: archived
 created: 2026-05-31
 updated: 2026-05-31
-archived_at: null
+archived_at: 2026-05-31T19:05:26Z
 ---
 
 ## Notes
