@@ -216,14 +216,17 @@ function CorrectForm({
 
 type DecisionState = 'pending' | 'decided' | 'error';
 
-type DetectionCardProps = {
-  detection: DetectionWithCandidatesDTO;
-  onDecided: (detectionId: string) => void;
-};
+// ---------------------------------------------------------------------------
+// Hook decyzji — współdzielona logika akceptacji/odrzucenia/korekty per detekcja.
+// Wyekstrahowany z DetectionCard, by 3 tryby prezentacji (Karty/Lista/Kafelki)
+// nie duplikowały wywołań API. Render-specific UI (showAlts, showCorrectForm)
+// zostaje lokalny w każdym wariancie prezentacji.
+// ---------------------------------------------------------------------------
 
-function DetectionCard({ detection, onDecided }: DetectionCardProps) {
-  const [showAlts, setShowAlts] = useState(false);
-  const [showCorrectForm, setShowCorrectForm] = useState(false);
+function useDetectionDecision(
+  detection: DetectionWithCandidatesDTO,
+  onDecided: (detectionId: string) => void
+) {
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
   const [state, setState] = useState<DecisionState>('pending');
   const [busy, setBusy] = useState(false);
@@ -233,20 +236,6 @@ function DetectionCard({ detection, onDecided }: DetectionCardProps) {
   const alts = detection.candidates.slice(1);
   const activeCandidateId = selectedCandidateId ?? top?.id ?? null;
   const activeCandidate = detection.candidates.find((c) => c.id === activeCandidateId) ?? top;
-
-  if (state === 'decided') {
-    return (
-      <div
-        data-testid={`detection-card-${detection.position_index}`}
-        className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 flex items-center gap-2"
-      >
-        <svg className="text-green-600 flex-shrink-0" width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
-          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-        </svg>
-        <span className="text-sm text-green-700 font-medium">{detection.raw_title}</span>
-      </div>
-    );
-  }
 
   async function handleConfirm() {
     if (!activeCandidateId) return;
@@ -296,10 +285,63 @@ function DetectionCard({ detection, onDecided }: DetectionCardProps) {
     }
   }
 
+  // Po sukcesie korekty: detekcja zdecydowana. Komponent przechodzi w widok
+  // 'decided' (early return), więc reset lokalnego showCorrectForm jest zbędny.
   function handleCorrectSuccess() {
-    setShowCorrectForm(false);
     setState('decided');
     onDecided(detection.id);
+  }
+
+  return {
+    selectedCandidateId,
+    setSelectedCandidateId,
+    state,
+    busy,
+    errorMsg,
+    top,
+    alts,
+    activeCandidateId,
+    activeCandidate,
+    handleConfirm,
+    handleReject,
+    handleCorrectSuccess,
+  };
+}
+
+type DetectionCardProps = {
+  detection: DetectionWithCandidatesDTO;
+  onDecided: (detectionId: string) => void;
+};
+
+function DetectionCard({ detection, onDecided }: DetectionCardProps) {
+  const [showAlts, setShowAlts] = useState(false);
+  const [showCorrectForm, setShowCorrectForm] = useState(false);
+  const {
+    setSelectedCandidateId,
+    state,
+    busy,
+    errorMsg,
+    top,
+    alts,
+    activeCandidateId,
+    activeCandidate,
+    handleConfirm,
+    handleReject,
+    handleCorrectSuccess,
+  } = useDetectionDecision(detection, onDecided);
+
+  if (state === 'decided') {
+    return (
+      <div
+        data-testid={`detection-card-${detection.position_index}`}
+        className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 flex items-center gap-2"
+      >
+        <svg className="text-green-600 flex-shrink-0" width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+        </svg>
+        <span className="text-sm text-green-700 font-medium">{detection.raw_title}</span>
+      </div>
+    );
   }
 
   const isHigh = activeCandidate && getMatchTier(activeCandidate.matchScore) === 'high';
@@ -536,6 +578,100 @@ function relativeTime(dateStr: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Tryb prezentacji listy detekcji (Karty / Lista / Kafelki)
+// ---------------------------------------------------------------------------
+
+export type DetectionViewMode = 'cards' | 'list' | 'tiles';
+
+export const VIEW_MODE_STORAGE_KEY = 'bookshelf:detection-view-mode';
+const VIEW_MODES: readonly DetectionViewMode[] = ['cards', 'list', 'tiles'];
+const VIEW_MODE_LABELS: Record<DetectionViewMode, string> = {
+  cards: 'Karty',
+  list: 'Lista',
+  tiles: 'Kafelki',
+};
+
+function isViewMode(v: unknown): v is DetectionViewMode {
+  return typeof v === 'string' && (VIEW_MODES as readonly string[]).includes(v);
+}
+
+// Default zależny od szerokości. W SSR oraz jsdom (brak window.matchMedia)
+// świadomie zwracamy 'cards' — inaczej testy review oczekujące kart by padły.
+// Do 'list' schodzimy WYŁĄCZNIE przy pozytywnym dopasowaniu mobile.
+function defaultViewMode(): DetectionViewMode {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return 'cards';
+  }
+  return window.matchMedia('(min-width: 640px)').matches ? 'cards' : 'list';
+}
+
+function readStoredViewMode(): DetectionViewMode {
+  if (typeof window === 'undefined') return 'cards';
+  try {
+    const stored = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+    if (isViewMode(stored)) return stored; // walidacja: śmieciowa wartość → default
+  } catch {
+    // localStorage niedostępny (tryb prywatny / wyłączony) — fallback do default
+  }
+  return defaultViewMode();
+}
+
+export function useDetectionViewMode(): [DetectionViewMode, (m: DetectionViewMode) => void] {
+  // Start od 'cards' (hydration-safe); preferencję czytamy po mount, gdy window istnieje.
+  const [mode, setModeState] = useState<DetectionViewMode>('cards');
+
+  useEffect(() => {
+    setModeState(readStoredViewMode());
+  }, []);
+
+  const setMode = (m: DetectionViewMode) => {
+    setModeState(m);
+    try {
+      window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, m);
+    } catch {
+      // zapis niemożliwy — preferencja zostaje tylko w pamięci sesji
+    }
+  };
+
+  return [mode, setMode];
+}
+
+export function ViewModeSwitcher({
+  mode,
+  onChange,
+}: {
+  mode: DetectionViewMode;
+  onChange: (m: DetectionViewMode) => void;
+}) {
+  return (
+    <div
+      data-testid="view-mode-switcher"
+      role="group"
+      aria-label="Tryb prezentacji listy"
+      className="mb-4 inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5"
+    >
+      {VIEW_MODES.map((m) => {
+        const active = m === mode;
+        return (
+          <button
+            key={m}
+            type="button"
+            data-testid={`view-mode-${m}`}
+            aria-pressed={active}
+            onClick={() => onChange(m)}
+            className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+              active ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            {VIEW_MODE_LABELS[m]}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Główny komponent
 // ---------------------------------------------------------------------------
 
@@ -550,6 +686,7 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
   const [actionMsg, setActionMsg] = useState<string | null>(null);
   const [decidedIds, setDecidedIds] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [viewMode, setViewMode] = useDetectionViewMode();
 
   useEffect(() => {
     let cancelled = false;
@@ -789,6 +926,10 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
         )}
       </p>
 
+      <ViewModeSwitcher mode={viewMode} onChange={setViewMode} />
+
+      {/* Faza 1: infrastruktura trybu wprowadzona; wszystkie tryby renderują
+          jeszcze Karty. Tryby Lista/Kafelki dochodzą w fazach 2–3. */}
       <div className="space-y-4">
         {detections.map((det) => (
           <DetectionCard
