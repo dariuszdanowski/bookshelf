@@ -101,7 +101,7 @@ function makeSupabase(opts: {
           }),
         })),
         update: vi.fn(() => ({
-          eq: vi.fn().mockResolvedValue({ error: null }),
+          in: vi.fn().mockResolvedValue({ error: null }),
         })),
       };
     }
@@ -117,7 +117,7 @@ function makeSupabase(opts: {
     if (table === 'book_candidates') {
       return {
         delete: vi.fn(() => ({
-          eq: vi.fn().mockResolvedValue({ error: deleteCandidatesError }),
+          in: vi.fn().mockResolvedValue({ error: deleteCandidatesError }),
         })),
         insert: vi.fn((rows: unknown[]) => {
           if (trackInsertions) trackInsertions.candidates.push(rows);
