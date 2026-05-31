@@ -113,6 +113,6 @@ describe('searchOpenLibrary', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     // When cover_i is missing but ISBN is present, falls back to OL ISBN cover URL
-    expect(result.candidates[0].coverUrl).toBe('https://covers.openlibrary.org/b/isbn/9780156027601-M.jpg');
+    expect(result.candidates[0].coverUrl).toBe('https://covers.openlibrary.org/b/isbn/9780156027601-M.jpg?default=false');
   });
 });

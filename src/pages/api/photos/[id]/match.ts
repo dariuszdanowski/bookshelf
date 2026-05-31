@@ -78,7 +78,7 @@ async function matchDetection(
     if (c.coverUrl) return c;
     const isbn = c.isbn13 ?? c.isbn10;
     if (!isbn) return c;
-    return { ...c, coverUrl: `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg` };
+    return { ...c, coverUrl: `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg?default=false` };
   });
 
   const duplicate = topCandidates.length > 0

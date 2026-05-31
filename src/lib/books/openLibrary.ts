@@ -32,7 +32,7 @@ function mapDoc(doc: z.infer<typeof OLDocSchema>): BookCandidate {
   const coverUrl = doc.cover_i
     ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg`
     : (isbn13 ?? isbn10)
-      ? `https://covers.openlibrary.org/b/isbn/${isbn13 ?? isbn10}-M.jpg`
+      ? `https://covers.openlibrary.org/b/isbn/${isbn13 ?? isbn10}-M.jpg?default=false`
       : null;
   return {
     source: 'open_library',
