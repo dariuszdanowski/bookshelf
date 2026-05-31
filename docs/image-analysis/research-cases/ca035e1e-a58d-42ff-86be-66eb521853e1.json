@@ -1,0 +1,47 @@
+{
+  "photoId": "ca035e1e-a58d-42ff-86be-66eb521853e1",
+  "storage_path": "fec2631a-28a7-46ed-8a71-feff0d100311/b8323e8c-e3a1-48ac-babc-38b5979fc827.jpg",
+  "runId": "78d65553-3a62-4909-9df0-e7a5b6f5fedd",
+  "detections": [
+    {
+      "id": "7899a74e-1108-495c-a2dc-c842fae1121a",
+      "position_index": 5,
+      "raw_title": "Poraniona błyskawica",
+      "raw_author": "Natasza Socha",
+      "bbox_x1": 0.06,
+      "bbox_y1": 0.35,
+      "bbox_x2": 0.09,
+      "bbox_y2": 0.72
+    },
+    {
+      "id": "8469ae60-6bf4-4ba2-a8be-c8d8be386f61",
+      "position_index": 9,
+      "raw_title": "RACHEL CAINE",
+      "raw_author": null,
+      "bbox_x1": 0.13,
+      "bbox_y1": 0.25,
+      "bbox_x2": 0.155,
+      "bbox_y2": 0.72
+    },
+    {
+      "id": "be555dc6-6d31-48b4-8bbc-bd6125cb6904",
+      "position_index": 10,
+      "raw_title": "CZAS ŻNIW",
+      "raw_author": null,
+      "bbox_x1": 0.155,
+      "bbox_y1": 0.25,
+      "bbox_x2": 0.175,
+      "bbox_y2": 0.72
+    },
+    {
+      "id": "6a23fbca-4b1f-4298-a670-01ba1a815fce",
+      "position_index": 11,
+      "raw_title": "Armini Krew",
+      "raw_author": "Samantha Shannon",
+      "bbox_x1": 0.175,
+      "bbox_y1": 0.25,
+      "bbox_x2": 0.2,
+      "bbox_y2": 0.72
+    }
+  ]
+}

@@ -47,6 +47,25 @@ function makeSupabase(opts: {
   latestRunResult?: { data: { id: string } | null; error: { code?: string; name?: string; message?: string } | null };
   detectionsResult?: { data: typeof detectionRow[] | null; error: null };
   booksResult?: { data: { id: string; title: string; authors: string[]; isbn_13: string | null; isbn_10: string | null }[] | null; error: null };
+  existingCandidatesResult?: {
+    data:
+      | {
+          detection_id: string;
+          source: string;
+          external_id: string;
+          title: string;
+          authors: string[];
+          isbn_10: string | null;
+          isbn_13: string | null;
+          publisher: string | null;
+          published_year: number | null;
+          cover_url: string | null;
+          match_score: number;
+          rank: number;
+        }[]
+      | null;
+    error: { name: string; message: string; code?: string } | null;
+  };
   deleteCandidatesError?: { name: string; message: string; code?: string } | null;
   insertCandidatesError?: { name: string; message: string; code?: string } | null;
   trackInsertions?: { candidates: unknown[][] };
@@ -57,6 +76,7 @@ function makeSupabase(opts: {
     latestRunResult = { data: latestRunRow, error: null },
     detectionsResult = { data: [detectionRow], error: null },
     booksResult = { data: [], error: null },
+    existingCandidatesResult = { data: [], error: null },
     deleteCandidatesError = null,
     insertCandidatesError = null,
     trackInsertions,
@@ -116,6 +136,9 @@ function makeSupabase(opts: {
 
     if (table === 'book_candidates') {
       return {
+        select: vi.fn(() => ({
+          in: vi.fn().mockResolvedValue(existingCandidatesResult),
+        })),
         delete: vi.fn(() => ({
           in: vi.fn().mockResolvedValue({ error: deleteCandidatesError }),
         })),
@@ -325,11 +348,51 @@ describe('POST /api/photos/[id]/match', () => {
 
     const res = await POST(makeContext(supabase) as never);
     const json = (await res.json()) as {
-      data: { matched: number; detections: { candidates: unknown[] }[] };
+      data: { matched: number; detections: { status: string; candidates: unknown[] }[] };
     };
     // detekcja przetworzona, ale ZERO kandydatów zapisanych i zwróconych
-    expect(json.data.matched).toBe(1);
+    expect(json.data.matched).toBe(0);
+    expect(json.data.detections[0].status).toBe('pending');
     expect(json.data.detections[0].candidates).toHaveLength(0);
     expect(trackInsertions.candidates).toHaveLength(0); // insert nie wołany
+  });
+
+  it('conservative rematch: keeps stronger existing candidates when new pass returns empty', async () => {
+    const trackInsertions: { candidates: unknown[][] } = { candidates: [] };
+    mockSearchGoogleBooks.mockResolvedValueOnce({ ok: true, candidates: [] });
+
+    const { supabase } = makeSupabase({
+      existingCandidatesResult: {
+        data: [
+          {
+            detection_id: DET_ID_1,
+            source: 'google_books',
+            external_id: 'gb-existing-1',
+            title: 'Solaris',
+            authors: ['Stanisław Lem'],
+            isbn_10: '0156027607',
+            isbn_13: '9780156027601',
+            publisher: 'Harvest Books',
+            published_year: 1987,
+            cover_url: 'https://books.google.com/cover.jpg',
+            match_score: 0.92,
+            rank: 1,
+          },
+        ],
+        error: null,
+      },
+      trackInsertions,
+    });
+
+    const res = await POST(makeContext(supabase) as never);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      data: { matched: number; detections: { status: string; candidates: { title: string }[] }[] };
+    };
+
+    expect(json.data.matched).toBe(1);
+    expect(json.data.detections[0].status).toBe('matched');
+    expect(json.data.detections[0].candidates[0].title).toBe('Solaris');
+    expect(trackInsertions.candidates).toHaveLength(0);
   });
 });

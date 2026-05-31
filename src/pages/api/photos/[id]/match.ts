@@ -6,6 +6,7 @@ import { searchOpenLibrary } from '../../../../lib/books/openLibrary';
 import { scoreCandidate, MATCH_MID } from '../../../../lib/matching/score';
 import { dedupeCandidates, checkCatalogDuplicate, type CatalogDuplicate } from '../../../../lib/matching/dedupe';
 import type { BookCandidate, ScoredCandidate } from '../../../../lib/books/schema';
+import { CONSERVATIVE_REPLACE_MARGIN } from '../../../../lib/matching/fallbackPolicy';
 
 export const prerender = false;
 
@@ -25,6 +26,21 @@ type ExistingBook = {
   authors: string[];
   isbn_13: string | null;
   isbn_10: string | null;
+};
+
+type ExistingCandidateRow = {
+  detection_id: string;
+  source: string;
+  external_id: string;
+  title: string;
+  authors: string[];
+  isbn_10: string | null;
+  isbn_13: string | null;
+  publisher: string | null;
+  published_year: number | null;
+  cover_url: string | null;
+  match_score: number;
+  rank: number;
 };
 
 type MatchResult = {
@@ -175,6 +191,30 @@ export const POST: APIRoute = async ({ params, locals }) => {
     return apiResponse({ data: { matched: 0, detections: [] } });
   }
 
+  const { data: existingCandidateRows, error: existingCandidatesError } = await locals.supabase
+    .from('book_candidates')
+    .select('detection_id, source, external_id, title, authors, isbn_10, isbn_13, publisher, published_year, cover_url, match_score, rank')
+    .in('detection_id', detectionRows.map((d) => d.id));
+
+  if (existingCandidatesError) {
+    console.error('[api/photos/match POST] existing candidates select failed', {
+      name: existingCandidatesError.name,
+      message: existingCandidatesError.message,
+      code: existingCandidatesError.code,
+    });
+    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się pobrać istniejących kandydatów.' });
+  }
+
+  const existingByDetection = new Map<string, ExistingCandidateRow[]>();
+  for (const row of (existingCandidateRows ?? []) as ExistingCandidateRow[]) {
+    const current = existingByDetection.get(row.detection_id) ?? [];
+    current.push(row);
+    existingByDetection.set(row.detection_id, current);
+  }
+  for (const [detectionId, rows] of existingByDetection.entries()) {
+    existingByDetection.set(detectionId, rows.sort((a, b) => a.rank - b.rank));
+  }
+
   // One query for all user's books — passed to checkCatalogDuplicate per detection
   const { data: existingBooks, error: booksError } = await locals.supabase
     .from('books')
@@ -244,6 +284,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
   };
 
   const responseDetections: DetectionResponseItem[] = [];
+  let preservedMatchedCount = 0;
   // Collect all candidate rows and matched IDs for 3 batch DB ops instead of 3×N
   const allCandidateRows: CandidateRow[] = [];
   const processedDetectionIds: string[] = []; // processed (non-rate-limited, non-rejected)
@@ -284,8 +325,74 @@ export const POST: APIRoute = async ({ params, locals }) => {
       continue;
     }
 
+    const existingRowsForDetection = existingByDetection.get(det.id) ?? [];
+    const existingTopScore =
+      existingRowsForDetection.length > 0
+        ? existingRowsForDetection.reduce((max, row) => Math.max(max, row.match_score), 0)
+        : null;
+    const newTopScore = candidates.length > 0 ? candidates[0].matchScore : null;
+
+    const shouldKeepExisting =
+      existingRowsForDetection.length > 0 &&
+      (newTopScore == null ||
+        (existingTopScore != null && existingTopScore - newTopScore >= CONSERVATIVE_REPLACE_MARGIN));
+
+    if (shouldKeepExisting) {
+      const responseCandidates = existingRowsForDetection.map((row) => ({
+        source: row.source,
+        externalId: row.external_id,
+        title: row.title,
+        authors: row.authors,
+        isbn10: row.isbn_10,
+        isbn13: row.isbn_13,
+        publisher: row.publisher,
+        publishedYear: row.published_year,
+        coverUrl: row.cover_url,
+        matchScore: row.match_score,
+        rank: row.rank,
+      }));
+
+      const topExisting = existingRowsForDetection[0];
+      const duplicate = checkCatalogDuplicate(
+        {
+          source: topExisting.source as ScoredCandidate['source'],
+          externalId: topExisting.external_id,
+          title: topExisting.title,
+          authors: topExisting.authors,
+          isbn10: topExisting.isbn_10,
+          isbn13: topExisting.isbn_13,
+          publisher: topExisting.publisher,
+          publishedYear: topExisting.published_year,
+          coverUrl: topExisting.cover_url,
+          matchScore: topExisting.match_score,
+        },
+        catalog
+      );
+
+      responseDetections.push({
+        id: det.id,
+        raw_title: det.raw_title ?? '',
+        raw_author: det.raw_author,
+        position_index: det.position_index,
+        status: 'matched',
+        candidates: responseCandidates,
+        duplicate,
+      });
+
+      if (det.status !== 'matched') {
+        matchedDetectionIds.push(det.id);
+      } else {
+        preservedMatchedCount += 1;
+      }
+      continue;
+    }
+
     processedDetectionIds.push(det.id);
-    matchedDetectionIds.push(det.id);
+
+    const hasCandidates = candidates.length > 0;
+    if (hasCandidates) {
+      matchedDetectionIds.push(det.id);
+    }
 
     for (let idx = 0; idx < candidates.length; idx++) {
       const c = candidates[idx];
@@ -310,7 +417,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
       raw_title: det.raw_title ?? '',
       raw_author: det.raw_author,
       position_index: det.position_index,
-      status: 'matched',
+      status: hasCandidates ? 'matched' : det.status,
       candidates: candidates.map((c, idx) => ({
         source: c.source,
         externalId: c.externalId,
@@ -371,6 +478,8 @@ export const POST: APIRoute = async ({ params, locals }) => {
       matchedCount = matchedDetectionIds.length;
     }
   }
+
+  matchedCount += preservedMatchedCount;
 
   // Return 429 only when every detection failed with rate_limited
   if (detectionRows.length > 0 && allRateLimited && matchedCount === 0) {
