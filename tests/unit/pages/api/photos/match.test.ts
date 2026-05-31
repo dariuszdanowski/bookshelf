@@ -293,4 +293,43 @@ describe('POST /api/photos/[id]/match', () => {
     await POST(makeContext(supabase) as never);
     expect(mockSearchOpenLibrary).not.toHaveBeenCalled();
   });
+
+  it('quality threshold: candidates below MATCH_MID (0.55) are not persisted', async () => {
+    // Realny przypadek: free-text fallback dla "Szalej i Srebro" / T. Kingfisher
+    // zwraca śmieci (austriackie dzienniki ustaw) — titleSim ~0.15, autorzy puści
+    // → score ~0.25. Poniżej progu → odrzucone, detekcja pokazuje "Wpisz ręcznie".
+    const trackInsertions: { candidates: unknown[][] } = { candidates: [] };
+    mockSearchGoogleBooks.mockResolvedValueOnce({
+      ok: true,
+      candidates: [
+        {
+          source: 'google_books' as const,
+          externalId: 'gb-junk',
+          title: 'Powszechny Dziennik praw panstwa i rzadu dla cesarstwa austryackiego',
+          authors: [],
+          isbn10: null,
+          isbn13: null,
+          publisher: null,
+          publishedYear: 1849,
+          coverUrl: null,
+        },
+      ],
+    });
+    const { supabase } = makeSupabase({
+      detectionsResult: {
+        data: [{ ...detectionRow, raw_title: 'Szalej i Srebro', raw_author: 'T. Kingfisher' }],
+        error: null,
+      },
+      trackInsertions,
+    });
+
+    const res = await POST(makeContext(supabase) as never);
+    const json = (await res.json()) as {
+      data: { matched: number; detections: { candidates: unknown[] }[] };
+    };
+    // detekcja przetworzona, ale ZERO kandydatów zapisanych i zwróconych
+    expect(json.data.matched).toBe(1);
+    expect(json.data.detections[0].candidates).toHaveLength(0);
+    expect(trackInsertions.candidates).toHaveLength(0); // insert nie wołany
+  });
 });

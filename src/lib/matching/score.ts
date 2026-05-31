@@ -34,6 +34,19 @@ function titleSim(a: string, b: string): number {
   return Math.max(0, 1 - levenshtein(na, nb) / maxLen);
 }
 
+// Powyżej tylu autorów kandydat jest traktowany jak antologia: dopasowanie
+// jednego wykrytego nazwiska do listy 12 autorów to słaby sygnał, że książka
+// jest "tego" autora — pełen kredyt 1.0 zatruwał score (np. tytuł 0.20 +
+// autor 1.0 → 0.48, fałszywa propozycja). Współautorstwo (≤3) bez kary.
+const ANTHOLOGY_AUTHOR_THRESHOLD = 3;
+
+// Tłumi pewność dopasowania autora dla kandydatów wieloautorskich.
+// 1.0 dla ≤3 autorów; potem ANTHOLOGY_AUTHOR_THRESHOLD / N (ciągłe w N=3).
+function multiAuthorConfidence(authorCount: number): number {
+  if (authorCount <= ANTHOLOGY_AUTHOR_THRESHOLD) return 1;
+  return ANTHOLOGY_AUTHOR_THRESHOLD / authorCount;
+}
+
 function authorSim(detectionAuthor: string | null | undefined, candidateAuthors: string[]): number {
   if (!detectionAuthor) return 0.5; // neutral — no OCR author info
   if (candidateAuthors.length === 0) return 0.5; // neutral — candidate has no author data
@@ -44,7 +57,7 @@ function authorSim(detectionAuthor: string | null | undefined, candidateAuthors:
     if (maxLen === 0) return 1;
     return Math.max(0, 1 - levenshtein(na, nb) / maxLen);
   });
-  return Math.max(...sims);
+  return Math.max(...sims) * multiAuthorConfidence(candidateAuthors.length);
 }
 
 type Detection = { raw_title: string; raw_author: string | null };

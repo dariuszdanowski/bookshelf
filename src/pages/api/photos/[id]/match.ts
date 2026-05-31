@@ -3,7 +3,7 @@ import type { APIRoute } from 'astro';
 import { apiError, apiResponse, parseUuidParam } from '../../../../lib/http/response';
 import { searchGoogleBooks } from '../../../../lib/books/googleBooks';
 import { searchOpenLibrary } from '../../../../lib/books/openLibrary';
-import { scoreCandidate } from '../../../../lib/matching/score';
+import { scoreCandidate, MATCH_MID } from '../../../../lib/matching/score';
 import { dedupeCandidates, checkCatalogDuplicate, type CatalogDuplicate } from '../../../../lib/matching/dedupe';
 import type { BookCandidate, ScoredCandidate } from '../../../../lib/books/schema';
 
@@ -70,7 +70,12 @@ async function matchDetection(
     }),
   }));
 
-  const deduped = dedupeCandidates(scored).slice(0, MAX_CANDIDATES);
+  // Próg jakości: kandydaci poniżej MATCH_MID (0.55) to "brak pewnego matchu"
+  // (PRD §10 + CLAUDE.md). Odrzucamy ich, by detekcja pokazała ścieżkę
+  // "Wpisz ręcznie" zamiast fałszywej propozycji (np. antologia 48%, śmieci 25%).
+  // Filtr PRZED dedupe/slice — inaczej top-5 zapełniłyby się szumem.
+  const aboveThreshold = scored.filter((c) => c.matchScore >= MATCH_MID);
+  const deduped = dedupeCandidates(aboveThreshold).slice(0, MAX_CANDIDATES);
 
   // Enrich candidates missing a cover but having an ISBN with OL ISBN cover URL.
   // OL covers endpoint works by ISBN even when search result lacks cover_i.
