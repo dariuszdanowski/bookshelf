@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { env } from 'cloudflare:workers';
 
 import type { BookCandidate, BookSearchResult } from './schema';
+import { cleanSearchTitle, titleQueryVariants } from '../matching/normalizeQuery';
 
 const GOOGLE_BOOKS_BASE = 'https://www.googleapis.com/books/v1/volumes';
 
@@ -106,12 +107,25 @@ export async function searchGoogleBooks(query: SearchQuery): Promise<BookSearchR
     if (result.ok || result.reason === 'rate_limited') return result;
   }
 
-  if (query.author) {
+  // Tytuł oczyszczony z homoglifów cyrylicy + zakresów lat (OCR-noise psuł match).
+  const cleanTitle = cleanSearchTitle(query.title);
+  const cleanAuthor = query.author ? cleanSearchTitle(query.author) : null;
+
+  if (cleanAuthor) {
     const result = await fetchBooks(
-      buildUrl(`intitle:${query.title}+inauthor:${query.author}`, apiKey)
+      buildUrl(`intitle:${cleanTitle}+inauthor:${cleanAuthor}`, apiKey)
     );
     if (result.ok || result.reason === 'rate_limited') return result;
   }
 
-  return fetchBooks(buildUrl(query.title, apiKey));
+  // Kaskada free-text: pełny oczyszczony tytuł → główny człon (bez tomu/podtytułu).
+  // Tylko 'empty' przechodzi do następnego wariantu; 'ok'/'rate_limited'/'network'
+  // są terminalne (network = błąd transportu, nie powód by próbować węższe zapytanie).
+  let lastResult: BookSearchResult = { ok: false, reason: 'empty' };
+  for (const variant of titleQueryVariants(query.title)) {
+    lastResult = await fetchBooks(buildUrl(variant, apiKey));
+    if (lastResult.ok || lastResult.reason !== 'empty') return lastResult;
+  }
+
+  return lastResult;
 }
