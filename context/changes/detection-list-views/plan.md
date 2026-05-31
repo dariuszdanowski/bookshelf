@@ -209,10 +209,10 @@ Brak migracji DB. Klucz `localStorage` `bookshelf:detection-view-mode` — nowy,
 ### Phase 3: Tryb Kafelki
 
 #### Automated
-- [x] 3.1 `npm run typecheck` zielony
-- [x] 3.2 `npm run lint` zielony
-- [x] 3.3 `DetectionTile.test.tsx` zielony
-- [x] 3.4 istniejące testy zielone
+- [x] 3.1 `npm run typecheck` zielony — cb3f4a9
+- [x] 3.2 `npm run lint` zielony — cb3f4a9
+- [x] 3.3 `DetectionTile.test.tsx` zielony — cb3f4a9
+- [x] 3.4 istniejące testy zielone — cb3f4a9
 
 #### Manual
 - [ ] 3.5 tryb Kafelki: siatka + akcje + modal
@@ -220,10 +220,10 @@ Brak migracji DB. Klucz `localStorage` `bookshelf:detection-view-mode` — nowy,
 ### Phase 4: E2E + domknięcie
 
 #### Automated
-- [ ] 4.1 `typecheck` + `lint` zielone
-- [ ] 4.2 `npm run test` (vitest) zielony — istniejące + nowe
-- [ ] 4.3 `npm run test:e2e` zielony — istniejące + nowy spec
-- [ ] 4.4 grep potwierdza wszystkie oryginalne testid w `DetectionReview.tsx`
+- [x] 4.1 `typecheck` + `lint` zielone
+- [x] 4.2 `npm run test` (vitest) zielony — istniejące + nowe (478 passed)
+- [x] 4.3 `npm run test:e2e` zielony — istniejące + nowy spec (41 passed / 2 skipped)
+- [x] 4.4 grep potwierdza wszystkie oryginalne testid w `DetectionReview.tsx`
 
 #### Manual
 - [ ] 4.5 przegląd 3 trybów na realnym zdjęciu + persystencja + „Popraw" modal
