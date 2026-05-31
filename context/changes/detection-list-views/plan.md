@@ -197,11 +197,11 @@ Brak migracji DB. Klucz `localStorage` `bookshelf:detection-view-mode` — nowy,
 ### Phase 2: Modal korekty + tryb Lista
 
 #### Automated
-- [x] 2.1 `npm run typecheck` zielony
-- [x] 2.2 `npm run lint` zielony
-- [x] 2.3 `DetectionRow.test.tsx` zielony (render, akcje, „Popraw"→modal)
-- [x] 2.4 test `CorrectionModal` zielony (Esc, backdrop close)
-- [x] 2.5 istniejące testy zielone
+- [x] 2.1 `npm run typecheck` zielony — 4f9c2db
+- [x] 2.2 `npm run lint` zielony — 4f9c2db
+- [x] 2.3 `DetectionRow.test.tsx` zielony (render, akcje, „Popraw"→modal) — 4f9c2db
+- [x] 2.4 test `CorrectionModal` zielony (Esc, backdrop close) — 4f9c2db
+- [x] 2.5 istniejące testy zielone — 4f9c2db
 
 #### Manual
 - [ ] 2.6 tryb Lista: akcje + modal działają
@@ -209,10 +209,10 @@ Brak migracji DB. Klucz `localStorage` `bookshelf:detection-view-mode` — nowy,
 ### Phase 3: Tryb Kafelki
 
 #### Automated
-- [ ] 3.1 `npm run typecheck` zielony
-- [ ] 3.2 `npm run lint` zielony
-- [ ] 3.3 `DetectionTile.test.tsx` zielony
-- [ ] 3.4 istniejące testy zielone
+- [x] 3.1 `npm run typecheck` zielony
+- [x] 3.2 `npm run lint` zielony
+- [x] 3.3 `DetectionTile.test.tsx` zielony
+- [x] 3.4 istniejące testy zielone
 
 #### Manual
 - [ ] 3.5 tryb Kafelki: siatka + akcje + modal
