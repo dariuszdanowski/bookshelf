@@ -548,6 +548,191 @@ function DetectionCard({ detection, onDecided }: DetectionCardProps) {
 }
 
 // ---------------------------------------------------------------------------
+// Modal korekty — opakowuje istniejący CorrectForm dla trybów Lista/Kafelki
+// (w trybie Karty korekta zostaje inline). Zamknięcie: Esc lub klik w tło.
+// ---------------------------------------------------------------------------
+
+export function CorrectionModal({
+  children,
+  onClose,
+}: {
+  children: React.ReactNode;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        data-testid="correction-modal"
+        role="dialog"
+        aria-modal="true"
+        className="max-h-[90vh] w-full max-w-md overflow-auto rounded-xl bg-white p-4 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Wiersz detekcji (tryb Lista) — kompakt 1-linia, akcje na top-kandydacie,
+// korekta przez modal. Współdzieli logikę decyzji z Kartami (useDetectionDecision).
+// ---------------------------------------------------------------------------
+
+type DetectionRowProps = {
+  detection: DetectionWithCandidatesDTO;
+  onDecided: (detectionId: string) => void;
+};
+
+export function DetectionRow({ detection, onDecided }: DetectionRowProps) {
+  const [showModal, setShowModal] = useState(false);
+  const {
+    state,
+    busy,
+    errorMsg,
+    top,
+    activeCandidateId,
+    activeCandidate,
+    handleConfirm,
+    handleReject,
+    handleCorrectSuccess,
+  } = useDetectionDecision(detection, onDecided);
+
+  if (state === 'decided') {
+    return (
+      <div
+        data-testid={`detection-row-${detection.position_index}`}
+        className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2"
+      >
+        <svg className="flex-shrink-0 text-green-600" width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+        </svg>
+        <span className="truncate text-sm font-medium text-green-700">{detection.raw_title}</span>
+      </div>
+    );
+  }
+
+  const displayTitle = activeCandidate?.title ?? detection.raw_title;
+  const displayAuthor =
+    (activeCandidate?.authors.length ? activeCandidate.authors.join(', ') : detection.raw_author) ?? '';
+
+  return (
+    <div
+      data-testid={`detection-row-${detection.position_index}`}
+      className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-gray-200 bg-white px-3 py-2"
+    >
+      <span className="text-xs font-medium text-gray-400">#{detection.position_index}</span>
+
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <span className="truncate text-sm font-medium text-gray-800">{displayTitle}</span>
+        {displayAuthor && (
+          <span className="truncate text-xs text-gray-500">&mdash; {displayAuthor}</span>
+        )}
+        {detection.duplicate && (
+          <span
+            data-testid="duplicate-flag"
+            className={`flex-shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${
+              detection.duplicate.type === 'exact'
+                ? 'bg-red-100 text-red-700'
+                : 'bg-orange-100 text-orange-700'
+            }`}
+          >
+            {detection.duplicate.type === 'exact' ? 'Duplikat' : 'Inna edycja'}
+          </span>
+        )}
+      </div>
+
+      {activeCandidate ? (
+        <span
+          className={`flex-shrink-0 rounded px-2 py-0.5 text-xs font-medium ${TIER_STYLES[getMatchTier(activeCandidate.matchScore)].badge}`}
+        >
+          {Math.round(activeCandidate.matchScore * 100)}%
+        </span>
+      ) : (
+        <span data-testid="no-match-placeholder" className="flex-shrink-0 text-xs text-gray-400">
+          Brak matchu
+        </span>
+      )}
+
+      {errorMsg && (
+        <span data-testid="detection-error" className="w-full text-xs text-red-600" role="alert">
+          {errorMsg}
+        </span>
+      )}
+
+      <div className="flex flex-shrink-0 gap-1">
+        {top && (
+          <button
+            data-testid="confirm-button"
+            disabled={busy || !activeCandidateId}
+            onClick={() => void handleConfirm()}
+            className="rounded bg-green-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
+          >
+            {busy ? '...' : 'Akceptuj'}
+          </button>
+        )}
+        <button
+          data-testid="reject-button"
+          disabled={busy}
+          onClick={() => void handleReject()}
+          className="rounded border border-red-300 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
+        >
+          Odrzuć
+        </button>
+        {top ? (
+          <button
+            data-testid="correct-button"
+            disabled={busy}
+            onClick={() => setShowModal(true)}
+            className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            Popraw
+          </button>
+        ) : (
+          <button
+            data-testid="manual-entry-button"
+            onClick={() => setShowModal(true)}
+            className="rounded border border-blue-300 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
+          >
+            Wpisz ręcznie
+          </button>
+        )}
+      </div>
+
+      {showModal && (
+        <CorrectionModal onClose={() => setShowModal(false)}>
+          <CorrectForm
+            mode={top ? 'field_edit' : 'manual_entry'}
+            candidateId={top ? (activeCandidateId ?? undefined) : undefined}
+            detectionId={detection.id}
+            initialTitle={top ? (activeCandidate?.title ?? '') : ''}
+            initialAuthors={top ? (activeCandidate?.authors.join(', ') ?? '') : ''}
+            initialPublisher={top ? (activeCandidate?.publisher ?? '') : ''}
+            initialYear={top && activeCandidate?.publishedYear ? String(activeCandidate.publishedYear) : ''}
+            onSuccess={() => {
+              setShowModal(false);
+              handleCorrectSuccess();
+            }}
+            onCancel={() => setShowModal(false)}
+          />
+        </CorrectionModal>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Typy głównego komponentu
 // ---------------------------------------------------------------------------
 
@@ -928,17 +1113,20 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
 
       <ViewModeSwitcher mode={viewMode} onChange={setViewMode} />
 
-      {/* Faza 1: infrastruktura trybu wprowadzona; wszystkie tryby renderują
-          jeszcze Karty. Tryby Lista/Kafelki dochodzą w fazach 2–3. */}
-      <div className="space-y-4">
-        {detections.map((det) => (
-          <DetectionCard
-            key={det.id}
-            detection={det}
-            onDecided={handleDecided}
-          />
-        ))}
-      </div>
+      {/* Tryb Kafelki dochodzi w fazie 3 — do tego czasu renderuje Karty. */}
+      {viewMode === 'list' ? (
+        <div className="space-y-2">
+          {detections.map((det) => (
+            <DetectionRow key={det.id} detection={det} onDecided={handleDecided} />
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {detections.map((det) => (
+            <DetectionCard key={det.id} detection={det} onDecided={handleDecided} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

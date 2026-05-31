@@ -185,11 +185,11 @@ Brak migracji DB. Klucz `localStorage` `bookshelf:detection-view-mode` — nowy,
 ### Phase 1: Hook decyzji + infrastruktura trybu (Karty bez zmian)
 
 #### Automated
-- [x] 1.1 `npm run typecheck` zielony
-- [x] 1.2 `npm run lint` zielony
-- [x] 1.3 istniejący `DetectionReview.test.tsx` zielony bez modyfikacji (gate F4)
-- [x] 1.4 `useDetectionViewMode.test.tsx` zielony (R/W, walidacja, default cards bez matchMedia, list przy mobile mock) — adaptacja vs plan: `.tsx` zamiast `.ts` (harness z `render()`, bo interop vitest+RTL16 pod React 19 nie eksponuje `renderHook`)
-- [x] 1.5 `ViewModeSwitcher.test.tsx` zielony (aria-pressed)
+- [x] 1.1 `npm run typecheck` zielony — 718ad71
+- [x] 1.2 `npm run lint` zielony — 718ad71
+- [x] 1.3 istniejący `DetectionReview.test.tsx` zielony bez modyfikacji (gate F4) — 718ad71
+- [x] 1.4 `useDetectionViewMode.test.tsx` zielony (R/W, walidacja, default cards bez matchMedia, list przy mobile mock) — adaptacja vs plan: `.tsx` zamiast `.ts` (harness z `render()`, bo interop vitest+RTL16 pod React 19 nie eksponuje `renderHook`) — 718ad71
+- [x] 1.5 `ViewModeSwitcher.test.tsx` zielony (aria-pressed) — 718ad71
 
 #### Manual
 - [ ] 1.6 przełącznik widoczny + aktywny tryb podświetlony
@@ -197,11 +197,11 @@ Brak migracji DB. Klucz `localStorage` `bookshelf:detection-view-mode` — nowy,
 ### Phase 2: Modal korekty + tryb Lista
 
 #### Automated
-- [ ] 2.1 `npm run typecheck` zielony
-- [ ] 2.2 `npm run lint` zielony
-- [ ] 2.3 `DetectionRow.test.tsx` zielony (render, akcje, „Popraw"→modal)
-- [ ] 2.4 test `CorrectionModal` zielony (Esc, submit)
-- [ ] 2.5 istniejące testy zielone
+- [x] 2.1 `npm run typecheck` zielony
+- [x] 2.2 `npm run lint` zielony
+- [x] 2.3 `DetectionRow.test.tsx` zielony (render, akcje, „Popraw"→modal)
+- [x] 2.4 test `CorrectionModal` zielony (Esc, backdrop close)
+- [x] 2.5 istniejące testy zielone
 
 #### Manual
 - [ ] 2.6 tryb Lista: akcje + modal działają
