@@ -18,6 +18,17 @@ Po wgraniu zdjęcia półki aplikacja:
 
 W jednym zdaniu: **zdjęcie → detekcja → match → dedup → ranking → potwierdzenie**.
 
+## Screenshots
+
+| | |
+|---|---|
+| ![Logowanie](docs/screenshots/01-login.png) | ![Lista półek](docs/screenshots/02-shelves.png) |
+| *Strona logowania* | *Lista półek użytkownika* |
+| ![Upload zdjęcia](docs/screenshots/03-upload.png) | ![Overlay detekcji](docs/screenshots/04-detection-overlay.png) |
+| *Upload zdjęcia półki* | *Numerowane ramki detekcji na zdjęciu* |
+| ![Propozycje matchu](docs/screenshots/05-proposals.png) | ![Katalog](docs/screenshots/06-library.png) |
+| *Propozycje z Google Books / OpenLibrary* | *Katalog z wyszukiwarką i filtrami* |
+
 ## Stack
 
 | Warstwa | Wybór |
