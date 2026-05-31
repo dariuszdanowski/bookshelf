@@ -3,7 +3,7 @@ project: "BookShelf Scanner"
 version: 1
 status: draft
 created: 2026-05-25
-updated: 2026-05-30
+updated: 2026-05-31
 prd_version: 1
 main_goal: speed
 top_blocker: time
@@ -52,6 +52,13 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | S-19  | manual-cover-match            | w review ręcznie wyszukać Google Books i wybrać trafienie (z okładką + ISBN + metadanymi), gdy auto-match pudłuje lub brak okładki — zastępuje aktywnego kandydata | S-04, S-05 | FR-015–018 (UX domknięcie) | proposed |
 | S-20  | shelf-statistics              | zobaczyć liczbę zdjęć obok liczby książek na liście półek + blok agregatów (zdjęcia / wykryte / skatalogowane) na widoku półki | S-03, S-05 | FR (UX) | proposed |
 | S-21  | vision-spine-crop-reocr       | poprawić precyzję detekcji na gęsto ustawionych półkach — każdy grzbiet z niską pewnością (`vision_confidence < 0.7`) re-analizowany przez Claude na wyciętym cropie (bbox z S-04) zamiast całego zdjęcia | S-04, S-18 | FR-010–014, FR-039 | proposed |
+| S-22  | book-edit-cover-url           | w edycji książki w katalogu: pole „Link do okładki" (URL) z podglądem — wklejenie URL od razu pokazuje miniaturę okładki; pole można wyczyścić | S-05 | FR (UX) | proposed |
+| S-23  | per-detection-rematch         | przycisk „Ponów match" przy pojedynczej detekcji (bez ponownego matchowania całego zdjęcia) — odświeża kandydatów tylko dla tej jednej pozycji | S-04, S-05 | FR-015–018 (UX) | proposed |
+| S-24  | photo-overlay-ux              | w review: a) przycisk toggle show/hide ramek detekcji na zdjęciu; b) kliknięcie zdjęcia → lightbox (modal) z pełnym obrazem i ramkami | S-18 | FR-010–014 (UX) | proposed |
+| S-25  | detection-list-views          | widok listy detekcji (review) — przełącznik trybu prezentacji: karty rozwinięte (obecne), lista kompaktowana (1 linia/książka), kafelki (okładka + tytuł + badge pewności) | S-04, S-05 | UX polish | proposed |
+| S-26  | admin-panel                   | panel administracyjny: lista użytkowników, flaga AI-enabled (domyślnie false — admin włącza), impersonacja (zaloguj się jako user), usunięcie konta (półki/książki przechodzą do admina), przeniesienie półki między użytkownikami | S-01 | NFR (admin ops) | proposed |
+| S-27  | dark-light-mode               | przełącznik trybu ciemnego/jasnego w headerze; preferencja persystowana w localStorage; Tailwind `dark:` variant na całym UI | — | UX (standard) | proposed |
+| S-28  | mobile-responsive             | responsywność mobilna dla ścieżek read (library, shelves, book detail) i write (upload, review karty); Tailwind breakpoints `sm:`/`md:` — desktop-first zachowane, telefon bez poziomego scrollowania | S-05 | NFR (UX) | proposed |
 
 ## Streams
 
@@ -272,6 +279,93 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **Risk:** Dodatkowy koszt Anthropic API per zdjęcie; efekt może być marginalny jeśli Claude i tak już widzi grzbiet wystarczająco dobrze na pełnym zdjęciu. Realizować dopiero gdy telemetria korekt (`corrections.correction_type = 'title_typo'`) wskazuje pattern złych detekcji na gęstych półkach — nie implementować spekulatywnie.
 - **Status:** proposed
 
+### S-22: Edycja okładki książki — pole URL + podgląd
+
+- **Outcome:** w widoku edycji/szczegółu książki w katalogu pojawia się pole tekstowe „Link do okładki" z wartością bieżącego `cover_url`; po wklejeniu URL poniżej pokazuje się miniatura (img z `onError` → placeholder); zapis przez `PATCH /api/books/[id]`; pole można wyczyścić (null = brak okładki).
+- **Change ID:** book-edit-cover-url
+- **PRD refs:** FR (UX polish — edycja metadanych książki)
+- **Prerequisites:** S-05 (books w katalogu + `PATCH /api/books/[id]`)
+- **Parallel with:** S-23, S-24
+- **Blockers:** —
+- **Unknowns:** czy `PATCH /api/books/[id]` już istnieje lub wymaga stworzenia (sprawdzić w `src/pages/api/books/`).
+- **Risk:** niski — czysto frontendowy + jeden endpoint. Jedyna pułapka: nie cachować `cover_url` po stronie klienta (Cloudflare edge cache musi dostać `private, no-store` — już w defaultach F-02).
+- **Status:** proposed
+
+### S-23: Re-match pojedynczej detekcji
+
+- **Outcome:** na karcie każdej detekcji w review (obok „Ponów match" dla całego zdjęcia) pojawia się przycisk „Odśwież" który uruchamia matching tylko dla tej jednej pozycji — nowy endpoint `POST /api/detections/[id]/match` wywołuje `matchDetection()` i nadpisuje `book_candidates` dla tej detekcji; strona odświeża kartę bez przeładowania.
+- **Change ID:** per-detection-rematch
+- **PRD refs:** FR-015–018 (UX — lokalna aktualizacja propozycji bez kosztu re-matchowania całego zdjęcia)
+- **Prerequisites:** S-04, S-05
+- **Parallel with:** S-22, S-24
+- **Blockers:** —
+- **Unknowns:** —
+- **Risk:** niski — `matchDetection()` w `match.ts` jest już izolowaną funkcją; endpoint opakowuje ją per-detekcję. Subrequest limit CF Workers (50) nie jest problemem — to jeden detection, nie batch.
+- **Status:** proposed
+
+### S-24: UX overlay zdjęcia — toggle ramek + lightbox
+
+- **Outcome:** w widoku review (S-18): a) przycisk „Pokaż/Ukryj ramki" nad zdjęciem przełącza widoczność bbox-ów detekcji (`useState`); b) kliknięcie zdjęcia otwiera lightbox (natywny `<dialog>` lub `modal` div z z-index) z pełnoekranową wersją obrazu i ramkami; zamknięcie przez Esc lub kliknięcie tła.
+- **Change ID:** photo-overlay-ux
+- **PRD refs:** FR-010–014 (UX domknięcie overlay)
+- **Prerequisites:** S-18 (overlay z ramkami)
+- **Parallel with:** S-22, S-23
+- **Blockers:** —
+- **Unknowns:** —
+- **Risk:** niski — pure UI, brak API. Pułapka: lightbox na CF Workers nie ma dostępu do `document.body` po stronie serwera — komponent musi być React island (`client:load`).
+- **Status:** proposed
+
+### S-25: Alternatywne widoki listy detekcji w review
+
+- **Outcome:** w górnej belce strony review pojawia się przełącznik trybu prezentacji z 3 opcjami: **Karty** (obecny widok — pełna karta z okładką, kandydatami, akcjami), **Lista** (1 linia: `#N tytuł — autor | badge pewności | [Akceptuj][Odrzuć][Popraw]`), **Kafelki** (siatka: okładka + tytuł + badge + mini-akcje); wybór persystowany w `localStorage`; domyślnie Karty na desktopie, Lista na mobilnej szerokości.
+- **Change ID:** detection-list-views
+- **PRD refs:** UX polish (19+ detekcji na jednym ekranie = zbyt długa strona)
+- **Prerequisites:** S-04, S-05
+- **Parallel with:** S-28 (mobile — naturalny punkt integracji)
+- **Blockers:** —
+- **Unknowns:** jak mini-akcje w trybie Lista/Kafelki obsługują tryb „Popraw" (formularz inline vs modal). Decyzja: w trybie Lista i Kafelki `Popraw` otwiera modal, nie inline.
+- **Risk:** średni — refaktor `DetectionCard` na obsługę 3 trybów bez rozbijania istniejących testów (mają `data-testid`); tryby muszą zachować pełną funkcjonalność.
+- **Status:** proposed
+
+### S-26: Panel administracyjny
+
+- **Outcome:** użytkownik z flagą `is_admin=true` widzi dodatkowy link „Admin" w headerze; panel `/admin` zawiera: listę użytkowników (email, data rejestracji, liczba półek/książek, flagi), przełącznik `ai_enabled` per user (domyślnie false — blokuje wywołania vision/match), przycisk „Zaloguj jako" (impersonacja przez Supabase Admin API → `generateLink` + redirect), przycisk „Usuń konto" (books + shelf_entries → admin, półki → admin, potem `deleteUser`), akcję „Przenieś półkę" (zmiana `user_id` na innego usera). Migracja: nowe kolumny `profiles.is_admin bool default false` i `profiles.ai_enabled bool default false`.
+- **Change ID:** admin-panel
+- **PRD refs:** NFR (admin ops — zarządzanie użytkownikami)
+- **Prerequisites:** S-01 (auth), F-01 (RLS)
+- **Parallel with:** —
+- **Blockers:** —
+- **Unknowns:**
+  - Impersonacja: Supabase `auth.admin.generateLink({type:'magiclink', email})` z service-role key — generuje jednorazowy link; admin klika, loguje się jako user. Alternatywnie: custom JWT. Obie ścieżki wymagają service-role key (już w secrets).
+  - RLS vs admin: panel musi używać service-role client (omija RLS) do list użytkowników — ścisła izolacja od RLS-respecting klientów standardowych.
+  - Flaga `ai_enabled`: middleware lub endpoint vision/match sprawdza `profiles.ai_enabled` zanim wywoła Anthropic API; błąd 403 z czytelnym komunikatem dla usera.
+- **Risk:** WYSOKI scope — wiele powierzchni (migracja, service-role endpoints, impersonacja, cascade delete). Zalecany podział na fazy: (1) migracja + flaga ai_enabled + guard w vision/match → (2) lista userów + przełącznik ai_enabled → (3) impersonacja + delete + przeniesienie półki. Nie implementować całości w jednym PR.
+- **Status:** proposed
+
+### S-27: Tryb ciemny/jasny
+
+- **Outcome:** przycisk przełącznika ☀/☾ w prawym rogu headera zmienia motyw całego UI; Tailwind `darkMode: 'class'` — klasa `dark` na `<html>`; preferencja zapisana w `localStorage` + respektuje `prefers-color-scheme` przy pierwszym odwiedzeniu; wszystkie kolory UI mają odpowiedniki `dark:`.
+- **Change ID:** dark-light-mode
+- **PRD refs:** UX (standard nowoczesnych aplikacji)
+- **Prerequisites:** — (cross-cutting, niezależne)
+- **Parallel with:** S-28 (mobile — oba cross-cutting CSS; realizować razem lub sekwencyjnie)
+- **Blockers:** —
+- **Unknowns:** Tailwind 4 zmienił konfigurację `darkMode` — sprawdzić składnię w v4 (może być `@variant dark` w CSS zamiast `tailwind.config`).
+- **Risk:** średni — cross-cutting zmiana widoczna w każdym pliku `.astro`/`.tsx`; brak mechanicznego refaktoru (każda klasa koloru wymaga ręcznego `dark:` variant). Zakres: ~20-30 plików UI. Warto zacząć od Layout + najczęściej używanych komponentów.
+- **Status:** proposed
+
+### S-28: Responsywność mobilna
+
+- **Outcome:** wszystkie ścieżki read (library `/library`, widok półki `/shelves/[id]`, szczegół książki) i ścieżki write (upload, review `/photos/[id]`) działają na ekranie 375px szerokości bez poziomego scrollowania; nawigacja header składa się do hamburgera lub ikon; karty detekcji/książek dostosowują layout do wąskiego ekranu; domyślny tryb listy w S-25 na mobilnej szerokości = Lista (nie Karty).
+- **Change ID:** mobile-responsive
+- **PRD refs:** NFR (UX — użytkowanie w przeglądarce telefonu)
+- **Prerequisites:** S-05 (stabilny UI przed cross-cutting CSS refaktorem)
+- **Parallel with:** S-27 (dark mode — oba cross-cutting)
+- **Blockers:** —
+- **Unknowns:** upload zdjęcia na mobilnym: `<input type="file">` działa wszędzie; drag-drop nie ma sensu na dotykowym — warunkowy UI (ukryć drag area na touch devices).
+- **Risk:** średni — cross-cutting jak S-27, ale ograniczony do breakpoints Tailwind (`sm:`/`md:`). Priorytet: ścieżka review (najdłuższy widok, 19 kart) i header nav. Uwaga: kamera mobilna (getUserMedia) świadomie POZA zakresem (Parked).
+- **Status:** proposed
+
 ## Backlog Handoff
 
 | Roadmap ID | Change ID                    | Suggested issue title                                            | Ready for `/10x-plan` | Notes                                  |
@@ -296,6 +390,13 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 | S-19       | manual-cover-match           | Ręczne wyszukiwanie Google Books + wybór okładki w review         | yes                   | Pełny picker: nowy endpoint search (reuse `src/lib/books/googleBooks.ts`) + UI w `DetectionReview`; wybór nadpisuje aktywnego kandydata (cover_url + metadane). Realizowany 2. (C) |
 | S-20       | shelf-statistics             | photo_count na liście półek (obok książek) + agregaty na widoku półki | yes                | #1 obie liczby (rozszerz `ShelfListItemDTO` o `photo_count` z `photos`); #2 blok agregatów na `/shelves/[id]` (suma zdjęć / wykrytych / skatalogowanych). Realizowany 3. (A) |
 | S-21       | vision-spine-crop-reocr      | Re-OCR grzbietów z niską pewnością na wyciętym cropie (bbox z S-04)  | no                 | **Nie planować przed weryfikacją hipotezy** — realizować dopiero gdy telemetria `corrections` pokaże pattern złych detekcji na gęstych półkach. Inspiracja: `suxrobgm/bookshelf-scanner` (crop-first pipeline). Unknowns: skuteczność vs pełne zdjęcie, próg confidence, cap kosztu per photo. |
+| S-22       | book-edit-cover-url          | Edycja okładki książki — pole URL + miniatura podglądu               | yes                | Sprawdzić czy `PATCH /api/books/[id]` istnieje; jeśli nie — stworzyć w ramach slice'a. |
+| S-23       | per-detection-rematch        | Re-match pojedynczej detekcji (bez matchowania całego zdjęcia)        | yes                | Nowy endpoint `POST /api/detections/[id]/match` opakowuje istniejącą funkcję `matchDetection()`. |
+| S-24       | photo-overlay-ux             | Toggle ramek detekcji + lightbox zdjęcia w review                    | yes                | Buduje na S-18; pure UI — React island, brak nowych API. |
+| S-25       | detection-list-views         | Tryby prezentacji listy detekcji: Karty / Lista / Kafelki            | yes                | Refaktor `DetectionCard` na 3 tryby; Popraw w trybie Lista/Kafelki otwiera modal zamiast inline. |
+| S-26       | admin-panel                  | Panel administracyjny: users, ai_enabled, impersonacja, delete, przeniesienie półki | no   | **DUŻE** — podzielić na 3 fazy: (1) migracja + guard ai_enabled, (2) lista + przełącznik, (3) impersonacja + delete. Zaczynać od fazy 1. |
+| S-27       | dark-light-mode              | Przełącznik ciemny/jasny — Tailwind `dark:`, localStorage, prefers-color-scheme | yes     | Sprawdzić składnię Tailwind v4 dla dark mode przed planem. |
+| S-28       | mobile-responsive            | Responsywność mobilna (375px) — breakpoints Tailwind, hamburger nav, upload bez drag-drop na touch | yes | Realizować po S-27 (lub równolegle — oba cross-cutting CSS). |
 
 ## Open Roadmap Questions
 
