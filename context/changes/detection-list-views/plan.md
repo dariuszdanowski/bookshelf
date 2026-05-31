@@ -220,10 +220,10 @@ Brak migracji DB. Klucz `localStorage` `bookshelf:detection-view-mode` — nowy,
 ### Phase 4: E2E + domknięcie
 
 #### Automated
-- [x] 4.1 `typecheck` + `lint` zielone
-- [x] 4.2 `npm run test` (vitest) zielony — istniejące + nowe (478 passed)
-- [x] 4.3 `npm run test:e2e` zielony — istniejące + nowy spec (41 passed / 2 skipped)
-- [x] 4.4 grep potwierdza wszystkie oryginalne testid w `DetectionReview.tsx`
+- [x] 4.1 `typecheck` + `lint` zielone — 45aca4a
+- [x] 4.2 `npm run test` (vitest) zielony — istniejące + nowe (472 passed) — 45aca4a
+- [x] 4.3 `npm run test:e2e` zielony — istniejące + nowy spec (full e2e: 38 passed / 2 skipped; sam S-25 spec: 6 passed) — 45aca4a
+- [x] 4.4 grep potwierdza wszystkie oryginalne testid w `DetectionReview.tsx` — 45aca4a
 
 #### Manual
 - [ ] 4.5 przegląd 3 trybów na realnym zdjęciu + persystencja + „Popraw" modal
