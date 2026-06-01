@@ -366,9 +366,10 @@ type DetectionCardProps = {
   onRefined?: (next: DetectionWithCandidatesDTO) => void;
   onSelect?: (detectionId: string) => void;
   isSelected?: boolean;
+  onNavigateToMarker?: () => void;
 };
 
-function DetectionCard({ detection, onDecided, onRefined, onSelect, isSelected = false }: DetectionCardProps) {
+function DetectionCard({ detection, onDecided, onRefined, onSelect, isSelected = false, onNavigateToMarker }: DetectionCardProps) {
   const [showAlts, setShowAlts] = useState(false);
   const [showCorrectForm, setShowCorrectForm] = useState(false);
   const {
@@ -414,6 +415,22 @@ function DetectionCard({ detection, onDecided, onRefined, onSelect, isSelected =
         <span className="text-sm font-medium text-gray-700 truncate">{detection.raw_title}</span>
         {detection.raw_author && (
           <span className="text-xs text-gray-500 truncate">&mdash; {detection.raw_author}</span>
+        )}
+        {onNavigateToMarker && (
+          <button
+            type="button"
+            title="Przejdź do ramki na zdjęciu"
+            className="ml-auto flex-shrink-0 rounded p-0.5 text-gray-400 hover:bg-blue-50 hover:text-blue-500"
+            onClick={(e) => { e.stopPropagation(); onNavigateToMarker(); }}
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <circle cx="7" cy="7" r="3" />
+              <line x1="7" y1="1" x2="7" y2="4" />
+              <line x1="7" y1="10" x2="7" y2="13" />
+              <line x1="1" y1="7" x2="4" y2="7" />
+              <line x1="10" y1="7" x2="13" y2="7" />
+            </svg>
+          </button>
         )}
       </div>
 
@@ -695,9 +712,10 @@ type DetectionRowProps = {
   onRefined?: (next: DetectionWithCandidatesDTO) => void;
   onSelect?: (detectionId: string) => void;
   isSelected?: boolean;
+  onNavigateToMarker?: () => void;
 };
 
-export function DetectionRow({ detection, onDecided, onRefined, onSelect, isSelected = false }: DetectionRowProps) {
+export function DetectionRow({ detection, onDecided, onRefined, onSelect, isSelected = false, onNavigateToMarker }: DetectionRowProps) {
   const [showModal, setShowModal] = useState(false);
   const {
     state,
@@ -737,6 +755,22 @@ export function DetectionRow({ detection, onDecided, onRefined, onSelect, isSele
       onClick={() => onSelect?.(detection.id)}
     >
       <span className="text-xs font-medium text-gray-400">#{detection.position_index}</span>
+      {onNavigateToMarker && (
+        <button
+          type="button"
+          title="Przejdź do ramki na zdjęciu"
+          className="flex-shrink-0 rounded p-0.5 text-gray-400 hover:bg-blue-50 hover:text-blue-500"
+          onClick={(e) => { e.stopPropagation(); onNavigateToMarker(); }}
+        >
+          <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+            <circle cx="7" cy="7" r="3" />
+            <line x1="7" y1="1" x2="7" y2="4" />
+            <line x1="7" y1="10" x2="7" y2="13" />
+            <line x1="1" y1="7" x2="4" y2="7" />
+            <line x1="10" y1="7" x2="13" y2="7" />
+          </svg>
+        </button>
+      )}
 
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <span className="truncate text-sm font-medium text-gray-800">{displayTitle}</span>
@@ -850,9 +884,10 @@ type DetectionTileProps = {
   onRefined?: (next: DetectionWithCandidatesDTO) => void;
   onSelect?: (detectionId: string) => void;
   isSelected?: boolean;
+  onNavigateToMarker?: () => void;
 };
 
-export function DetectionTile({ detection, onDecided, onRefined, onSelect, isSelected = false }: DetectionTileProps) {
+export function DetectionTile({ detection, onDecided, onRefined, onSelect, isSelected = false, onNavigateToMarker }: DetectionTileProps) {
   const [showModal, setShowModal] = useState(false);
   const {
     state,
@@ -895,6 +930,22 @@ export function DetectionTile({ detection, onDecided, onRefined, onSelect, isSel
 
       <div className="mt-2 flex items-center gap-1">
         <span className="text-xs font-medium text-gray-400">#{detection.position_index}</span>
+        {onNavigateToMarker && (
+          <button
+            type="button"
+            title="Przejdź do ramki na zdjęciu"
+            className="flex-shrink-0 rounded p-0.5 text-gray-400 hover:bg-blue-50 hover:text-blue-500"
+            onClick={(e) => { e.stopPropagation(); onNavigateToMarker(); }}
+          >
+            <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+              <circle cx="7" cy="7" r="3" />
+              <line x1="7" y1="1" x2="7" y2="4" />
+              <line x1="7" y1="10" x2="7" y2="13" />
+              <line x1="1" y1="7" x2="4" y2="7" />
+              <line x1="10" y1="7" x2="13" y2="7" />
+            </svg>
+          </button>
+        )}
         {activeCandidate ? (
           <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${TIER_STYLES[getMatchTier(activeCandidate.matchScore)].badge}`}>
             {Math.round(activeCandidate.matchScore * 100)}%
@@ -1513,6 +1564,7 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
                 onRefined={handleRefined}
                 onSelect={setFocusedDetectionId}
                 isSelected={focusedDetectionId === det.id}
+                onNavigateToMarker={() => handleCardContextMenu(det)}
               />
             </div>
           ))}
@@ -1527,6 +1579,7 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
                 onRefined={handleRefined}
                 onSelect={setFocusedDetectionId}
                 isSelected={focusedDetectionId === det.id}
+                onNavigateToMarker={() => handleCardContextMenu(det)}
               />
             </div>
           ))}
@@ -1541,6 +1594,7 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
                 onRefined={handleRefined}
                 onSelect={setFocusedDetectionId}
                 isSelected={focusedDetectionId === det.id}
+                onNavigateToMarker={() => handleCardContextMenu(det)}
               />
             </div>
           ))}

@@ -416,6 +416,19 @@ export default function PhotoDetectionOverlay({
 
           <button
             type="button"
+            title="Przejdź do propozycji na liście"
+            className="absolute -left-2 -top-2 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-white hover:bg-blue-600"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => onMarkerContextMenu?.(det.id)}
+          >
+            <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+              <line x1="1" y1="3" x2="9" y2="3" />
+              <line x1="1" y1="6" x2="9" y2="6" />
+              <line x1="1" y1="9" x2="6" y2="9" />
+            </svg>
+          </button>
+          <button
+            type="button"
             data-testid={`bbox-delete-${det.position_index}`}
             className="absolute -right-2 -top-2 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] leading-none text-white hover:bg-red-600"
             onPointerDown={(e) => e.stopPropagation()}
@@ -540,6 +553,18 @@ export default function PhotoDetectionOverlay({
           onContextMenu={(e) => { e.preventDefault(); if (e.ctrlKey) onMarkerContextMenu?.(det.id); }}
         >
           {hoveredDetId === det.id && <MarkerTooltip det={det} />}
+          <button
+            type="button"
+            title="Przejdź do propozycji na liście"
+            className="absolute -right-2 -top-2 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-white hover:bg-blue-600"
+            onClick={(e) => { e.stopPropagation(); onMarkerContextMenu?.(det.id); }}
+          >
+            <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+              <line x1="1" y1="3" x2="9" y2="3" />
+              <line x1="1" y1="6" x2="9" y2="6" />
+              <line x1="1" y1="9" x2="6" y2="9" />
+            </svg>
+          </button>
           <span className="absolute -top-5 left-0 rounded bg-blue-500 px-1 py-0.5 text-xs leading-none font-bold text-white">
             #{det.position_index}
           </span>
