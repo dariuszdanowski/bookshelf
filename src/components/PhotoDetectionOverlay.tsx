@@ -4,11 +4,31 @@ import { classifyCropQuality } from '../lib/matching/fallbackPolicy';
 import type { BboxCoords, BboxEditSet, DetectionWithCandidatesDTO } from '../lib/photos/schema';
 import ConfirmDialog from './ConfirmDialog';
 
-function markerTitle(det: DetectionWithCandidatesDTO): string {
-  const rawPart = det.raw_title ? det.raw_title : '[brak tytułu]';
+
+function MarkerTooltip({ det }: { det: DetectionWithCandidatesDTO }) {
   const top = det.candidates[0];
-  if (!top) return `#${det.position_index}: ${rawPart}`;
-  return `#${det.position_index}: ${rawPart} → ${top.authors.join(', ')}: ${top.title} (${top.matchScore.toFixed(2)})`;
+  return (
+    <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-56 -translate-x-1/2 rounded-lg border border-gray-200 bg-white px-3 py-2 shadow-lg">
+      <p className="text-[11px] font-semibold text-gray-500">#{det.position_index} — odczyt</p>
+      <p className="mt-0.5 truncate text-sm font-bold text-gray-900">
+        {det.raw_title || <span className="italic text-gray-400">brak tytułu</span>}
+      </p>
+      {top ? (
+        <div className="mt-1.5 border-t border-gray-100 pt-1.5">
+          <p className="text-[11px] font-semibold text-gray-500">Top propozycja</p>
+          <p className="mt-0.5 truncate text-xs font-medium text-gray-800">{top.title}</p>
+          {top.authors.length > 0 && (
+            <p className="truncate text-[11px] text-gray-500">{top.authors.join(', ')}</p>
+          )}
+          <p className="mt-1 text-[11px] font-semibold text-green-600">
+            Dopasowanie: {Math.round(top.matchScore * 100)}%
+          </p>
+        </div>
+      ) : (
+        <p className="mt-1 text-[11px] italic text-gray-400">brak propozycji</p>
+      )}
+    </div>
+  );
 }
 
 function clamp(v: number): number {
@@ -72,6 +92,8 @@ export default function PhotoDetectionOverlay({
   const [imgError, setImgError] = useState(false);
   const [showBoxes, setShowBoxes] = useState(true);
   const [zoom, setZoom] = useState(1);
+  const [hoveredDetId, setHoveredDetId] = useState<string | null>(null);
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Edit mode — accumulated changes for current session
   const [updatedBboxes, setUpdatedBboxes] = useState<Record<string, BboxCoords>>({});
@@ -204,6 +226,16 @@ export default function PhotoDetectionOverlay({
     if (wheelViewportRef.current?.setPointerCapture) {
       wheelViewportRef.current.setPointerCapture(e.pointerId);
     }
+  }
+
+  function handleMarkerEnter(id: string) {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = setTimeout(() => setHoveredDetId(id), 1000);
+  }
+
+  function handleMarkerLeave() {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    setHoveredDetId(null);
   }
 
   function handleContainerPointerDown(e: PointerEvent<HTMLDivElement>) {
@@ -364,12 +396,14 @@ export default function PhotoDetectionOverlay({
         <div
           key={det.id}
           data-testid={`bbox-marker-${det.position_index}`}
-          title={markerTitle(det)}
           style={{ position: 'absolute', left: `${x1 * 100}%`, top: `${y1 * 100}%`, width: `${w * 100}%`, height: `${h * 100}%`, cursor: 'move' }}
-          className={`border-2 ${isUncertain ? 'border-amber-400' : 'border-blue-500'} pointer-events-auto`}
+          className={`border-2 ${isUncertain ? 'border-amber-400' : 'border-blue-500'} pointer-events-auto overflow-visible`}
           onPointerDown={(e) => { if (e.button === 0) startMove(det.id, e); }}
-          onContextMenu={(e) => { if (e.ctrlKey) { e.preventDefault(); onMarkerContextMenu?.(det.id); } }}
+          onPointerEnter={() => handleMarkerEnter(det.id)}
+          onPointerLeave={handleMarkerLeave}
+          onContextMenu={(e) => { e.preventDefault(); if (e.ctrlKey) onMarkerContextMenu?.(det.id); }}
         >
+          {hoveredDetId === det.id && <MarkerTooltip det={det} />}
           <span className="pointer-events-none absolute -top-5 left-0 rounded bg-blue-500 px-1 py-0.5 text-xs leading-none font-bold text-white">
             #{det.position_index}
           </span>
@@ -499,11 +533,13 @@ export default function PhotoDetectionOverlay({
         <div
           key={det.id}
           data-testid={`bbox-marker-${det.position_index}`}
-          title={markerTitle(det)}
           style={{ position: 'absolute', left: `${x1 * 100}%`, top: `${y1 * 100}%`, width: `${w * 100}%`, height: `${h * 100}%` }}
-          className="border-2 border-blue-500"
-          onContextMenu={(e) => { if (e.ctrlKey) { e.preventDefault(); onMarkerContextMenu?.(det.id); } }}
+          className="pointer-events-auto border-2 border-blue-500 overflow-visible"
+          onPointerEnter={() => handleMarkerEnter(det.id)}
+          onPointerLeave={handleMarkerLeave}
+          onContextMenu={(e) => { e.preventDefault(); if (e.ctrlKey) onMarkerContextMenu?.(det.id); }}
         >
+          {hoveredDetId === det.id && <MarkerTooltip det={det} />}
           <span className="absolute -top-5 left-0 rounded bg-blue-500 px-1 py-0.5 text-xs leading-none font-bold text-white">
             #{det.position_index}
           </span>
