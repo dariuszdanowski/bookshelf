@@ -9,6 +9,13 @@ Celem zmiany jest wdrożenie i zweryfikowanie dwóch ścieżek poprawy identyfik
 
 Zmiana ma przygotować repo do świadomej decyzji architektonicznej: czy i kiedy promować OCR bez LLM do ścieżki produkcyjnej.
 
+## Progress (2026-06-01)
+
+- [x] Phase 1: endpoint refine + crop utility + narrow vision adapter + testy API/unit
+- [x] Phase 2: integracja UI akcji refine + conservative rematch + testy Playwright dla refine
+- [x] Phase 3: benchmark OCR bez LLM (offline) -> wynik no-go
+- [ ] Phase 4: decision engine hybrydowy (warunkowo po benchmarku)
+
 ## Current State Analysis
 
 - Runtime preprocessing obrazu w produkcie to dziś resize + JPEG recompress (`src/lib/images/resize.ts`).

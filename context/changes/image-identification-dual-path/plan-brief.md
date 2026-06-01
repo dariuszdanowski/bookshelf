@@ -35,3 +35,15 @@ Projekt ma gotowy, tani fallback dla trudnych detekcji oraz twarde dane z benchm
 | 2 | Integracja fallbacku z matchingiem + guardy kosztowe |
 | 3 | Benchmark OCR bez LLM i raport go/no-go |
 | 4 | (Warunkowo) orchestrator hybrydowy |
+
+## Execution Status (2026-06-01)
+
+- Phase 1: done
+- Phase 2: done
+- Phase 3: done (wynik: no-go dla OCR-first)
+- Phase 4: not started (gate nie spełniony po benchmarku)
+
+Kluczowy wynik benchmarku:
+- baseline recall@top1: 66.7%
+- najlepszy profil OCR: 0.0%
+- lift: -66.7 pp
