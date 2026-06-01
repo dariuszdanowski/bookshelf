@@ -5,10 +5,27 @@ import type { BboxCoords, BboxEditSet, DetectionWithCandidatesDTO } from '../lib
 import ConfirmDialog from './ConfirmDialog';
 
 
-function MarkerTooltip({ det }: { det: DetectionWithCandidatesDTO }) {
+const TOOLTIP_W = 224; // w-56 = 14rem
+const TOOLTIP_H = 148; // estimated max height
+
+function MarkerTooltip({ det, mousePos }: { det: DetectionWithCandidatesDTO; mousePos: { x: number; y: number } }) {
   const top = det.candidates[0];
+
+  // Position above-right of cursor, clamped to viewport
+  const GAP = 14;
+  let left = mousePos.x + GAP;
+  let tooltipTop = mousePos.y - TOOLTIP_H - GAP;
+
+  if (left + TOOLTIP_W > window.innerWidth - 8) left = mousePos.x - TOOLTIP_W - GAP;
+  if (left < 8) left = 8;
+  if (tooltipTop < 8) tooltipTop = mousePos.y + GAP;
+
   return (
-    <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-56 -translate-x-1/2 rounded-lg border border-gray-200 bg-white px-3 py-2 shadow-lg">
+    <div
+      data-testid="marker-tooltip"
+      className="pointer-events-none fixed z-50 w-56 rounded-lg border border-gray-200 bg-white px-3 py-2 shadow-lg"
+      style={{ left, top: tooltipTop }}
+    >
       <p className="text-[11px] font-semibold text-gray-500">#{det.position_index} — odczyt</p>
       <p className="mt-0.5 truncate text-sm font-bold text-gray-900">
         {det.raw_title || <span className="italic text-gray-400">brak tytułu</span>}
@@ -93,6 +110,7 @@ export default function PhotoDetectionOverlay({
   const [showBoxes, setShowBoxes] = useState(true);
   const [zoom, setZoom] = useState(1);
   const [hoveredDetId, setHoveredDetId] = useState<string | null>(null);
+  const [mousePos, setMousePos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Edit mode — accumulated changes for current session
@@ -228,9 +246,14 @@ export default function PhotoDetectionOverlay({
     }
   }
 
-  function handleMarkerEnter(id: string) {
+  function handleMarkerEnter(id: string, e: React.PointerEvent) {
     if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    setMousePos({ x: e.clientX, y: e.clientY });
     hoverTimerRef.current = setTimeout(() => setHoveredDetId(id), 1000);
+  }
+
+  function handleMarkerMove(e: React.PointerEvent) {
+    setMousePos({ x: e.clientX, y: e.clientY });
   }
 
   function handleMarkerLeave() {
@@ -399,11 +422,12 @@ export default function PhotoDetectionOverlay({
           style={{ position: 'absolute', left: `${x1 * 100}%`, top: `${y1 * 100}%`, width: `${w * 100}%`, height: `${h * 100}%`, cursor: 'move' }}
           className={`border-2 ${isUncertain ? 'border-amber-400' : 'border-blue-500'} pointer-events-auto overflow-visible`}
           onPointerDown={(e) => { if (e.button === 0) startMove(det.id, e); }}
-          onPointerEnter={() => handleMarkerEnter(det.id)}
+          onPointerEnter={(e) => handleMarkerEnter(det.id, e)}
+          onPointerMove={handleMarkerMove}
           onPointerLeave={handleMarkerLeave}
           onContextMenu={(e) => { e.preventDefault(); if (e.ctrlKey) onMarkerContextMenu?.(det.id); }}
         >
-          {hoveredDetId === det.id && <MarkerTooltip det={det} />}
+          {hoveredDetId === det.id && <MarkerTooltip det={det} mousePos={mousePos} />}
           <span className="pointer-events-none absolute -top-5 left-0 rounded bg-blue-500 px-1 py-0.5 text-xs leading-none font-bold text-white">
             #{det.position_index}
           </span>
@@ -548,11 +572,12 @@ export default function PhotoDetectionOverlay({
           data-testid={`bbox-marker-${det.position_index}`}
           style={{ position: 'absolute', left: `${x1 * 100}%`, top: `${y1 * 100}%`, width: `${w * 100}%`, height: `${h * 100}%` }}
           className="pointer-events-auto border-2 border-blue-500 overflow-visible"
-          onPointerEnter={() => handleMarkerEnter(det.id)}
+          onPointerEnter={(e) => handleMarkerEnter(det.id, e)}
+          onPointerMove={handleMarkerMove}
           onPointerLeave={handleMarkerLeave}
           onContextMenu={(e) => { e.preventDefault(); if (e.ctrlKey) onMarkerContextMenu?.(det.id); }}
         >
-          {hoveredDetId === det.id && <MarkerTooltip det={det} />}
+          {hoveredDetId === det.id && <MarkerTooltip det={det} mousePos={mousePos} />}
           <button
             type="button"
             title="Przejdź do propozycji na liście"

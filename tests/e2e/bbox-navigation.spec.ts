@@ -200,7 +200,7 @@ test.describe('tooltip na markerze', () => {
     await marker.hover();
 
     // Tooltip pojawia się po ~1s — czekamy na widoczność (max 3s)
-    const tooltip = page.locator('.pointer-events-none.absolute.bottom-full').first();
+    const tooltip = page.getByTestId('marker-tooltip');
     await expect(tooltip).toBeVisible({ timeout: 3000 });
     await expect(tooltip).toContainText('Solaris');
     await expect(tooltip).toContainText('Stanisław Lem');
@@ -210,7 +210,7 @@ test.describe('tooltip na markerze', () => {
     const marker = page.getByTestId('bbox-marker-1');
     await marker.hover();
 
-    const tooltip = page.locator('.pointer-events-none.absolute.bottom-full').first();
+    const tooltip = page.getByTestId('marker-tooltip');
     await expect(tooltip).toBeVisible({ timeout: 3000 });
 
     // Odsuń mysz od markera
@@ -222,7 +222,7 @@ test.describe('tooltip na markerze', () => {
     const marker = page.getByTestId('bbox-marker-2');
     await marker.hover();
 
-    const tooltip = page.locator('.pointer-events-none.absolute.bottom-full').first();
+    const tooltip = page.getByTestId('marker-tooltip');
     await expect(tooltip).toBeVisible({ timeout: 3000 });
     await expect(tooltip).toContainText('Lalka');
     await expect(tooltip).toContainText('brak propozycji');
