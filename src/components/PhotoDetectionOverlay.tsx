@@ -392,6 +392,17 @@ export default function PhotoDetectionOverlay({
       return;
     }
 
+    // Single-edit resize/move — wyczyść refy po zwolnieniu przycisku
+    if (resizingRef.current || movingRef.current) {
+      resizingRef.current = null;
+      movingRef.current = null;
+      if (e.currentTarget.hasPointerCapture?.(e.pointerId)) {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }
+      return;
+    }
+
+    // Pan cleanup
     const state = dragStateRef.current;
     if (state.pointerId !== e.pointerId) return;
     state.dragging = false;
