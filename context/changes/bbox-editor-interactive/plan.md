@@ -355,9 +355,9 @@ Brak nowej migracji: `bbox_x1..y2` nullable od migracji 0006; `raw_title text` n
 
 #### Automated
 
-- [ ] 1.1 `npm run typecheck` zielony — BboxCoords, BboxEditSet eksportowane
-- [ ] 1.2 `npm run lint` zielony
-- [ ] 1.3 `npm run test` zielony — nowe bbox.test.ts + detections.test.ts + istniejące bez regresji
+- [x] 1.1 `npm run typecheck` zielony — BboxCoords, BboxEditSet eksportowane
+- [x] 1.2 `npm run lint` zielony
+- [x] 1.3 `npm run test` zielony — nowe bbox.test.ts + detections.test.ts + istniejące bez regresji
 
 ### Phase 2: PhotoDetectionOverlay edit mode
 
