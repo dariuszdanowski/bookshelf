@@ -45,8 +45,9 @@ export const GET: APIRoute = async ({ params, locals }) => {
     };
 
   if (rcError) {
-    console.error('[api/photos/costs GET] refine_calls failed', rcError.message);
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Błąd pobierania danych refine.' });
+    // Graceful degrade: tabela refine_calls może nie istnieć jeszcze w DB
+    // (migracja 0012 czeka na merge+push). Zamiast 500 zwracamy pustą listę.
+    console.warn('[api/photos/costs GET] refine_calls unavailable — returning []', rcError.message);
   }
 
   const visionTotal = (visionRuns ?? []).reduce((s, r) => s + (r.cost_usd ?? 0), 0);

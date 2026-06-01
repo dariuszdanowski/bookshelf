@@ -21,6 +21,9 @@ export default defineConfig({
       },
     },
     plugins: [tailwindcss()],
+    optimizeDeps: {
+      exclude: ['@cf-wasm/photon'],
+    },
   },
 
   adapter: cloudflare(),

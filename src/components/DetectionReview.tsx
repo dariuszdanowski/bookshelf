@@ -215,6 +215,85 @@ function CorrectForm({
 }
 
 // ---------------------------------------------------------------------------
+// Formularz wyszukiwania po tytule (rematch)
+// ---------------------------------------------------------------------------
+
+type RematchFormProps = {
+  initialTitle: string;
+  initialAuthor: string;
+  busy: boolean;
+  errorMsg: string | null;
+  onSubmit: (title: string, author: string | null) => void;
+  onCancel: () => void;
+};
+
+function RematchForm({ initialTitle, initialAuthor, busy, errorMsg, onSubmit, onCancel }: RematchFormProps) {
+  const [title, setTitle] = useState(initialTitle);
+  const [author, setAuthor] = useState(initialAuthor);
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!title.trim()) return;
+    onSubmit(title.trim(), author.trim() || null);
+  }
+
+  return (
+    <form
+      data-testid="rematch-form"
+      onSubmit={handleSubmit}
+      className="mt-3 space-y-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3"
+    >
+      <div>
+        <label className="block text-xs font-medium text-gray-700">
+          Tytuł
+          <input
+            data-testid="rematch-title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="mt-0.5 w-full rounded border border-gray-300 px-2 py-1 text-xs"
+            required
+          />
+        </label>
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-gray-700">
+          Autor (opcjonalnie)
+          <input
+            data-testid="rematch-author"
+            value={author}
+            onChange={(e) => setAuthor(e.target.value)}
+            className="mt-0.5 w-full rounded border border-gray-300 px-2 py-1 text-xs"
+          />
+        </label>
+      </div>
+      {errorMsg && (
+        <p data-testid="rematch-error" className="text-xs text-red-600" role="alert">
+          {errorMsg}
+        </p>
+      )}
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          data-testid="rematch-submit"
+          disabled={busy || !title.trim()}
+          className="flex-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+        >
+          {busy ? 'Szukam...' : 'Szukaj'}
+        </button>
+        <button
+          type="button"
+          data-testid="rematch-cancel"
+          onClick={onCancel}
+          className="rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
+        >
+          Anuluj
+        </button>
+      </div>
+    </form>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Karta detekcji z akcjami
 // ---------------------------------------------------------------------------
 
@@ -290,6 +369,45 @@ function useDetectionDecision(
     }
   }
 
+  async function handleRematch(title: string, author: string | null): Promise<boolean> {
+    setBusy(true);
+    setErrorMsg(null);
+    try {
+      const res = await fetch(`/api/detections/${detection.id}/rematch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, author }),
+      });
+      const json = (await res.json()) as {
+        data?: {
+          applied?: boolean;
+          detection?: Partial<DetectionWithCandidatesDTO>;
+          candidates?: BookCandidateDTO[];
+          duplicate?: DetectionWithCandidatesDTO['duplicate'];
+        };
+        error?: { message?: string };
+      };
+      if (res.status === 429) { setErrorMsg('Rate limit, spróbuj za chwilę.'); return false; }
+      if (!res.ok) { setErrorMsg(json.error?.message ?? `Błąd wyszukiwania (${res.status})`); return false; }
+      const nextDetection = json.data?.detection;
+      const candidates = json.data?.candidates ?? [];
+      if (nextDetection) {
+        onRefined?.({
+          ...detection,
+          ...nextDetection,
+          candidates,
+          duplicate: json.data?.duplicate ?? null,
+        });
+      }
+      return candidates.length > 0;
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : 'Błąd sieci.');
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleRefine() {
     setBusy(true);
     setErrorMsg(null);
@@ -357,6 +475,7 @@ function useDetectionDecision(
     handleConfirm,
     handleReject,
     handleRefine,
+    handleRematch,
     handleCorrectSuccess,
   };
 }
@@ -374,6 +493,8 @@ type DetectionCardProps = {
 function DetectionCard({ detection, onDecided, onRefined, onSelect, isSelected = false, onNavigateToMarker, photoId }: DetectionCardProps) {
   const [showAlts, setShowAlts] = useState(false);
   const [showCorrectForm, setShowCorrectForm] = useState(false);
+  const [showRematchForm, setShowRematchForm] = useState(false);
+  const [rematchNoResults, setRematchNoResults] = useState(false);
   const {
     setSelectedCandidateId,
     state,
@@ -386,6 +507,7 @@ function DetectionCard({ detection, onDecided, onRefined, onSelect, isSelected =
     handleConfirm,
     handleReject,
     handleRefine,
+    handleRematch,
     handleCorrectSuccess,
   } = useDetectionDecision(detection, onDecided, onRefined);
 
@@ -458,8 +580,8 @@ function DetectionCard({ detection, onDecided, onRefined, onSelect, isSelected =
         </div>
       )}
 
-      {/* No match → manual entry form */}
-      {!top && !showCorrectForm && (
+      {/* No match → rematch + manual entry */}
+      {!top && !showCorrectForm && !showRematchForm && (
         <div>
           <p
             data-testid="no-match-placeholder"
@@ -467,6 +589,18 @@ function DetectionCard({ detection, onDecided, onRefined, onSelect, isSelected =
           >
             Brak pewnego matchu
           </p>
+          {rematchNoResults && (
+            <p className="mt-1 text-center text-xs text-amber-600" data-testid="rematch-no-results">
+              Nie znaleziono wyników dla podanego tytułu
+            </p>
+          )}
+          <button
+            data-testid="rematch-button"
+            onClick={() => { setShowRematchForm(true); setRematchNoResults(false); }}
+            className="mt-2 w-full rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+          >
+            Szukaj po tytule
+          </button>
           <button
             data-testid="manual-entry-button"
             onClick={() => setShowCorrectForm(true)}
@@ -475,6 +609,24 @@ function DetectionCard({ detection, onDecided, onRefined, onSelect, isSelected =
             Wpisz ręcznie
           </button>
         </div>
+      )}
+
+      {/* Rematch form */}
+      {!top && showRematchForm && (
+        <RematchForm
+          initialTitle={detection.raw_title ?? ''}
+          initialAuthor={detection.raw_author ?? ''}
+          busy={busy}
+          errorMsg={errorMsg}
+          onSubmit={async (title, author) => {
+            const found = await handleRematch(title, author);
+            if (!found) {
+              setRematchNoResults(true);
+              setShowRematchForm(false);
+            }
+          }}
+          onCancel={() => setShowRematchForm(false)}
+        />
       )}
 
       {/* Manual entry form */}
@@ -730,6 +882,7 @@ type DetectionRowProps = {
 
 export function DetectionRow({ detection, onDecided, onRefined, onSelect, isSelected = false, onNavigateToMarker }: DetectionRowProps) {
   const [showModal, setShowModal] = useState(false);
+  const [showRematchForm, setShowRematchForm] = useState(false);
   const {
     state,
     busy,
@@ -740,6 +893,7 @@ export function DetectionRow({ detection, onDecided, onRefined, onSelect, isSele
     handleConfirm,
     handleReject,
     handleRefine,
+    handleRematch,
     handleCorrectSuccess,
   } = useDetectionDecision(detection, onDecided, onRefined);
 
@@ -851,13 +1005,23 @@ export function DetectionRow({ detection, onDecided, onRefined, onSelect, isSele
             Popraw
           </button>
         ) : (
-          <button
-            data-testid="manual-entry-button"
-            onClick={() => setShowModal(true)}
-            className="rounded border border-blue-300 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
-          >
-            Wpisz ręcznie
-          </button>
+          <>
+            <button
+              data-testid="rematch-button"
+              disabled={busy}
+              onClick={() => setShowRematchForm(true)}
+              className="rounded border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+            >
+              Szukaj
+            </button>
+            <button
+              data-testid="manual-entry-button"
+              onClick={() => setShowModal(true)}
+              className="rounded border border-blue-300 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
+            >
+              Wpisz ręcznie
+            </button>
+          </>
         )}
         {(() => {
           const quality = classifyCropQuality(detection.bbox);
@@ -875,6 +1039,20 @@ export function DetectionRow({ detection, onDecided, onRefined, onSelect, isSele
           );
         })()}
       </div>
+
+      {showRematchForm && (
+        <RematchForm
+          initialTitle={detection.raw_title ?? ''}
+          initialAuthor={detection.raw_author ?? ''}
+          busy={busy}
+          errorMsg={errorMsg}
+          onSubmit={async (title, author) => {
+            const found = await handleRematch(title, author);
+            if (found) setShowRematchForm(false);
+          }}
+          onCancel={() => setShowRematchForm(false)}
+        />
+      )}
 
       {showModal && (
         <DetectionCorrectionModal
@@ -908,6 +1086,7 @@ type DetectionTileProps = {
 
 export function DetectionTile({ detection, onDecided, onRefined, onSelect, isSelected = false, onNavigateToMarker }: DetectionTileProps) {
   const [showModal, setShowModal] = useState(false);
+  const [showRematchForm, setShowRematchForm] = useState(false);
   const {
     state,
     busy,
@@ -918,6 +1097,7 @@ export function DetectionTile({ detection, onDecided, onRefined, onSelect, isSel
     handleConfirm,
     handleReject,
     handleRefine,
+    handleRematch,
     handleCorrectSuccess,
   } = useDetectionDecision(detection, onDecided, onRefined);
 
@@ -1028,13 +1208,23 @@ export function DetectionTile({ detection, onDecided, onRefined, onSelect, isSel
             Popraw
           </button>
         ) : (
-          <button
-            data-testid="manual-entry-button"
-            onClick={() => setShowModal(true)}
-            className="rounded border border-blue-300 bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
-          >
-            Wpisz ręcznie
-          </button>
+          <>
+            <button
+              data-testid="rematch-button"
+              disabled={busy}
+              onClick={() => setShowRematchForm(true)}
+              className="rounded border border-emerald-300 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+            >
+              Szukaj
+            </button>
+            <button
+              data-testid="manual-entry-button"
+              onClick={() => setShowModal(true)}
+              className="rounded border border-blue-300 bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
+            >
+              Wpisz ręcznie
+            </button>
+          </>
         )}
         <button
           data-testid="refine-button"
@@ -1046,6 +1236,20 @@ export function DetectionTile({ detection, onDecided, onRefined, onSelect, isSel
           {busy ? '...' : 'Refine'}
         </button>
       </div>
+
+      {showRematchForm && (
+        <RematchForm
+          initialTitle={detection.raw_title ?? ''}
+          initialAuthor={detection.raw_author ?? ''}
+          busy={busy}
+          errorMsg={errorMsg}
+          onSubmit={async (title, author) => {
+            const found = await handleRematch(title, author);
+            if (found) setShowRematchForm(false);
+          }}
+          onCancel={() => setShowRematchForm(false)}
+        />
+      )}
 
       {showModal && (
         <DetectionCorrectionModal
