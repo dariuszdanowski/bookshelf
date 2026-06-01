@@ -1,4 +1,4 @@
-export const PROMPT_VERSION = 'v5';
+export const PROMPT_VERSION = 'v6';
 export const REFINE_PROMPT_VERSION = 'v1-refine';
 
 // Paleta kolorów grzbietów — load-bearing (zamrożona Q2, S-08 filtruje po spine_color).
@@ -29,7 +29,7 @@ Dla każdej książki zwróć JSON object:
 - confidence: float 0–1 (pewność odczytu; < 0.7 gdy tekst zasłonięty lub niewyraźny)
 - orientation: "vertical" | "horizontal" (vertical = stoi pionowo, horizontal = leży w stosie)
 - spine_color: string | null (dominujący kolor grzbietu z listy: czerwony, pomarańczowy, żółty, zielony, niebieski, granatowy, fioletowy, różowy, brązowy, czarny, biały, szary; null jeśli nie pasuje żaden)
-- bbox: [x1, y1, x2, y2] — ZAWSZE podaj, never null
+- bbox: [x1, y1, x2, y2]
 
 Reguły odczytu:
 - NIE zgaduj tytułu — pusta lista lepsza niż halucynacja
@@ -38,25 +38,23 @@ Reguły odczytu:
 - Zwróć TYLKO JSON array, bez żadnego tekstu przed ani po
 - Jeśli nie ma książek → zwróć []
 
-Instrukcja bbox (OBOWIĄZKOWE):
+Instrukcja bbox — współrzędne 0..1 względem PEŁNEGO zdjęcia (NIGDY piksele, NIGDY wartości >1):
 
-Współrzędne ZAWSZE jako floaty 0..1 względem PEŁNEGO zdjęcia:
-  [0.0, 0.0] = lewy-górny narożnik, [1.0, 1.0] = prawy-dolny narożnik.
-  NIGDY nie używaj pikseli ani wartości >1.
+PRZYKŁAD obliczania bbox dla stosu poziomego (książki leżą, grzbiety widoczne z boku):
+  Wyobraź sobie poziomy pasek. Każda książka to OSOBNY cienki pasek.
+  x1 = lewa krawędź stosu = gdzie grzbiety się zaczynają
+  x2 = prawa krawędź stosu = gdzie grzbiety się kończą  [x2-x1 typowo 0.10–0.25]
+  y1 = górna powierzchnia tej jednej książki
+  y2 = dolna powierzchnia tej jednej książki             [y2-y1 typowo 0.03–0.07]
+  Wynik: SZEROKIE w osi x, CIENKIE w osi y → np. [0.03, 0.63, 0.22, 0.67]
 
-orientation = "vertical" (stoi pionowo):
-  x1,x2 = lewa/prawa fizyczna krawędź grzbietu (x2-x1 typowo 0.015–0.06)
-  y1 = gdzie zaczyna się górna krawędź grzbietu (zazwyczaj 0.15–0.30)
-  y2 = DOLNA KRAWĘDŹ FIZYCZNA książki = gdzie grzbiet dotyka POWIERZCHNI PÓŁKI
-        (NIE dół tekstu — cały grzbiet fizyczny aż do deski półki; typowo 0.70–0.88)
-  Przykład: [0.12, 0.24, 0.17, 0.82]
+PRZYKŁAD obliczania bbox dla stojącej pionowo:
+  x1,x2 = lewa/prawa krawędź grzbietu                  [x2-x1 typowo 0.015–0.05]
+  y1 = szczyt grzbietu (górna krawędź okładki)          [typowo 0.18–0.28]
+  y2 = DOŁ grzbietu = deska półki (NIE dół tekstu!)     [typowo 0.75–0.88]
+  Wynik: WĄSKIE w osi x, SIĘGAJĄCE DO PÓŁKI w osi y → np. [0.22, 0.24, 0.25, 0.82]
 
-orientation = "horizontal" (leży w stosie, grzbiet widoczny z boku):
-  x1,x2 = lewa/prawa krawędź GRZBIETU (szerokie: 0.10–0.30)
-  y1,y2 = cienki pasek jednej książki (y2-y1 typowo 0.02–0.07)
-  Każda leżąca książka = osobny cienki pasek. Przykład: [0.03, 0.45, 0.21, 0.51]
-
-Jeśli niepewny lokalizacji: podaj best-effort — lepsze przybliżenie niż null.
+Jeśli niepewny lokalizacji: podaj best-effort (przybliżenie > null).
 
 Format: [{"position":1,"title":"...","author":"...","confidence":0.95,"orientation":"vertical","spine_color":"niebieski","bbox":[0.12,0.24,0.17,0.82]}, ...]`;
 
