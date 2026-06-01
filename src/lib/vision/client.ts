@@ -1,4 +1,8 @@
-import Anthropic from '@anthropic-ai/sdk';
+// Static import replaced with import type + lazy loader below.
+// Reason: Vite SSR optimizer fails to pre-bundle @anthropic-ai/sdk (CJS with dynamic
+// require). Dynamic import inside async functions bypasses the static dep graph,
+// so Vite never tries to create deps_ssr/@anthropic-ai_sdk.js.
+import type Anthropic from '@anthropic-ai/sdk';
 import { env } from 'cloudflare:workers';
 
 import { REFINE_VISION_SYSTEM_PROMPT, VISION_SYSTEM_PROMPT } from './prompt';
@@ -10,6 +14,11 @@ const THINKING_BUDGET_TOKENS = 1536;
 // Sonnet pricing: $3/1M input tokens, $15/1M output tokens
 const COST_IN_PER_M = 3;
 const COST_OUT_PER_M = 15;
+
+async function makeClient(apiKey: string) {
+  const { default: AnthropicSDK } = await import('@anthropic-ai/sdk');
+  return new AnthropicSDK({ apiKey });
+}
 
 export type VisionResult =
   | { ok: true; detections: Detection[]; model: string; costUsd: number; latencyMs: number }
@@ -77,7 +86,7 @@ export async function detectSpines(input: {
   mediaType: 'image/jpeg' | 'image/png' | 'image/webp';
 }): Promise<VisionResult> {
   const apiKey = env?.ANTHROPIC_API_KEY ?? import.meta.env.ANTHROPIC_API_KEY;
-  const client = new Anthropic({ apiKey });
+  const client = await makeClient(apiKey);
   const start = Date.now();
 
   console.log('[vision:request]', {
@@ -156,7 +165,7 @@ export async function detectSingleSpineFromCrop(input: {
   mediaType: 'image/jpeg' | 'image/png' | 'image/webp';
 }): Promise<RefineVisionResult> {
   const apiKey = env?.ANTHROPIC_API_KEY ?? import.meta.env.ANTHROPIC_API_KEY;
-  const client = new Anthropic({ apiKey });
+  const client = await makeClient(apiKey);
   const start = Date.now();
 
   const messages: Anthropic.MessageParam[] = [
