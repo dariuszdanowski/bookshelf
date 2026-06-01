@@ -162,42 +162,21 @@ export default function CostPanel({ photoId, detectionId, align = 'right', prelo
             <div className="max-h-72 overflow-y-auto">
               {/* Vision runs (tylko dla widoku photo) */}
               {filteredVision.map((vr) => (
-                <div key={vr.id} className="border-b border-gray-50 px-3 py-2">
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1 text-[11px] font-semibold text-indigo-600">
-                      <svg width="10" height="10" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/><path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd"/></svg>
-                      Vision run
-                    </span>
-                    <span className="text-[11px] font-semibold text-gray-800">{formatCost(vr.cost_usd)}</span>
-                  </div>
-                  <div className="mt-0.5 flex items-center gap-2 text-[10px] text-gray-400">
-                    <span>{formatDate(vr.created_at)}</span>
-                    <span>·</span>
-                    <span>{formatLatency(vr.latency_ms)}</span>
-                    <span>·</span>
-                    <span>{vr.status}</span>
-                  </div>
+                <div key={vr.id} className="flex items-center gap-2 border-b border-gray-50 px-3 py-1.5">
+                  <svg className="flex-shrink-0 text-indigo-500" width="10" height="10" viewBox="0 0 20 20" fill="currentColor"><path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/><path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd"/></svg>
+                  <span className="flex-1 truncate text-[11px] text-gray-600">Vision · {formatDate(vr.created_at)} · {formatLatency(vr.latency_ms)}</span>
+                  <span className="flex-shrink-0 text-[11px] font-semibold text-gray-800">{formatCost(vr.cost_usd)}</span>
                 </div>
               ))}
 
               {/* Refine calls */}
               {filteredRefine.map((rc) => (
-                <div key={rc.id} className="border-b border-gray-50 px-3 py-2">
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1 text-[11px] font-semibold text-amber-600">
-                      <svg width="10" height="10" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd"/></svg>
-                      OCR{rc.position_index != null ? ` #${rc.position_index}` : ''}
-                    </span>
-                    <span className="text-[11px] font-semibold text-gray-800">{formatCost(rc.cost_usd)}</span>
-                  </div>
-                  {rc.raw_title && (
-                    <p className="mt-0.5 truncate text-[10px] italic text-gray-500">{rc.raw_title}</p>
-                  )}
-                  <div className="mt-0.5 flex items-center gap-2 text-[10px] text-gray-400">
-                    <span>{formatDate(rc.created_at)}</span>
-                    <span>·</span>
-                    <span>{formatLatency(rc.latency_ms)}</span>
-                  </div>
+                <div key={rc.id} className="flex items-center gap-2 border-b border-gray-50 px-3 py-1.5">
+                  <svg className="flex-shrink-0 text-amber-500" width="10" height="10" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd"/></svg>
+                  <span className="flex-1 truncate text-[11px] text-gray-600">
+                    OCR{rc.position_index != null ? ` #${rc.position_index}` : ''}{rc.raw_title ? ` ${rc.raw_title}` : ''} · {formatDate(rc.created_at)} · {formatLatency(rc.latency_ms)}
+                  </span>
+                  <span className="flex-shrink-0 text-[11px] font-semibold text-gray-800">{formatCost(rc.cost_usd)}</span>
                 </div>
               ))}
 

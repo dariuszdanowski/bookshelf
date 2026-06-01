@@ -77,7 +77,7 @@ test.describe('cost-panel', () => {
     await expect(panel).toBeVisible();
 
     // Zawiera Vision run
-    await expect(panel).toContainText('Vision run');
+    await expect(panel).toContainText('Vision');
     // Zawiera OCR wpis
     await expect(panel).toContainText('OCR #1');
     // Suma
@@ -150,8 +150,9 @@ test.describe('cost-panel', () => {
     expect(costsCalled).toBe(false);
 
     // Dopiero klik wywołuje fetch
+    const costsRequestPromise = page.waitForRequest((req) => req.url().includes('/costs'));
     await page.getByTestId('cost-button-photo').click();
-    await expect(page.locator('text=Vision run')).toBeVisible();
+    await costsRequestPromise;
     expect(costsCalled).toBe(true);
   });
 });
