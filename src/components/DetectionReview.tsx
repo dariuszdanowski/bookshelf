@@ -1164,9 +1164,6 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
         setPhotoUrl(json.data.photo_url ?? null);
         const loadedDetections = json.data.detections ?? [];
         setDetections(loadedDetections);
-        if (loadedDetections.length > 0) {
-          setFocusedDetectionId(loadedDetections[0].id);
-        }
         setVisionRun(json.data.vision_run ?? null);
       } catch (err) {
         if (!cancelled) setErrorMsg(err instanceof Error ? err.message : 'Nie udało się załadować propozycji.');
