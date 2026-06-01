@@ -36,8 +36,11 @@ function sanitizeBbox(
   const height = y2 - y1;
   if (width <= 0 || height <= 0) return null;
 
-  // Tiny or razor-thin boxes are usually noise, not a readable spine area.
-  if (width < 0.015 || height < 0.08) return null;
+  // Reject razor-thin boxes in BOTH dimensions (noise) but keep landscape bboxes
+  // (horizontal/lying books have large width, small height — e.g. w=0.19 h=0.05).
+  // Old check `height < 0.08` killed all horizontal-book bboxes.
+  const minDim = Math.min(width, height);
+  if (minDim < 0.012) return null;
 
   // Guard against false positives on image edges (wall/shelf shadows).
   const touchesLeftOrRightEdge = x1 < 0.02 || x2 > 0.98;

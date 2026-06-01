@@ -1249,6 +1249,11 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
         setActionMsg(json.error?.message ?? `Błąd (${res.status})`);
         return;
       }
+      // Auto-match after vision — user expects proposals immediately, not a blank list.
+      // Ignore match errors: reload will show detections even if match fails.
+      try {
+        await fetch(`/api/photos/${photoId}/match`, { method: 'POST' });
+      } catch {}
       window.location.reload();
     } catch (err) {
       setActionMsg(err instanceof Error ? err.message : 'Błąd sieci.');
