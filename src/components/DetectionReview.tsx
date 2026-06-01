@@ -1353,6 +1353,19 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
     }
   }
 
+  async function handleSaveSingleBbox(detectionId: string, bbox: BboxEditSet['updated'][number]['bbox']): Promise<void> {
+    const res = await fetch(`/api/detections/${detectionId}/bbox`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bbox }),
+    });
+    if (!res.ok) {
+      const json = (await res.json()) as { error?: { message?: string } };
+      throw new Error(json.error?.message ?? `Błąd zapisu bbox (${res.status})`);
+    }
+    setDetections((prev) => prev.map((d) => d.id === detectionId ? { ...d, bbox } : d));
+  }
+
   function handleMarkerContextMenu(detectionId: string) {
     const det = detections.find((d) => d.id === detectionId);
     if (!det) return;
@@ -1488,6 +1501,7 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
           onEditingChange={setIsBboxEditing}
           onApplyEdits={handleApplyEdits}
           onMarkerContextMenu={handleMarkerContextMenu}
+          onSaveSingleBbox={handleSaveSingleBbox}
         />
       )}
 

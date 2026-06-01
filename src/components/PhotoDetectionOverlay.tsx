@@ -93,6 +93,7 @@ type Props = {
   onEditingChange?: (v: boolean) => void;
   onApplyEdits?: (changes: BboxEditSet) => Promise<void>;
   onMarkerContextMenu?: (detectionId: string) => void;
+  onSaveSingleBbox?: (detectionId: string, bbox: BboxCoords) => Promise<void>;
 };
 
 export default function PhotoDetectionOverlay({
@@ -104,6 +105,7 @@ export default function PhotoDetectionOverlay({
   onEditingChange,
   onApplyEdits,
   onMarkerContextMenu,
+  onSaveSingleBbox,
 }: Props) {
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgError, setImgError] = useState(false);
@@ -120,6 +122,11 @@ export default function PhotoDetectionOverlay({
   const [draft, setDraft] = useState<{ start: { x: number; y: number }; current: { x: number; y: number } } | null>(null);
   const [applyBusy, setApplyBusy] = useState(false);
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
+
+  // Single-marker edit (per-marker, bez globalnego trybu edycji)
+  const [singleEditId, setSingleEditId] = useState<string | null>(null);
+  const [singleEditBbox, setSingleEditBbox] = useState<BboxCoords | null>(null);
+  const [singleEditBusy, setSingleEditBusy] = useState(false);
 
   const wheelViewportRef = useRef<HTMLDivElement | null>(null);
   const imgContainerRef = useRef<HTMLDivElement | null>(null);
@@ -148,9 +155,12 @@ export default function PhotoDetectionOverlay({
   useEffect(() => { zoomRef.current = zoom; }, [zoom]);
   useEffect(() => { isEditingRef.current = isEditing; }, [isEditing]);
 
-  // Reset edit state on edit mode exit (zoom preserved intentionally)
+  // Reset edit state on edit mode entry/exit (zoom preserved intentionally)
   useEffect(() => {
-    if (!isEditing) {
+    if (isEditing) {
+      setSingleEditId(null);
+      setSingleEditBbox(null);
+    } else {
       setUpdatedBboxes({});
       setRemovedIds([]);
       setAddedBboxes([]);
@@ -209,6 +219,7 @@ export default function PhotoDetectionOverlay({
   }
 
   function getBboxById(id: string): BboxCoords | null {
+    if (singleEditId === id && singleEditBbox) return singleEditBbox;
     if (id.startsWith('added:')) {
       const idx = parseInt(id.slice(6), 10);
       return addedBboxes[idx] ?? null;
@@ -217,11 +228,27 @@ export default function PhotoDetectionOverlay({
   }
 
   function applyBboxEdit(id: string, newBbox: BboxCoords) {
+    if (singleEditId === id) {
+      setSingleEditBbox(newBbox);
+      return;
+    }
     if (id.startsWith('added:')) {
       const idx = parseInt(id.slice(6), 10);
       setAddedBboxes((prev) => prev.map((b, i) => (i === idx ? newBbox : b)));
     } else {
       setUpdatedBboxes((prev) => ({ ...prev, [id]: newBbox }));
+    }
+  }
+
+  async function handleSingleEditSave() {
+    if (!singleEditId || !singleEditBbox) return;
+    setSingleEditBusy(true);
+    try {
+      await onSaveSingleBbox?.(singleEditId, singleEditBbox);
+      setSingleEditId(null);
+      setSingleEditBbox(null);
+    } finally {
+      setSingleEditBusy(false);
     }
   }
 
@@ -290,16 +317,7 @@ export default function PhotoDetectionOverlay({
   }
 
   function handleContainerPointerMove(e: PointerEvent<HTMLDivElement>) {
-    if (!isEditing) {
-      const state = dragStateRef.current;
-      if (!state.dragging || state.pointerId !== e.pointerId || !wheelViewportRef.current) return;
-      e.preventDefault();
-      const viewport = wheelViewportRef.current;
-      viewport.scrollLeft = state.startScrollLeft - (e.clientX - state.startX);
-      viewport.scrollTop = state.startScrollTop - (e.clientY - state.startY);
-      return;
-    }
-
+    // Resize i move działają zarówno w globalnym edit mode jak i w single-edit
     const rs = resizingRef.current;
     if (rs) {
       const cur = normCoords(e.clientX, e.clientY);
@@ -337,10 +355,21 @@ export default function PhotoDetectionOverlay({
       return;
     }
 
-    if (draft) {
-      const cur = normCoords(e.clientX, e.clientY);
-      setDraft((prev) => (prev ? { ...prev, current: cur } : null));
+    if (isEditing) {
+      if (draft) {
+        const cur = normCoords(e.clientX, e.clientY);
+        setDraft((prev) => (prev ? { ...prev, current: cur } : null));
+      }
+      return;
     }
+
+    // Tryb podglądu (z panning gdy zoom > 1)
+    const state = dragStateRef.current;
+    if (!state.dragging || state.pointerId !== e.pointerId || !wheelViewportRef.current) return;
+    e.preventDefault();
+    const viewport = wheelViewportRef.current;
+    viewport.scrollLeft = state.startScrollLeft - (e.clientX - state.startX);
+    viewport.scrollTop = state.startScrollTop - (e.clientY - state.startY);
   }
 
   function handleContainerPointerUp(e: PointerEvent<HTMLDivElement>) {
@@ -557,11 +586,14 @@ export default function PhotoDetectionOverlay({
     }
 
     return visibleDetections.map((det) => {
-      const b = det.bbox!;
-      const x1 = clamp(b.x1);
-      const y1 = clamp(b.y1);
-      const x2 = clamp(b.x2);
-      const y2 = clamp(b.y2);
+      const isInSingleEdit = singleEditId === det.id;
+      const activeBbox = (isInSingleEdit && singleEditBbox) ? singleEditBbox : det.bbox;
+      if (!activeBbox) return null;
+
+      const x1 = clamp(activeBbox.x1);
+      const y1 = clamp(activeBbox.y1);
+      const x2 = clamp(activeBbox.x2);
+      const y2 = clamp(activeBbox.y2);
       const w = Math.max(0, x2 - x1);
       const h = Math.max(0, y2 - y1);
       if (w === 0 || h === 0) return null;
@@ -571,26 +603,86 @@ export default function PhotoDetectionOverlay({
           key={det.id}
           data-testid={`bbox-marker-${det.position_index}`}
           style={{ position: 'absolute', left: `${x1 * 100}%`, top: `${y1 * 100}%`, width: `${w * 100}%`, height: `${h * 100}%` }}
-          className="pointer-events-auto border-2 border-blue-500 overflow-visible"
+          className={`pointer-events-auto overflow-visible border-2 ${isInSingleEdit ? 'border-amber-500 cursor-move' : 'border-blue-500'}`}
           onPointerEnter={(e) => handleMarkerEnter(det.id, e)}
           onPointerMove={handleMarkerMove}
           onPointerLeave={handleMarkerLeave}
+          onPointerDown={(e) => { if (isInSingleEdit && e.button === 0) startMove(det.id, e); }}
           onContextMenu={(e) => { e.preventDefault(); if (e.ctrlKey) onMarkerContextMenu?.(det.id); }}
         >
-          {hoveredDetId === det.id && <MarkerTooltip det={det} mousePos={mousePos} />}
-          <button
-            type="button"
-            title="Przejdź do propozycji na liście"
-            className="absolute -right-2 -top-2 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-white hover:bg-blue-600"
-            onClick={(e) => { e.stopPropagation(); onMarkerContextMenu?.(det.id); }}
-          >
-            <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
-              <line x1="1" y1="3" x2="9" y2="3" />
-              <line x1="1" y1="6" x2="9" y2="6" />
-              <line x1="1" y1="9" x2="6" y2="9" />
-            </svg>
-          </button>
-          <span className="absolute -top-5 left-0 rounded bg-blue-500 px-1 py-0.5 text-xs leading-none font-bold text-white">
+          {hoveredDetId === det.id && !isInSingleEdit && <MarkerTooltip det={det} mousePos={mousePos} />}
+
+          {/* Tryb edycji pojedynczej ramki */}
+          {isInSingleEdit && (
+            <>
+              <button
+                type="button"
+                data-testid={`single-edit-save-${det.position_index}`}
+                title="Zapisz zmianę ramki"
+                disabled={singleEditBusy}
+                className="absolute -left-2 -top-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-green-500 text-white hover:bg-green-600 disabled:opacity-50"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => void handleSingleEditSave()}
+              >
+                {singleEditBusy ? '…' : '✓'}
+              </button>
+              <button
+                type="button"
+                data-testid={`single-edit-cancel-${det.position_index}`}
+                title="Anuluj edycję"
+                disabled={singleEditBusy}
+                className="absolute -right-2 -top-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-gray-400 text-[11px] text-white hover:bg-gray-500 disabled:opacity-50"
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={() => { setSingleEditId(null); setSingleEditBbox(null); }}
+              >
+                ×
+              </button>
+              {HANDLES.map((dir) => (
+                <div
+                  key={dir}
+                  data-testid={`bbox-handle-${det.position_index}-${dir}`}
+                  style={{ position: 'absolute', width: '10px', height: '10px', backgroundColor: 'white', border: '2px solid #f59e0b', borderRadius: '2px', cursor: HANDLE_CURSORS[dir], ...HANDLE_STYLE[dir] }}
+                  onPointerDown={(e) => startResize(det.id, dir, e)}
+                />
+              ))}
+            </>
+          )}
+
+          {/* Przyciski w trybie podglądu (brak single-edit) */}
+          {!isInSingleEdit && (
+            <>
+              {/* Pencil — wejście w edycję tej ramki */}
+              {!singleEditId && (
+                <button
+                  type="button"
+                  data-testid={`single-edit-enter-${det.position_index}`}
+                  title="Edytuj tę ramkę"
+                  className="absolute -left-2 -top-2 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-white hover:bg-amber-600"
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={(e) => { e.stopPropagation(); setSingleEditId(det.id); setSingleEditBbox(activeBbox); }}
+                >
+                  <svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M8.5 1.5l2 2-6.5 6.5H2V7.5l6.5-6z" />
+                  </svg>
+                </button>
+              )}
+              {/* Navigate to card */}
+              <button
+                type="button"
+                title="Przejdź do propozycji na liście"
+                className="absolute -right-2 -top-2 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-white hover:bg-blue-600"
+                onClick={(e) => { e.stopPropagation(); onMarkerContextMenu?.(det.id); }}
+              >
+                <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                  <line x1="1" y1="3" x2="9" y2="3" />
+                  <line x1="1" y1="6" x2="9" y2="6" />
+                  <line x1="1" y1="9" x2="6" y2="9" />
+                </svg>
+              </button>
+            </>
+          )}
+
+          <span className={`absolute -top-5 left-0 rounded px-1 py-0.5 text-xs leading-none font-bold text-white ${isInSingleEdit ? 'bg-amber-500' : 'bg-blue-500'}`}>
             #{det.position_index}
           </span>
         </div>
