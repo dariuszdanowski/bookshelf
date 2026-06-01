@@ -75,6 +75,7 @@ export default function PhotoDetectionOverlay({ photoUrl, detections, focusedDet
 
   function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
     if (zoom <= 1) return;
+    if (event.button !== 0) return; // LPM only — ignore RMB/MMB
 
     const viewport = event.currentTarget;
     dragStateRef.current = {
