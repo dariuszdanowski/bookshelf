@@ -1356,8 +1356,9 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
   function handleMarkerContextMenu(detectionId: string) {
     const det = detections.find((d) => d.id === detectionId);
     if (!det) return;
+    const prefix = viewMode === 'list' ? 'detection-row' : viewMode === 'tiles' ? 'detection-tile' : 'detection-card';
     document
-      .querySelector(`[data-testid="detection-card-${det.position_index}"]`)
+      .querySelector(`[data-testid="${prefix}-${det.position_index}"]`)
       ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
