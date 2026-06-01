@@ -463,3 +463,105 @@ describe('DetectionReview — manual entry (no match)', () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// runRerunVision — auto-match po udanym vision
+// Bug: runRerunVision robiło window.location.reload() bez wywołania match
+// → user widział "35 znalezionych, 0 dopasowanych" i musiał ręcznie klikać.
+// ---------------------------------------------------------------------------
+
+describe('DetectionReview — runRerunVision auto-match', () => {
+  it('po udanym vision wywołuje POST /match a dopiero potem reload', async () => {
+    const reloadMock = window.location.reload as unknown as ReturnType<typeof vi.fn>;
+    const callOrder: string[] = [];
+
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
+      const u = typeof url === 'string' ? url : (url as Request).url;
+
+      // Check specific subpaths first (process/match) before the general /api/photos/:id
+      if (u.includes('/process')) {
+        callOrder.push('POST /process');
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: { photo: mockPhoto, detections: [] } }), { status: 200 })
+        );
+      }
+      if (u.includes('/match')) {
+        callOrder.push('POST /match');
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: { matched: 2, detections: [] } }), { status: 200 })
+        );
+      }
+      if (u.includes(`/api/photos/${PHOTO_ID}`)) {
+        callOrder.push('GET /photos');
+        return Promise.resolve(
+          new Response(JSON.stringify(makePhotoResponse()), { status: 200 })
+        );
+      }
+      return Promise.resolve(new Response('{}', { status: 200 }));
+    });
+
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => screen.getByTestId('detection-review'));
+
+    // Click "Ponów vision" → ConfirmDialog → confirm
+    fireEvent.click(screen.getByTestId('rerun-vision-button'));
+    await waitFor(() => screen.getByRole('dialog'));
+    fireEvent.click(screen.getByTestId('rerun-vision-confirm-confirm'));
+
+    // Wait for reload (signals full flow is done)
+    await waitFor(() => expect(reloadMock).toHaveBeenCalled(), { timeout: 3000 });
+
+    // /process must have been called
+    const processCalls = fetchMock.mock.calls.filter(([url]) =>
+      typeof url === 'string' && url.includes('/process')
+    );
+    expect(processCalls.length).toBeGreaterThan(0);
+
+    // /match must have been called AFTER /process and BEFORE reload
+    const matchCalls = fetchMock.mock.calls.filter(([url]) =>
+      typeof url === 'string' && url.includes('/match')
+    );
+    expect(matchCalls.length).toBeGreaterThan(0);
+
+    const processIdx = callOrder.indexOf('POST /process');
+    const matchIdx = callOrder.indexOf('POST /match');
+    expect(processIdx).toBeGreaterThanOrEqual(0);
+    expect(matchIdx).toBeGreaterThan(processIdx); // match AFTER process
+  });
+
+  it('gdy vision zwraca błąd, match NIE jest wywołany i reload NIE następuje', async () => {
+    const reloadMock = window.location.reload as unknown as ReturnType<typeof vi.fn>;
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
+      const u = typeof url === 'string' ? url : (url as Request).url;
+      if (u.includes(`/api/photos/${PHOTO_ID}`) && !u.includes('/process') && !u.includes('/match')) {
+        return Promise.resolve(new Response(JSON.stringify(makePhotoResponse()), { status: 200 }));
+      }
+      if (u.includes('/process')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ error: { code: 'INTERNAL_ERROR', message: 'Vision fail' } }), { status: 500 })
+        );
+      }
+      // match should never be called
+      if (u.includes('/match')) {
+        return Promise.resolve(new Response('{}', { status: 200 }));
+      }
+      return Promise.resolve(new Response('{}', { status: 200 }));
+    });
+
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => screen.getByTestId('detection-review'));
+
+    fireEvent.click(screen.getByTestId('rerun-vision-button'));
+    await waitFor(() => screen.getByRole('dialog'));
+    fireEvent.click(screen.getByTestId('rerun-vision-confirm-confirm'));
+
+    // Wait for error message to appear (vision failed → shows error, no reload)
+    await waitFor(() => {
+      const msg = screen.queryByTestId('action-message');
+      return msg && msg.textContent && msg.textContent.length > 0;
+    }, { timeout: 3000 });
+
+    expect(reloadMock).not.toHaveBeenCalled();
+  });
+});
