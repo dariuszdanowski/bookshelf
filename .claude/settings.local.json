@@ -60,7 +60,9 @@
       "mcp__cloudflare__search",
       "mcp__exa__web_search_exa",
       "mcp__context7__resolve-library-id",
-      "mcp__context7__query-docs"
+      "mcp__context7__query-docs",
+      "Bash(Test-Path \"context/changes/bbox-editor-interactive\")",
+      "Bash(Test-Path \"context/archive/bbox-editor-interactive\")"
     ],
     "defaultMode": "acceptEdits"
   },
