@@ -240,9 +240,15 @@ export default function PhotoDetectionOverlay({
     }
   }
 
+  function clearSingleEditRefs() {
+    resizingRef.current = null;
+    movingRef.current = null;
+  }
+
   async function handleSingleEditSave() {
     if (!singleEditId || !singleEditBbox) return;
     setSingleEditBusy(true);
+    clearSingleEditRefs();
     try {
       await onSaveSingleBbox?.(singleEditId, singleEditBbox);
       setSingleEditId(null);
@@ -644,7 +650,7 @@ export default function PhotoDetectionOverlay({
                 disabled={singleEditBusy}
                 className="absolute -right-2 -top-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-gray-400 text-[11px] text-white hover:bg-gray-500 disabled:opacity-50"
                 onPointerDown={(e) => e.stopPropagation()}
-                onClick={() => { setSingleEditId(null); setSingleEditBbox(null); }}
+                onClick={() => { clearSingleEditRefs(); setSingleEditId(null); setSingleEditBbox(null); }}
               >
                 ×
               </button>
@@ -682,6 +688,7 @@ export default function PhotoDetectionOverlay({
                 type="button"
                 title="Przejdź do propozycji na liście"
                 className="absolute -right-2 -top-2 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-white hover:bg-blue-600"
+                onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => { e.stopPropagation(); onMarkerContextMenu?.(det.id); }}
               >
                 <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
