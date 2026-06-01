@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import type { BookCandidateDTO } from '../lib/books/schema';
-import type { PhotoDTO, DetectionWithCandidatesDTO } from '../lib/photos/schema';
+import type { PhotoDTO, DetectionWithCandidatesDTO, BboxEditSet } from '../lib/photos/schema';
 import { classifyCropQuality } from '../lib/matching/fallbackPolicy';
 import ConfirmDialog from './ConfirmDialog';
 import PhotoDetectionOverlay from './PhotoDetectionOverlay';
@@ -1150,6 +1150,8 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
   const [viewMode, setViewMode] = useDetectionViewMode();
   const [focusedDetectionId, setFocusedDetectionId] = useState<string | null>(null);
   const [confirmRerunOpen, setConfirmRerunOpen] = useState(false);
+  const [isBboxEditing, setIsBboxEditing] = useState(false);
+  const [applyingEdits, setApplyingEdits] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -1300,6 +1302,74 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
     }
   }
 
+  async function handleApplyEdits(changes: BboxEditSet): Promise<void> {
+    setApplyingEdits(true);
+    setActionMsg(null);
+
+    const updateResults = await Promise.allSettled(
+      changes.updated.map(({ detectionId, bbox }) =>
+        fetch(`/api/detections/${detectionId}/bbox`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bbox }),
+        }).then((r) => {
+          if (!r.ok) throw new Error(`PATCH ${r.status}`);
+          return { detectionId, bbox };
+        })
+      )
+    );
+
+    const removeResults = await Promise.allSettled(
+      changes.removed.map(({ detectionId }) =>
+        fetch(`/api/detections/${detectionId}/reject`, { method: 'POST' }).then((r) => {
+          if (!r.ok) throw new Error(`reject ${r.status}`);
+          return detectionId;
+        })
+      )
+    );
+
+    const addResults = await Promise.allSettled(
+      changes.added.map(({ bbox }) =>
+        fetch(`/api/photos/${photoId}/detections`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bbox }),
+        }).then(async (r) => {
+          if (!r.ok) throw new Error(`POST ${r.status}`);
+          return ((await r.json()) as { data: DetectionWithCandidatesDTO }).data;
+        })
+      )
+    );
+
+    const failCount = [...updateResults, ...removeResults, ...addResults].filter(
+      (r) => r.status === 'rejected'
+    ).length;
+    if (failCount > 0) setActionMsg(`${failCount} operacji nie powiodło się.`);
+
+    setDetections((prev) => {
+      let next = [...prev];
+
+      for (const r of updateResults) {
+        if (r.status !== 'fulfilled') continue;
+        const { detectionId, bbox } = r.value;
+        next = next.map((d) => (d.id === detectionId ? { ...d, bbox } : d));
+      }
+
+      const removedIds = new Set(
+        removeResults.filter((r) => r.status === 'fulfilled').map((r) => (r as PromiseFulfilledResult<string>).value)
+      );
+      next = next.filter((d) => !removedIds.has(d.id));
+
+      for (const r of addResults) {
+        if (r.status === 'fulfilled') next = [...next, r.value];
+      }
+
+      return next;
+    });
+
+    setApplyingEdits(false);
+  }
+
   if (loading) {
     return (
       <div data-testid="detection-review-loading" className="space-y-4">
@@ -1347,6 +1417,9 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
           detections={detections}
           focusedDetectionId={focusedDetectionId}
           onClearFocus={() => setFocusedDetectionId(null)}
+          isEditing={isBboxEditing}
+          onEditingChange={setIsBboxEditing}
+          onApplyEdits={handleApplyEdits}
         />
       )}
 
@@ -1364,7 +1437,7 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
           <div className="mt-2 flex flex-wrap gap-2">
             <button
               data-testid="rerun-vision-button"
-              disabled={actionBusy}
+              disabled={actionBusy || isBboxEditing || applyingEdits}
               onClick={handleRerunVisionClick}
               className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
             >
@@ -1372,7 +1445,7 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
             </button>
             <button
               data-testid="rerun-match-button"
-              disabled={actionBusy}
+              disabled={actionBusy || isBboxEditing || applyingEdits}
               onClick={() => void handleRerunMatch()}
               className="inline-flex items-center rounded-md border border-blue-300 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
             >
@@ -1395,7 +1468,7 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
           </p>
           <button
             data-testid="bulk-confirm-button"
-            disabled={bulkBusy}
+            disabled={bulkBusy || isBboxEditing || applyingEdits}
             onClick={() => void handleBulkConfirm()}
             className="rounded-md bg-green-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
           >
