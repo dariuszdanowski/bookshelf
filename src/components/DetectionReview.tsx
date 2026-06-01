@@ -1302,6 +1302,21 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
     }
   }
 
+  function handleMarkerContextMenu(detectionId: string) {
+    const det = detections.find((d) => d.id === detectionId);
+    if (!det) return;
+    document
+      .querySelector(`[data-testid="detection-card-${det.position_index}"]`)
+      ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function handleCardContextMenu(det: DetectionWithCandidatesDTO) {
+    setFocusedDetectionId(det.id);
+    document
+      .querySelector('[data-testid="photo-overlay"]')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   async function handleApplyEdits(changes: BboxEditSet): Promise<void> {
     setApplyingEdits(true);
     setActionMsg(null);
@@ -1420,6 +1435,7 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
           isEditing={isBboxEditing}
           onEditingChange={setIsBboxEditing}
           onApplyEdits={handleApplyEdits}
+          onMarkerContextMenu={handleMarkerContextMenu}
         />
       )}
 
@@ -1490,40 +1506,43 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
       {viewMode === 'list' ? (
         <div className="space-y-2">
           {detections.map((det) => (
-            <DetectionRow
-              key={det.id}
-              detection={det}
-              onDecided={handleDecided}
-              onRefined={handleRefined}
-              onSelect={setFocusedDetectionId}
-              isSelected={focusedDetectionId === det.id}
-            />
+            <div key={det.id} onContextMenu={(e) => { if (e.ctrlKey) { e.preventDefault(); handleCardContextMenu(det); } }}>
+              <DetectionRow
+                detection={det}
+                onDecided={handleDecided}
+                onRefined={handleRefined}
+                onSelect={setFocusedDetectionId}
+                isSelected={focusedDetectionId === det.id}
+              />
+            </div>
           ))}
         </div>
       ) : viewMode === 'tiles' ? (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
           {detections.map((det) => (
-            <DetectionTile
-              key={det.id}
-              detection={det}
-              onDecided={handleDecided}
-              onRefined={handleRefined}
-              onSelect={setFocusedDetectionId}
-              isSelected={focusedDetectionId === det.id}
-            />
+            <div key={det.id} onContextMenu={(e) => { if (e.ctrlKey) { e.preventDefault(); handleCardContextMenu(det); } }}>
+              <DetectionTile
+                detection={det}
+                onDecided={handleDecided}
+                onRefined={handleRefined}
+                onSelect={setFocusedDetectionId}
+                isSelected={focusedDetectionId === det.id}
+              />
+            </div>
           ))}
         </div>
       ) : (
         <div className="space-y-4">
           {detections.map((det) => (
-            <DetectionCard
-              key={det.id}
-              detection={det}
-              onDecided={handleDecided}
-              onRefined={handleRefined}
-              onSelect={setFocusedDetectionId}
-              isSelected={focusedDetectionId === det.id}
-            />
+            <div key={det.id} onContextMenu={(e) => { if (e.ctrlKey) { e.preventDefault(); handleCardContextMenu(det); } }}>
+              <DetectionCard
+                detection={det}
+                onDecided={handleDecided}
+                onRefined={handleRefined}
+                onSelect={setFocusedDetectionId}
+                isSelected={focusedDetectionId === det.id}
+              />
+            </div>
           ))}
         </div>
       )}

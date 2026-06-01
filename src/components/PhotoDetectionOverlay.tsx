@@ -55,6 +55,7 @@ type Props = {
   isEditing?: boolean;
   onEditingChange?: (v: boolean) => void;
   onApplyEdits?: (changes: BboxEditSet) => Promise<void>;
+  onMarkerContextMenu?: (detectionId: string) => void;
 };
 
 export default function PhotoDetectionOverlay({
@@ -65,6 +66,7 @@ export default function PhotoDetectionOverlay({
   isEditing = false,
   onEditingChange,
   onApplyEdits,
+  onMarkerContextMenu,
 }: Props) {
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgError, setImgError] = useState(false);
@@ -106,11 +108,9 @@ export default function PhotoDetectionOverlay({
   useEffect(() => { zoomRef.current = zoom; }, [zoom]);
   useEffect(() => { isEditingRef.current = isEditing; }, [isEditing]);
 
-  // Reset edit state and zoom on edit mode entry/exit
+  // Reset edit state on edit mode exit (zoom preserved intentionally)
   useEffect(() => {
-    if (isEditing) {
-      setZoom(1);
-    } else {
+    if (!isEditing) {
       setUpdatedBboxes({});
       setRemovedIds([]);
       setAddedBboxes([]);
@@ -126,7 +126,6 @@ export default function PhotoDetectionOverlay({
     if (!el) return;
 
     function onWheel(event: WheelEvent) {
-      if (isEditingRef.current) return;
       event.preventDefault();
       const viewport = event.currentTarget as HTMLDivElement;
       const direction = event.deltaY < 0 ? 1 : -1;
@@ -369,6 +368,7 @@ export default function PhotoDetectionOverlay({
           style={{ position: 'absolute', left: `${x1 * 100}%`, top: `${y1 * 100}%`, width: `${w * 100}%`, height: `${h * 100}%`, cursor: 'move' }}
           className={`border-2 ${isUncertain ? 'border-amber-400' : 'border-blue-500'} pointer-events-auto`}
           onPointerDown={(e) => { if (e.button === 0) startMove(det.id, e); }}
+          onContextMenu={(e) => { if (e.ctrlKey) { e.preventDefault(); onMarkerContextMenu?.(det.id); } }}
         >
           <span className="pointer-events-none absolute -top-5 left-0 rounded bg-blue-500 px-1 py-0.5 text-xs leading-none font-bold text-white">
             #{det.position_index}
@@ -501,7 +501,8 @@ export default function PhotoDetectionOverlay({
           data-testid={`bbox-marker-${det.position_index}`}
           title={markerTitle(det)}
           style={{ position: 'absolute', left: `${x1 * 100}%`, top: `${y1 * 100}%`, width: `${w * 100}%`, height: `${h * 100}%` }}
-          className="pointer-events-none border-2 border-blue-500"
+          className="border-2 border-blue-500"
+          onContextMenu={(e) => { if (e.ctrlKey) { e.preventDefault(); onMarkerContextMenu?.(det.id); } }}
         >
           <span className="absolute -top-5 left-0 rounded bg-blue-500 px-1 py-0.5 text-xs leading-none font-bold text-white">
             #{det.position_index}

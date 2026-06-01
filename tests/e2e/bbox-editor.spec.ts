@@ -224,8 +224,12 @@ test.describe('bbox editor', () => {
       if (req.url().includes('/reject')) rejectCalled = true;
     });
 
-    // Anuluj
+    // Anuluj — są niezapisane zmiany → pojawia się dialog potwierdzenia
     await page.getByTestId('cancel-bbox-edits-button').click();
+    await expect(page.getByTestId('cancel-edit-confirm-confirm')).toBeVisible();
+
+    // Potwierdź odrzucenie zmian
+    await page.getByTestId('cancel-edit-confirm-confirm').click();
 
     // Tryb edit wyłączony
     await expect(page.getByTestId('apply-bbox-edits-button')).not.toBeVisible();
