@@ -2,7 +2,7 @@
   "package": "@przeprogramowani/10x-cli",
   "version": "1.4.0",
   "manifestVersion": 2,
-  "lastApplied": "2026-05-25T12:20:03.994Z",
+  "lastApplied": "2026-06-01T00:12:46.387Z",
   "lessonId": "m2l5",
   "course": "10xdevs3",
   "tool": "claude-code",
@@ -127,7 +127,13 @@
         ]
       }
     },
-    "prompts": [],
+    "prompts": [
+      "skill-explainer.md",
+      "m1l5-1-plan-integration.md",
+      "m1l5-2-constrain-approach.md",
+      "m1l5-3-extend-prerequisites.md",
+      "m1l5-4-store-plan.md"
+    ],
     "configs": []
   }
 }

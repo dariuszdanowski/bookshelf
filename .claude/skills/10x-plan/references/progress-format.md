@@ -46,7 +46,7 @@ At the bottom of `context/changes/<change-id>/plan.md`, after `## References`. E
 
 ## Mutation surface
 
-- `/10x-implement` is the only skill that flips `[ ]` → `[x]` and appends the SHA suffix. Checkbox flips happen **per step**, as each step completes; the SHA suffix is appended **at phase end**, in one shot, after the closing commit lands. Mid-phase, completed rows sit `[x]` without a SHA suffix — this is a valid intermediate state, not drift.
+- `/10x-implement` and its test-first sibling `/10x-tdd` are the skills that flip `[ ]` → `[x]` and append the SHA suffix. They write Progress **identically** — a change can be driven by either or both, in any order (e.g. TDD one phase, hand the next to `/10x-implement`), and state is never lost. Checkbox flips happen **per step**, as each step completes; the SHA suffix is appended **at phase end**, in one shot, after the closing commit lands. Mid-phase, completed rows sit `[x]` without a SHA suffix — this is a valid intermediate state, not drift.
 - All other skills (`/10x-status`, `/10x-impl-review`, `/10x-impl-review-ci`) **read** Progress and **never write to it**.
 - `/10x-plan` writes the Progress section once at planning time, with all steps as `[ ]` and no SHA suffixes.
 - The `/10x-archive` skill does not modify Progress; archived plans retain their final Progress state as historical record.
