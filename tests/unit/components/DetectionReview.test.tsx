@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import DetectionReview from '../../../src/components/DetectionReview';
+import type { DetectionWithCandidatesDTO } from '../../../src/lib/photos/schema';
 
 // ---------------------------------------------------------------------------
 // Stałe testowe
@@ -61,33 +62,33 @@ const candLow = {
   rank: 1,
 };
 
-const detHigh = {
+const detHigh: DetectionWithCandidatesDTO = {
   id: DET_ID_HIGH,
   position_index: 1,
   raw_title: 'Solaris',
   raw_author: 'Lem',
   vision_confidence: 0.95,
   spine_color: null,
-  bbox: null,
+  bbox: { x1: 0.1, y1: 0.05, x2: 0.2, y2: 0.95 },
   status: 'matched',
   candidates: [candHigh],
   duplicate: null,
 };
 
-const detLow = {
+const detLow: DetectionWithCandidatesDTO = {
   id: DET_ID_LOW,
   position_index: 2,
   raw_title: 'Diuna',
   raw_author: null,
   vision_confidence: 0.80,
   spine_color: null,
-  bbox: null,
+  bbox: { x1: 0.25, y1: 0.05, x2: 0.35, y2: 0.95 },
   status: 'matched',
   candidates: [candLow],
   duplicate: null,
 };
 
-const detNoMatch = {
+const detNoMatch: DetectionWithCandidatesDTO = {
   id: '00000000-0000-4000-8000-000000000012',
   position_index: 3,
   raw_title: 'Nieznana',
@@ -100,7 +101,7 @@ const detNoMatch = {
   duplicate: null,
 };
 
-function makePhotoResponse(detections = [detHigh, detLow]) {
+function makePhotoResponse(detections: DetectionWithCandidatesDTO[] = [detHigh, detLow]) {
   return {
     data: {
       photo: mockPhoto,
@@ -288,6 +289,80 @@ describe('DetectionReview — reject', () => {
         typeof url === 'string' && url.includes('/reject')
       );
       expect(rejectCall).toBeDefined();
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Akcja: Refine
+// ---------------------------------------------------------------------------
+
+describe('DetectionReview — refine', () => {
+  it('pokazuje przycisk Doprecyzuj odczyt także bez bbox', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(makePhotoResponse([detNoMatch])), { status: 200 })
+    );
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => screen.getByTestId('refine-button'));
+    expect(screen.getByTestId('refine-button')).toBeInTheDocument();
+  });
+
+  it('pokazuje przycisk Doprecyzuj odczyt dla detekcji z bbox', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 })
+    );
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => screen.getByTestId('refine-button'));
+    expect(screen.getByTestId('refine-button')).toBeInTheDocument();
+  });
+
+  it('klik Refine woła POST /refine bez pełnego reloadu strony', async () => {
+    const reloadMock = window.location.reload as unknown as ReturnType<typeof vi.fn>;
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 }))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ data: { applied: true, detection: { id: DET_ID_HIGH, raw_title: 'Solaris (refined)' } } }),
+          { status: 200 }
+        )
+      );
+
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    const refineBtn = await waitFor(() => screen.getByTestId('refine-button'));
+    fireEvent.click(refineBtn);
+
+    await waitFor(() => {
+      const refineCall = fetchMock.mock.calls.find(
+        ([url]) => typeof url === 'string' && url.includes(`/api/detections/${DET_ID_HIGH}/refine`)
+      );
+      expect(refineCall).toBeDefined();
+      expect(reloadMock).not.toHaveBeenCalled();
+    });
+  });
+
+  it('pozwala uruchomić Refine dla nieprecyzyjnego bbox (próba API)', async () => {
+    const detBadBbox: DetectionWithCandidatesDTO = {
+      ...detHigh,
+      bbox: { x1: 0.05, y1: 0.1, x2: 0.9, y2: 0.95 },
+    };
+
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify(makePhotoResponse([detBadBbox])), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { applied: false, reason: 'parse_failure' } }), { status: 200 }));
+
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    const refineBtn = await waitFor(() => screen.getByTestId('refine-button'));
+
+    expect(refineBtn).not.toBeDisabled();
+    fireEvent.click(refineBtn);
+
+    await waitFor(() => {
+      const refineCall = fetchMock.mock.calls.find(
+        ([url]) => typeof url === 'string' && url.includes(`/api/detections/${DET_ID_HIGH}/refine`)
+      );
+      expect(refineCall).toBeDefined();
     });
   });
 });

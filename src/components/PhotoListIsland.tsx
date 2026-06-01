@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import type { PhotoListItemDTO } from '../lib/photos/schema';
+import ConfirmDialog from './ConfirmDialog';
 import Skeleton from './Skeleton';
 
 type Props = {
@@ -45,6 +46,7 @@ export default function PhotoListIsland({ shelfId }: Props) {
   const [loading, setLoading] = useState(true);
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [rowStates, setRowStates] = useState<Record<string, RowState>>({});
+  const [pendingRerunPhotoId, setPendingRerunPhotoId] = useState<string | null>(null);
 
   const fetchPhotos = useCallback(async () => {
     try {
@@ -152,18 +154,26 @@ export default function PhotoListIsland({ shelfId }: Props) {
 
   const handleRunVision = useCallback(
     (photoId: string, isRerun: boolean) => {
-      if (
-        isRerun &&
-        !window.confirm(
-          'Uruchomimy nowy vision run. Poprzednie wyniki zostaną w historii. Koszt: ~$0.01 + ~10s. OK?'
-        )
-      ) {
+      if (isRerun) {
+        setPendingRerunPhotoId(photoId);
         return;
       }
       void runVision(photoId);
     },
     [runVision]
   );
+
+  const pendingRerunPhoto = pendingRerunPhotoId
+    ? photos.find((photo) => photo.id === pendingRerunPhotoId) ?? null
+    : null;
+
+  function rerunEstimateMessage(photo: PhotoListItemDTO | null): string {
+    if (!photo) return 'Uruchomimy nowy vision run. Poprzednie wyniki zostaną w historii.';
+    const cost = photo.latest_vision_run?.cost_usd;
+    const costText = cost != null ? `~$${cost.toFixed(4)}` : '~$0.01';
+    const latencyText = '~10 s';
+    return `Uruchomimy nowy vision run. Poprzednie wyniki zostaną w historii. Szacowany koszt: ${costText}, czas: ${latencyText}.`;
+  }
 
   const handleRunMatch = useCallback(
     (photoId: string) => {
@@ -210,8 +220,9 @@ export default function PhotoListIsland({ shelfId }: Props) {
   }
 
   return (
-    <ul data-testid="photo-list" className="space-y-3">
-      {photos.map((photo) => {
+    <>
+      <ul data-testid="photo-list" className="space-y-3">
+        {photos.map((photo) => {
         const rowState = rowStates[photo.id] ?? { busy: false, toast: null };
         const badge = STAGE_BADGE[photo.stage];
         const isRerun =
@@ -352,7 +363,24 @@ export default function PhotoListIsland({ shelfId }: Props) {
             </div>
           </li>
         );
-      })}
-    </ul>
+        })}
+      </ul>
+
+      <ConfirmDialog
+        open={pendingRerunPhoto != null}
+        title="Ponowić vision?"
+        message={rerunEstimateMessage(pendingRerunPhoto)}
+        confirmLabel="Uruchom nowy run"
+        cancelLabel="Anuluj"
+        testIdPrefix="photo-rerun-confirm"
+        onCancel={() => setPendingRerunPhotoId(null)}
+        onConfirm={() => {
+          if (!pendingRerunPhotoId) return;
+          const nextPhotoId = pendingRerunPhotoId;
+          setPendingRerunPhotoId(null);
+          void runVision(nextPhotoId);
+        }}
+      />
+    </>
   );
 }

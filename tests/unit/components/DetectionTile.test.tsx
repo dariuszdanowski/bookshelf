@@ -34,7 +34,7 @@ const detMatched: DetectionWithCandidatesDTO = {
   raw_author: 'Lem',
   vision_confidence: 0.95,
   spine_color: null,
-  bbox: null,
+  bbox: { x1: 0.1, y1: 0.05, x2: 0.2, y2: 0.95 },
   status: 'matched',
   candidates: [candidate],
   duplicate: null,
@@ -75,6 +75,7 @@ describe('DetectionTile — render', () => {
     expect(screen.getByTestId('confirm-button')).toBeInTheDocument();
     expect(screen.getByTestId('reject-button')).toBeInTheDocument();
     expect(screen.getByTestId('correct-button')).toBeInTheDocument();
+    expect(screen.getByTestId('refine-button')).toBeInTheDocument();
   });
 
   it('dla braku matchu pokazuje placeholder + Wpisz ręcznie (bez Akceptuj)', () => {
@@ -110,6 +111,20 @@ describe('DetectionTile — akcje', () => {
     render(<DetectionTile detection={detMatched} onDecided={onDecided} />);
     fireEvent.click(screen.getByTestId('reject-button'));
     await waitFor(() => expect(onDecided).toHaveBeenCalledWith(DET_ID));
+  });
+
+  it('klik Refine woła POST /refine', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ data: { detection: { id: DET_ID } } }), { status: 200 })
+    );
+    render(<DetectionTile detection={detMatched} onDecided={() => {}} />);
+    fireEvent.click(screen.getByTestId('refine-button'));
+    await waitFor(() => {
+      const call = fetchMock.mock.calls.find(
+        ([url]) => typeof url === 'string' && url.includes('/refine')
+      );
+      expect(call).toBeDefined();
+    });
   });
 });
 
