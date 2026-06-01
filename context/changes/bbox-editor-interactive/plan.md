@@ -363,9 +363,9 @@ Brak nowej migracji: `bbox_x1..y2` nullable od migracji 0006; `raw_title text` n
 
 #### Automated
 
-- [x] 2.1 `npm run typecheck` zielony
-- [x] 2.2 `npm run lint` zielony
-- [x] 2.3 `npm run test` zielony — nowe testy edit mode + istniejące bez regresji
+- [x] 2.1 `npm run typecheck` zielony — 1af85dc
+- [x] 2.2 `npm run lint` zielony — 1af85dc
+- [x] 2.3 `npm run test` zielony — nowe testy edit mode + istniejące bez regresji — 1af85dc
 
 #### Manual
 
@@ -378,10 +378,10 @@ Brak nowej migracji: `bbox_x1..y2` nullable od migracji 0006; `raw_title text` n
 
 #### Automated
 
-- [ ] 3.1 `npm run typecheck` zielony
-- [ ] 3.2 `npm run lint` zielony
-- [ ] 3.3 `npm run test` zielony — istniejące + rozszerzone DetectionReview tests
-- [ ] 3.4 `npm run test:e2e` zielony — istniejące + nowy bbox-editor.spec.ts
+- [x] 3.1 `npm run typecheck` zielony — 1af85dc
+- [x] 3.2 `npm run lint` zielony — 1af85dc
+- [x] 3.3 `npm run test` zielony — istniejące + rozszerzone DetectionReview tests — 1af85dc
+- [x] 3.4 `npm run test:e2e` zielony — istniejące + nowy bbox-editor.spec.ts — 1af85dc
 
 #### Manual
 
