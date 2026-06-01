@@ -164,3 +164,9 @@ worker-configuration.d.ts
 test-results/
 playwright-report/
 tests/e2e/.auth/
+
+# Tesseract trained data (binary, ~30-50 MB each — install locally via tesseract CLI)
+*.traineddata
+
+# Claude Code runtime artifacts
+.claude/scheduled_tasks.lock

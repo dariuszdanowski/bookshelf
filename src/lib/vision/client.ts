@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { env } from 'cloudflare:workers';
 
-import { VISION_SYSTEM_PROMPT } from './prompt';
+import { REFINE_VISION_SYSTEM_PROMPT, VISION_SYSTEM_PROMPT } from './prompt';
 import { DetectionSchema, type Detection } from './schema';
 
 const MODEL = 'claude-sonnet-4-6';
@@ -22,6 +22,16 @@ function buildUserContent(
   return [
     { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
     { type: 'text', text: 'Wymień książki na zdjęciu.' },
+  ];
+}
+
+function buildRefineUserContent(
+  base64: string,
+  mediaType: 'image/jpeg' | 'image/png' | 'image/webp'
+): Anthropic.MessageParam['content'] {
+  return [
+    { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+    { type: 'text', text: 'To jest crop pojedynczego grzbietu. Zwróć jedną najlepszą propozycję albo [].' },
   ];
 }
 
@@ -134,5 +144,63 @@ export async function detectSpines(input: {
   }
 
   console.error('[vision:parse-failure-final]', { latencyMs: Date.now() - start, totalCost });
+  return { ok: false, reason: 'parse_failure', latencyMs: Date.now() - start };
+}
+
+export type RefineVisionResult =
+  | { ok: true; detection: Detection; model: string; costUsd: number; latencyMs: number }
+  | { ok: false; reason: 'parse_failure'; latencyMs: number };
+
+export async function detectSingleSpineFromCrop(input: {
+  base64: string;
+  mediaType: 'image/jpeg' | 'image/png' | 'image/webp';
+}): Promise<RefineVisionResult> {
+  const apiKey = env?.ANTHROPIC_API_KEY ?? import.meta.env.ANTHROPIC_API_KEY;
+  const client = new Anthropic({ apiKey });
+  const start = Date.now();
+
+  const messages: Anthropic.MessageParam[] = [
+    { role: 'user', content: buildRefineUserContent(input.base64, input.mediaType) },
+  ];
+
+  const first = await client.messages.create({
+    model: MODEL,
+    max_tokens: MAX_TOKENS,
+    system: REFINE_VISION_SYSTEM_PROMPT,
+    messages,
+  });
+
+  const firstParsed = tryParseDetections(extractText(first.content), 'first');
+  if (firstParsed.ok && firstParsed.data.length > 0) {
+    return {
+      ok: true,
+      detection: firstParsed.data[0],
+      model: first.model,
+      costUsd: calcCost(first.usage),
+      latencyMs: Date.now() - start,
+    };
+  }
+
+  const retry = await client.messages.create({
+    model: MODEL,
+    max_tokens: MAX_TOKENS,
+    thinking: { type: 'enabled', budget_tokens: THINKING_BUDGET_TOKENS },
+    system: REFINE_VISION_SYSTEM_PROMPT,
+    messages,
+  });
+
+  const retryParsed = tryParseDetections(extractText(retry.content), 'retry');
+  const totalCost = calcCost(first.usage) + calcCost(retry.usage);
+
+  if (retryParsed.ok && retryParsed.data.length > 0) {
+    return {
+      ok: true,
+      detection: retryParsed.data[0],
+      model: retry.model,
+      costUsd: totalCost,
+      latencyMs: Date.now() - start,
+    };
+  }
+
   return { ok: false, reason: 'parse_failure', latencyMs: Date.now() - start };
 }

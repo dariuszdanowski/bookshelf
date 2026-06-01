@@ -333,6 +333,29 @@ describe('POST /api/photos/[id]/process', () => {
     expect(row.bbox_y1).toBeNull();
   });
 
+  it('bbox: drops suspicious edge-strip bbox (likely wall/shadow false positive)', async () => {
+    const trackInsertions: { detections: unknown[][] } = { detections: [] };
+    const { supabase } = makeSupabase({ trackInsertions });
+
+    mockDetectSpines.mockResolvedValueOnce({
+      ...validVisionResult,
+      detections: [
+        {
+          ...validVisionResult.detections[0],
+          bbox: [0.005, 0.4, 0.045, 0.9] as [number, number, number, number],
+        },
+      ],
+    });
+
+    await POST(makeContext(supabase) as never);
+    expect(trackInsertions.detections).toHaveLength(1);
+    const row = (trackInsertions.detections[0] as { bbox_x1: unknown; bbox_y1: unknown; bbox_x2: unknown; bbox_y2: unknown }[])[0];
+    expect(row.bbox_x1).toBeNull();
+    expect(row.bbox_y1).toBeNull();
+    expect(row.bbox_x2).toBeNull();
+    expect(row.bbox_y2).toBeNull();
+  });
+
   it('deriveWorkingCopy failure: sets vision_run failed, returns 500', async () => {
     mockDeriveWorkingCopy.mockRejectedValueOnce(new Error('photon crash'));
     const { supabase } = makeSupabase({});
