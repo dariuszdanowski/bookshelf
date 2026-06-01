@@ -16,6 +16,16 @@ describe('fallbackPolicy', () => {
     expect(classifyCropQuality({ x1: 0.2, y1: 0.1, x2: 0.32, y2: 0.95 })).toBe('clean_single_spine');
   });
 
+  it('classifies narrow short spine as clean_single_spine when aspect >= 1.0 (relaxed threshold)', () => {
+    // width=0.08, height=0.15, aspect≈1.875 — small book previously blocked by height>=0.3 gate
+    expect(classifyCropQuality({ x1: 0.1, y1: 0.4, x2: 0.18, y2: 0.55 })).toBe('clean_single_spine');
+  });
+
+  it('classifies squarish bbox (aspect < 1.0) as uncertain_localization', () => {
+    // width=0.15, height=0.10, aspect≈0.67 — wider than tall, not a vertical spine
+    expect(classifyCropQuality({ x1: 0.1, y1: 0.3, x2: 0.25, y2: 0.4 })).toBe('uncertain_localization');
+  });
+
   it('classifies multi-spine overlap bbox when area is too large', () => {
     expect(classifyCropQuality({ x1: 0.1, y1: 0.05, x2: 0.95, y2: 0.9 })).toBe('multi_spine_overlap');
   });
