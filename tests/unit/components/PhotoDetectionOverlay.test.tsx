@@ -1,8 +1,9 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { useState } from 'react';
+import { describe, expect, it, vi } from 'vitest';
 
 import PhotoDetectionOverlay from '../../../src/components/PhotoDetectionOverlay';
-import type { DetectionWithCandidatesDTO } from '../../../src/lib/photos/schema';
+import type { BboxEditSet, DetectionWithCandidatesDTO } from '../../../src/lib/photos/schema';
 
 const PHOTO_URL = 'https://example.com/shelf.jpg';
 
@@ -142,6 +143,122 @@ describe('PhotoDetectionOverlay', () => {
 
     expect(viewport.scrollTop).toBe(30);
     expect(viewport.scrollLeft).toBe(30);
+  });
+
+  it('edit-bboxes-button jest widoczny w trybie normalnym', () => {
+    render(<PhotoDetectionOverlay photoUrl={PHOTO_URL} detections={[]} />);
+    expect(screen.getByTestId('edit-bboxes-button')).toBeTruthy();
+  });
+
+  describe('edit mode', () => {
+    function EditWrapper({
+      onApplyEdits,
+      onEditingChange,
+      detections: dets = [makeDetection(1, { x1: 0.1, y1: 0.1, x2: 0.5, y2: 0.9 })],
+    }: {
+      onApplyEdits?: (changes: BboxEditSet) => Promise<void>;
+      onEditingChange?: (v: boolean) => void;
+      detections?: DetectionWithCandidatesDTO[];
+    }) {
+      const [isEditing, setIsEditing] = useState(false);
+      return (
+        <PhotoDetectionOverlay
+          photoUrl={PHOTO_URL}
+          detections={dets}
+          isEditing={isEditing}
+          onEditingChange={(v) => { setIsEditing(v); onEditingChange?.(v); }}
+          onApplyEdits={onApplyEdits}
+        />
+      );
+    }
+
+    it('klik edit-bboxes-button pokazuje apply i cancel, ukrywa zoom/toggle', () => {
+      render(<EditWrapper />);
+      fireEvent.click(screen.getByTestId('edit-bboxes-button'));
+      expect(screen.getByTestId('apply-bbox-edits-button')).toBeTruthy();
+      expect(screen.getByTestId('cancel-bbox-edits-button')).toBeTruthy();
+      expect(screen.queryByTestId('edit-bboxes-button')).toBeNull();
+      expect(screen.queryByTestId('zoom-in-button')).toBeNull();
+    });
+
+    it('bbox-delete-{n} klik usuwa marker z widoku', () => {
+      render(
+        <PhotoDetectionOverlay
+          photoUrl={PHOTO_URL}
+          detections={[makeDetection(1, { x1: 0.1, y1: 0.1, x2: 0.5, y2: 0.9 })]}
+          isEditing={true}
+          onEditingChange={vi.fn()}
+        />
+      );
+      const img = screen.getByAltText('Zdjęcie półki z wykrytymi książkami');
+      fireEvent.load(img);
+
+      expect(screen.getByTestId('bbox-marker-1')).toBeTruthy();
+      fireEvent.click(screen.getByTestId('bbox-delete-1'));
+      expect(screen.queryByTestId('bbox-marker-1')).toBeNull();
+    });
+
+    it('Apply wywołuje onApplyEdits z poprawnym BboxEditSet (removed)', () => {
+      const mockApply = vi.fn().mockResolvedValue(undefined);
+      render(
+        <PhotoDetectionOverlay
+          photoUrl={PHOTO_URL}
+          detections={[makeDetection(1, { x1: 0.1, y1: 0.1, x2: 0.5, y2: 0.9 })]}
+          isEditing={true}
+          onApplyEdits={mockApply}
+          onEditingChange={vi.fn()}
+        />
+      );
+      const img = screen.getByAltText('Zdjęcie półki z wykrytymi książkami');
+      fireEvent.load(img);
+
+      fireEvent.click(screen.getByTestId('bbox-delete-1'));
+      fireEvent.click(screen.getByTestId('apply-bbox-edits-button'));
+
+      expect(mockApply).toHaveBeenCalledWith({
+        updated: [],
+        removed: [{ detectionId: 'det-1' }],
+        added: [],
+      });
+    });
+
+    it('cancel-bbox-edits-button nie wywołuje onApplyEdits i wywołuje onEditingChange(false)', () => {
+      const mockApply = vi.fn();
+      const mockEditingChange = vi.fn();
+      render(
+        <PhotoDetectionOverlay
+          photoUrl={PHOTO_URL}
+          detections={[makeDetection(1, { x1: 0.1, y1: 0.1, x2: 0.5, y2: 0.9 })]}
+          isEditing={true}
+          onApplyEdits={mockApply}
+          onEditingChange={mockEditingChange}
+        />
+      );
+
+      fireEvent.click(screen.getByTestId('cancel-bbox-edits-button'));
+
+      expect(mockApply).not.toHaveBeenCalled();
+      expect(mockEditingChange).toHaveBeenCalledWith(false);
+    });
+
+    it('bbox-draft widoczny podczas drag-to-draw na viewport', () => {
+      render(
+        <PhotoDetectionOverlay
+          photoUrl={PHOTO_URL}
+          detections={[]}
+          isEditing={true}
+          onEditingChange={vi.fn()}
+        />
+      );
+      const img = screen.getByAltText('Zdjęcie półki z wykrytymi książkami');
+      fireEvent.load(img);
+
+      const viewport = screen.getByTestId('photo-overlay-viewport');
+      fireEvent.pointerDown(viewport, { pointerId: 1, clientX: 10, clientY: 10, button: 0 });
+      fireEvent.pointerMove(viewport, { pointerId: 1, clientX: 50, clientY: 60 });
+
+      expect(screen.getByTestId('bbox-draft')).toBeTruthy();
+    });
   });
 
   it('dla focusedDetectionId pokazuje tylko wybrany bbox', () => {
