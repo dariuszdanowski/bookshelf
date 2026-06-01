@@ -11,6 +11,36 @@ import { CONSERVATIVE_REPLACE_MARGIN } from '../../../../lib/matching/fallbackPo
 export const prerender = false;
 
 const MAX_CANDIDATES = 5;
+// Google Books QPS limit: even with API key, 35 simultaneous requests cause 429s.
+// Limit concurrency to avoid request storms on larger shelves.
+const MATCH_CONCURRENCY = 5;
+
+/**
+ * Runs tasks with a bounded concurrency pool — no external dependency needed.
+ * Preserves original order and returns the same PromiseSettledResult[] shape
+ * as Promise.allSettled so callers are interchangeable.
+ */
+async function settledWithConcurrency<T>(
+  tasks: Array<() => Promise<T>>,
+  concurrency: number
+): Promise<PromiseSettledResult<T>[]> {
+  const results: PromiseSettledResult<T>[] = new Array(tasks.length);
+  let next = 0;
+
+  async function worker() {
+    while (next < tasks.length) {
+      const i = next++;
+      try {
+        results[i] = { status: 'fulfilled', value: await tasks[i]() };
+      } catch (e) {
+        results[i] = { status: 'rejected', reason: e };
+      }
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(concurrency, tasks.length) }, worker));
+  return results;
+}
 
 type DetectionRow = {
   id: string;
@@ -238,9 +268,11 @@ export const POST: APIRoute = async ({ params, locals }) => {
     isbn_10: b.isbn_10,
   }));
 
-  // Parallel matching — await fetch ≈ 0 CPU in CF Workers
-  const matchResults = await Promise.allSettled(
-    detectionRows.map((det) => matchDetection(det, catalog))
+  // Bounded-concurrency matching: max MATCH_CONCURRENCY simultaneous Google Books calls.
+  // Promise.allSettled(35 tasks) caused QPS 429s; this serialises excess into a pool.
+  const matchResults = await settledWithConcurrency(
+    detectionRows.map((det) => () => matchDetection(det, catalog)),
+    MATCH_CONCURRENCY
   );
 
   let matchedCount = 0;
