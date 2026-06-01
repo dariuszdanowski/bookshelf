@@ -1335,21 +1335,14 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
 
   return (
     <div data-testid="detection-review">
-      {focusedDetectionId && (
-        <div className="mb-2">
-          <button
-            type="button"
-            onClick={() => setFocusedDetectionId(null)}
-            className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Pokaż wszystkie detekcje
-          </button>
-        </div>
-      )}
-
-      {/* Zdjęcie z ramkami detekcji */}
+      {/* Zdjęcie z ramkami detekcji — 'Pokaż wszystkie' jest w toolbarze overlay */}
       {detections.length > 0 && (
-        <PhotoDetectionOverlay photoUrl={photoUrl} detections={detections} focusedDetectionId={focusedDetectionId} />
+        <PhotoDetectionOverlay
+          photoUrl={photoUrl}
+          detections={detections}
+          focusedDetectionId={focusedDetectionId}
+          onClearFocus={() => setFocusedDetectionId(null)}
+        />
       )}
 
       {/* Vision run metadata panel */}

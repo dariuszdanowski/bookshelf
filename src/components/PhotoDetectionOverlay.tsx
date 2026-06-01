@@ -11,9 +11,10 @@ type Props = {
   photoUrl: string | null;
   detections: DetectionWithCandidatesDTO[];
   focusedDetectionId?: string | null;
+  onClearFocus?: () => void;
 };
 
-export default function PhotoDetectionOverlay({ photoUrl, detections, focusedDetectionId = null }: Props) {
+export default function PhotoDetectionOverlay({ photoUrl, detections, focusedDetectionId = null, onClearFocus }: Props) {
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgError, setImgError] = useState(false);
   const [showBoxes, setShowBoxes] = useState(true);
@@ -188,6 +189,16 @@ export default function PhotoDetectionOverlay({ photoUrl, detections, focusedDet
         >
           {showBoxes ? 'Ukryj ramki' : 'Pokaż ramki'}
         </button>
+        {focusedDetectionId && onClearFocus && (
+          <button
+            type="button"
+            data-testid="clear-focus-button"
+            onClick={onClearFocus}
+            className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Pokaż wszystkie detekcje
+          </button>
+        )}
         <button
           type="button"
           data-testid="zoom-out-button"
