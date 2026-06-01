@@ -20,6 +20,11 @@ export default defineConfig({
         'react/jsx-dev-runtime': resolve('node_modules/react/cjs/react-jsx-dev-runtime.development.js'),
       },
     },
+    // @anthropic-ai/sdk uses dynamic require() and is incompatible with Vite's
+    // SSR dep optimizer — exclude it so Vite serves it as-is from node_modules.
+    optimizeDeps: {
+      exclude: ['@anthropic-ai/sdk'],
+    },
     plugins: [tailwindcss()],
   },
 
