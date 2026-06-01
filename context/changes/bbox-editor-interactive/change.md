@@ -1,7 +1,7 @@
 ---
 change_id: bbox-editor-interactive
 title: Interaktywny edytor bbox na zdjęciu z opcją re-analizy vision
-status: planned
+status: plan_reviewed
 created: 2026-06-01
 updated: 2026-06-01
 archived_at: null
