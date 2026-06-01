@@ -78,9 +78,15 @@ export function classifyCropQuality(bbox: NormalizedBbox | null): CropQuality {
 
   if (width <= 0 || height <= 0) return 'uncertain_localization';
   if (area > 0.55 || width > 0.55) return 'multi_spine_overlap';
-  if (area < 0.01 || width < 0.02 || height < 0.2) return 'uncertain_localization';
+  if (area < 0.005 || width < 0.02) return 'uncertain_localization';
 
-  const aspect = height / width;
+  const aspect = height / width; // >1 = portrait (vertical book), <1 = landscape (horizontal)
+
+  // Horizontal book lying flat: landscape bbox (wide+thin).
+  // Refine on a ~20px tall crop is unreliable — treat as uncertain.
+  if (aspect < 0.5) return 'uncertain_localization';
+
+  // Vertical book: tall bbox — readable crop.
   if (aspect >= 1.8 && width <= 0.4 && height >= 0.3) {
     return 'clean_single_spine';
   }

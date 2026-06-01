@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import type { BookCandidateDTO } from '../lib/books/schema';
 import type { PhotoDTO, DetectionWithCandidatesDTO } from '../lib/photos/schema';
+import { classifyCropQuality } from '../lib/matching/fallbackPolicy';
 import ConfirmDialog from './ConfirmDialog';
 import PhotoDetectionOverlay from './PhotoDetectionOverlay';
 import Skeleton from './Skeleton';
@@ -599,9 +600,9 @@ function DetectionCard({ detection, onDecided, onRefined, onSelect, isSelected =
           )}
           <button
             data-testid="refine-button"
-            disabled={busy}
+            disabled={busy || classifyCropQuality(detection.bbox) === 'uncertain_localization'}
             onClick={() => void handleRefine()}
-            title={detection.bbox ? 'Doprecyzuj odczyt z cropa' : 'Doprecyzuj odczyt bez bbox'}
+            title={classifyCropQuality(detection.bbox) === 'uncertain_localization' ? 'Crop zbyt cienki lub niepewny — refine niedostępny dla poziomych/małych bboxów' : detection.bbox ? 'Doprecyzuj odczyt z cropa' : 'Doprecyzuj odczyt bez bbox'}
             className="rounded-md border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
           >
             {busy ? 'Doprecyzowuję...' : 'Doprecyzuj odczyt'}
@@ -813,9 +814,9 @@ export function DetectionRow({ detection, onDecided, onRefined, onSelect, isSele
         )}
         <button
           data-testid="refine-button"
-          disabled={busy}
+          disabled={busy || classifyCropQuality(detection.bbox) === 'uncertain_localization'}
           onClick={() => void handleRefine()}
-          title={detection.bbox ? 'Refine crop' : 'Refine without bbox'}
+          title={classifyCropQuality(detection.bbox) === 'uncertain_localization' ? 'Crop zbyt cienki — refine niedostępny' : 'Doprecyzuj odczyt'}
           className="rounded border border-indigo-300 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
         >
           {busy ? '...' : 'Refine'}
