@@ -154,7 +154,8 @@ export default function PhotoDetectionOverlay({ photoUrl, detections, focusedDet
         <img
           src={resolvedPhotoUrl}
           alt="Zdjęcie półki z wykrytymi książkami"
-          className="block h-auto w-full"
+          draggable={false}
+          className="block h-auto w-full select-none"
           onLoad={
             withLoadHandlers
               ? () => {
