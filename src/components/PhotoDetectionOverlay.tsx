@@ -1,4 +1,4 @@
-import { useRef, useState, type PointerEvent, type WheelEvent } from 'react';
+import { useEffect, useRef, useState, type PointerEvent } from 'react';
 
 import { classifyCropQuality } from '../lib/matching/fallbackPolicy';
 import type { DetectionWithCandidatesDTO } from '../lib/photos/schema';
@@ -18,7 +18,8 @@ export default function PhotoDetectionOverlay({ photoUrl, detections, focusedDet
   const [imgError, setImgError] = useState(false);
   const [showBoxes, setShowBoxes] = useState(true);
   const [zoom, setZoom] = useState(1);
-  const viewportRef = useRef<HTMLDivElement | null>(null);
+  const wheelViewportRef = useRef<HTMLDivElement | null>(null);
+  const zoomRef = useRef(zoom);
   const dragStateRef = useRef({
     dragging: false,
     pointerId: -1,
@@ -27,6 +28,39 @@ export default function PhotoDetectionOverlay({ photoUrl, detections, focusedDet
     startScrollLeft: 0,
     startScrollTop: 0,
   });
+
+  // Keep zoomRef in sync so the native wheel handler never captures stale zoom.
+  useEffect(() => {
+    zoomRef.current = zoom;
+  }, [zoom]);
+
+  // React 17+ registers onWheel as passive — preventDefault() is ignored and warns.
+  // Attach a native non-passive listener instead.
+  useEffect(() => {
+    const el = wheelViewportRef.current;
+    if (!el) return;
+
+    function onWheel(event: WheelEvent) {
+      event.preventDefault();
+      const viewport = event.currentTarget as HTMLDivElement;
+      const direction = event.deltaY < 0 ? 1 : -1;
+      const currentZoom = zoomRef.current;
+      const nextZoom = Math.max(1, Math.min(4, currentZoom + direction * 0.15));
+      if (nextZoom === currentZoom) return;
+
+      const rect = viewport.getBoundingClientRect();
+      const focusX = event.clientX - rect.left;
+      const focusY = event.clientY - rect.top;
+      const ratio = nextZoom / currentZoom;
+
+      setZoom(nextZoom);
+      viewport.scrollLeft = Math.max(0, (viewport.scrollLeft + focusX) * ratio - focusX);
+      viewport.scrollTop = Math.max(0, (viewport.scrollTop + focusY) * ratio - focusY);
+    }
+
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
 
   if (!photoUrl) return null;
   const resolvedPhotoUrl = photoUrl;
@@ -37,24 +71,6 @@ export default function PhotoDetectionOverlay({ photoUrl, detections, focusedDet
 
   function changeZoom(next: number) {
     setZoom(Math.max(1, Math.min(4, next)));
-  }
-
-  function handleViewportWheel(event: WheelEvent<HTMLDivElement>) {
-    event.preventDefault();
-
-    const viewport = event.currentTarget;
-    const direction = event.deltaY < 0 ? 1 : -1;
-    const nextZoom = Math.max(1, Math.min(4, zoom + direction * 0.15));
-    if (nextZoom === zoom) return;
-
-    const rect = viewport.getBoundingClientRect();
-    const focusX = event.clientX - rect.left;
-    const focusY = event.clientY - rect.top;
-    const ratio = nextZoom / zoom;
-
-    setZoom(nextZoom);
-    viewport.scrollLeft = Math.max(0, (viewport.scrollLeft + focusX) * ratio - focusX);
-    viewport.scrollTop = Math.max(0, (viewport.scrollTop + focusY) * ratio - focusY);
   }
 
   function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
@@ -69,7 +85,7 @@ export default function PhotoDetectionOverlay({ photoUrl, detections, focusedDet
       startScrollLeft: viewport.scrollLeft,
       startScrollTop: viewport.scrollTop,
     };
-    viewportRef.current = viewport;
+    // wheelViewportRef already points to this element via ref prop — no need to reassign.
     if (viewport.setPointerCapture) {
       viewport.setPointerCapture(event.pointerId);
     }
@@ -77,10 +93,10 @@ export default function PhotoDetectionOverlay({ photoUrl, detections, focusedDet
 
   function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
     const state = dragStateRef.current;
-    if (!state.dragging || state.pointerId !== event.pointerId || !viewportRef.current) return;
+    if (!state.dragging || state.pointerId !== event.pointerId || !wheelViewportRef.current) return;
 
     event.preventDefault();
-    const viewport = viewportRef.current;
+    const viewport = wheelViewportRef.current;
     viewport.scrollLeft = state.startScrollLeft - (event.clientX - state.startX);
     viewport.scrollTop = state.startScrollTop - (event.clientY - state.startY);
   }
@@ -198,8 +214,8 @@ export default function PhotoDetectionOverlay({ photoUrl, detections, focusedDet
       </div>
 
       <div
+        ref={wheelViewportRef}
         data-testid="photo-overlay-viewport"
-        onWheel={handleViewportWheel}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={stopDragging}
