@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { classifyCropQuality } from '../lib/matching/fallbackPolicy';
 import type { BboxCoords, BboxEditSet, DetectionWithCandidatesDTO } from '../lib/photos/schema';
 import ConfirmDialog from './ConfirmDialog';
+import CostPanel from './CostPanel';
 
 
 const TOOLTIP_W = 224; // w-56 = 14rem
@@ -94,6 +95,7 @@ type Props = {
   onApplyEdits?: (changes: BboxEditSet) => Promise<void>;
   onMarkerContextMenu?: (detectionId: string) => void;
   onSaveSingleBbox?: (detectionId: string, bbox: BboxCoords) => Promise<void>;
+  photoId?: string;
 };
 
 export default function PhotoDetectionOverlay({
@@ -106,6 +108,7 @@ export default function PhotoDetectionOverlay({
   onApplyEdits,
   onMarkerContextMenu,
   onSaveSingleBbox,
+  photoId,
 }: Props) {
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgError, setImgError] = useState(false);
@@ -766,6 +769,7 @@ export default function PhotoDetectionOverlay({
             >
               Edytuj ramki
             </button>
+            {photoId && <CostPanel photoId={photoId} />}
             <button
               type="button"
               data-testid="toggle-bboxes-button"

@@ -4,6 +4,7 @@ import type { BookCandidateDTO } from '../lib/books/schema';
 import type { PhotoDTO, DetectionWithCandidatesDTO, BboxEditSet } from '../lib/photos/schema';
 import { classifyCropQuality } from '../lib/matching/fallbackPolicy';
 import ConfirmDialog from './ConfirmDialog';
+import CostPanel from './CostPanel';
 import PhotoDetectionOverlay from './PhotoDetectionOverlay';
 import Skeleton from './Skeleton';
 
@@ -367,9 +368,10 @@ type DetectionCardProps = {
   onSelect?: (detectionId: string) => void;
   isSelected?: boolean;
   onNavigateToMarker?: () => void;
+  photoId?: string;
 };
 
-function DetectionCard({ detection, onDecided, onRefined, onSelect, isSelected = false, onNavigateToMarker }: DetectionCardProps) {
+function DetectionCard({ detection, onDecided, onRefined, onSelect, isSelected = false, onNavigateToMarker, photoId }: DetectionCardProps) {
   const [showAlts, setShowAlts] = useState(false);
   const [showCorrectForm, setShowCorrectForm] = useState(false);
   const {
@@ -431,6 +433,11 @@ function DetectionCard({ detection, onDecided, onRefined, onSelect, isSelected =
               <line x1="10" y1="7" x2="13" y2="7" />
             </svg>
           </button>
+        )}
+        {photoId && (
+          <span onClick={(e) => e.stopPropagation()}>
+            <CostPanel photoId={photoId} detectionId={detection.id} align="left" />
+          </span>
         )}
       </div>
 
@@ -1514,6 +1521,7 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
           onApplyEdits={handleApplyEdits}
           onMarkerContextMenu={handleMarkerContextMenu}
           onSaveSingleBbox={handleSaveSingleBbox}
+          photoId={photoId}
         />
       )}
 
@@ -1622,6 +1630,7 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
                 onSelect={setFocusedDetectionId}
                 isSelected={focusedDetectionId === det.id}
                 onNavigateToMarker={() => handleCardContextMenu(det)}
+                photoId={photoId}
               />
             </div>
           ))}
