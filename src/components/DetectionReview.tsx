@@ -615,15 +615,21 @@ function DetectionCard({ detection, onDecided, onRefined, onSelect, isSelected =
               Popraw
             </button>
           )}
-          <button
-            data-testid="refine-button"
-            disabled={busy || classifyCropQuality(detection.bbox) === 'uncertain_localization'}
-            onClick={() => void handleRefine()}
-            title={classifyCropQuality(detection.bbox) === 'uncertain_localization' ? 'Crop zbyt cienki lub niepewny — refine niedostępny dla poziomych/małych bboxów' : detection.bbox ? 'Doprecyzuj odczyt z cropa' : 'Doprecyzuj odczyt bez bbox'}
-            className="rounded-md border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
-          >
-            {busy ? 'Doprecyzowuję...' : 'Doprecyzuj odczyt'}
-          </button>
+          {(() => {
+            const quality = classifyCropQuality(detection.bbox);
+            const isWeak = quality === 'uncertain_localization';
+            return (
+              <button
+                data-testid="refine-button"
+                disabled={busy}
+                onClick={() => void handleRefine()}
+                title={isWeak ? '⚠ Crop o niskiej jakości (poziomy lub mały bbox) — wynik OCR może być słaby. Kliknij żeby spróbować mimo to.' : detection.bbox ? 'Doprecyzuj odczyt z cropa' : 'Doprecyzuj odczyt bez bbox'}
+                className={`rounded-md border px-3 py-1.5 text-xs font-medium disabled:opacity-50 ${isWeak ? 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100' : 'border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'}`}
+              >
+                {busy ? 'Doprecyzowuję...' : isWeak ? '⚠ Spróbuj OCR' : 'Doprecyzuj odczyt'}
+              </button>
+            );
+          })()}
         </div>
       )}
     </div>
@@ -846,15 +852,21 @@ export function DetectionRow({ detection, onDecided, onRefined, onSelect, isSele
             Wpisz ręcznie
           </button>
         )}
-        <button
-          data-testid="refine-button"
-          disabled={busy || classifyCropQuality(detection.bbox) === 'uncertain_localization'}
-          onClick={() => void handleRefine()}
-          title={classifyCropQuality(detection.bbox) === 'uncertain_localization' ? 'Crop zbyt cienki — refine niedostępny' : 'Doprecyzuj odczyt'}
-          className="rounded border border-indigo-300 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
-        >
-          {busy ? '...' : 'Refine'}
-        </button>
+        {(() => {
+          const quality = classifyCropQuality(detection.bbox);
+          const isWeak = quality === 'uncertain_localization';
+          return (
+            <button
+              data-testid="refine-button"
+              disabled={busy}
+              onClick={() => void handleRefine()}
+              title={isWeak ? '⚠ Słaby crop — wynik może być słaby' : 'Doprecyzuj odczyt'}
+              className={`rounded border px-2.5 py-1 text-xs font-medium disabled:opacity-50 ${isWeak ? 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100' : 'border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'}`}
+            >
+              {busy ? '...' : isWeak ? '⚠ OCR' : 'Refine'}
+            </button>
+          );
+        })()}
       </div>
 
       {showModal && (
