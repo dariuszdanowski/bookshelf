@@ -1254,7 +1254,9 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
       // Ignore match errors: reload will show detections even if match fails.
       try {
         await fetch(`/api/photos/${photoId}/match`, { method: 'POST' });
-      } catch {}
+      } catch {
+        // non-fatal — reload shows detections even if match fails
+      }
       window.location.reload();
     } catch (err) {
       setActionMsg(err instanceof Error ? err.message : 'Błąd sieci.');
