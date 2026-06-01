@@ -20,8 +20,12 @@ export default defineConfig({
         'react/jsx-dev-runtime': resolve('node_modules/react/cjs/react-jsx-dev-runtime.development.js'),
       },
     },
-    // @anthropic-ai/sdk uses dynamic require() and is incompatible with Vite's
-    // SSR dep optimizer — exclude it so Vite serves it as-is from node_modules.
+    // @anthropic-ai/sdk is incompatible with Vite's SSR dep optimizer (deps_ssr/).
+    // noExternal forces inline bundling (no pre-optimized cache file needed).
+    // optimizeDeps.exclude covers the browser bundle side.
+    ssr: {
+      noExternal: ['@anthropic-ai/sdk'],
+    },
     optimizeDeps: {
       exclude: ['@anthropic-ai/sdk'],
     },
