@@ -20,13 +20,14 @@ export default defineConfig({
         'react/jsx-dev-runtime': resolve('node_modules/react/cjs/react-jsx-dev-runtime.development.js'),
       },
     },
-    // @anthropic-ai/sdk: CJS module, incompatible with Vite's SSR optimizer.
-    // ssr.external = Vite loads it directly from node_modules, no bundling/optimization.
-    // optimizeDeps.exclude = skip browser-side pre-bundling too.
+    // CJS packages that must be pre-bundled (CJS→ESM transform) for the Workers ESM runtime.
+    // Without include, Vite loads them raw from node_modules → "exports is not defined".
+    // @anthropic-ai/sdk excluded instead — it ships .mjs exports and is loaded via ssr.external.
     ssr: {
       external: ['@anthropic-ai/sdk'],
     },
     optimizeDeps: {
+      include: ['standardwebhooks'],
       exclude: ['@anthropic-ai/sdk'],
     },
     plugins: [tailwindcss()],
