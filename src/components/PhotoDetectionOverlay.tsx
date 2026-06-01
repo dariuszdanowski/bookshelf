@@ -213,6 +213,20 @@ export default function PhotoDetectionOverlay({ photoUrl, detections, focusedDet
         </button>
       </div>
 
+      {withBbox.length > 0 && (
+        <div className="mb-2 space-y-0.5 text-xs text-gray-400">
+          <p>Numery ramek odpowiadają pozycjom (#N) na liście poniżej.</p>
+          {focused && focused.bbox && (
+            <p data-testid="focused-bbox-diagnostics">
+              Fokus: #{focused.position_index} | bbox [{focused.bbox.x1.toFixed(3)}, {focused.bbox.y1.toFixed(3)}, {focused.bbox.x2.toFixed(3)}, {focused.bbox.y2.toFixed(3)}] | quality: {classifyCropQuality(focused.bbox)}
+            </p>
+          )}
+          {focused && !focused.bbox && (
+            <p data-testid="focused-bbox-missing">Fokus: #{focused.position_index} | brak bbox dla tej detekcji.</p>
+          )}
+        </div>
+      )}
+
       <div
         ref={wheelViewportRef}
         data-testid="photo-overlay-viewport"
@@ -225,20 +239,6 @@ export default function PhotoDetectionOverlay({ photoUrl, detections, focusedDet
       >
         {renderPhotoLayer(true)}
       </div>
-
-      {withBbox.length > 0 && (
-        <div className="mt-1 space-y-1 text-xs text-gray-400">
-          <p>Numery ramek odpowiadają pozycjom (#N) na liście poniżej.</p>
-          {focused && focused.bbox && (
-            <p data-testid="focused-bbox-diagnostics">
-              Fokus: #{focused.position_index} | bbox [{focused.bbox.x1.toFixed(3)}, {focused.bbox.y1.toFixed(3)}, {focused.bbox.x2.toFixed(3)}, {focused.bbox.y2.toFixed(3)}] | quality: {classifyCropQuality(focused.bbox)}
-            </p>
-          )}
-          {focused && !focused.bbox && (
-            <p data-testid="focused-bbox-missing">Fokus: #{focused.position_index} | brak bbox dla tej detekcji.</p>
-          )}
-        </div>
-      )}
     </div>
   );
 }

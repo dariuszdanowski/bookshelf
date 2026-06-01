@@ -1335,13 +1335,8 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
 
   return (
     <div data-testid="detection-review">
-      {/* Zdjęcie z ramkami detekcji */}
-      {detections.length > 0 && (
-        <PhotoDetectionOverlay photoUrl={photoUrl} detections={detections} focusedDetectionId={focusedDetectionId} />
-      )}
-
       {focusedDetectionId && (
-        <div className="mb-3">
+        <div className="mb-2">
           <button
             type="button"
             onClick={() => setFocusedDetectionId(null)}
@@ -1350,6 +1345,11 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
             Pokaż wszystkie detekcje
           </button>
         </div>
+      )}
+
+      {/* Zdjęcie z ramkami detekcji */}
+      {detections.length > 0 && (
+        <PhotoDetectionOverlay photoUrl={photoUrl} detections={detections} focusedDetectionId={focusedDetectionId} />
       )}
 
       {/* Vision run metadata panel */}
