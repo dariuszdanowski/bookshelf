@@ -1,0 +1,54 @@
+{
+  "version": "2026-06-01",
+  "description": "Curated OCR benchmark set for research-cases crops-tight",
+  "cases": [
+    {
+      "id": "A_p01",
+      "image": "docs/image-analysis/research-cases/crops/9a154e01-7e6e-4c39-8018-1bf084273386_p01_gray_contrast_x4.png",
+      "expectedTitle": "Prof. Filutek 1985-2003",
+      "expectedAuthor": "Lengren",
+      "baselineRawTitle": "Prof. Filutек 1985-2003",
+      "track": "ocr_repair"
+    },
+    {
+      "id": "A_p11",
+      "image": "docs/image-analysis/research-cases/crops-tight/9a154e01-7e6e-4c39-8018-1bf084273386_p11_tight_rot90_gray_x4.png",
+      "expectedTitle": "DIVINITY",
+      "expectedAuthor": null,
+      "baselineRawTitle": "DIVINITY",
+      "track": "ocr_repair"
+    },
+    {
+      "id": "A_p16",
+      "image": "docs/image-analysis/research-cases/crops-tight/9a154e01-7e6e-4c39-8018-1bf084273386_p16_tight_rot90_gray_x4.png",
+      "expectedTitle": "Kajko i Kokosz Zlota Kolekcja",
+      "expectedAuthor": null,
+      "baselineRawTitle": "Asprа KOBRA ZLOTA KOLEKCJA",
+      "track": "ocr_repair"
+    },
+    {
+      "id": "B_p09",
+      "image": "docs/image-analysis/research-cases/crops-tight/ca035e1e-a58d-42ff-86be-66eb521853e1_p09_tight_rot90_gray_x4.png",
+      "expectedTitle": "Rachel Caine",
+      "expectedAuthor": null,
+      "baselineRawTitle": "RACHEL CAINE",
+      "track": "localization_blocked"
+    },
+    {
+      "id": "B_p10",
+      "image": "docs/image-analysis/research-cases/crops-tight/ca035e1e-a58d-42ff-86be-66eb521853e1_p10_tight_rot90_gray_x4.png",
+      "expectedTitle": "Czas Zniw",
+      "expectedAuthor": null,
+      "baselineRawTitle": "CZAS ZNIW",
+      "track": "localization_blocked"
+    },
+    {
+      "id": "B_p11",
+      "image": "docs/image-analysis/research-cases/crops-tight/ca035e1e-a58d-42ff-86be-66eb521853e1_p11_tight_rot90_gray_x4.png",
+      "expectedTitle": "Armini Krew",
+      "expectedAuthor": "Samantha Shannon",
+      "baselineRawTitle": "Armini Krew",
+      "track": "localization_blocked"
+    }
+  ]
+}

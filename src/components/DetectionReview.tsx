@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 
 import type { BookCandidateDTO } from '../lib/books/schema';
 import type { PhotoDTO, DetectionWithCandidatesDTO } from '../lib/photos/schema';
+import { classifyCropQuality } from '../lib/matching/fallbackPolicy';
+import ConfirmDialog from './ConfirmDialog';
 import PhotoDetectionOverlay from './PhotoDetectionOverlay';
 import Skeleton from './Skeleton';
 
@@ -226,7 +228,8 @@ type DecisionState = 'pending' | 'decided' | 'error';
 
 function useDetectionDecision(
   detection: DetectionWithCandidatesDTO,
-  onDecided: (detectionId: string) => void
+  onDecided: (detectionId: string) => void,
+  onRefined?: (next: DetectionWithCandidatesDTO) => void
 ) {
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
   const [state, setState] = useState<DecisionState>('pending');
@@ -286,6 +289,53 @@ function useDetectionDecision(
     }
   }
 
+  async function handleRefine() {
+    setBusy(true);
+    setErrorMsg(null);
+    try {
+      const res = await fetch(`/api/detections/${detection.id}/refine`, { method: 'POST' });
+      const json = (await res.json()) as {
+        data?: {
+          applied?: boolean;
+          message?: string;
+          detection?: Partial<DetectionWithCandidatesDTO>;
+          candidates?: BookCandidateDTO[];
+          duplicate?: DetectionWithCandidatesDTO['duplicate'];
+        };
+        error?: { message?: string };
+      };
+
+      if (res.status === 429) {
+        setErrorMsg('Rate limit, spróbuj za chwilę.');
+        return;
+      }
+
+      if (!res.ok) {
+        setErrorMsg(json.error?.message ?? `Błąd refine (${res.status})`);
+        return;
+      }
+
+      if (json.data?.applied === false) {
+        setErrorMsg(json.data.message ?? 'Doprecyzowanie nie poprawiło odczytu.');
+        return;
+      }
+
+      const nextDetection = json.data?.detection;
+      if (nextDetection) {
+        onRefined?.({
+          ...detection,
+          ...nextDetection,
+          candidates: json.data?.candidates ?? detection.candidates,
+          duplicate: json.data?.duplicate ?? detection.duplicate,
+        });
+      }
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : 'Błąd sieci.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   // Po sukcesie korekty: detekcja zdecydowana. Komponent przechodzi w widok
   // 'decided' (early return), więc reset lokalnego showCorrectForm jest zbędny.
   function handleCorrectSuccess() {
@@ -305,6 +355,7 @@ function useDetectionDecision(
     activeCandidate,
     handleConfirm,
     handleReject,
+    handleRefine,
     handleCorrectSuccess,
   };
 }
@@ -312,9 +363,12 @@ function useDetectionDecision(
 type DetectionCardProps = {
   detection: DetectionWithCandidatesDTO;
   onDecided: (detectionId: string) => void;
+  onRefined?: (next: DetectionWithCandidatesDTO) => void;
+  onSelect?: (detectionId: string) => void;
+  isSelected?: boolean;
 };
 
-function DetectionCard({ detection, onDecided }: DetectionCardProps) {
+function DetectionCard({ detection, onDecided, onRefined, onSelect, isSelected = false }: DetectionCardProps) {
   const [showAlts, setShowAlts] = useState(false);
   const [showCorrectForm, setShowCorrectForm] = useState(false);
   const {
@@ -328,8 +382,9 @@ function DetectionCard({ detection, onDecided }: DetectionCardProps) {
     activeCandidate,
     handleConfirm,
     handleReject,
+    handleRefine,
     handleCorrectSuccess,
-  } = useDetectionDecision(detection, onDecided);
+  } = useDetectionDecision(detection, onDecided, onRefined);
 
   if (state === 'decided') {
     return (
@@ -350,7 +405,8 @@ function DetectionCard({ detection, onDecided }: DetectionCardProps) {
   return (
     <div
       data-testid={`detection-card-${detection.position_index}`}
-      className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm"
+      className={`rounded-xl border bg-white p-4 shadow-sm ${isSelected ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200' : 'border-gray-200'}`}
+      onClick={() => onSelect?.(detection.id)}
     >
       {/* Header */}
       <div className="mb-2 flex items-center gap-2">
@@ -542,6 +598,15 @@ function DetectionCard({ detection, onDecided }: DetectionCardProps) {
               Popraw
             </button>
           )}
+          <button
+            data-testid="refine-button"
+            disabled={busy || classifyCropQuality(detection.bbox) === 'uncertain_localization'}
+            onClick={() => void handleRefine()}
+            title={classifyCropQuality(detection.bbox) === 'uncertain_localization' ? 'Crop zbyt cienki lub niepewny — refine niedostępny dla poziomych/małych bboxów' : detection.bbox ? 'Doprecyzuj odczyt z cropa' : 'Doprecyzuj odczyt bez bbox'}
+            className="rounded-md border border-indigo-300 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+          >
+            {busy ? 'Doprecyzowuję...' : 'Doprecyzuj odczyt'}
+          </button>
         </div>
       )}
     </div>
@@ -627,9 +692,12 @@ function DetectionCorrectionModal({
 type DetectionRowProps = {
   detection: DetectionWithCandidatesDTO;
   onDecided: (detectionId: string) => void;
+  onRefined?: (next: DetectionWithCandidatesDTO) => void;
+  onSelect?: (detectionId: string) => void;
+  isSelected?: boolean;
 };
 
-export function DetectionRow({ detection, onDecided }: DetectionRowProps) {
+export function DetectionRow({ detection, onDecided, onRefined, onSelect, isSelected = false }: DetectionRowProps) {
   const [showModal, setShowModal] = useState(false);
   const {
     state,
@@ -640,8 +708,9 @@ export function DetectionRow({ detection, onDecided }: DetectionRowProps) {
     activeCandidate,
     handleConfirm,
     handleReject,
+    handleRefine,
     handleCorrectSuccess,
-  } = useDetectionDecision(detection, onDecided);
+  } = useDetectionDecision(detection, onDecided, onRefined);
 
   if (state === 'decided') {
     return (
@@ -664,7 +733,8 @@ export function DetectionRow({ detection, onDecided }: DetectionRowProps) {
   return (
     <div
       data-testid={`detection-row-${detection.position_index}`}
-      className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border border-gray-200 bg-white px-3 py-2"
+      className={`flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border bg-white px-3 py-2 ${isSelected ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200' : 'border-gray-200'}`}
+      onClick={() => onSelect?.(detection.id)}
     >
       <span className="text-xs font-medium text-gray-400">#{detection.position_index}</span>
 
@@ -742,6 +812,15 @@ export function DetectionRow({ detection, onDecided }: DetectionRowProps) {
             Wpisz ręcznie
           </button>
         )}
+        <button
+          data-testid="refine-button"
+          disabled={busy || classifyCropQuality(detection.bbox) === 'uncertain_localization'}
+          onClick={() => void handleRefine()}
+          title={classifyCropQuality(detection.bbox) === 'uncertain_localization' ? 'Crop zbyt cienki — refine niedostępny' : 'Doprecyzuj odczyt'}
+          className="rounded border border-indigo-300 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+        >
+          {busy ? '...' : 'Refine'}
+        </button>
       </div>
 
       {showModal && (
@@ -768,9 +847,12 @@ export function DetectionRow({ detection, onDecided }: DetectionRowProps) {
 type DetectionTileProps = {
   detection: DetectionWithCandidatesDTO;
   onDecided: (detectionId: string) => void;
+  onRefined?: (next: DetectionWithCandidatesDTO) => void;
+  onSelect?: (detectionId: string) => void;
+  isSelected?: boolean;
 };
 
-export function DetectionTile({ detection, onDecided }: DetectionTileProps) {
+export function DetectionTile({ detection, onDecided, onRefined, onSelect, isSelected = false }: DetectionTileProps) {
   const [showModal, setShowModal] = useState(false);
   const {
     state,
@@ -781,8 +863,9 @@ export function DetectionTile({ detection, onDecided }: DetectionTileProps) {
     activeCandidate,
     handleConfirm,
     handleReject,
+    handleRefine,
     handleCorrectSuccess,
-  } = useDetectionDecision(detection, onDecided);
+  } = useDetectionDecision(detection, onDecided, onRefined);
 
   if (state === 'decided') {
     return (
@@ -803,7 +886,8 @@ export function DetectionTile({ detection, onDecided }: DetectionTileProps) {
   return (
     <div
       data-testid={`detection-tile-${detection.position_index}`}
-      className="flex flex-col rounded-xl border border-gray-200 bg-white p-3 shadow-sm"
+      className={`flex flex-col rounded-xl border bg-white p-3 shadow-sm ${isSelected ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200' : 'border-gray-200'}`}
+      onClick={() => onSelect?.(detection.id)}
     >
       <div className="flex justify-center">
         <CoverImage url={activeCandidate?.coverUrl ?? null} title={displayTitle} />
@@ -882,6 +966,15 @@ export function DetectionTile({ detection, onDecided }: DetectionTileProps) {
             Wpisz ręcznie
           </button>
         )}
+        <button
+          data-testid="refine-button"
+          disabled={busy}
+          onClick={() => void handleRefine()}
+          title={detection.bbox ? 'Refine crop' : 'Refine without bbox'}
+          className="rounded border border-indigo-300 bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
+        >
+          {busy ? '...' : 'Refine'}
+        </button>
       </div>
 
       {showModal && (
@@ -928,6 +1021,21 @@ function relativeTime(dateStr: string): string {
   if (diff < 3600) return `${Math.floor(diff / 60)} min temu`;
   if (diff < 86400) return `${Math.floor(diff / 3600)} godz. temu`;
   return `${Math.floor(diff / 86400)} dni temu`;
+}
+
+function formatCostEstimate(costUsd: number | null | undefined): string {
+  if (costUsd == null || !Number.isFinite(costUsd) || costUsd <= 0) {
+    return '~$0.01';
+  }
+  return `~$${costUsd.toFixed(4)}`;
+}
+
+function formatDurationEstimate(latencyMs: number | null | undefined): string {
+  if (latencyMs == null || !Number.isFinite(latencyMs) || latencyMs <= 0) {
+    return '~10 s';
+  }
+  const seconds = Math.max(1, Math.round(latencyMs / 1000));
+  return `~${seconds} s`;
 }
 
 // ---------------------------------------------------------------------------
@@ -1040,6 +1148,8 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
   const [decidedIds, setDecidedIds] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
   const [viewMode, setViewMode] = useDetectionViewMode();
+  const [focusedDetectionId, setFocusedDetectionId] = useState<string | null>(null);
+  const [confirmRerunOpen, setConfirmRerunOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -1053,7 +1163,8 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
         }
         setPhoto(json.data.photo);
         setPhotoUrl(json.data.photo_url ?? null);
-        setDetections(json.data.detections ?? []);
+        const loadedDetections = json.data.detections ?? [];
+        setDetections(loadedDetections);
         setVisionRun(json.data.vision_run ?? null);
       } catch (err) {
         if (!cancelled) setErrorMsg(err instanceof Error ? err.message : 'Nie udało się załadować propozycji.');
@@ -1066,6 +1177,10 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
 
   function handleDecided(detectionId: string) {
     setDecidedIds((prev) => new Set([...prev, detectionId]));
+  }
+
+  function handleRefined(next: DetectionWithCandidatesDTO) {
+    setDetections((prev) => prev.map((d) => (d.id === next.id ? next : d)));
   }
 
   // Redirect gdy wszystkie zdecydowane (osobny useEffect na świeżym stanie)
@@ -1117,14 +1232,7 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
     }
   }
 
-  async function handleRerunVision() {
-    if (
-      !window.confirm(
-        'Uruchomimy nowy vision run. Poprzednie wyniki zostaną w historii. Koszt: ~$0.01 + ~10s. OK?'
-      )
-    ) {
-      return;
-    }
+  async function runRerunVision() {
     setActionBusy(true);
     setActionMsg(null);
     try {
@@ -1142,6 +1250,13 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
         setActionMsg(json.error?.message ?? `Błąd (${res.status})`);
         return;
       }
+      // Auto-match after vision — user expects proposals immediately, not a blank list.
+      // Ignore match errors: reload will show detections even if match fails.
+      try {
+        await fetch(`/api/photos/${photoId}/match`, { method: 'POST' });
+      } catch {
+        // non-fatal — reload shows detections even if match fails
+      }
       window.location.reload();
     } catch (err) {
       setActionMsg(err instanceof Error ? err.message : 'Błąd sieci.');
@@ -1149,6 +1264,19 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
       setActionBusy(false);
     }
   }
+
+  function handleRerunVisionClick() {
+    setConfirmRerunOpen(true);
+  }
+
+  const estimatedCost = visionRun?.cost_usd ?? photo?.vision_cost_usd;
+  const estimatedLatencyMs = visionRun?.latency_ms ?? photo?.vision_latency_ms;
+  const estimateSource = visionRun?.cost_usd != null || visionRun?.latency_ms != null
+    ? 'na bazie ostatniego runu'
+    : photo?.vision_cost_usd != null || photo?.vision_latency_ms != null
+      ? 'na bazie cache zdjęcia'
+      : 'wartość orientacyjna';
+  const rerunConfirmMessage = `Uruchomimy nowy vision run. Poprzednie wyniki zostaną w historii. Szacowany koszt: ${formatCostEstimate(estimatedCost)} i czas: ${formatDurationEstimate(estimatedLatencyMs)} (${estimateSource}).`;
 
   async function handleRerunMatch() {
     setActionBusy(true);
@@ -1212,9 +1340,14 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
 
   return (
     <div data-testid="detection-review">
-      {/* Zdjęcie z ramkami detekcji */}
+      {/* Zdjęcie z ramkami detekcji — 'Pokaż wszystkie' jest w toolbarze overlay */}
       {detections.length > 0 && (
-        <PhotoDetectionOverlay photoUrl={photoUrl} detections={detections} />
+        <PhotoDetectionOverlay
+          photoUrl={photoUrl}
+          detections={detections}
+          focusedDetectionId={focusedDetectionId}
+          onClearFocus={() => setFocusedDetectionId(null)}
+        />
       )}
 
       {/* Vision run metadata panel */}
@@ -1232,7 +1365,7 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
             <button
               data-testid="rerun-vision-button"
               disabled={actionBusy}
-              onClick={() => void handleRerunVision()}
+              onClick={handleRerunVisionClick}
               className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
             >
               {actionBusy ? 'Uruchamiam...' : 'Ponów vision (nowy run)'}
@@ -1284,22 +1417,57 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
       {viewMode === 'list' ? (
         <div className="space-y-2">
           {detections.map((det) => (
-            <DetectionRow key={det.id} detection={det} onDecided={handleDecided} />
+            <DetectionRow
+              key={det.id}
+              detection={det}
+              onDecided={handleDecided}
+              onRefined={handleRefined}
+              onSelect={setFocusedDetectionId}
+              isSelected={focusedDetectionId === det.id}
+            />
           ))}
         </div>
       ) : viewMode === 'tiles' ? (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
           {detections.map((det) => (
-            <DetectionTile key={det.id} detection={det} onDecided={handleDecided} />
+            <DetectionTile
+              key={det.id}
+              detection={det}
+              onDecided={handleDecided}
+              onRefined={handleRefined}
+              onSelect={setFocusedDetectionId}
+              isSelected={focusedDetectionId === det.id}
+            />
           ))}
         </div>
       ) : (
         <div className="space-y-4">
           {detections.map((det) => (
-            <DetectionCard key={det.id} detection={det} onDecided={handleDecided} />
+            <DetectionCard
+              key={det.id}
+              detection={det}
+              onDecided={handleDecided}
+              onRefined={handleRefined}
+              onSelect={setFocusedDetectionId}
+              isSelected={focusedDetectionId === det.id}
+            />
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={confirmRerunOpen}
+        title="Ponowić vision?"
+        message={rerunConfirmMessage}
+        confirmLabel="Uruchom nowy run"
+        cancelLabel="Anuluj"
+        testIdPrefix="rerun-vision-confirm"
+        onCancel={() => setConfirmRerunOpen(false)}
+        onConfirm={() => {
+          setConfirmRerunOpen(false);
+          void runRerunVision();
+        }}
+      />
     </div>
   );
 }

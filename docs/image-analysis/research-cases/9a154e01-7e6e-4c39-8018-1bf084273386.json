@@ -1,0 +1,77 @@
+{
+  "photoId": "9a154e01-7e6e-4c39-8018-1bf084273386",
+  "storage_path": "fec2631a-28a7-46ed-8a71-feff0d100311/f5e332e6-3c74-47f0-a57b-c23a1cb83014.jpg",
+  "runId": "8af731e3-0848-45c0-a8d3-aad3f74bf1fc",
+  "detections": [
+    {
+      "id": "4e731b77-2857-4366-8f17-8f73e773f8ad",
+      "position_index": 1,
+      "raw_title": "Prof. Filutек 1985-2003",
+      "raw_author": "LENOREV",
+      "bbox_x1": 0.24,
+      "bbox_y1": 0.13,
+      "bbox_x2": 0.285,
+      "bbox_y2": 0.97
+    },
+    {
+      "id": "7ee8ab3d-28c8-4679-b17f-00ea1cfdb96d",
+      "position_index": 2,
+      "raw_title": "Prof. Filutек 1967-1984",
+      "raw_author": "LENOREV",
+      "bbox_x1": 0.285,
+      "bbox_y1": 0.13,
+      "bbox_x2": 0.325,
+      "bbox_y2": 0.97
+    },
+    {
+      "id": "3a4ca07d-3381-445d-9c75-e99779d14c1c",
+      "position_index": 4,
+      "raw_title": "Y: OSTATNI Z MĘŻCZYZN – JEDEN MAŁY KROK",
+      "raw_author": "Vaughan, Guerra, Marzan Jr.",
+      "bbox_x1": 0.385,
+      "bbox_y1": 0.18,
+      "bbox_x2": 0.41,
+      "bbox_y2": 0.97
+    },
+    {
+      "id": "cba43dbf-fabc-44c0-9343-0e0524cc0a1b",
+      "position_index": 5,
+      "raw_title": "Y: OSTATNI Z MĘŻCZYZN – ZARAZA",
+      "raw_author": "Vaughan, Guerra, Marzan Jr.",
+      "bbox_x1": 0.41,
+      "bbox_y1": 0.18,
+      "bbox_x2": 0.435,
+      "bbox_y2": 0.97
+    },
+    {
+      "id": "a91f4d42-7141-4c43-9427-a0e09e9ec1f4",
+      "position_index": 11,
+      "raw_title": "DIVINITY",
+      "raw_author": null,
+      "bbox_x1": 0.545,
+      "bbox_y1": 0.15,
+      "bbox_x2": 0.565,
+      "bbox_y2": 0.97
+    },
+    {
+      "id": "3c9fcbec-c52d-4050-960a-ae7f30db0bd8",
+      "position_index": 13,
+      "raw_title": "Asprа KOBRA",
+      "raw_author": null,
+      "bbox_x1": 0.585,
+      "bbox_y1": 0.15,
+      "bbox_x2": 0.61,
+      "bbox_y2": 0.97
+    },
+    {
+      "id": "3c273a5e-c506-46b8-bb6d-e079289f2c76",
+      "position_index": 16,
+      "raw_title": "Asprа KOBRA ZŁOTA KOLEKCJA",
+      "raw_author": null,
+      "bbox_x1": 0.66,
+      "bbox_y1": 0.15,
+      "bbox_x2": 0.685,
+      "bbox_y2": 0.97
+    }
+  ]
+}

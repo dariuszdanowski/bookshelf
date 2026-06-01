@@ -333,6 +333,91 @@ describe('POST /api/photos/[id]/process', () => {
     expect(row.bbox_y1).toBeNull();
   });
 
+  it('bbox: drops suspicious edge-strip bbox (likely wall/shadow false positive)', async () => {
+    const trackInsertions: { detections: unknown[][] } = { detections: [] };
+    const { supabase } = makeSupabase({ trackInsertions });
+
+    mockDetectSpines.mockResolvedValueOnce({
+      ...validVisionResult,
+      detections: [
+        {
+          ...validVisionResult.detections[0],
+          bbox: [0.005, 0.4, 0.045, 0.9] as [number, number, number, number],
+        },
+      ],
+    });
+
+    await POST(makeContext(supabase) as never);
+    expect(trackInsertions.detections).toHaveLength(1);
+    const row = (trackInsertions.detections[0] as { bbox_x1: unknown; bbox_y1: unknown; bbox_x2: unknown; bbox_y2: unknown }[])[0];
+    expect(row.bbox_x1).toBeNull();
+    expect(row.bbox_y1).toBeNull();
+    expect(row.bbox_x2).toBeNull();
+    expect(row.bbox_y2).toBeNull();
+  });
+
+  // ── sanitizeBbox — testy regresji ────────────────────────────────────────
+  // Bug: stary warunek `height < 0.08` odrzucał bboxki poziomych książek
+  // (leżących w stosach), które mają cienkie y (h≈0.03-0.06) ale szerokie x.
+  // Nowy: Math.min(width, height) < 0.012.
+
+  it('sanitizeBbox: przyjmuje bbox poziomej (lying-flat) książki — szeroki x, cienki y', async () => {
+    const trackInsertions: { detections: unknown[][] } = { detections: [] };
+    const { supabase } = makeSupabase({ trackInsertions });
+
+    // Horizontal book (e.g. SYBIRPUNK): width=0.186, height=0.050 — old code rejected h<0.08
+    mockDetectSpines.mockResolvedValueOnce({
+      ...validVisionResult,
+      detections: [{
+        ...validVisionResult.detections[0],
+        bbox: [0.014, 0.817, 0.200, 0.867] as [number, number, number, number],
+      }],
+    });
+
+    await POST(makeContext(supabase) as never);
+    const row = (trackInsertions.detections[0] as { bbox_x1: unknown; bbox_y1: unknown }[])[0];
+    // Must be saved — horizontal bbox should NOT be nulled out
+    expect(row.bbox_x1).toBeCloseTo(0.014);
+    expect(row.bbox_y1).toBeCloseTo(0.817);
+  });
+
+  it('sanitizeBbox: odrzuca bbox gdzie oba wymiary poniżej 0.012 (szum/noise)', async () => {
+    const trackInsertions: { detections: unknown[][] } = { detections: [] };
+    const { supabase } = makeSupabase({ trackInsertions });
+
+    // Tiny noise box — both dims < 0.012
+    mockDetectSpines.mockResolvedValueOnce({
+      ...validVisionResult,
+      detections: [{
+        ...validVisionResult.detections[0],
+        bbox: [0.5, 0.5, 0.508, 0.509] as [number, number, number, number], // w=0.008, h=0.009
+      }],
+    });
+
+    await POST(makeContext(supabase) as never);
+    const row = (trackInsertions.detections[0] as { bbox_x1: unknown }[])[0];
+    expect(row.bbox_x1).toBeNull();
+  });
+
+  it('sanitizeBbox: przyjmuje standardowy bbox pionowej (vertical) książki', async () => {
+    const trackInsertions: { detections: unknown[][] } = { detections: [] };
+    const { supabase } = makeSupabase({ trackInsertions });
+
+    // Vertical book: narrow width, tall height
+    mockDetectSpines.mockResolvedValueOnce({
+      ...validVisionResult,
+      detections: [{
+        ...validVisionResult.detections[0],
+        bbox: [0.12, 0.28, 0.16, 0.85] as [number, number, number, number], // w=0.04, h=0.57
+      }],
+    });
+
+    await POST(makeContext(supabase) as never);
+    const row = (trackInsertions.detections[0] as { bbox_x1: unknown; bbox_y2: unknown }[])[0];
+    expect(row.bbox_x1).toBeCloseTo(0.12);
+    expect(row.bbox_y2).toBeCloseTo(0.85);
+  });
+
   it('deriveWorkingCopy failure: sets vision_run failed, returns 500', async () => {
     mockDeriveWorkingCopy.mockRejectedValueOnce(new Error('photon crash'));
     const { supabase } = makeSupabase({});

@@ -33,7 +33,6 @@ function jsonResponse(body: unknown, status = 200) {
 describe('PhotoListIsland', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.spyOn(window, 'confirm').mockReturnValue(false);
   });
 
   afterEach(() => {
@@ -138,12 +137,7 @@ describe('PhotoListIsland', () => {
     expect(fetchMock.mock.calls[2][0]).toBe(`/api/shelves/${SHELF_ID}/photos`);
   });
 
-  it('Re-run vision shows confirm and calls fetch only on OK', async () => {
-    const confirmMock = vi
-      .spyOn(window, 'confirm')
-      .mockReturnValueOnce(false)
-      .mockReturnValueOnce(true);
-
+  it('Re-run vision opens modal and calls fetch only after modal confirm', async () => {
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(
@@ -161,13 +155,18 @@ describe('PhotoListIsland', () => {
       expect(screen.getByTestId(`rerun-vision-${PHOTO_ID}`)).toBeInTheDocument()
     );
 
-    // First click — confirm returns false, no process call
+    // First click — opens custom modal, no process call yet
     fireEvent.click(screen.getByTestId(`rerun-vision-${PHOTO_ID}`));
-    expect(confirmMock).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('photo-rerun-confirm')).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledTimes(1); // only initial list fetch
 
-    // Second click — confirm returns true, process called + refetch
+    // Cancel in modal — still no process call
+    fireEvent.click(screen.getByTestId('photo-rerun-confirm-cancel'));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    // Second click + modal confirm — process called + refetch
     fireEvent.click(screen.getByTestId(`rerun-vision-${PHOTO_ID}`));
+    fireEvent.click(screen.getByTestId('photo-rerun-confirm-confirm'));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
     expect(fetchMock.mock.calls[1][0]).toBe(`/api/photos/${PHOTO_ID}/process`);
   });

@@ -1,6 +1,7 @@
 import { useState, type SyntheticEvent } from 'react';
 
 import type { ShelfDTO } from '../lib/shelves/schema';
+import ConfirmDialog from './ConfirmDialog';
 
 type Props = {
   shelf: ShelfDTO;
@@ -20,6 +21,7 @@ export default function ShelfListItem({ shelf, onUpdate, onDelete }: Props) {
   const [location, setLocation] = useState(shelf.location ?? '');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   // Adaptacja vs plan: React 19 deprecated FormEvent — używamy SyntheticEvent
   // (per S-01 B variant precedent + lessons.md "Adaptacje literalne").
@@ -45,9 +47,6 @@ export default function ShelfListItem({ shelf, onUpdate, onDelete }: Props) {
   }
 
   async function onDeleteClick() {
-    if (!window.confirm(`Usunąć półkę „${shelf.name}"? Tej operacji nie można cofnąć.`)) {
-      return;
-    }
     setBusy(true);
     setError(null);
     try {
@@ -170,7 +169,7 @@ export default function ShelfListItem({ shelf, onUpdate, onDelete }: Props) {
             <button
               type="button"
               disabled={busy}
-              onClick={onDeleteClick}
+              onClick={() => setConfirmDeleteOpen(true)}
               className="inline-flex items-center justify-center rounded-md border border-red-300 bg-red-50 px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
               data-testid="shelf-item-delete-button"
             >
@@ -184,6 +183,21 @@ export default function ShelfListItem({ shelf, onUpdate, onDelete }: Props) {
           {error}
         </p>
       )}
+
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        title="Usunąć półkę?"
+        message={`Usunąć półkę „${shelf.name}"? Tej operacji nie można cofnąć.`}
+        confirmLabel="Usuń półkę"
+        cancelLabel="Anuluj"
+        confirmTone="danger"
+        testIdPrefix={`shelf-delete-confirm-${shelf.id}`}
+        onCancel={() => setConfirmDeleteOpen(false)}
+        onConfirm={() => {
+          setConfirmDeleteOpen(false);
+          void onDeleteClick();
+        }}
+      />
     </li>
   );
 }

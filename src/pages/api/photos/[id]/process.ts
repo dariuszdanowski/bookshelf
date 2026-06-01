@@ -21,6 +21,35 @@ function toBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
+function sanitizeBbox(
+  bbox: [number, number, number, number] | null | undefined
+): [number, number, number, number] | null {
+  if (!bbox) return null;
+
+  const [rawX1, rawY1, rawX2, rawY2] = bbox;
+  const x1 = Math.min(rawX1, rawX2);
+  const y1 = Math.min(rawY1, rawY2);
+  const x2 = Math.max(rawX1, rawX2);
+  const y2 = Math.max(rawY1, rawY2);
+
+  const width = x2 - x1;
+  const height = y2 - y1;
+  if (width <= 0 || height <= 0) return null;
+
+  // Reject razor-thin boxes in BOTH dimensions (noise) but keep landscape bboxes
+  // (horizontal/lying books have large width, small height — e.g. w=0.19 h=0.05).
+  // Old check `height < 0.08` killed all horizontal-book bboxes.
+  const minDim = Math.min(width, height);
+  if (minDim < 0.012) return null;
+
+  // Guard against false positives on image edges (wall/shelf shadows).
+  const touchesLeftOrRightEdge = x1 < 0.02 || x2 > 0.98;
+  const looksLikeEdgeStrip = touchesLeftOrRightEdge && width < 0.06 && height > 0.25;
+  if (looksLikeEdgeStrip) return null;
+
+  return [x1, y1, x2, y2];
+}
+
 /**
  * POST /api/photos/[id]/process
  *
@@ -176,20 +205,23 @@ export const POST: APIRoute = async ({ params, locals }) => {
   // 6. Insert detections with vision_run_id (append-only; no DELETE per photo_id)
   if (visionResult.detections.length > 0) {
     const { error: insertError } = await locals.supabase.from('detections').insert(
-      visionResult.detections.map((d) => ({
-        photo_id: id,
-        vision_run_id: runId,
-        position_index: d.position,
-        raw_title: d.title,
-        raw_author: d.author ?? null,
-        vision_confidence: d.confidence,
-        spine_color: d.spine_color ?? null,
-        status: 'pending',
-        bbox_x1: d.bbox?.[0] ?? null,
-        bbox_y1: d.bbox?.[1] ?? null,
-        bbox_x2: d.bbox?.[2] ?? null,
-        bbox_y2: d.bbox?.[3] ?? null,
-      }))
+      visionResult.detections.map((d) => {
+        const bbox = sanitizeBbox(d.bbox);
+        return {
+          photo_id: id,
+          vision_run_id: runId,
+          position_index: d.position,
+          raw_title: d.title,
+          raw_author: d.author ?? null,
+          vision_confidence: d.confidence,
+          spine_color: d.spine_color ?? null,
+          status: 'pending',
+          bbox_x1: bbox?.[0] ?? null,
+          bbox_y1: bbox?.[1] ?? null,
+          bbox_x2: bbox?.[2] ?? null,
+          bbox_y2: bbox?.[3] ?? null,
+        };
+      })
     );
 
     if (insertError) {

@@ -47,7 +47,7 @@ function makeDetections(): DetectionPayload[] {
       raw_author: 'Lem',
       vision_confidence: 0.95,
       spine_color: null,
-      bbox: null,
+      bbox: { x1: 0.1, y1: 0.05, x2: 0.2, y2: 0.95 },
       status: 'matched',
       candidates: [
         {
@@ -74,7 +74,7 @@ function makeDetections(): DetectionPayload[] {
       raw_author: 'Prus',
       vision_confidence: 0.88,
       spine_color: null,
-      bbox: null,
+      bbox: { x1: 0.25, y1: 0.05, x2: 0.35, y2: 0.95 },
       status: 'matched',
       candidates: [
         {
@@ -237,5 +237,22 @@ test.describe('S-25 detection list views', () => {
     await page.getByTestId('detection-tile-1').getByTestId('correct-button').click();
     await expect(page.getByTestId('correction-modal')).toBeVisible();
     await expect(page.getByTestId('correct-form')).toBeVisible();
+  });
+
+  test('Refine działa w trybie Lista', async ({ page }) => {
+    let refineCalled = false;
+    await page.route(`**/api/detections/**/refine`, async (route) => {
+      refineCalled = true;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { detection: { id: '00000000-0000-4000-8000-000000000c01' } } }),
+      });
+    });
+
+    await seedViewMode(page, 'list');
+    await page.goto(`/photos/${PHOTO_ID}`);
+    await page.getByTestId('detection-row-1').getByTestId('refine-button').click();
+    await expect.poll(() => refineCalled).toBe(true);
   });
 });

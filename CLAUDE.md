@@ -121,6 +121,7 @@ VS Code tasks (Ctrl+Shift+P → Tasks: Run Task) zawijają te komendy przez WSL 
 - **Server pages** w Astro (`.astro`) — SSR, auth guard, data fetch
 - **Interactive views** w React (`.tsx`) — `client:load` / `client:visible` islands
 - Granica jasna: jeśli komponent nie ma stanu interakcji, zostaje Astro
+- Potwierdzenia/alerty w UI realizuj jako modal React (in-app dialog). Nie używaj natywnych okien przeglądarki (`window.confirm`, `window.alert`, `window.prompt`).
 
 ### Supabase
 - **RLS od pierwszego dnia** — każda tabela ma policy `user_id = auth.uid()`
@@ -315,3 +316,5 @@ The lesson focus is safe throughput: isolated contexts, choosing the right execu
 - `context/changes/<change-id>/plan.md` - implementation input for any execution mode
 
 Skills must not write to `context/archive/`. Archived changes are immutable; if a resolved target path starts with `context/archive/`, abort with: "This change is archived. Open a new change with `/10x-new` instead."
+
+<!-- END @przeprogramowani/10x-cli -->

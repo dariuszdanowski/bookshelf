@@ -28,6 +28,8 @@ BookShelf Catalog — cataloging app: shelf photo → vision-LLM detects titles 
 
 Matching score thresholds: `≥0.75` auto-checked in UI; `0.55-0.75` user confirms; `<0.55` manual entry + `corrections` row. Typed Supabase clients at `src/lib/db/supabase.{server,browser}.ts` — server client is RLS-respecting (anon key + user JWT from cookies), **not** service-role. Service-role is not a default data path and lives outside `src/lib/db/` — only narrow privileged routes if/when they arise. Single vision-prompt source: `src/lib/vision/prompt.ts`. Lint/format config: `@eslint.config.mjs`, `@.prettierrc.json`.
 
+UI confirmations/alerts must use in-app modal components (custom React dialog), not browser-native `window.confirm/alert/prompt`.
+
 ## Commits & PRs
 
 History mixes Polish prose with light Conventional Commits prefixes (`fix(scope):`, `infra:`, `docs:`, `chore:`). PRs target `main` (branch-per-change: `change/<id>`). `.github/workflows/` wired: `ci.yml` (job `verify`: lint + typecheck + vitest + build; job `e2e`: Playwright on ephemeral local Supabase — on PR/push), `deploy.yml` (build + deploy to CF Workers + post-deploy `/api/health` smoke on push to main). Run `npm run lint && npm run typecheck && npm run test` locally before pushing.

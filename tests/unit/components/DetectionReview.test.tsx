@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import DetectionReview from '../../../src/components/DetectionReview';
+import type { DetectionWithCandidatesDTO } from '../../../src/lib/photos/schema';
 
 // ---------------------------------------------------------------------------
 // Stałe testowe
@@ -61,33 +62,33 @@ const candLow = {
   rank: 1,
 };
 
-const detHigh = {
+const detHigh: DetectionWithCandidatesDTO = {
   id: DET_ID_HIGH,
   position_index: 1,
   raw_title: 'Solaris',
   raw_author: 'Lem',
   vision_confidence: 0.95,
   spine_color: null,
-  bbox: null,
+  bbox: { x1: 0.1, y1: 0.05, x2: 0.2, y2: 0.95 },
   status: 'matched',
   candidates: [candHigh],
   duplicate: null,
 };
 
-const detLow = {
+const detLow: DetectionWithCandidatesDTO = {
   id: DET_ID_LOW,
   position_index: 2,
   raw_title: 'Diuna',
   raw_author: null,
   vision_confidence: 0.80,
   spine_color: null,
-  bbox: null,
+  bbox: { x1: 0.25, y1: 0.05, x2: 0.35, y2: 0.95 },
   status: 'matched',
   candidates: [candLow],
   duplicate: null,
 };
 
-const detNoMatch = {
+const detNoMatch: DetectionWithCandidatesDTO = {
   id: '00000000-0000-4000-8000-000000000012',
   position_index: 3,
   raw_title: 'Nieznana',
@@ -100,7 +101,7 @@ const detNoMatch = {
   duplicate: null,
 };
 
-function makePhotoResponse(detections = [detHigh, detLow]) {
+function makePhotoResponse(detections: DetectionWithCandidatesDTO[] = [detHigh, detLow]) {
   return {
     data: {
       photo: mockPhoto,
@@ -293,6 +294,80 @@ describe('DetectionReview — reject', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Akcja: Refine
+// ---------------------------------------------------------------------------
+
+describe('DetectionReview — refine', () => {
+  it('pokazuje przycisk Doprecyzuj odczyt także bez bbox', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(makePhotoResponse([detNoMatch])), { status: 200 })
+    );
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => screen.getByTestId('refine-button'));
+    expect(screen.getByTestId('refine-button')).toBeInTheDocument();
+  });
+
+  it('pokazuje przycisk Doprecyzuj odczyt dla detekcji z bbox', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 })
+    );
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => screen.getByTestId('refine-button'));
+    expect(screen.getByTestId('refine-button')).toBeInTheDocument();
+  });
+
+  it('klik Refine woła POST /refine bez pełnego reloadu strony', async () => {
+    const reloadMock = window.location.reload as unknown as ReturnType<typeof vi.fn>;
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 }))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ data: { applied: true, detection: { id: DET_ID_HIGH, raw_title: 'Solaris (refined)' } } }),
+          { status: 200 }
+        )
+      );
+
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    const refineBtn = await waitFor(() => screen.getByTestId('refine-button'));
+    fireEvent.click(refineBtn);
+
+    await waitFor(() => {
+      const refineCall = fetchMock.mock.calls.find(
+        ([url]) => typeof url === 'string' && url.includes(`/api/detections/${DET_ID_HIGH}/refine`)
+      );
+      expect(refineCall).toBeDefined();
+      expect(reloadMock).not.toHaveBeenCalled();
+    });
+  });
+
+  it('pozwala uruchomić Refine dla nieprecyzyjnego bbox (próba API)', async () => {
+    const detBadBbox: DetectionWithCandidatesDTO = {
+      ...detHigh,
+      bbox: { x1: 0.05, y1: 0.1, x2: 0.9, y2: 0.95 },
+    };
+
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify(makePhotoResponse([detBadBbox])), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { applied: false, reason: 'parse_failure' } }), { status: 200 }));
+
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    const refineBtn = await waitFor(() => screen.getByTestId('refine-button'));
+
+    expect(refineBtn).not.toBeDisabled();
+    fireEvent.click(refineBtn);
+
+    await waitFor(() => {
+      const refineCall = fetchMock.mock.calls.find(
+        ([url]) => typeof url === 'string' && url.includes(`/api/detections/${DET_ID_HIGH}/refine`)
+      );
+      expect(refineCall).toBeDefined();
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Akcja: Popraw (field_edit)
 // ---------------------------------------------------------------------------
 
@@ -386,5 +461,107 @@ describe('DetectionReview — manual entry (no match)', () => {
       expect(body.mode).toBe('manual_entry');
       expect(body.candidate_id).toBeUndefined();
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// runRerunVision — auto-match po udanym vision
+// Bug: runRerunVision robiło window.location.reload() bez wywołania match
+// → user widział "35 znalezionych, 0 dopasowanych" i musiał ręcznie klikać.
+// ---------------------------------------------------------------------------
+
+describe('DetectionReview — runRerunVision auto-match', () => {
+  it('po udanym vision wywołuje POST /match a dopiero potem reload', async () => {
+    const reloadMock = window.location.reload as unknown as ReturnType<typeof vi.fn>;
+    const callOrder: string[] = [];
+
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
+      const u = typeof url === 'string' ? url : (url as Request).url;
+
+      // Check specific subpaths first (process/match) before the general /api/photos/:id
+      if (u.includes('/process')) {
+        callOrder.push('POST /process');
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: { photo: mockPhoto, detections: [] } }), { status: 200 })
+        );
+      }
+      if (u.includes('/match')) {
+        callOrder.push('POST /match');
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: { matched: 2, detections: [] } }), { status: 200 })
+        );
+      }
+      if (u.includes(`/api/photos/${PHOTO_ID}`)) {
+        callOrder.push('GET /photos');
+        return Promise.resolve(
+          new Response(JSON.stringify(makePhotoResponse()), { status: 200 })
+        );
+      }
+      return Promise.resolve(new Response('{}', { status: 200 }));
+    });
+
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => screen.getByTestId('detection-review'));
+
+    // Click "Ponów vision" → ConfirmDialog → confirm
+    fireEvent.click(screen.getByTestId('rerun-vision-button'));
+    await waitFor(() => screen.getByRole('dialog'));
+    fireEvent.click(screen.getByTestId('rerun-vision-confirm-confirm'));
+
+    // Wait for reload (signals full flow is done)
+    await waitFor(() => expect(reloadMock).toHaveBeenCalled(), { timeout: 3000 });
+
+    // /process must have been called
+    const processCalls = fetchMock.mock.calls.filter(([url]) =>
+      typeof url === 'string' && url.includes('/process')
+    );
+    expect(processCalls.length).toBeGreaterThan(0);
+
+    // /match must have been called AFTER /process and BEFORE reload
+    const matchCalls = fetchMock.mock.calls.filter(([url]) =>
+      typeof url === 'string' && url.includes('/match')
+    );
+    expect(matchCalls.length).toBeGreaterThan(0);
+
+    const processIdx = callOrder.indexOf('POST /process');
+    const matchIdx = callOrder.indexOf('POST /match');
+    expect(processIdx).toBeGreaterThanOrEqual(0);
+    expect(matchIdx).toBeGreaterThan(processIdx); // match AFTER process
+  });
+
+  it('gdy vision zwraca błąd, match NIE jest wywołany i reload NIE następuje', async () => {
+    const reloadMock = window.location.reload as unknown as ReturnType<typeof vi.fn>;
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
+      const u = typeof url === 'string' ? url : (url as Request).url;
+      if (u.includes(`/api/photos/${PHOTO_ID}`) && !u.includes('/process') && !u.includes('/match')) {
+        return Promise.resolve(new Response(JSON.stringify(makePhotoResponse()), { status: 200 }));
+      }
+      if (u.includes('/process')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ error: { code: 'INTERNAL_ERROR', message: 'Vision fail' } }), { status: 500 })
+        );
+      }
+      // match should never be called
+      if (u.includes('/match')) {
+        return Promise.resolve(new Response('{}', { status: 200 }));
+      }
+      return Promise.resolve(new Response('{}', { status: 200 }));
+    });
+
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => screen.getByTestId('detection-review'));
+
+    fireEvent.click(screen.getByTestId('rerun-vision-button'));
+    await waitFor(() => screen.getByRole('dialog'));
+    fireEvent.click(screen.getByTestId('rerun-vision-confirm-confirm'));
+
+    // Wait for error message to appear (vision failed → shows error, no reload)
+    await waitFor(() => {
+      const msg = screen.queryByTestId('action-message');
+      return msg && msg.textContent && msg.textContent.length > 0;
+    }, { timeout: 3000 });
+
+    expect(reloadMock).not.toHaveBeenCalled();
   });
 });

@@ -21,6 +21,7 @@ export default [
       'context/',
       'docs/',
       'supabase/migrations/',
+      'scripts/',
     ],
   },
 

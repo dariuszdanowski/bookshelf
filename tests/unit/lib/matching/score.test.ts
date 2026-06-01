@@ -96,6 +96,43 @@ describe('scoreCandidate', () => {
     expect(MATCH_MID).toBe(0.55);
   });
 
+  it('anthology penalty: 1 trafiony autor z 12 (antologia) NIE daje pełnego authorSim', () => {
+    // Realny przypadek: detekcja "Alter Ego" / Milena Wójtowicz dopasowana do
+    // antologii "Inne nieba" (12 autorów, w tym Wójtowicz). Bez kary score=0.48
+    // wypychał fałszywą propozycję. Z karą authorSim ×(3/12) → score znacząco niżej.
+    const anthologyAuthors = [
+      'Ewa Białołęcka', 'Krystyna Chodorowska', 'Agnieszka Hałas', 'Anna Hrycyszyn',
+      'Aneta Jadowska', 'Aleksandra Janusz', 'Anna Kańtoch', 'Magdalena Kubasiewicz',
+      'Anna Nieznaj', 'Martyna Raduchowska', 'Milena Wójtowicz', 'Aleksandra Zielińska',
+    ];
+    const score = scoreCandidate(
+      { raw_title: 'Alter Ego', raw_author: 'Milena Wójtowicz' },
+      { title: 'Inne nieba', authors: anthologyAuthors, isbn13: '9788383303857', isbn10: null }
+    );
+    // titleSim≈0.20, authorSim = 1.0 × (3/12) = 0.25 → 0.65*0.20 + 0.30*0.25 + 0.05 ≈ 0.255
+    expect(score).toBeLessThan(MATCH_MID); // poniżej progu → "brak matchu"
+  });
+
+  it('anthology penalty: współautorstwo (≤3 autorów) bez kary', () => {
+    const score = scoreCandidate(
+      { raw_title: 'Dobry Omen', raw_author: 'Terry Pratchett' },
+      { title: 'Dobry Omen', authors: ['Terry Pratchett', 'Neil Gaiman'], isbn13: null, isbn10: null }
+    );
+    // tytuł exact (0.65) + autor exact bez kary (0.30) = 0.95
+    expect(score).toBeCloseTo(0.95, 2);
+  });
+
+  it('anthology penalty: trafiony autor w dużej antologii nie wystarcza przy złym tytule', () => {
+    const many = Array.from({ length: 10 }, (_, i) => `Autor ${i}`);
+    many.push('Jan Kowalski');
+    const score = scoreCandidate(
+      { raw_title: 'Zupełnie Inny Tytuł', raw_author: 'Jan Kowalski' },
+      { title: 'Antologia Czegoś', authors: many, isbn13: null, isbn10: null }
+    );
+    // authorSim = 1.0 × (3/11) ≈ 0.27 → wkład autora ≤ 0.082, niski tytuł → score niski
+    expect(score).toBeLessThan(MATCH_MID);
+  });
+
   it('diacritics normalized: accented chars (ó, ę, ą) stripped before comparison', () => {
     // 'Jozef' vs 'Józef' — ó decomposes under NFD to o + combining acute → stripped
     const withAccent = scoreCandidate(

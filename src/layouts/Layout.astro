@@ -1,6 +1,7 @@
 ---
 import '../styles/global.css';
 import LogoutButton from '../components/LogoutButton.tsx';
+import ThemeToggle from '../components/ThemeToggle.tsx';
 import EnvBadge from '../components/EnvBadge.astro';
 import { detectDbEnvironment, ENV_LABEL } from '../lib/db/environment';
 
@@ -21,6 +22,25 @@ const titleWithEnv = `[${ENV_LABEL[dbEnv]}] ${title}`;
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="generator" content={Astro.generator} />
+    <script is:inline>
+      (() => {
+        try {
+          const key = 'bookshelf:theme-mode';
+          const stored = window.localStorage.getItem(key);
+          const mode =
+            stored === 'dark' || stored === 'light'
+              ? stored
+              : window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'dark'
+                : 'light';
+          document.documentElement.classList.toggle('dark', mode === 'dark');
+          document.documentElement.setAttribute('data-theme', mode);
+        } catch {
+          document.documentElement.classList.remove('dark');
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      })();
+    </script>
     <title>{titleWithEnv}</title>
   </head>
   <body>
@@ -58,6 +78,7 @@ const titleWithEnv = `[${ENV_LABEL[dbEnv]}] ${title}`;
           >
             Dodaj zakup
           </a>
+          <ThemeToggle client:load />
           <span data-testid="user-email">{user.email}</span>
           <LogoutButton client:load />
         </header>

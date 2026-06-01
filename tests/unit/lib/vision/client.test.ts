@@ -10,7 +10,7 @@ vi.mock('@anthropic-ai/sdk', () => {
   return { default: MockAnthropic };
 });
 
-import { detectSpines, stripCodeFences } from '../../../../src/lib/vision/client';
+import { detectSingleSpineFromCrop, detectSpines, stripCodeFences } from '../../../../src/lib/vision/client';
 import { SPINE_COLORS } from '../../../../src/lib/vision/prompt';
 
 function makeAnthropicResponse(
@@ -176,6 +176,32 @@ describe('detectSpines', () => {
     const result = await detectSpines({ base64: 'img', mediaType: 'image/jpeg' });
 
     expect(result.ok).toBe(true);
+  });
+});
+
+describe('detectSingleSpineFromCrop', () => {
+  it('returns a single refined detection when parse succeeds', async () => {
+    mockCreate.mockResolvedValueOnce(makeAnthropicResponse(JSON.stringify([validDetection]), 500, 250));
+
+    const result = await detectSingleSpineFromCrop({ base64: 'crop123', mediaType: 'image/jpeg' });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.detection.title).toBe('Solaris');
+    expect(result.costUsd).toBeCloseTo(0.00525, 6);
+  });
+
+  it('retries with thinking and returns parse_failure when both attempts produce empty arrays', async () => {
+    mockCreate
+      .mockResolvedValueOnce(makeAnthropicResponse(JSON.stringify([]), 100, 50))
+      .mockResolvedValueOnce(makeAnthropicResponse(JSON.stringify([]), 100, 50));
+
+    const result = await detectSingleSpineFromCrop({ base64: 'crop123', mediaType: 'image/jpeg' });
+
+    expect(mockCreate).toHaveBeenCalledTimes(2);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe('parse_failure');
   });
 });
 
