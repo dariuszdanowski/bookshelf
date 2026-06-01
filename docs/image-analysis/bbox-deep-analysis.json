@@ -1,0 +1,116 @@
+[
+  {
+    "label": "v3-baseline (aktualny produkcyjny)",
+    "stats": {
+      "ok": true,
+      "total": 35,
+      "withBbox": 35,
+      "nullBbox": 0,
+      "tooNarrow": 0,
+      "sybirpunk": [
+        {
+          "position": 1,
+          "title": "Sybirpunk",
+          "author": "Michał Gołkowski",
+          "confidence": 0.9,
+          "spine_color": "czerwony",
+          "bbox": [
+            0.01,
+            0.45,
+            0.07,
+            0.72
+          ]
+        },
+        {
+          "position": 2,
+          "title": "Sybirpunk 2",
+          "author": "Michał Gołkowski",
+          "confidence": 0.85,
+          "spine_color": "czerwony",
+          "bbox": [
+            0.01,
+            0.55,
+            0.07,
+            0.75
+          ]
+        }
+      ],
+      "wiedzmie": {
+        "position": 33,
+        "title": "Raz Wiedźmie Śmierć",
+        "author": null,
+        "confidence": 0.8,
+        "spine_color": "czarny",
+        "bbox": [
+          0.37,
+          0.23,
+          0.56,
+          0.32
+        ]
+      },
+      "horizontal": []
+    },
+    "rawText": "```json\n[\n  {\n    \"position\": 1,\n    \"title\": \"Sybirpunk\",\n    \"author\": \"Michał Gołkowski\",\n    \"confidence\": 0.9,\n    \"spine_color\": \"czerwony\",\n    \"bbox\": [0.01, 0.45, 0.07, 0.72]\n  },\n  {\n    \"position\": 2,\n    \"title\": \"Sybirpunk 2\",\n    \"author\": \"Michał Gołkowski\",\n    \"confidence\": 0.85,\n    \"spine_color\": \"czerwony\",\n    \"bbox\": [0.01, 0.55, 0.07, 0.75]\n  },\n  {\n    \"position\": 3,\n    \"title\": \"Przewodnik po zbrodni według grzecznej dziewczynki\",\n    \"author\": \"Holly Jackson\",\n    \"confidence\": 0.85,\n    \"spine_color\": \"różowy\",\n    \"bbox\": [0.03, 0.4, 0.09, 0.72]\n  },\n  {\n    \"position\": 4,\n    \"title\": \"Zepsuta krew (Grzeczna dziewczynka)\",\n    \"author\": \"Holly Jackson\",\n    \"confidence\": 0.85,\n    \"spine_color\": \"różowy\",\n    \"bbox\": [0.04, 0.35, 0.1, 0.72]\n  },\n  {\n    \"position\": 5,\n    \"title\": \"Porwana błyskawica\",\n    \"author\": \"Natasza Socha\",\n    \"confidence\": 0.75,\n    \"spine_color\": \"biały\",\n    \"bbox\": [0.05, 0.38, 0.1, 0.72]\n  },\n  {\n    \"position\": 6,\n    \"title\": \"Mykola\",\n    \"author\": \"Michał Gołkowski\",\n    \"confidence\": 0.85,\n    \"spine_color\": \"niebieski\",\n    \"bbox\": [0.06, 0.3, 0.11, 0.72]\n  },\n  {\n    \"position\": 7,\n    \"title\": \"Bestiariusz japoński\",\n    \"author\": null,\n    \"confidence\": 0.7,\n    \"spine_color\": \"biały\",\n    \"bbox\": [0.09, 0.28, 0.13, 0.72]\n  },\n  {\n    \"position\": 8,\n    \"title\": \"Tajemnice East Emerson\",\n    \"author\": \"Rex Ogle\",\n    \"confidence\": 0.75,\n    \"spine_color\": \"biały\",\n    \"bbox\": [0.07, 0.28, 0.12, 0.72]\n  },\n  {\n    \"position\": 9,\n    \"title\": \"Czas Żniw\",\n    \"author\": \"Rachel Caine\",\n    \"confidence\": 0.85,\n    \"spine_color\": \"czarny\",\n    \"bbox\": [0.13, 0.25, 0.18, 0.72]\n  },\n  {\n    \"position\": 10,\n    \"title\": \"Vermintide / Krew\",\n    \"author\": \"Samantha Shannon\",\n    \"confidence\": 0.65,\n    \"spine_color\": \"brązowy\",\n    \"bbox\": [0.17, 0.27, 0.21, 0.72]\n  },\n  {\n    \"position\": 11,\n    \"title\": \"Grd / Talon\",\n    \"author\": \"Julie Kagawa\",\n    \"confidence\": 0.75,\n    \"spine_color\": \"czarny\",\n   "
+  },
+  {
+    "label": "v4-force-bbox (bez null, best-effort)",
+    "stats": {
+      "ok": true,
+      "total": 35,
+      "withBbox": 35,
+      "nullBbox": 0,
+      "tooNarrow": 0,
+      "sybirpunk": [
+        {
+          "position": 1,
+          "title": "Sybirpunk",
+          "author": "Michał Gołkowski",
+          "confidence": 0.9,
+          "spine_color": "czerwony",
+          "bbox": [
+            0.03,
+            0.55,
+            0.09,
+            0.72
+          ]
+        },
+        {
+          "position": 2,
+          "title": "Sybirpunk 2",
+          "author": "Michał Gołkowski",
+          "confidence": 0.85,
+          "spine_color": "niebieski",
+          "bbox": [
+            0.03,
+            0.65,
+            0.09,
+            0.78
+          ]
+        }
+      ],
+      "wiedzmie": {
+        "position": 15,
+        "title": "Raz wiedźmie śmierć",
+        "author": "nieznany",
+        "confidence": 0.8,
+        "spine_color": "czarny",
+        "bbox": [
+          0.345,
+          0.24,
+          0.455,
+          0.32
+        ]
+      },
+      "horizontal": []
+    },
+    "rawText": "```json\n[\n  {\n    \"position\": 1,\n    \"title\": \"Sybirpunk\",\n    \"author\": \"Michał Gołkowski\",\n    \"confidence\": 0.9,\n    \"spine_color\": \"czerwony\",\n    \"bbox\": [0.03, 0.55, 0.09, 0.72]\n  },\n  {\n    \"position\": 2,\n    \"title\": \"Sybirpunk 2\",\n    \"author\": \"Michał Gołkowski\",\n    \"confidence\": 0.85,\n    \"spine_color\": \"niebieski\",\n    \"bbox\": [0.03, 0.65, 0.09, 0.78]\n  },\n  {\n    \"position\": 3,\n    \"title\": \"Przewodnik po zbrodni według grzecznej dziewczynki\",\n    \"author\": \"Holly Jackson\",\n    \"confidence\": 0.8,\n    \"spine_color\": \"różowy\",\n    \"bbox\": [0.04, 0.48, 0.10, 0.66]\n  },\n  {\n    \"position\": 4,\n    \"title\": \"Zepsuta krew\",\n    \"author\": \"Holly Jackson\",\n    \"confidence\": 0.8,\n    \"spine_color\": \"czerwony\",\n    \"bbox\": [0.05, 0.38, 0.11, 0.55]\n  },\n  {\n    \"position\": 5,\n    \"title\": \"Bestiariusz japoński\",\n    \"author\": \"Natasha Boyle / Yoki\",\n    \"confidence\": 0.6,\n    \"spine_color\": \"biały\",\n    \"bbox\": [0.09, 0.32, 0.13, 0.72]\n  },\n  {\n    \"position\": 6,\n    \"title\": \"Tajemnice East Emerson\",\n    \"author\": \"Rex Ogle\",\n    \"confidence\": 0.75,\n    \"spine_color\": \"biały\",\n    \"bbox\": [0.05, 0.28, 0.13, 0.42]\n  },\n  {\n    \"position\": 7,\n    \"title\": \"Mykoła\",\n    \"author\": \"Michał Gołkowski\",\n    \"confidence\": 0.8,\n    \"spine_color\": \"zielony\",\n    \"bbox\": [0.10, 0.32, 0.14, 0.72]\n  },\n  {\n    \"position\": 8,\n    \"title\": \"Rachel Caine - (tytuł nieczytelny)\",\n    \"author\": \"Rachel Caine\",\n    \"confidence\": 0.6,\n    \"spine_color\": \"czarny\",\n    \"bbox\": [0.145, 0.30, 0.175, 0.75]\n  },\n  {\n    \"position\": 9,\n    \"title\": \"Czas żniw\",\n    \"author\": \"Samantha Shannon\",\n    \"confidence\": 0.8,\n    \"spine_color\": \"czarny\",\n    \"bbox\": [0.175, 0.28, 0.205, 0.75]\n  },\n  {\n    \"position\": 10,\n    \"title\": \"Córki mgły i furii / Wiatr i krew\",\n    \"author\": \"Pia Sising / nieznany\",\n    \"confidence\": 0.5,\n    \"spine_color\": \"brązowy\",\n    \"bbox\": [0.205, 0.28, 0.235, 0.75]\n  },\n  {\n    \"position\": 11,\n    \"title\": \"Gród\",\n    \"author\": \"nieznany\",\n    \"confidence\": 0.55,\n  "
+  },
+  {
+    "label": "v4-cot-orientation (orientation+cot)",
+    "rawText": "## Analiza przestrzenna\n\nNa półce stoi około 35–40 książek pionowo oraz kilka leży poziomo w stosach. Po lewej stronie znajduje się stos ~8–10 książek leżących poziomo (na wierzchu leży ciemna torba/etui). W środku górnej części półki leży stos ~4 książek poziomo (na wierzchu: „Porachunki Bezimiennej Pisarki\" Alice Basso). Po prawej stronie leży poziomo kilka książek/folderów (na wierzchu widoczny folder „Illuminae\"), a na samym końcu po prawej leży „Ekspedycja\".\n\n---\n\n```json\n[\n  {\n    \"position\": 1,\n    \"title\": \"Sybirpunk\",\n    \"author\": \"Michał Gołkowski\",\n    \"confidence\": 0.92,\n    \"orientation\": \"horizontal\",\n    \"spine_color\": \"czerwony\",\n    \"bbox\": [0, 490, 185, 535]\n  },\n  {\n    \"position\": 2,\n    \"title\": \"Sybirpunk (tom 2)\",\n    \"author\": \"Michał Gołkowski\",\n    \"confidence\": 0.85,\n    \"orientation\": \"horizontal\",\n    \"spine_color\": \"czerwony\",\n    \"bbox\": [0, 535, 185, 575]\n  },\n  {\n    \"position\": 3,\n    \"title\": \"Przewodnik po zbrodni według grzecznej dziewczynki\",\n    \"author\": \"Holly Jackson\",\n    \"confidence\": 0.82,\n    \"orientation\": \"horizontal\",\n    \"spine_color\": \"niebieski\",\n    \"bbox\": [0, 440, 185, 490]\n  },\n  {\n    \"position\": 4,\n    \"title\": \"Zepsuta krew\",\n    \"author\": \"Holly Jackson\",\n    \"confidence\": 0.82,\n    \"orientation\": \"horizontal\",\n    \"spine_color\": \"różowy\",\n    \"bbox\": [0, 395, 185, 440]\n  },\n  {\n    \"position\": 5,\n    \"title\": \"Porwana łyżwarka\",\n    \"author\": \"Natasza Socha\",\n    \"confidence\": 0.75,\n    \"orientation\": \"horizontal\",\n    \"spine_color\": \"różowy\",\n    \"bbox\": [0, 355, 185, 395]\n  },\n  {\n    \"position\": 6,\n    \"title\": \"Mykola\",\n    \"author\": \"Michał Gołkowski\",\n    \"confidence\": 0.88,\n    \"orientation\": \"horizontal\",\n    \"spine_color\": \"czerwony\",\n    \"bbox\": [0, 310, 185, 355]\n  },\n  {\n    \"position\": 7,\n    \"title\": \"Bestiariusz japoński\",\n    \"author\": null,\n    \"confidence\": 0.70,\n    \"orientation\": \"horizontal\",\n    \"spine_color\": \"biały\",\n    \"bbox\": [0, 270, 185, 310]\n  },\n  {\n    \"position\": 8,\n    \"t"
+  },
+  {
+    "label": "v4-grid-zones (strefy+zone field)",
+    "rawText": "## Analiza stref\n\n**Górna strefa (y=0.0–0.3):** Po lewej stos leżących książek z torbą na wierzchu; w środku stos ~4 książek leżących poziomo; po prawej folder/dokumenty i torba.\n**Główna półka (y=0.3–0.7):** Gęsty rząd książek stojących pionowo, od lewej do prawej.\n**Dolna (y=0.7–1.0):** Drewniana półka, podstawki metalowe, brak książek.\n\n```json\n[\n  {\n    \"position\": 1,\n    \"title\": \"Porachunki Bezimiennej Pisarki\",\n    \"author\": \"Alice Basso\",\n    \"confidence\": 0.85,\n    \"zone\": \"top_stack\",\n    \"spine_color\": \"niebieski\",\n    \"bbox\": [0.36, 0.17, 0.58, 0.22]\n  },\n  {\n    \"position\": 2,\n    \"title\": \"Raz Wiedźmie Śmierć\",\n    \"author\": null,\n    \"confidence\": 0.8,\n    \"zone\": \"top_stack\",\n    \"spine_color\": \"czarny\",\n    \"bbox\": [0.36, 0.22, 0.58, 0.27]\n  },\n  {\n    \"position\": 3,\n    \"title\": \"Wilk z Lasu\",\n    \"author\": null,\n    \"confidence\": 0.82,\n    \"zone\": \"top_stack\",\n    \"spine_color\": \"szary\",\n    \"bbox\": [0.36, 0.27, 0.58, 0.32]\n  },\n  {\n    \"position\": 4,\n    \"title\": \"W Przeklętą Godzinę\",\n    \"author\": null,\n    \"confidence\": 0.8,\n    \"zone\": \"top_stack\",\n    \"spine_color\": \"zielony\",\n    \"bbox\": [0.36, 0.32, 0.58, 0.37]\n  },\n  {\n    \"position\": 5,\n    \"title\": \"Tajemnice East Emerson\",\n    \"author\": \"Rex Ogle\",\n    \"confidence\": 0.75,\n    \"zone\": \"top_stack\",\n    \"spine_color\": \"biały\",\n    \"bbox\": [0.03, 0.27, 0.22, 0.31]\n  },\n  {\n    \"position\": 6,\n    \"title\": \"Bestiariusz Japoński\",\n    \"author\": null,\n    \"confidence\": 0.72,\n    \"zone\": \"main_shelf\",\n    \"spine_color\": \"biały\",\n    \"bbox\": [0.16, 0.33, 0.19, 0.65]\n  },\n  {\n    \"position\": 7,\n    \"title\": \"Mykola\",\n    \"author\": \"Michał Gołkowski\",\n    \"confidence\": 0.85,\n    \"zone\": \"top_stack\",\n    \"spine_color\": \"czerwony\",\n    \"bbox\": [0.03, 0.33, 0.16, 0.38]\n  },\n  {\n    \"position\": 8,\n    \"title\": \"Zepsuta Krew\",\n    \"author\": \"Holly Jackson\",\n    \"confidence\": 0.82,\n    \"zone\": \"top_stack\",\n    \"spine_color\": \"różowy\",\n    \"bbox\": [0.03, 0.38, 0.16, 0.43]\n  },\n  {\n    \"position\": 9,\n    "
+  }
+]
