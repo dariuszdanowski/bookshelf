@@ -1522,6 +1522,7 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
           onMarkerContextMenu={handleMarkerContextMenu}
           onSaveSingleBbox={handleSaveSingleBbox}
           photoId={photoId}
+          visionRun={visionRun}
         />
       )}
 

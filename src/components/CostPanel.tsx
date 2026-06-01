@@ -56,9 +56,11 @@ type Props = {
   detectionId?: string;
   /** Pozycja panelu — 'left' gdy button jest po prawej stronie */
   align?: 'left' | 'right';
+  /** Vision run już załadowany na stronie — pokazany natychmiast bez dodatkowego fetcha */
+  preloadedVisionRun?: VisionRun | null;
 };
 
-export default function CostPanel({ photoId, detectionId, align = 'right' }: Props) {
+export default function CostPanel({ photoId, detectionId, align = 'right', preloadedVisionRun }: Props) {
   const [open, setOpen] = useState(false);
   const [data, setData] = useState<CostData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -100,12 +102,20 @@ export default function CostPanel({ photoId, detectionId, align = 'right' }: Pro
     ? (data?.refine_calls ?? []).filter((r) => r.detection_id === detectionId)
     : (data?.refine_calls ?? []);
 
-  const filteredVision = detectionId ? [] : (data?.vision_runs ?? []);
+  // Vision runs: preloadedVisionRun ma priorytet (już załadowany przy fetchowaniu foto),
+  // fallback do danych z /costs (mogą być pełniejsze po archiwizacji)
+  const apiVisionRuns = detectionId ? [] : (data?.vision_runs ?? []);
+  const filteredVision: VisionRun[] = detectionId
+    ? []
+    : preloadedVisionRun
+      ? [preloadedVisionRun, ...apiVisionRuns.filter((r) => r.id !== preloadedVisionRun.id)]
+      : apiVisionRuns;
 
   const filteredRefineTotal = filteredRefine.reduce((s, r) => s + (r.cost_usd ?? 0), 0);
   const filteredVisionTotal = filteredVision.reduce((s, r) => s + (r.cost_usd ?? 0), 0);
   const filteredTotal = filteredRefineTotal + filteredVisionTotal;
   const filteredCount = filteredRefine.length + filteredVision.length;
+  const hasData = filteredCount > 0 || !!preloadedVisionRun;
 
   return (
     <div ref={panelRef} className="relative inline-block">
@@ -140,7 +150,7 @@ export default function CostPanel({ photoId, detectionId, align = 'right' }: Pro
             </p>
           </div>
 
-          {loading && (
+          {loading && !preloadedVisionRun && (
             <div className="px-3 py-4 text-center text-xs text-gray-400">Ładowanie...</div>
           )}
 
@@ -148,7 +158,7 @@ export default function CostPanel({ photoId, detectionId, align = 'right' }: Pro
             <div className="px-3 py-3 text-xs text-red-600">{error}</div>
           )}
 
-          {!loading && !error && data && (
+          {(preloadedVisionRun || (!loading && !error && data)) && (
             <div className="max-h-72 overflow-y-auto">
               {/* Vision runs (tylko dla widoku photo) */}
               {filteredVision.map((vr) => (
@@ -191,13 +201,13 @@ export default function CostPanel({ photoId, detectionId, align = 'right' }: Pro
                 </div>
               ))}
 
-              {filteredCount === 0 && (
+              {filteredCount === 0 && !preloadedVisionRun && (
                 <p className="px-3 py-4 text-center text-xs text-gray-400">Brak wywołań API</p>
               )}
             </div>
           )}
 
-          {!loading && !error && data && filteredCount > 0 && (
+          {hasData && (
             <div className="border-t border-gray-100 px-3 py-2">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] text-gray-500">{filteredCount} {filteredCount === 1 ? 'wywołanie' : 'wywołania/ń'}</span>

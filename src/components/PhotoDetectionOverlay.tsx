@@ -96,6 +96,7 @@ type Props = {
   onMarkerContextMenu?: (detectionId: string) => void;
   onSaveSingleBbox?: (detectionId: string, bbox: BboxCoords) => Promise<void>;
   photoId?: string;
+  visionRun?: { id: string; model: string | null; cost_usd: number | null; latency_ms: number | null; status?: string; created_at: string } | null;
 };
 
 export default function PhotoDetectionOverlay({
@@ -109,6 +110,7 @@ export default function PhotoDetectionOverlay({
   onMarkerContextMenu,
   onSaveSingleBbox,
   photoId,
+  visionRun,
 }: Props) {
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgError, setImgError] = useState(false);
@@ -769,7 +771,12 @@ export default function PhotoDetectionOverlay({
             >
               Edytuj ramki
             </button>
-            {photoId && <CostPanel photoId={photoId} />}
+            {photoId && (
+              <CostPanel
+                photoId={photoId}
+                preloadedVisionRun={visionRun ? { ...visionRun, status: visionRun.status ?? 'completed' } : undefined}
+              />
+            )}
             <button
               type="button"
               data-testid="toggle-bboxes-button"
