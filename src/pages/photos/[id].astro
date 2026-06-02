@@ -1,31 +1,68 @@
 ---
 export const prerender = false;
 
+import Breadcrumb from '../../components/Breadcrumb.astro';
 import Layout from '../../layouts/Layout.astro';
 import DetectionReview from '../../components/DetectionReview.tsx';
+import { parseUuidParam } from '../../lib/http/response';
 
 // Protected path: middleware ensures locals.user is non-null (redirect to /login for anon).
 if (!Astro.locals.user) {
   return Astro.redirect('/login');
 }
 
-const { id } = Astro.params;
-if (!id) {
-  return Astro.redirect('/upload');
+const photoId = parseUuidParam(Astro.params.id);
+if (!photoId) {
+  return Astro.redirect('/shelves');
 }
+
+// SSR fetch shelf info for breadcrumb and "Dodaj zdjęcie" button.
+// Non-blocking: if photo/shelf missing, breadcrumb degrades gracefully.
+let shelfId: string | null = null;
+let shelfName: string | null = null;
+
+const { data: photo } = await Astro.locals.supabase
+  .from('photos')
+  .select('shelf_id')
+  .eq('id', photoId)
+  .maybeSingle();
+
+if (photo?.shelf_id) {
+  shelfId = photo.shelf_id;
+  const { data: shelf } = await Astro.locals.supabase
+    .from('shelves')
+    .select('name')
+    .eq('id', shelfId)
+    .maybeSingle();
+  shelfName = shelf?.name ?? null;
+}
+
+const breadcrumbItems = [
+  { label: 'Moje półki', href: '/shelves' },
+  ...(shelfId && shelfName ? [{ label: shelfName, href: `/shelves/${shelfId}` }] : []),
+  { label: 'Propozycje książek' },
+];
 ---
 
 <Layout title="Propozycje książek">
   <main class="mx-auto max-w-6xl p-8">
-    <div class="mb-6">
-      <a href="/upload" class="text-sm text-blue-600 hover:text-blue-800">
-        &larr; Skanuj kolejne zdjęcie
-      </a>
+    <Breadcrumb items={breadcrumbItems} />
+
+    <div class="mb-6 flex items-center justify-between">
+      <h1 class="text-2xl font-bold">Propozycje książek</h1>
+      {shelfId && (
+        <a
+          href={`/upload?shelf=${shelfId}`}
+          class="inline-flex items-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+        >
+          + Dodaj zdjęcie
+        </a>
+      )}
     </div>
-    <h1 class="mb-2 text-3xl font-bold">Propozycje książek</h1>
+
     <p class="mb-6 text-sm text-gray-600">
       Przejrzyj dopasowania. Zielone — wysoka pewność. Żółte — sprawdź przed akceptacją.
     </p>
-    <DetectionReview client:load photoId={id} />
+    <DetectionReview client:load photoId={photoId} />
   </main>
 </Layout>

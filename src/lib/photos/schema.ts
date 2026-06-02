@@ -20,13 +20,21 @@ export type PhotoDTO = {
   created_at: string;
 };
 
+export type BboxCoords = { x1: number; y1: number; x2: number; y2: number };
+
+export type BboxEditSet = {
+  updated: Array<{ detectionId: string; bbox: BboxCoords }>;
+  removed: Array<{ detectionId: string }>;
+  added: Array<{ bbox: BboxCoords }>;
+};
+
 export type DetectionDTO = {
   position_index: number;
   raw_title: string;
   raw_author: string | null;
   vision_confidence: number | null;
   spine_color: string | null;
-  bbox: { x1: number; y1: number; x2: number; y2: number } | null;
+  bbox: BboxCoords | null;
 };
 
 export type PhotoListItemDTO = {
@@ -58,7 +66,7 @@ export type DetectionWithCandidatesDTO = {
   raw_author: string | null;
   vision_confidence: number | null;
   spine_color: string | null;
-  bbox: { x1: number; y1: number; x2: number; y2: number } | null;
+  bbox: BboxCoords | null;
   status: string;
   candidates: BookCandidateDTO[];
   duplicate: { type: 'exact' | 'edition'; shelfHint?: string } | null;

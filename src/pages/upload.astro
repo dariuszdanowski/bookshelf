@@ -1,16 +1,37 @@
 ---
+import Breadcrumb from '../components/Breadcrumb.astro';
 import Layout from '../layouts/Layout.astro';
 import PhotoUploader from '../components/PhotoUploader.tsx';
+import { parseUuidParam } from '../lib/http/response';
 
 // Protected path: middleware ensures locals.user is non-null (redirect to /login for anon).
 const userId = Astro.locals.user!.id;
-// Flow B „Dodaj zakup → zdjęcie" linkuje z ?shelf=<Zakupione>; preset preselektuje półkę.
-const presetShelfId = Astro.url.searchParams.get('shelf') ?? undefined;
+// Flow B „Dodaj zakup → zdjęcie" / link z półki linkuje z ?shelf=<id>; preset preselektuje półkę.
+const rawShelfId = Astro.url.searchParams.get('shelf');
+const presetShelfId = parseUuidParam(rawShelfId ?? '') ?? undefined;
+
+// SSR fetch nazwy półki dla breadcrumb — bez blokowania gdy brak presetShelfId
+let shelfName: string | null = null;
+if (presetShelfId) {
+  const { data: shelf } = await Astro.locals.supabase
+    .from('shelves')
+    .select('name')
+    .eq('id', presetShelfId)
+    .maybeSingle();
+  shelfName = shelf?.name ?? null;
+}
+
+const breadcrumbItems = [
+  { label: 'Moje półki', href: '/shelves' },
+  ...(presetShelfId && shelfName ? [{ label: shelfName, href: `/shelves/${presetShelfId}` }] : []),
+  { label: 'Dodaj zdjęcie' },
+];
 ---
 
-<Layout title="Skanuj półkę">
+<Layout title={shelfName ? `Dodaj zdjęcie — ${shelfName}` : 'Dodaj zdjęcie'}>
   <main class="mx-auto max-w-2xl p-8">
-    <h1 class="mb-6 text-3xl font-bold">Skanuj półkę</h1>
+    <Breadcrumb items={breadcrumbItems} />
+    <h1 class="mb-2 text-3xl font-bold">Dodaj zdjęcie</h1>
     <p class="mb-6 text-sm text-gray-600">
       Wybierz półkę, a następnie wgraj zdjęcie — system wykryje tytuły i autorów grzbietów
       widocznych na zdjęciu.

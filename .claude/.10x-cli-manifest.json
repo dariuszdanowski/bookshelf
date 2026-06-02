@@ -2,8 +2,8 @@
   "package": "@przeprogramowani/10x-cli",
   "version": "1.4.0",
   "manifestVersion": 2,
-  "lastApplied": "2026-06-01T00:12:46.387Z",
-  "lessonId": "m2l5",
+  "lastApplied": "2026-06-01T16:35:20.678Z",
+  "lessonId": "m3l5",
   "course": "10xdevs3",
   "tool": "claude-code",
   "files": {
@@ -125,6 +125,17 @@
         "files": [
           "SKILL.md"
         ]
+      },
+      "10x-test-plan": {
+        "files": [
+          "references/test-plan-schema.md",
+          "SKILL.md"
+        ]
+      },
+      "10x-tdd": {
+        "files": [
+          "SKILL.md"
+        ]
       }
     },
     "prompts": [
@@ -132,7 +143,9 @@
       "m1l5-1-plan-integration.md",
       "m1l5-2-constrain-approach.md",
       "m1l5-3-extend-prerequisites.md",
-      "m1l5-4-store-plan.md"
+      "m1l5-4-store-plan.md",
+      "m3l2-ad-hoc-testing.md",
+      "m3l4-e2e-prompt.md"
     ],
     "configs": []
   }

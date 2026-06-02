@@ -42,7 +42,19 @@
       "Bash(npx wrangler whoami*)",
       "Bash(npx tsc --noEmit*)",
       "Bash(npx vitest*)",
-      "Bash(npx playwright --version*)"
+      "Bash(npx playwright --version*)",
+      "Bash(cd * && git status*)",
+      "Bash(cd * && git diff*)",
+      "Bash(cd * && git log*)",
+      "Bash(cd * && git show*)",
+      "Bash(cd * && git branch*)",
+      "Bash(cd * && git rev-parse*)",
+      "Bash(cd * && git ls-files*)",
+      "Bash(cd * && npm run typecheck*)",
+      "Bash(cd * && npm run lint*)",
+      "Bash(cd * && npm run test*)",
+      "Bash(cd * && npx vitest*)",
+      "Bash(cd * && npx tsc*)"
     ],
     "deny": [
       "Bash(git push --force*)",

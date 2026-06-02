@@ -336,6 +336,19 @@ export const POST: APIRoute = async ({ params, locals }) => {
     }
   }
 
+  // Persist refine call cost — non-blocking (failure doesn't abort response)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (locals.supabase as any).from('refine_calls').insert({
+    user_id: locals.user.id,
+    photo_id: detection.photo_id,
+    detection_id: detection.id,
+    model: refined.model,
+    cost_usd: refined.costUsd,
+    latency_ms: refined.latencyMs,
+  }).then(({ error }: { error: { message: string } | null }) => {
+    if (error) console.error('[api/detections/refine POST] refine_calls insert failed', error.message);
+  });
+
   return apiResponse({
     data: {
       applied: true,

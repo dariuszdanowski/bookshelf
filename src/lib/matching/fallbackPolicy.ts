@@ -86,11 +86,11 @@ export function classifyCropQuality(bbox: NormalizedBbox | null): CropQuality {
   // Refine on a ~20px tall crop is unreliable — treat as uncertain.
   if (aspect < 0.5) return 'uncertain_localization';
 
-  // Vertical book: tall bbox — readable crop.
-  if (aspect >= 1.8 && width <= 0.4 && height >= 0.3) {
-    return 'clean_single_spine';
-  }
+  // Taller-than-wide bbox: reliable vertical spine crop.
+  // Too-small and too-wide bboxes already filtered above (area/width checks).
+  if (aspect >= 1.0) return 'clean_single_spine';
 
+  // Squarish / slightly landscape (0.5 <= aspect < 1.0) — uncertain
   return 'uncertain_localization';
 }
 

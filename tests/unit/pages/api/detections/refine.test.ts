@@ -137,6 +137,12 @@ function makeSupabase(opts?: {
       };
     }
 
+    if (table === 'refine_calls') {
+      return {
+        insert: vi.fn().mockReturnValue({ then: vi.fn() }),
+      };
+    }
+
     return {};
   });
 
