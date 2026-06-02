@@ -5,9 +5,25 @@ import type { PhotoDTO } from '../lib/photos/schema';
 import type { ShelfDTO } from '../lib/shelves/schema';
 import Skeleton from './Skeleton';
 
-type UploadStage = 'idle' | 'uploading' | 'recording' | 'processing' | 'matching' | 'done' | 'error';
+type UploadStage =
+  | 'idle'
+  | 'uploading'
+  | 'recording'
+  | 'processing'
+  | 'matching'
+  | 'done'
+  | 'error'
+  | 'duplicate';
 
 const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15 MB cap (photon pamięć Worker 128MB)
+
+async function computeSha256(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
 
 export default function PhotoUploader({
   userId,
@@ -25,11 +41,14 @@ export default function PhotoUploader({
   const [shelvesError, setShelvesError] = useState<string | null>(null);
   // true after vision succeeds but before match completes — retry can skip vision
   const [canRetryMatchOnly, setCanRetryMatchOnly] = useState(false);
+  // Duplicate detection state
+  const [duplicatePhotoId, setDuplicatePhotoId] = useState<string | null>(null);
+  const [duplicateCreatedAt, setDuplicateCreatedAt] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingHash, setPendingHash] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    // Wzorzec jak ShelvesIsland: sprawdź res.ok i zasurfuj envelope error
-    // (inaczej selektor utyka na „Ładowanie półek..." w nieskończoność).
     (async () => {
       try {
         const res = await fetch('/api/shelves');
@@ -40,8 +59,6 @@ export default function PhotoUploader({
         const json = (await res.json()) as { data: { shelves: ShelfDTO[] } };
         const list = json.data.shelves;
         setShelves(list);
-        // Preset (np. Flow B „Dodaj zakup → zdjęcie" → ?shelf=Zakupione) ma
-        // pierwszeństwo, gdy istnieje na liście; inaczej pierwsza półka.
         const preset = presetShelfId && list.some((s) => s.id === presetShelfId) ? presetShelfId : null;
         if (preset) setSelectedShelfId(preset);
         else if (list.length > 0) setSelectedShelfId(list[0].id);
@@ -77,12 +94,53 @@ export default function PhotoUploader({
       if (!processRes.ok || !processJson.data) {
         throw new Error(processJson.error?.message ?? `Błąd przetwarzania (${processRes.status})`);
       }
-
-      // Vision succeeded — detections are persisted; match can be retried without re-running vision
       setCanRetryMatchOnly(true);
       await runMatch(photoId);
     },
     [runMatch]
+  );
+
+  // Core upload logic — called after duplicate check passes (or user forces upload).
+  const doUpload = useCallback(
+    async (file: File, sha256: string) => {
+      setStage('uploading');
+      const supabase = createBrowserSupabaseClient();
+      const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg';
+      const storagePath = `${userId}/${crypto.randomUUID()}.${ext}`;
+      const { error: upErr } = await supabase.storage
+        .from('shelf-photos')
+        .upload(storagePath, file, { contentType: file.type || 'image/jpeg', upsert: false });
+      if (upErr) throw new Error(upErr.message);
+
+      setStage('recording');
+      const recRes = await fetch('/api/photos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shelf_id: selectedShelfId, storage_path: storagePath, file_hash_sha256: sha256 }),
+      });
+      const recJson = (await recRes.json()) as {
+        data?: { photo: PhotoDTO };
+        error?: { code?: string; message?: string };
+      };
+
+      // Race condition: another upload with same hash slipped in between check and insert
+      if (recRes.status === 409 && recJson.error?.code === 'DUPLICATE_PHOTO') {
+        setDuplicatePhotoId(null);
+        setDuplicateCreatedAt(null);
+        setStage('duplicate');
+        return;
+      }
+
+      if (!recRes.ok || !recJson.data) {
+        throw new Error(recJson.error?.message ?? `Błąd zapisu (${recRes.status})`);
+      }
+      const photoId = recJson.data.photo.id;
+      setCurrentPhotoId(photoId);
+
+      await processPhoto(photoId);
+      setStage('done'); // redirect happens inside processPhoto; this line is reached only in tests
+    },
+    [selectedShelfId, userId, processPhoto]
   );
 
   const handleFile = useCallback(
@@ -93,46 +151,65 @@ export default function PhotoUploader({
       }
       setErrorMsg(null);
       setCurrentPhotoId(null);
+      setDuplicatePhotoId(null);
+      setDuplicateCreatedAt(null);
+      setPendingFile(null);
+      setPendingHash(null);
 
       try {
         if (file.size > MAX_FILE_SIZE_BYTES) {
           throw new Error(`Plik jest za duży (max 15 MB). Wybierz mniejsze zdjęcie.`);
         }
 
-        setStage('uploading');
-        const supabase = createBrowserSupabaseClient();
-        const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg';
-        const storagePath = `${userId}/${crypto.randomUUID()}.${ext}`;
-        const { error: upErr } = await supabase.storage
-          .from('shelf-photos')
-          .upload(storagePath, file, { contentType: file.type || 'image/jpeg', upsert: false });
-        if (upErr) throw new Error(upErr.message);
+        // SHA-256 in browser before Storage upload — zero cost when duplicate detected
+        const sha256 = await computeSha256(file);
 
-        setStage('recording');
-        const recRes = await fetch('/api/photos', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ shelf_id: selectedShelfId, storage_path: storagePath }),
-        });
-        const recJson = (await recRes.json()) as {
-          data?: { photo: PhotoDTO };
-          error?: { message?: string };
+        // Check for existing photo with this hash (per user)
+        const checkRes = await fetch(`/api/photos/check-hash?hash=${sha256}`);
+        const checkJson = (await checkRes.json()) as {
+          data?: { photo: { id: string; shelf_id: string; created_at: string } | null };
         };
-        if (!recRes.ok || !recJson.data) {
-          throw new Error(recJson.error?.message ?? `Błąd zapisu (${recRes.status})`);
+        if (checkJson.data?.photo) {
+          setPendingFile(file);
+          setPendingHash(sha256);
+          setDuplicatePhotoId(checkJson.data.photo.id);
+          setDuplicateCreatedAt(checkJson.data.photo.created_at);
+          setStage('duplicate');
+          return;
         }
-        const photoId = recJson.data.photo.id;
-        setCurrentPhotoId(photoId);
 
-        await processPhoto(photoId);
-        setStage('done'); // redirect happens inside processPhoto; this line is reached only in tests
+        await doUpload(file, sha256);
       } catch (err) {
         setErrorMsg(err instanceof Error ? err.message : 'Nieznany błąd');
         setStage('error');
       }
     },
-    [selectedShelfId, userId, processPhoto]
+    [selectedShelfId, doUpload]
   );
+
+  const handleUploadAnyway = useCallback(async () => {
+    if (!pendingFile || !pendingHash) return;
+    const file = pendingFile;
+    const sha256 = pendingHash;
+    setPendingFile(null);
+    setPendingHash(null);
+    setDuplicatePhotoId(null);
+    setDuplicateCreatedAt(null);
+    try {
+      await doUpload(file, sha256);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Nieznany błąd');
+      setStage('error');
+    }
+  }, [pendingFile, pendingHash, doUpload]);
+
+  const handleCancelDuplicate = useCallback(() => {
+    setPendingFile(null);
+    setPendingHash(null);
+    setDuplicatePhotoId(null);
+    setDuplicateCreatedAt(null);
+    setStage('idle');
+  }, []);
 
   const handleRetry = useCallback(async () => {
     if (!currentPhotoId) return;
@@ -170,7 +247,12 @@ export default function PhotoUploader({
     matching: 'Dopasowywanie do baz książek...',
     done: '',
     error: '',
+    duplicate: '',
   };
+
+  const formattedDuplicateDate = duplicateCreatedAt
+    ? new Date(duplicateCreatedAt).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' })
+    : null;
 
   return (
     <div data-testid="photo-uploader">
@@ -208,7 +290,7 @@ export default function PhotoUploader({
       </div>
 
       {/* Drop zone */}
-      {!isProcessing && stage !== 'done' && (
+      {!isProcessing && stage !== 'done' && stage !== 'duplicate' && (
         <div
           data-testid="drop-zone"
           onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
@@ -242,6 +324,45 @@ export default function PhotoUploader({
           <Skeleton className="h-4 w-3/4" aria-label={stageLabel[stage]} />
           <Skeleton className="h-4 w-1/2" />
           <p className="text-sm text-gray-600">{stageLabel[stage]}</p>
+        </div>
+      )}
+
+      {/* Duplicate warning */}
+      {stage === 'duplicate' && (
+        <div
+          data-testid="duplicate-warning"
+          className="mt-4 rounded-md border border-yellow-300 bg-yellow-50 px-4 py-4"
+        >
+          <p className="mb-3 text-sm font-medium text-yellow-800">
+            {formattedDuplicateDate
+              ? `To zdjęcie jest już w katalogu (dodane ${formattedDuplicateDate}).`
+              : 'To zdjęcie zostało już wcześniej wgrane do katalogu.'}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {duplicatePhotoId && (
+              <a
+                data-testid="open-existing-link"
+                href={`/photos/${duplicatePhotoId}`}
+                className="rounded bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700"
+              >
+                Otwórz istniejące
+              </a>
+            )}
+            <button
+              data-testid="upload-anyway-button"
+              onClick={() => void handleUploadAnyway()}
+              className="rounded bg-gray-600 px-3 py-1 text-sm text-white hover:bg-gray-700"
+            >
+              Wgraj mimo to
+            </button>
+            <button
+              data-testid="cancel-duplicate-button"
+              onClick={handleCancelDuplicate}
+              className="rounded border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700 hover:bg-gray-50"
+            >
+              Anuluj
+            </button>
+          </div>
         </div>
       )}
 

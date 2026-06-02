@@ -2,12 +2,21 @@ import { z } from 'zod';
 
 import type { BookCandidateDTO } from '../books/schema';
 
+const SHA256_REGEX = /^[0-9a-f]{64}$/;
+
 export const RecordPhotoSchema = z.object({
   shelf_id: z.uuid(),
   storage_path: z.string().min(1),
+  file_hash_sha256: z.string().regex(SHA256_REGEX).optional(),
 });
 
 export type RecordPhotoInput = z.infer<typeof RecordPhotoSchema>;
+
+export const CheckDuplicateSchema = z.object({
+  hash: z.string().regex(SHA256_REGEX),
+});
+
+export type CheckDuplicateInput = z.infer<typeof CheckDuplicateSchema>;
 
 export type PhotoDTO = {
   id: string;
@@ -18,6 +27,7 @@ export type PhotoDTO = {
   vision_cost_usd: number | null;
   vision_latency_ms: number | null;
   created_at: string;
+  file_hash_sha256?: string | null;
 };
 
 export type BboxCoords = { x1: number; y1: number; x2: number; y2: number };

@@ -62,7 +62,13 @@
       "mcp__context7__resolve-library-id",
       "mcp__context7__query-docs",
       "Bash(Test-Path \"context/changes/bbox-editor-interactive\")",
-      "Bash(Test-Path \"context/archive/bbox-editor-interactive\")"
+      "Bash(Test-Path \"context/archive/bbox-editor-interactive\")",
+      "Bash(Get-ChildItem -Path \"C:\\\\Projekty\\\\10xDevs\\\\bookshelf\" -Recurse -Directory -ErrorAction SilentlyContinue)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Projekty\\\\10xDevs\\\\bookshelf\\\\src\\\\pages\" -Recurse)",
+      "Bash(Select-Object FullName)",
+      "Bash(wsl *)",
+      "Bash(claude mcp *)"
     ],
     "defaultMode": "acceptEdits"
   },
