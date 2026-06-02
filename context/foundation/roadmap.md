@@ -3,7 +3,7 @@ project: "BookShelf Scanner"
 version: 1
 status: draft
 created: 2026-05-25
-updated: 2026-05-31
+updated: 2026-06-02
 prd_version: 1
 main_goal: speed
 top_blocker: time
@@ -46,7 +46,7 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | S-13  | header-nav-when-auth         | header nav „Moje półki" → /shelves dla auth user'a + landing CTA pivot na /shelves (do czasu /library w S-08) | S-02 | UX polish | done     |
 | S-14  | photo-process-reload-recovery | po reloadzie /upload odzyskać stan utkniętego 'processing' (GET /api/photos/[id]) + retry | S-03 | UX recovery | proposed |
 | S-15  | review-page-nav-entry         | link do strony review (/photos/[id]) z poziomu list półek / katalogu; breadcrumbs | S-04 | UX polish | proposed |
-| S-16  | photo-upload-dedup            | przy wgraniu zdjęcia: wykryj identyczne (hash treści SHA-256), ostrzeż i zaproponuj reuse istniejących detekcji zamiast ponownego (płatnego) vision | S-03 | FR-039 (koszt), NFR (no-dup) | proposed |
+| S-16  | photo-upload-dedup            | przy wgraniu zdjęcia: wykryj identyczne (hash treści SHA-256), ostrzeż i zaproponuj reuse istniejących detekcji zamiast ponownego (płatnego) vision | S-03 | FR-039 (koszt), NFR (no-dup) | done     |
 | S-17  | catalog-description-search    | full-text obejmuje „krótki opis z publicznej bazy" — capture opisu w klientach S-04 + confirm + backfill (re-fetch), rozszerzenie search_text | S-08 | FR-032 (opis, domknięcie) | proposed |
 | S-18  | photo-detection-overlay       | kliknąć zdjęcie w review → zobaczyć pełny obraz z numerowanymi ramkami (bbox) detekcji + skorelowaną numerowaną listą wykrytych pozycji | S-04, S-05 | FR-010–014 (UX domknięcie) | done     |
 | S-19  | manual-cover-match            | w review ręcznie wyszukać Google Books i wybrać trafienie (z okładką + ISBN + metadanymi), gdy auto-match pudłuje lub brak okładki — zastępuje aktywnego kandydata | S-04, S-05 | FR-015–018 (UX domknięcie) | proposed |
@@ -442,5 +442,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **S-18: kliknąć zdjęcie w review → zobaczyć pełny obraz z numerowanymi ramkami (bbox) detekcji + skorelowaną numerowaną listą wykrytych pozycji** — Archived 2026-05-30 → `context/archive/2026-05-30-photo-detection-overlay/`. Lesson: —. Signed URL pełnego oryginału w `GET /api/photos/[id]` (graceful null przy błędzie storage); overlay `PhotoDetectionOverlay` z clamp + imgLoaded/imgError guard + `overflow-hidden`. Manual smoke (ramki na realnym zdjęciu, responsywność) user-only post-merge.
 
 - **S-25: widok listy detekcji (review) — przełącznik trybu prezentacji: karty rozwinięte (obecne), lista kompaktowana (1 linia/książka), kafelki (okładka + tytuł + badge pewności)** — Archived 2026-05-31 → `context/archive/2026-05-31-detection-list-views/`. Lesson: —. Refaktor wewnątrzplikowy `DetectionReview.tsx` (zero zmian API/DB): współdzielony hook `useDetectionDecision` (Karty/Lista/Kafelki bez duplikacji fetch), `useDetectionViewMode` (localStorage + responsywny default z guardem `matchMedia`→`cards` dla jsdom/SSR — krytyczne ustalenie plan-review F2), `ViewModeSwitcher`, `CorrectionModal` (Esc+backdrop, opakowuje istniejący `CorrectForm` w trybach kompaktowych; Karty zostają inline). Wszystkie oryginalne `data-testid` zachowane (zero regresji 14 testów Kart). Impl-review APPROVED (0 crit/warn, 4 obs). Manual smoke (1.6/2.6/3.5/4.5 — wizualny przegląd 3 trybów + persystencja) user-only post-merge.
+
+- **S-16: przy wgraniu zdjęcia: wykryj identyczne (hash treści SHA-256), ostrzeż i zaproponuj reuse istniejących detekcji zamiast ponownego (płatnego) vision** — Archived 2026-06-02 → `context/archive/2026-06-02-photo-dedup/`. Lesson: —. SHA-256 obliczany w przeglądarce (SubtleCrypto) przed Storage upload; GET /api/photos/check-hash + UI warning z 3 akcjami (Otwórz istniejące / Wgraj mimo to / Anuluj); obsługa race condition 409 DUPLICATE_PHOTO; migracja 0013 (unique partial index per user_id). Manual smoke (3.M) deferred user-only.
 
 (Pusta przy pierwszej generacji. `/10x-archive` dopisuje tu wpis — i przerzuca Status pozycji na `done` — gdy archiwizowana zmiana ma `Change ID` zgodny z pozycją roadmapy. NIE wypełniać ręcznie.)
