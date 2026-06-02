@@ -11,10 +11,11 @@ type Row = {
 };
 
 type EntryRow = { shelf_id: string };
+type PhotoRow = { shelf_id: string };
 type PgError = { code?: string; message?: string; name?: string } | null;
 
 /**
- * GET /api/shelves używa Promise.all([shelves, shelf_entries]).
+ * GET /api/shelves używa Promise.all([shelves, shelf_entries, photos]).
  * Każde wywołanie `from()` trafia na inną tabelę — fromMock rozgałęzia po nazwie.
  */
 function makeListContext(opts: {
@@ -22,12 +23,14 @@ function makeListContext(opts: {
   shelfError?: PgError;
   entryRows?: EntryRow[] | null;
   entryError?: PgError;
+  photoRows?: PhotoRow[] | null;
 }) {
   const {
     shelfRows,
     shelfError = null,
     entryRows = [],
     entryError = null,
+    photoRows = [],
   } = opts;
 
   const fromMock = vi.fn((table: string) => {
@@ -43,6 +46,11 @@ function makeListContext(opts: {
         select: vi.fn(() => ({
           eq: vi.fn().mockResolvedValue({ data: entryRows, error: entryError }),
         })),
+      };
+    }
+    if (table === 'photos') {
+      return {
+        select: vi.fn().mockResolvedValue({ data: photoRows, error: null }),
       };
     }
     return {};

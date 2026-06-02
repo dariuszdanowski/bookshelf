@@ -146,6 +146,11 @@ export default function ShelfListItem({ shelf, onUpdate, onDelete }: Props) {
         <span className="text-xs text-gray-500" data-testid="shelf-item-book-count">
           {shelf.book_count} {shelf.book_count === 1 ? 'książka' : 'książek'}
         </span>
+        {shelf.photo_count > 0 && (
+          <span className="text-xs text-gray-400" data-testid="shelf-item-photo-count">
+            · {shelf.photo_count} {shelf.photo_count === 1 ? 'zdjęcie' : 'zdjęć'}
+          </span>
+        )}
       </div>
       <div className="flex gap-2">
         <a
