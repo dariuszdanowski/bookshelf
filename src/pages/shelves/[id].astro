@@ -1,6 +1,7 @@
 ---
 export const prerender = false;
 
+import Breadcrumb from '../../components/Breadcrumb.astro';
 import Layout from '../../layouts/Layout.astro';
 import PhotoListIsland from '../../components/PhotoListIsland.tsx';
 import ShelfBooksIsland from '../../components/ShelfBooksIsland.tsx';
@@ -28,11 +29,11 @@ if (shelfError || !shelf) {
 
 <Layout title={`${shelf.name} — półka`}>
   <main class="mx-auto max-w-4xl p-8">
-    <div class="mb-4 text-sm text-gray-500">
-      <a href="/shelves" class="text-blue-600 hover:text-blue-800">Moje półki</a>
-      <span class="mx-1">&rsaquo;</span>
-      <span>{shelf.name}</span>
-    </div>
+    <Breadcrumb items={[
+      { label: 'Moje półki', href: '/shelves' },
+      { label: shelf.name },
+    ]} />
+
     <div class="mb-6 flex items-center justify-between">
       <h1 class="text-3xl font-bold">{shelf.name}</h1>
       <a

@@ -241,33 +241,33 @@ function RematchForm({ initialTitle, initialAuthor, busy, errorMsg, onSubmit, on
     <form
       data-testid="rematch-form"
       onSubmit={handleSubmit}
-      className="mt-3 space-y-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3"
+      className="mt-3 space-y-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-emerald-950"
     >
       <div>
-        <label className="block text-xs font-medium text-gray-700">
+        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
           Tytuł
           <input
             data-testid="rematch-title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="mt-0.5 w-full rounded border border-gray-300 px-2 py-1 text-xs"
+            className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
             required
           />
         </label>
       </div>
       <div>
-        <label className="block text-xs font-medium text-gray-700">
+        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
           Autor (opcjonalnie)
           <input
             data-testid="rematch-author"
             value={author}
             onChange={(e) => setAuthor(e.target.value)}
-            className="mt-0.5 w-full rounded border border-gray-300 px-2 py-1 text-xs"
+            className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
           />
         </label>
       </div>
       {errorMsg && (
-        <p data-testid="rematch-error" className="text-xs text-red-600" role="alert">
+        <p data-testid="rematch-error" className="text-xs text-red-600 dark:text-red-400" role="alert">
           {errorMsg}
         </p>
       )}
@@ -284,7 +284,7 @@ function RematchForm({ initialTitle, initialAuthor, busy, errorMsg, onSubmit, on
           type="button"
           data-testid="rematch-cancel"
           onClick={onCancel}
-          className="rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50"
+          className="rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-700"
         >
           Anuluj
         </button>
@@ -648,6 +648,7 @@ function DetectionCard({ detection, onDecided, onRefined, onSelect, isSelected =
               <label className="block text-xs text-gray-500 mb-1">Aktywna propozycja:</label>
               <div className="flex flex-wrap gap-1">
                 <button
+                  key={top.id}
                   onClick={() => setSelectedCandidateId(top.id)}
                   className={`rounded px-2 py-0.5 text-xs border ${activeCandidateId === top.id ? 'bg-blue-100 border-blue-400 text-blue-700' : 'bg-white border-gray-200 text-gray-600'}`}
                 >

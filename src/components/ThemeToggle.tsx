@@ -1,32 +1,32 @@
-import { useEffect, useState } from 'react';
+import { useLayoutEffect, useState } from 'react';
 
 type ThemeMode = 'light' | 'dark';
 
 const STORAGE_KEY = 'bookshelf:theme-mode';
 
-function getPreferredTheme(): ThemeMode {
-  if (typeof window === 'undefined') return 'light';
-
+// Read the theme already applied by the inline <head> script.
+// Falls back to localStorage / matchMedia for environments without that script (e.g. tests).
+function getInitialTheme(): ThemeMode {
+  if (document.documentElement.classList.contains('dark')) return 'dark';
   const stored = window.localStorage.getItem(STORAGE_KEY);
   if (stored === 'dark' || stored === 'light') return stored;
-
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
 function applyTheme(mode: ThemeMode): void {
-  const root = document.documentElement;
-  root.classList.toggle('dark', mode === 'dark');
-  root.setAttribute('data-theme', mode);
+  document.documentElement.classList.toggle('dark', mode === 'dark');
+  document.documentElement.setAttribute('data-theme', mode);
 }
 
 export default function ThemeToggle() {
-  const [mode, setMode] = useState<ThemeMode>('light');
+  // Lazy initializer runs only on client (component is client:only — never SSR'd).
+  // Reads DOM class set by the inline script → no flash on every page navigation.
+  const [mode, setMode] = useState<ThemeMode>(getInitialTheme);
 
-  useEffect(() => {
-    const next = getPreferredTheme();
-    setMode(next);
-    applyTheme(next);
-  }, []);
+  // Sync DOM for environments without the inline <head> script (e.g. Vitest / jsdom).
+  // In production the DOM is already correct; this is effectively a no-op there.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useLayoutEffect(() => { applyTheme(mode); }, []);
 
   function toggleTheme() {
     const next: ThemeMode = mode === 'dark' ? 'light' : 'dark';

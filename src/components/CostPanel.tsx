@@ -82,7 +82,6 @@ export default function CostPanel({ photoId, detectionId, align = 'right', prelo
   async function handleToggle() {
     if (open) { setOpen(false); return; }
     setOpen(true);
-    if (data) return; // already loaded
     setLoading(true);
     setError(null);
     try {
