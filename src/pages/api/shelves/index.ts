@@ -20,7 +20,7 @@ export const prerender = false;
  * to idiom repo (analogicznie do candidatesByDetId Map w photos/[id].ts).
  */
 export const GET: APIRoute = async ({ locals }) => {
-  const [shelvesResult, entriesResult] = await Promise.all([
+  const [shelvesResult, entriesResult, photosResult] = await Promise.all([
     locals.supabase
       .from('shelves')
       .select('id, name, location, position_index, created_at')
@@ -29,6 +29,9 @@ export const GET: APIRoute = async ({ locals }) => {
       .from('shelf_entries')
       .select('shelf_id')
       .eq('is_current', true),
+    locals.supabase
+      .from('photos')
+      .select('shelf_id'),
   ]);
 
   if (shelvesResult.error) {
@@ -62,6 +65,12 @@ export const GET: APIRoute = async ({ locals }) => {
     countByShelf.set(row.shelf_id, (countByShelf.get(row.shelf_id) ?? 0) + 1);
   }
 
+  // Zlicz zdjęcia per półka w JS (błąd nie-krytyczny — degraduj do 0)
+  const photosByShelf = new Map<string, number>();
+  for (const row of (photosResult.data ?? [])) {
+    photosByShelf.set(row.shelf_id, (photosByShelf.get(row.shelf_id) ?? 0) + 1);
+  }
+
   // Sort po stronie aplikacji żeby „Zakupione" zawsze first
   const sorted = [...(shelvesResult.data ?? [])].sort((a, b) => {
     if (a.name === 'Zakupione') return -1;
@@ -76,6 +85,7 @@ export const GET: APIRoute = async ({ locals }) => {
     position_index: row.position_index,
     is_system: row.name === 'Zakupione',
     book_count: countByShelf.get(row.id) ?? 0,
+    photo_count: photosByShelf.get(row.id) ?? 0,
     created_at: row.created_at,
   }));
 
@@ -164,6 +174,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     position_index: data.position_index,
     is_system: false, // User-created nigdy nie jest systemowa (Zod refuse na 'Zakupione').
     book_count: 0,
+    photo_count: 0,
     created_at: data.created_at,
   };
 

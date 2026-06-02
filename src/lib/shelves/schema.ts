@@ -51,6 +51,8 @@ export type UpdateShelfInput = z.infer<typeof UpdateShelfSchema>;
  * `book_count` — realny count z shelf_entries (is_current=true), wyliczany
  * przez GET /api/shelves przez JS-tally z równoległego zapytania. POST (nowa
  * półka) zwraca 0 bo świeżo utworzona półka nie ma jeszcze wpisów.
+ * `photo_count` — liczba zdjęć przypisanych do półki (photos.shelf_id),
+ * wyliczana analogicznie do book_count.
  */
 export type ShelfDTO = {
   id: string;
@@ -59,5 +61,6 @@ export type ShelfDTO = {
   position_index: number;
   is_system: boolean;
   book_count: number;
+  photo_count: number;
   created_at: string;
 };

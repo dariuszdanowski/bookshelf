@@ -25,6 +25,23 @@ const { data: shelf, error: shelfError } = await Astro.locals.supabase
 if (shelfError || !shelf) {
   return Astro.redirect('/shelves');
 }
+
+// Agregaty półki: zdjęcia + suma wykrytych tytułów + potwierdzone książki
+const [photosAgg, entriesAgg] = await Promise.all([
+  Astro.locals.supabase
+    .from('photos')
+    .select('detected_count')
+    .eq('shelf_id', id),
+  Astro.locals.supabase
+    .from('shelf_entries')
+    .select('id')
+    .eq('shelf_id', id)
+    .eq('is_current', true),
+]);
+
+const photoCount = photosAgg.data?.length ?? 0;
+const detectedCount = photosAgg.data?.reduce((s, p) => s + (p.detected_count ?? 0), 0) ?? 0;
+const catalogedCount = entriesAgg.data?.length ?? 0;
 ---
 
 <Layout title={`${shelf.name} — półka`}>
@@ -42,6 +59,22 @@ if (shelfError || !shelf) {
       >
         + Dodaj zdjęcie
       </a>
+    </div>
+
+    <!-- Agregaty półki -->
+    <div class="mb-8 grid grid-cols-3 gap-4 rounded-lg border border-gray-200 bg-gray-50 p-4" data-testid="shelf-stats">
+      <div class="text-center">
+        <p class="text-2xl font-bold text-gray-900" data-testid="shelf-stat-photos">{photoCount}</p>
+        <p class="text-xs text-gray-500">zdjęć</p>
+      </div>
+      <div class="text-center">
+        <p class="text-2xl font-bold text-gray-900" data-testid="shelf-stat-detected">{detectedCount}</p>
+        <p class="text-xs text-gray-500">wykrytych tytułów</p>
+      </div>
+      <div class="text-center">
+        <p class="text-2xl font-bold text-gray-900" data-testid="shelf-stat-cataloged">{catalogedCount}</p>
+        <p class="text-xs text-gray-500">skatalogowanych</p>
+      </div>
     </div>
 
     <!-- Sekcja książek (S-05) — grid okładek z togglem przeczytania -->
