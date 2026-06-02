@@ -57,23 +57,23 @@ updated: 2026-06-02
 ### Phase 2: API — schema + check endpoint + POST update
 
 #### Automated
-- [x] 2.1 `src/lib/photos/schema.ts` — dodaj `file_hash_sha256?: z.string().regex(/^[0-9a-f]{64}$/).optional()` do `RecordPhotoSchema`; dodaj pole do `PhotoDTO`; nowy `CheckDuplicateSchema = z.object({ hash: z.string().regex(/^[0-9a-f]{64}$/) })`
-- [x] 2.2 `src/lib/http/response.ts` — dodaj `DUPLICATE_PHOTO` do `ApiErrorCode` union
+- [x] 2.1 `src/lib/photos/schema.ts` — dodaj `file_hash_sha256?: z.string().regex(/^[0-9a-f]{64}$/).optional()` do `RecordPhotoSchema`; dodaj pole do `PhotoDTO`; nowy `CheckDuplicateSchema = z.object({ hash: z.string().regex(/^[0-9a-f]{64}$/) })` — 1ed2356
+- [x] 2.2 `src/lib/http/response.ts` — dodaj `DUPLICATE_PHOTO` do `ApiErrorCode` union — 1ed2356
 - [x] 2.3 Nowy `src/pages/api/photos/check-hash.ts`:
   - `GET /api/photos/check-hash?hash=<sha256-hex>`
   - Auth guard (401 dla anonimowych)
   - Walidacja `hash` param (Zod)
   - Query: `SELECT id, shelf_id, created_at FROM photos WHERE user_id = $user AND file_hash_sha256 = $hash LIMIT 1`
-  - Odpowiedź: `{ data: { photo: { id, shelf_id, created_at } } }` lub `{ data: { photo: null } }`
-- [x] 2.4 `src/pages/api/photos/index.ts` — accept `file_hash_sha256` w body, persist do DB insert; SQLSTATE 23505 → `apiError({ code: 'DUPLICATE_PHOTO', status: 409, message: 'Zdjęcie już istnieje w katalogu.' })`
-- [x] 2.5 Unit testy `check-hash.test.ts` — auth guard, invalid hash param, found/not-found cases
-- [x] 2.6 Unit testy `index.test.ts` — nowe przypadki: hash persist, 23505 → 409 DUPLICATE_PHOTO
-- [x] 2.7 `npm run test` — wszystkie green
-- [x] 2.8 `npm run typecheck` — 0 errors
-- [x] 2.9 `npm run lint` — 0 errors
+  - Odpowiedź: `{ data: { photo: { id, shelf_id, created_at } } }` lub `{ data: { photo: null } }` — 1ed2356
+- [x] 2.4 `src/pages/api/photos/index.ts` — accept `file_hash_sha256` w body, persist do DB insert; SQLSTATE 23505 → `apiError({ code: 'DUPLICATE_PHOTO', status: 409, message: 'Zdjęcie już istnieje w katalogu.' })` — 1ed2356
+- [x] 2.5 Unit testy `check-hash.test.ts` — auth guard, invalid hash param, found/not-found cases — 1ed2356
+- [x] 2.6 Unit testy `index.test.ts` — nowe przypadki: hash persist, 23505 → 409 DUPLICATE_PHOTO — 1ed2356
+- [x] 2.7 `npm run test` — wszystkie green — 1ed2356
+- [x] 2.8 `npm run typecheck` — 0 errors — 1ed2356
+- [x] 2.9 `npm run lint` — 0 errors — 1ed2356
 
 #### Manual
-- [ ] 2.M Sprawdź `curl /api/photos/check-hash?hash=<valid-hex>` — odpowiedź `{ data: { photo: null } }` dla nieistniejącego hasha
+- [ ] 2.M Sprawdź `curl /api/photos/check-hash?hash=<valid-hex>` — odpowiedź `{ data: { photo: null } }` dla nieistniejącego hasha — do weryfikacji manualnej przez usera
 
 ---
 
