@@ -59,6 +59,7 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | S-26  | admin-panel                   | panel administracyjny: lista użytkowników, flaga AI-enabled (domyślnie false — admin włącza), impersonacja (zaloguj się jako user), usunięcie konta (półki/książki przechodzą do admina), przeniesienie półki między użytkownikami | S-01 | NFR (admin ops) | proposed |
 | S-27  | dark-light-mode               | przełącznik trybu ciemnego/jasnego w headerze; preferencja persystowana w localStorage; Tailwind `dark:` variant na całym UI | — | UX (standard) | proposed |
 | S-28  | mobile-responsive             | responsywność mobilna dla ścieżek read (library, shelves, book detail) i write (upload, review karty); Tailwind breakpoints `sm:`/`md:` — desktop-first zachowane, telefon bez poziomego scrollowania | S-05 | NFR (UX) | proposed |
+| S-29  | photos-crud                   | pełny CRUD dla zdjęć: lista zdjęć per półka (GET /api/photos?shelf_id=), usunięcie zdjęcia z Storage + cascade detections/book_candidates (DELETE /api/photos/[id]), edycja metadanych (PATCH — zmiana shelf_id / retitle); widok listy zdjęć na stronie półki | S-03, S-05 | FR (zarządzanie zdjęciami) | proposed |
 
 ## Streams
 
@@ -327,6 +328,20 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **Risk:** średni — refaktor `DetectionCard` na obsługę 3 trybów bez rozbijania istniejących testów (mają `data-testid`); tryby muszą zachować pełną funkcjonalność.
 - **Status:** done
 
+### S-29: Pełny CRUD dla zdjęć
+
+- **Outcome:** użytkownik może: zobaczyć listę zdjęć przypisanych do półki (GET /api/photos?shelf_id=) wraz ze statusem i skróconymi metadanymi; usunąć zdjęcie (DELETE /api/photos/[id]) co kasuje plik z Storage `shelf-photos` oraz kaskadowo detekcje i book_candidates (RLS: tylko właściciel); edytować metadane zdjęcia (PATCH /api/photos/[id] — zmiana `shelf_id`); widok listy zdjęć na stronie półki `/shelves/[id]` z miniaturkami i akcją usunięcia (z potwierdzeniem modalem).
+- **Change ID:** photos-crud
+- **PRD refs:** FR (zarządzanie zdjęciami — user-driven backlog)
+- **Prerequisites:** S-03 (upload), S-05 (katalog — przed DELETE musi być ostrzeżenie o utraceniu book_candidates/shelf_entries powiązanych ze zdjęciem)
+- **Parallel with:** S-27, S-28
+- **Blockers:** —
+- **Unknowns:**
+  - Co dzieje się z `shelf_entries` powiązanymi przez `photo_id`/`detection_id` przy DELETE zdjęcia — czy NULL-ować FK (`on delete set null` jest już w schemacie) czy blokować usunięcie gdy są aktywne shelf_entries. Decyzja: null-ować (schema już tak robi), ale UI musi ostrzegać że „usunięcie zdjęcia nie usuwa potwierdzonych książek z katalogu".
+  - Czy DELETE bez potwierdzenia = za ryzykowne (vision kosztuje pieniądze). Decyzja: modal potwierdzenia obowiązkowy.
+- **Risk:** DELETE jest destruktywny i nieodwracalny (Storage + DB). Konieczne ostrzeżenie w UI ile detekcji/kandydatów zostanie usuniętych. Nie blokować shelf_entries — book_catalog pozostaje, tylko traci link do źródłowego zdjęcia.
+- **Status:** proposed
+
 ### S-26: Panel administracyjny
 
 - **Outcome:** użytkownik z flagą `is_admin=true` widzi dodatkowy link „Admin" w headerze; panel `/admin` zawiera: listę użytkowników (email, data rejestracji, liczba półek/książek, flagi), przełącznik `ai_enabled` per user (domyślnie false — blokuje wywołania vision/match), przycisk „Zaloguj jako" (impersonacja przez Supabase Admin API → `generateLink` + redirect), przycisk „Usuń konto" (books + shelf_entries → admin, półki → admin, potem `deleteUser`), akcję „Przenieś półkę" (zmiana `user_id` na innego usera). Migracja: nowe kolumny `profiles.is_admin bool default false` i `profiles.ai_enabled bool default false`.
@@ -397,6 +412,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 | S-26       | admin-panel                  | Panel administracyjny: users, ai_enabled, impersonacja, delete, przeniesienie półki | no   | **DUŻE** — podzielić na 3 fazy: (1) migracja + guard ai_enabled, (2) lista + przełącznik, (3) impersonacja + delete. Zaczynać od fazy 1. |
 | S-27       | dark-light-mode              | Przełącznik ciemny/jasny — Tailwind `dark:`, localStorage, prefers-color-scheme | yes     | Sprawdzić składnię Tailwind v4 dla dark mode przed planem. |
 | S-28       | mobile-responsive            | Responsywność mobilna (375px) — breakpoints Tailwind, hamburger nav, upload bez drag-drop na touch | yes | Realizować po S-27 (lub równolegle — oba cross-cutting CSS). |
+| S-29       | photos-crud                  | Pełny CRUD zdjęć: GET list per shelf, DELETE (Storage + cascade), PATCH (shelf_id/metadata) | yes | Brakuje: GET list, DELETE, PATCH. DELETE wymaga cascade: detections → book_candidates, usunięcia pliku z Storage `shelf-photos`. |
 
 ## Open Roadmap Questions
 
