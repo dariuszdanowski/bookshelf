@@ -38,7 +38,7 @@ W jednym zdaniu: **zdjęcie → detekcja → match → dedup → ranking → pot
 | Style | Tailwind 4 |
 | Typy | TypeScript strict |
 | Backend | Astro endpoints (`src/pages/api/`) |
-| Auth | Supabase Auth (email + opcj. Google OAuth) |
+| Auth | Supabase Auth (email + hasło) |
 | DB | Supabase Postgres + RLS |
 | Storage | Supabase Storage (zdjęcia półek) |
 | Vision LLM | Claude Sonnet 4.6 przez Anthropic API |
@@ -91,7 +91,11 @@ npm run dev
 | `npm run dev` | Dev server na `localhost:4321` z HMR |
 | `npm run build` | Produkcyjny build do `dist/` (bundle pod Cloudflare Workers) |
 | `npm run preview` | Preview produkcyjnego buildu lokalnie |
-| `npm run astro ...` | CLI Astro (np. `astro add`, `astro check`) |
+| `npm run typecheck` | TypeScript typecheck (`astro check`) |
+| `npm run lint` | ESLint v9 flat config |
+| `npm run format` | Prettier |
+| `npm run test` | Vitest — testy jednostkowe |
+| `npm run test:e2e` | Playwright — testy E2E (pierwsze uruchomienie: `npx playwright install --with-deps`) |
 | `npm run generate-types` | Wygeneruj typy z Cloudflare bindings (`wrangler types`) |
 
 ## Struktura katalogów
@@ -135,9 +139,9 @@ bookshelf/
 | Milestone | Termin | Zakres |
 |---|---|---|
 | M0 — bootstrap | 17.05.2026 | Astro + Tailwind + React + Cloudflare ✓ |
-| M1 — schema + upload + vision | 31.05.2026 | Auth, RLS, upload zdjęcia, vision call |
-| M2 — matching + katalog | 14.06.2026 | Books API, scoring, dedup, UI review |
-| M3 — CI/CD + szlif | 19.06.2026 | GitHub Actions, deploy CF Workers, demo |
+| M1 — schema + upload + vision | 31.05.2026 | Auth, RLS, upload zdjęcia, vision call ✓ |
+| M2 — matching + katalog | 14.06.2026 | Books API, scoring, dedup, UI review ✓ |
+| M3 — CI/CD + szlif | 19.06.2026 | GitHub Actions, deploy CF Workers, demo 🔄 |
 
 ## Świadomie poza MVP
 
