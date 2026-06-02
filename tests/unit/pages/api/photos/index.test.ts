@@ -7,6 +7,7 @@ const USER_ID = '00000000-0000-4000-8000-000000000001';
 const SHELF_ID = '00000000-0000-4000-8000-000000000002';
 const PHOTO_ID = '00000000-0000-4000-8000-000000000003';
 const STORAGE_PATH = `${USER_ID}/photo.jpg`;
+const VALID_HASH = 'a'.repeat(64);
 
 type PhotoRow = {
   id: string;
@@ -151,5 +152,30 @@ describe('POST /api/photos', () => {
     expect(res.status).toBe(500);
     const json = (await res.json()) as { error: { code: string } };
     expect(json.error.code).toBe('INTERNAL_ERROR');
+  });
+
+  it('persists file_hash_sha256 when provided', async () => {
+    const { context, insertFn } = makeContext({
+      body: { shelf_id: SHELF_ID, storage_path: STORAGE_PATH, file_hash_sha256: VALID_HASH },
+      insertResult: { data: validRow, error: null },
+    });
+
+    const res = await POST(context as never);
+    expect(res.status).toBe(201);
+    expect(insertFn).toHaveBeenCalledWith(
+      expect.objectContaining({ file_hash_sha256: VALID_HASH })
+    );
+  });
+
+  it('returns 409 DUPLICATE_PHOTO on Postgres 23505 (unique constraint — same hash)', async () => {
+    const { context } = makeContext({
+      body: { shelf_id: SHELF_ID, storage_path: STORAGE_PATH, file_hash_sha256: VALID_HASH },
+      insertResult: { data: null, error: { code: '23505', message: 'unique violation', name: 'PostgrestError' } },
+    });
+
+    const res = await POST(context as never);
+    expect(res.status).toBe(409);
+    const json = (await res.json()) as { error: { code: string } };
+    expect(json.error.code).toBe('DUPLICATE_PHOTO');
   });
 });

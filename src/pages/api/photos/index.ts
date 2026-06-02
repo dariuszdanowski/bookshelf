@@ -39,7 +39,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
     });
   }
 
-  const { shelf_id, storage_path } = parsed.data;
+  const { shelf_id, storage_path, file_hash_sha256 } = parsed.data;
 
   // F4 defense-in-depth: storage_path musi należeć do tego usera
   if (!storage_path.startsWith(`${locals.user.id}/`)) {
@@ -52,13 +52,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   const { data, error } = await locals.supabase
     .from('photos')
-    .insert({ user_id: locals.user.id, shelf_id, storage_path, status: 'uploaded' })
+    .insert({ user_id: locals.user.id, shelf_id, storage_path, status: 'uploaded', file_hash_sha256: file_hash_sha256 ?? null })
     .select('id, shelf_id, status, detected_count, error_message, vision_cost_usd, vision_latency_ms, created_at')
     .single();
 
   if (error) {
     if (error.code === '23503') {
       return apiError({ code: 'NOT_FOUND', status: 404, message: 'Półka nie istnieje lub brak dostępu.' });
+    }
+    if (error.code === '23505') {
+      return apiError({ code: 'DUPLICATE_PHOTO', status: 409, message: 'Zdjęcie już istnieje w katalogu.' });
     }
     console.error('[api/photos POST] supabase insert failed', {
       name: error.name,
