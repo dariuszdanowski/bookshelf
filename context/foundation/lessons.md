@@ -105,3 +105,10 @@
 - **Problem**: 2026-05-27 audyt M1L4 puścił `/10x-rule-review` tylko na `CLAUDE.md` (item A1) — `AGENTS.md` nie był re-weryfikowany od wczesnego bootstrapu i zdryfował: (1) „`.github/workflows/` empty (M1L5 work)" gdy CI+Deploy były w pełni wired (+ post-deploy smoke); (2) „service role only in API routes" — **sprzeczne** z RLS-first z CLAUDE.md (service-role NIE jest domyślną ścieżką danych, server client jest RLS-respecting); (3) `wrangler-action@v3` gdy deploy.yml jest na `@v4`. Linia (2) jest **security-adjacent**: agent czytający AGENTS.md jako primary mógłby napisać dostęp do danych omijający RLS. Drift był niewidoczny, bo żaden krok nie weryfikuje AGENTS.md vs realny stan, a rule-review domyślnie celuje w CLAUDE.md.
 - **Rule**: Traktuj `CLAUDE.md` i `AGENTS.md` jako parę dryfującą niezależnie. (1) `/10x-rule-review` puszczaj na OBA pliki, nie tylko root CLAUDE.md. (2) Każda zmiana stanu infrastruktury/konwencji (CI/CD wired, wersje GitHub Actions, deploy flow, domyślna ścieżka dostępu do danych) → aktualizuj OBA w tym samym commicie, albo świadomie ustal który jest source-of-truth a który thin-pointer. (3) Przy regen `health-check.md` „AGENTS.md present" to za mało — sprawdź też czy treść nie jest stale (status CI, wersje, konwencje security).
 - **Applies to**: plan-review, impl-review (+ rule-review, health-check)
+
+## Przed migracją sprawdź max numer na main
+
+- **Context**: Każda faza/slice dodająca plik w `supabase/migrations/`
+- **Problem**: Dwa branche wybierają ten sam numer (np. `0012_`); po merge obu `supabase start` pada z `23505` (duplicate key w `schema_migrations`) — CI łamie się na kroku E2E.
+- **Rule**: Przed stworzeniem pliku migracji sprawdź najwyższy istniejący numer na `main` (`git ls-tree origin/main supabase/migrations/ | sort`), nie na branchu roboczym — dwa równoległe branche mogą niezależnie wybrać ten sam numer.
+- **Applies to**: implement, impl-review, plan-review
