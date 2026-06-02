@@ -304,19 +304,25 @@ export type Database = {
       }
       profiles: {
         Row: {
+          ai_enabled: boolean
           created_at: string
           display_name: string | null
           id: string
+          is_admin: boolean
         }
         Insert: {
+          ai_enabled?: boolean
           created_at?: string
           display_name?: string | null
           id: string
+          is_admin?: boolean
         }
         Update: {
+          ai_enabled?: boolean
           created_at?: string
           display_name?: string | null
           id?: string
+          is_admin?: boolean
         }
         Relationships: []
       }
