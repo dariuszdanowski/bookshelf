@@ -70,6 +70,16 @@ export const POST: APIRoute = async ({ params, locals }) => {
     return apiError({ code: 'NOT_FOUND', status: 404, message: 'Not found.' });
   }
 
+  // Guard: ai_enabled per profile (S-26)
+  const { data: profile } = await locals.supabase
+    .from('profiles')
+    .select('ai_enabled')
+    .eq('id', locals.user.id)
+    .single();
+  if (!profile?.ai_enabled) {
+    return apiError({ code: 'AI_DISABLED', status: 403, message: 'Funkcje AI wyłączone dla tego konta.' });
+  }
+
   // 1. Load photo (RLS scope — PGRST116 if not found or other user)
   const { data: photo, error: photoError } = await locals.supabase
     .from('photos')

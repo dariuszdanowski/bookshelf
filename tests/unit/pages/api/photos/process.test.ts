@@ -86,6 +86,16 @@ function makeSupabase(opts: {
   };
 
   const fromFn = vi.fn((table: string) => {
+    if (table === 'profiles') {
+      return {
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            single: vi.fn().mockResolvedValue({ data: { ai_enabled: true }, error: null }),
+          })),
+        })),
+      };
+    }
+
     if (table === 'photos') {
       return {
         select: vi.fn(() => ({
@@ -176,6 +186,27 @@ describe('POST /api/photos/[id]/process', () => {
     expect(res.status).toBe(401);
     const json = (await res.json()) as { error: { code: string } };
     expect(json.error.code).toBe('UNAUTHENTICATED');
+  });
+
+  it('returns 403 AI_DISABLED when profile.ai_enabled = false', async () => {
+    const { supabase, fromFn } = makeSupabase({});
+    // Override profiles mock to return ai_enabled: false
+    fromFn.mockImplementation((table: string) => {
+      if (table === 'profiles') {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              single: vi.fn().mockResolvedValue({ data: { ai_enabled: false }, error: null }),
+            })),
+          })),
+        };
+      }
+      return {};
+    });
+    const res = await POST(makeContext(supabase) as never);
+    expect(res.status).toBe(403);
+    const json = (await res.json()) as { error: { code: string } };
+    expect(json.error.code).toBe('AI_DISABLED');
   });
 
   it('returns 404 for malformed UUID', async () => {
