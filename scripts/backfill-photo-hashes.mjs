@@ -124,8 +124,16 @@ async function run() {
         .eq('id', photo.id);
 
       if (updateErr) {
-        console.log(`BŁĄD UPDATE: ${updateErr.message}`);
-        totalErrors++;
+        // 23505 = unique_violation: inne zdjęcie tego samego usera ma już ten hash.
+        // Istniejący rekord (wgrany wcześniej) zachowuje hash; ten (późniejszy duplikat)
+        // zostaje z hash=NULL — dedup działałby gdyby oba zostały wgrane po wdrożeniu 0013.
+        if (updateErr.code === '23505') {
+          console.log(`DUPLIKAT (hash już istnieje u tego usera — pomijam)`);
+          totalSkipped++;
+        } else {
+          console.log(`BŁĄD UPDATE: ${updateErr.message}`);
+          totalErrors++;
+        }
       } else {
         console.log(`OK → ${hash}`);
         totalProcessed++;
@@ -142,7 +150,7 @@ async function run() {
 
   console.log(`\n${'─'.repeat(60)}`);
   console.log(`Przetworzone : ${totalProcessed}`);
-  console.log(`Pominięte   : ${totalSkipped} (błąd Storage — plik usunięty lub niedostępny)`);
+  console.log(`Pominięte   : ${totalSkipped} (błąd Storage lub duplikat hash u tego samego usera)`);
   console.log(`Błędy UPDATE : ${totalErrors}`);
   console.log(`${'─'.repeat(60)}\n`);
 
@@ -153,8 +161,8 @@ async function run() {
 
   if (totalSkipped > 0) {
     console.warn(
-      `UWAGA: ${totalSkipped} zdjęć pominiętych (brak pliku w Storage). ` +
-        `Wiersze photos pozostają z hash=NULL i nie są chronione przez dedup.`
+      `UWAGA: ${totalSkipped} zdjęć pominiętych (duplikat hash w obrębie usera lub brak pliku w Storage). ` +
+        `Wiersze photos pozostają z hash=NULL — dedup nie chroni tych rekordów przed ponownym uploadem.`
     );
   }
 
