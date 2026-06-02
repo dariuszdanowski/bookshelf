@@ -22,6 +22,7 @@ export default [
       'docs/',
       'supabase/migrations/',
       'scripts/',
+      '.claude/',
     ],
   },
 
