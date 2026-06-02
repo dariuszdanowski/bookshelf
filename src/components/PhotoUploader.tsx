@@ -79,6 +79,7 @@ export default function PhotoUploader({
       throw new Error(matchJson.error?.message ?? `Błąd matchowania (${matchRes.status})`);
     }
     setCanRetryMatchOnly(false);
+    sessionStorage.removeItem('upload_resume_photo_id');
     window.location.href = `/photos/${photoId}`;
   }, []);
 
@@ -99,6 +100,51 @@ export default function PhotoUploader({
     },
     [runMatch]
   );
+
+  // Recovery: resume pipeline for a photo stuck in 'processing' after page reload.
+  useEffect(() => {
+    const resumeId = sessionStorage.getItem('upload_resume_photo_id');
+    if (!resumeId) return;
+    (async () => {
+      try {
+        const res = await fetch(`/api/photos/${resumeId}`);
+        if (!res.ok) { sessionStorage.removeItem('upload_resume_photo_id'); return; }
+        const json = (await res.json()) as {
+          data?: {
+            photo: { id: string; status: string };
+            detections: Array<{ status: string }>;
+          };
+        };
+        const photo = json.data?.photo;
+        const detections = json.data?.detections ?? [];
+        if (!photo) { sessionStorage.removeItem('upload_resume_photo_id'); return; }
+
+        setCurrentPhotoId(photo.id);
+
+        if (photo.status === 'failed') {
+          setErrorMsg('Poprzednie przetwarzanie zakończyło się błędem. Spróbuj ponownie.');
+          setStage('error');
+          sessionStorage.removeItem('upload_resume_photo_id');
+        } else if (photo.status === 'uploaded' || photo.status === 'processing') {
+          await processPhoto(photo.id);
+        } else if (photo.status === 'processed') {
+          const hasPending = detections.some((d) => d.status === 'pending');
+          if (!hasPending) {
+            sessionStorage.removeItem('upload_resume_photo_id');
+            window.location.href = `/photos/${photo.id}`;
+          } else {
+            setCanRetryMatchOnly(true);
+            await runMatch(photo.id);
+          }
+        } else {
+          sessionStorage.removeItem('upload_resume_photo_id');
+        }
+      } catch (err) {
+        setErrorMsg(err instanceof Error ? err.message : 'Błąd przy wznawianiu poprzedniego uploadu.');
+        setStage('error');
+      }
+    })();
+  }, [processPhoto, runMatch]);
 
   // Core upload logic — called after duplicate check passes (or user forces upload).
   const doUpload = useCallback(
@@ -136,6 +182,7 @@ export default function PhotoUploader({
       }
       const photoId = recJson.data.photo.id;
       setCurrentPhotoId(photoId);
+      sessionStorage.setItem('upload_resume_photo_id', photoId);
 
       await processPhoto(photoId);
       setStage('done'); // redirect happens inside processPhoto; this line is reached only in tests
