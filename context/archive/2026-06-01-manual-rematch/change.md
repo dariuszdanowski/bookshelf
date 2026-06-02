@@ -1,10 +1,10 @@
 ---
 change_id: manual-rematch
 title: Ręczne wyszukiwanie po tytule dla detekcji bez kandydatów
-status: implementing
+status: archived
 created: 2026-06-01
-updated: 2026-06-01
-archived_at: null
+updated: 2026-06-02
+archived_at: 2026-06-02T08:25:00Z
 ---
 
 ## Notes
