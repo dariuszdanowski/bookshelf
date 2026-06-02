@@ -46,11 +46,11 @@ updated: 2026-06-02
 ### Phase 1: DB migration
 
 #### Automated
-- [ ] 1.1 Utwórz `supabase/migrations/0013_photo_file_hash.sql`: kolumna `file_hash_sha256 text`, unique partial index `(user_id, file_hash_sha256) WHERE file_hash_sha256 IS NOT NULL`
-- [ ] 1.2 `npm run typecheck` — 0 errors
+- [x] 1.1 Utwórz `supabase/migrations/0013_photo_file_hash.sql`: kolumna `file_hash_sha256 text`, unique partial index `(user_id, file_hash_sha256) WHERE file_hash_sha256 IS NOT NULL`
+- [x] 1.2 `npm run typecheck` — 0 errors
 
 #### Manual
-- [ ] 1.M Zweryfikuj migrację lokalnie: `npx supabase db reset` (lub `migration up`) — brak błędów, kolumna widoczna w Studio
+- [x] 1.M Zweryfikuj migrację lokalnie: `npx supabase db reset` (lub `migration up`) — brak błędów, kolumna widoczna w Studio
 
 ---
 

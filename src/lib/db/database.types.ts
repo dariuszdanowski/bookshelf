@@ -105,6 +105,7 @@ export type Database = {
           published_year?: number | null
           publisher?: string | null
           purchase_date?: string | null
+          search_text?: string | null
           source?: string | null
           source_external_id?: string | null
           spine_color?: string | null
@@ -123,6 +124,7 @@ export type Database = {
           published_year?: number | null
           publisher?: string | null
           purchase_date?: string | null
+          search_text?: string | null
           source?: string | null
           source_external_id?: string | null
           spine_color?: string | null
@@ -205,7 +207,7 @@ export type Database = {
           spine_color?: string | null
           status?: string
           vision_confidence?: number | null
-          vision_run_id?: string
+          vision_run_id: string
         }
         Update: {
           bbox_x1?: number | null
@@ -246,6 +248,7 @@ export type Database = {
           created_at: string
           detected_count: number | null
           error_message: string | null
+          file_hash_sha256: string | null
           id: string
           processed_at: string | null
           shelf_id: string
@@ -261,6 +264,7 @@ export type Database = {
           created_at?: string
           detected_count?: number | null
           error_message?: string | null
+          file_hash_sha256?: string | null
           id?: string
           processed_at?: string | null
           shelf_id: string
@@ -276,6 +280,7 @@ export type Database = {
           created_at?: string
           detected_count?: number | null
           error_message?: string | null
+          file_hash_sha256?: string | null
           id?: string
           processed_at?: string | null
           shelf_id?: string
@@ -314,6 +319,54 @@ export type Database = {
           id?: string
         }
         Relationships: []
+      }
+      refine_calls: {
+        Row: {
+          cost_usd: number | null
+          created_at: string
+          detection_id: string
+          id: string
+          latency_ms: number | null
+          model: string | null
+          photo_id: string
+          user_id: string
+        }
+        Insert: {
+          cost_usd?: number | null
+          created_at?: string
+          detection_id: string
+          id?: string
+          latency_ms?: number | null
+          model?: string | null
+          photo_id: string
+          user_id: string
+        }
+        Update: {
+          cost_usd?: number | null
+          created_at?: string
+          detection_id?: string
+          id?: string
+          latency_ms?: number | null
+          model?: string | null
+          photo_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "refine_calls_detection_id_fkey"
+            columns: ["detection_id"]
+            isOneToOne: false
+            referencedRelation: "detections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "refine_calls_photo_id_fkey"
+            columns: ["photo_id"]
+            isOneToOne: false
+            referencedRelation: "photos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       shelf_entries: {
         Row: {
@@ -456,7 +509,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      books_search_text: {
+        Args: { p_authors: string[]; p_publisher: string; p_title: string }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
