@@ -356,15 +356,18 @@ test('3.8 Re-run vision: confirm cancel → brak procesu; OK → wywołuje /proc
   await page.waitForURL(/\/shelves\/[0-9a-f-]+$/, { timeout: 5_000 });
   await expect(page.getByTestId(`rerun-vision-${PHOTO_ID}`)).toBeVisible({ timeout: 10_000 });
 
-  // First click — dismiss confirm dialog
-  page.once('dialog', (dialog) => dialog.dismiss());
+  // First click — React ConfirmDialog pojawia się, klikamy Anuluj
   await page.getByTestId(`rerun-vision-${PHOTO_ID}`).click();
+  await expect(page.getByTestId('photo-rerun-confirm-backdrop')).toBeVisible({ timeout: 5_000 });
+  await page.getByTestId('photo-rerun-confirm-cancel').click();
+  await expect(page.getByTestId('photo-rerun-confirm-backdrop')).not.toBeVisible();
   // No process call
   expect(processRequests).toHaveLength(0);
 
-  // Second click — accept confirm dialog
-  page.once('dialog', (dialog) => dialog.accept());
+  // Second click — React ConfirmDialog pojawia się, klikamy Potwierdź
   await page.getByTestId(`rerun-vision-${PHOTO_ID}`).click();
+  await expect(page.getByTestId('photo-rerun-confirm-backdrop')).toBeVisible({ timeout: 5_000 });
+  await page.getByTestId('photo-rerun-confirm-confirm').click();
   // Process should be called
   await page.waitForFunction(() => true, null, { timeout: 5_000 }); // flush promises
   expect(processRequests.length).toBeGreaterThanOrEqual(1);
