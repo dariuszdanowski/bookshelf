@@ -51,6 +51,7 @@ function checkHashMock() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  sessionStorage.clear();
   Object.defineProperty(window, 'location', {
     configurable: true,
     writable: true,
@@ -191,6 +192,20 @@ describe('PhotoUploader', () => {
     expect(mockUpload).toHaveBeenCalledTimes(1);
   });
 
+  it('happy path: sessionStorage cleared after successful redirect (recovery path)', async () => {
+    const STALE_ID = '00000000-0000-4000-8000-aaaaaaaaaaaa';
+    sessionStorage.setItem('upload_resume_photo_id', STALE_ID);
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(jsonResponse({ data: { shelves: mockShelves } }))                                                       // shelves
+      .mockResolvedValueOnce(jsonResponse({ data: { photo: { id: STALE_ID, status: 'processing' }, detections: [] } }))              // recovery GET
+      .mockResolvedValueOnce(jsonResponse({ data: { photo: { ...mockPhoto, id: STALE_ID }, detections: mockDetections } }))          // process POST
+      .mockResolvedValueOnce(jsonResponse(mockMatchResult));                                                                          // match POST
+
+    render(<PhotoUploader userId={USER_ID} />);
+    await waitFor(() => expect(window.location.href).toBe(`/photos/${STALE_ID}`), { timeout: 5000 });
+    expect(sessionStorage.getItem('upload_resume_photo_id')).toBeNull();
+  });
+
   it('shows error area on storage upload failure (no retry-button, back button shown)', async () => {
     mockUpload.mockResolvedValue({ error: { message: 'Storage error' } });
     vi.spyOn(globalThis, 'fetch')
@@ -205,5 +220,80 @@ describe('PhotoUploader', () => {
     await waitFor(() => expect(screen.getByTestId('error-area')).toBeInTheDocument(), { timeout: 5000 });
     expect(screen.getByTestId('error-area')).toHaveTextContent('Storage error');
     expect(screen.queryByTestId('retry-button')).not.toBeInTheDocument();
+  });
+});
+
+describe('PhotoUploader — reload recovery', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    sessionStorage.clear();
+    Object.defineProperty(window, 'location', { configurable: true, writable: true, value: { href: '' } });
+    Object.defineProperty(global, 'crypto', {
+      configurable: true,
+      value: { randomUUID: () => '11111111-1111-4111-8111-111111111111', subtle: { digest: vi.fn().mockResolvedValue(new Uint8Array(32).buffer) } },
+    });
+    mockUpload.mockResolvedValue({ error: null });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    sessionStorage.clear();
+  });
+
+  it('status=processing — wznawiamy process+match i redirectujemy', async () => {
+    sessionStorage.setItem('upload_resume_photo_id', PHOTO_ID);
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(jsonResponse({ data: { shelves: [] } }))                 // shelves
+      .mockResolvedValueOnce(jsonResponse({ data: { photo: { id: PHOTO_ID, status: 'processing' }, detections: [] } })) // recovery GET
+      .mockResolvedValueOnce(jsonResponse({ data: { photo: mockPhoto, detections: mockDetections } }))                   // process POST
+      .mockResolvedValueOnce(jsonResponse(mockMatchResult));                           // match POST
+
+    render(<PhotoUploader userId={USER_ID} />);
+    await waitFor(() => expect(window.location.href).toBe(`/photos/${PHOTO_ID}`), { timeout: 5000 });
+    expect(sessionStorage.getItem('upload_resume_photo_id')).toBeNull();
+  });
+
+  it('status=failed — pokazuje error area, czyści sessionStorage', async () => {
+    sessionStorage.setItem('upload_resume_photo_id', PHOTO_ID);
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(jsonResponse({ data: { shelves: [] } }))
+      .mockResolvedValueOnce(jsonResponse({ data: { photo: { id: PHOTO_ID, status: 'failed' }, detections: [] } }));
+
+    render(<PhotoUploader userId={USER_ID} />);
+    await waitFor(() => expect(screen.getByTestId('error-area')).toBeInTheDocument(), { timeout: 5000 });
+    expect(screen.getByTestId('error-area')).toHaveTextContent('Poprzednie przetwarzanie');
+    expect(sessionStorage.getItem('upload_resume_photo_id')).toBeNull();
+  });
+
+  it('status=processed z pending detekcjami — wznawiamy tylko match', async () => {
+    sessionStorage.setItem('upload_resume_photo_id', PHOTO_ID);
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(jsonResponse({ data: { shelves: [] } }))
+      .mockResolvedValueOnce(jsonResponse({ data: { photo: { id: PHOTO_ID, status: 'processed' }, detections: [{ status: 'pending' }] } }))
+      .mockResolvedValueOnce(jsonResponse(mockMatchResult));
+
+    render(<PhotoUploader userId={USER_ID} />);
+    await waitFor(() => expect(window.location.href).toBe(`/photos/${PHOTO_ID}`), { timeout: 5000 });
+  });
+
+  it('status=processed bez pending detekcji — redirect bez dodatkowych callów', async () => {
+    sessionStorage.setItem('upload_resume_photo_id', PHOTO_ID);
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(jsonResponse({ data: { shelves: [] } }))
+      .mockResolvedValueOnce(jsonResponse({ data: { photo: { id: PHOTO_ID, status: 'processed' }, detections: [{ status: 'matched' }] } }));
+
+    render(<PhotoUploader userId={USER_ID} />);
+    await waitFor(() => expect(window.location.href).toBe(`/photos/${PHOTO_ID}`), { timeout: 5000 });
+    expect(sessionStorage.getItem('upload_resume_photo_id')).toBeNull();
+  });
+
+  it('brak sessionStorage — normalne idle, brak dodatkowych fetch callów', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(jsonResponse({ data: { shelves: [] } }));
+
+    render(<PhotoUploader userId={USER_ID} />);
+    await waitFor(() => expect(screen.getByTestId('drop-zone')).toBeInTheDocument());
+    // Only 1 fetch call (shelves), no recovery fetch
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
