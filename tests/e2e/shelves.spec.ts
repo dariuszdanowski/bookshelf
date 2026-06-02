@@ -58,16 +58,14 @@ test('/shelves → create → edit → delete (system Zakupione protected)', asy
     .filter({ hasText: SHELF_NAME_RENAMED });
   await expect(renamedShelf).toBeVisible({ timeout: 5_000 });
 
-  // 5. Delete — handle native confirm()
-  page.once('dialog', (dialog) => {
-    expect(dialog.type()).toBe('confirm');
-    expect(dialog.message()).toMatch(new RegExp(SHELF_NAME_RENAMED));
-    void dialog.accept();
-  });
+  // 5. Delete — React ConfirmDialog (nie natywny window.confirm per CLAUDE.md)
   const renamedRow = page
     .locator('[data-testid^="shelf-item-"]')
     .filter({ hasText: SHELF_NAME_RENAMED });
   await renamedRow.getByTestId('shelf-item-delete-button').click();
+
+  // ConfirmDialog widoczny — kliknij „Usuń półkę"
+  await page.getByRole('button', { name: 'Usuń półkę' }).click();
 
   // Po refetch — usuniętej półki nie ma w liście.
   await expect(renamedShelf).not.toBeVisible({ timeout: 5_000 });
