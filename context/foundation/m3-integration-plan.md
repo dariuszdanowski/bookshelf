@@ -88,8 +88,11 @@ Można zapisać jako sekcję w `context/changes/photo-dedup/plan.md` i analogicz
 ## Kolejność działań
 
 ```
-[ ] 1. Dodaj PostToolUse hook do .claude/settings.json           ← przed S-16
-[ ] 2. Dodaj blok E2E rules do CLAUDE.md (M3L4)                  ← przed S-21
+[x] 1. Dodaj PostToolUse hook do .claude/settings.json           ← DONE 2026-06-03
+       (.claude/hooks/post-edit-lint.cjs — ESLint --fix na edytowanym
+        pliku TS/TSX/Astro/JS, advisory, feedback przez additionalContext;
+        Node bez shella/npx — przenośność Windows; zweryfikowany w runnerze)
+[x] 2. Dodaj blok E2E rules do CLAUDE.md (M3L4)                  ← DONE (sekcja M3L4 w CLAUDE.md)
 [ ] 3. Minimalna mapa ryzyk w plan.md S-16 i S-21                ← w trakcie planowania
 [ ] 4. (certyfikacja) Pełny test-plan.md via /10x-test-plan      ← kiedy będziesz składać materiały
 [ ] 5. (certyfikacja) Lefthook setup                             ← kiedy będziesz składać materiały
