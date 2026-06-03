@@ -3,7 +3,7 @@ project: "BookShelf Scanner"
 version: 1
 status: draft
 created: 2026-05-25
-updated: 2026-06-03
+updated: 2026-06-04
 prd_version: 1
 main_goal: speed
 top_blocker: time
@@ -59,7 +59,7 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | S-26  | admin-panel                   | panel administracyjny: lista użytkowników, flaga AI-enabled (domyślnie false — admin włącza), impersonacja (zaloguj się jako user), usunięcie konta (półki/książki przechodzą do admina), przeniesienie półki między użytkownikami | S-01 | NFR (admin ops) | proposed |
 | S-27  | dark-light-mode               | przełącznik trybu ciemnego/jasnego w headerze; preferencja persystowana w localStorage; Tailwind `dark:` variant na całym UI | — | UX (standard) | proposed |
 | S-28  | mobile-responsive             | responsywność mobilna dla ścieżek read (library, shelves, book detail) i write (upload, review karty); Tailwind breakpoints `sm:`/`md:` — desktop-first zachowane, telefon bez poziomego scrollowania | S-05 | NFR (UX) | proposed |
-| S-29  | photos-crud                   | pełny CRUD dla zdjęć: lista zdjęć per półka (GET /api/photos?shelf_id=), usunięcie zdjęcia z Storage + cascade detections/book_candidates (DELETE /api/photos/[id]), edycja metadanych (PATCH — zmiana shelf_id / retitle); zakładki „Książki / Zdjęcia" na `/shelves/[id]`; badge dla zdjęć z NULL hash (stare duplikaty) | S-03, S-05, **S-30** | FR (zarządzanie zdjęciami) | proposed |
+| S-29  | photos-crud                   | pełny CRUD dla zdjęć: lista zdjęć per półka (GET /api/photos?shelf_id=), usunięcie zdjęcia z Storage + cascade detections/book_candidates (DELETE /api/photos/[id]), edycja metadanych (PATCH — zmiana shelf_id / retitle); zakładki „Książki / Zdjęcia" na `/shelves/[id]`; badge dla zdjęć z NULL hash (stare duplikaty) | S-03, S-05, **S-30** | FR (zarządzanie zdjęciami) | done |
 | S-30  | vision-cost-preservation      | zachowanie historii kosztów vision przy DELETE zdjęć: dodanie `user_id` do `vision_runs` i `refine_calls`, zmiana FK `photo_id` z CASCADE na SET NULL; endpoint `GET /api/account/stats` zwracający łączny koszt i liczbę wywołań per user | S-03 | NFR (integrity kosztów) | done |
 | S-31  | user-account-page             | strona `/account`: edycja display_name (PATCH /api/account/profile), zmiana emaila i hasła (Supabase Auth updateUser), sekcja statystyk kosztów vision (z S-30), lista podłączonych kluczy API (z S-32) | S-01 | UX (profil użytkownika) | proposed |
 | S-32  | byok-api-keys                 | własne klucze API do modeli vision (BYOK): tabela `user_api_keys` z szyfrowaniem at rest (pgcrypto/Vault), UI zarządzania kluczami na `/account` (add/delete/test), providerzy: Anthropic / OpenAI / OpenRouter / OpenAI-compatible (base_url+model) | S-31 | FR (multi-provider vision) | proposed |
@@ -429,7 +429,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** DELETE destruktywny i nieodwracalny. Modal potwierdzenia obowiązkowy. Po S-30 `vision_runs` ma SET NULL zamiast CASCADE — koszty przeżywają DELETE.
-- **Status:** proposed
+- **Status:** done
 
 ### S-26: Panel administracyjny
 
@@ -560,5 +560,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **S-35: ujednolicony label „Doprecyzuj odczyt" we wszystkich trybach refine + widoczna informacja o koszcie (płatna analiza AI); słaby crop sygnalizowany ⚠ prefixem (rozróżnialność po tekście, nie po kolorze)** — Archived 2026-06-03 → `context/archive/2026-06-03-refine-ux-cost-info/`. Lesson: —. Ekstrakcja współdzielonego `RefineButton` (likwidacja 3 rozjeżdżających się kopii). impl-review APPROVED (1 obs accept-by-design).
 
 - **S-30: koszty vision przeżywają DELETE zdjęcia — vision_runs +user_id (denorm) + trigger derywujący z photos, FK photo_id/detection_id CASCADE→SET NULL (vision_runs + refine_calls), RLS vision_runs na user_id; GET /api/account/stats** — Archived 2026-06-03 → `context/archive/2026-06-03-vision-cost-preservation/`. Lesson: —. Prereq dla S-29 DELETE. impl-review APPROVED (1 obs: migracja walidowana post-merge db push — lokalny stack AV-blocked). Manual (db push + Studio) post-merge.
+
+- **S-29: `/shelves/[id]` zakładki Książki/Zdjęcia; DELETE `/api/photos/[id]` (Storage + cascade detections/book_candidates, shelf_entries i koszty SET NULL — katalog i historia kosztów zostają); PATCH shelf_id (przeniesienie zdjęcia); badge „Bez hash" dla NULL `file_hash_sha256`; modal potwierdzenia usunięcia.** — Archived 2026-06-04 → `context/archive/2026-06-03-photos-crud/`. Lesson: adaptacje literalne — lista zdjęć reuse istniejącego `GET /api/shelves/[id]/photos` (nie nowy `?shelf_id=`), „retitle" porzucone (brak kolumny title); DELETE DB-first → best-effort Storage remove (orphan-safe); cascade + SET-NULL zweryfikowane na prod (zdjęcie usunięte, 2 vision_runs / $0.061 przeżyły z user_id). B1 (rename „Zobacz zdjęcia"→„Pokaż szczegóły") zafoldowany. Pozostałe uwagi z review → memory `backlog-s29-review-2026-06-04`.
 
 (Pusta przy pierwszej generacji. `/10x-archive` dopisuje tu wpis — i przerzuca Status pozycji na `done` — gdy archiwizowana zmiana ma `Change ID` zgodny z pozycją roadmapy. NIE wypełniać ręcznie.)
