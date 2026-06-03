@@ -170,3 +170,4 @@ tests/e2e/.auth/
 
 # Claude Code runtime artifacts
 .claude/scheduled_tasks.lock
+.claude/worktrees/
