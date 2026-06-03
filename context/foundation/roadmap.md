@@ -3,7 +3,7 @@ project: "BookShelf Scanner"
 version: 1
 status: draft
 created: 2026-05-25
-updated: 2026-06-02
+updated: 2026-06-03
 prd_version: 1
 main_goal: speed
 top_blocker: time
@@ -65,7 +65,7 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | S-32  | byok-api-keys                 | własne klucze API do modeli vision (BYOK): tabela `user_api_keys` z szyfrowaniem at rest (pgcrypto/Vault), UI zarządzania kluczami na `/account` (add/delete/test), providerzy: Anthropic / OpenAI / OpenRouter / OpenAI-compatible (base_url+model) | S-31 | FR (multi-provider vision) | proposed |
 | S-33  | byok-pipeline                 | pipeline vision wymaga klucza usera: `/api/photos/[id]/process` sprawdza `user_api_keys`, brak klucza → 403 z linkiem do `/account`; abstrakcja `VisionProvider` w `src/lib/vision/` zastępuje hardkodowany Anthropic SDK; globalny klucz z env wyłączony dla zwykłych userów | S-32 | FR (BYOK enforcement) | proposed |
 | S-34  | shelf-book-view-modes         | tryby widoku książek na `/shelves/[id]`: lista kompaktowa (1 linia), kafelki (okładka+tytuł), szczegółowe panele (obecny); przełącznik z `localStorage` + responsywny default; analogia do S-25 `detection-list-views` | S-29 | UX polish | proposed |
-| S-35  | refine-ux-cost-info           | UX fix przycisków refine: jeden spójny label „Doprecyzuj odczyt" (zamiast mylących dwóch nazw); ⚠ ikona + tooltip przy słabym cropie; widoczna informacja „Dodatkowa analiza AI (płatna)" przy każdym wariancie; opcjonalny dialog potwierdzenia dla `uncertain_localization` | — | UX polish | proposed |
+| S-35  | refine-ux-cost-info           | UX fix przycisków refine: jeden spójny label „Doprecyzuj odczyt" (zamiast mylących dwóch nazw); ⚠ ikona + tooltip przy słabym cropie; widoczna informacja „Dodatkowa analiza AI (płatna)" przy każdym wariancie; opcjonalny dialog potwierdzenia dla `uncertain_localization` | — | UX polish | done |
 | S-36  | photo-upload-skip-process     | upload zdjęcia bez uruchamiania vision: checkbox „Analizuj od razu" (domyślnie zaznaczony) w `PhotoUploader`; zdjęcie w stanie `uploaded` widoczne w zakładce Zdjęcia (S-29) z przyciskiem „Analizuj teraz" | S-29 | UX (kontrola kosztu) | proposed |
 
 ## Streams
@@ -405,7 +405,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** zerowy — czysto frontendowy, bez zmian API.
-- **Status:** proposed
+- **Status:** done
 
 ### S-36: Upload zdjęcia bez uruchamiania vision
 
@@ -556,5 +556,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **S-25: widok listy detekcji (review) — przełącznik trybu prezentacji: karty rozwinięte (obecne), lista kompaktowana (1 linia/książka), kafelki (okładka + tytuł + badge pewności)** — Archived 2026-05-31 → `context/archive/2026-05-31-detection-list-views/`. Lesson: —. Refaktor wewnątrzplikowy `DetectionReview.tsx` (zero zmian API/DB): współdzielony hook `useDetectionDecision` (Karty/Lista/Kafelki bez duplikacji fetch), `useDetectionViewMode` (localStorage + responsywny default z guardem `matchMedia`→`cards` dla jsdom/SSR — krytyczne ustalenie plan-review F2), `ViewModeSwitcher`, `CorrectionModal` (Esc+backdrop, opakowuje istniejący `CorrectForm` w trybach kompaktowych; Karty zostają inline). Wszystkie oryginalne `data-testid` zachowane (zero regresji 14 testów Kart). Impl-review APPROVED (0 crit/warn, 4 obs). Manual smoke (1.6/2.6/3.5/4.5 — wizualny przegląd 3 trybów + persystencja) user-only post-merge.
 
 - **S-16: przy wgraniu zdjęcia: wykryj identyczne (hash treści SHA-256), ostrzeż i zaproponuj reuse istniejących detekcji zamiast ponownego (płatnego) vision** — Archived 2026-06-02 → `context/archive/2026-06-02-photo-dedup/`. Lesson: —. SHA-256 obliczany w przeglądarce (SubtleCrypto) przed Storage upload; GET /api/photos/check-hash + UI warning z 3 akcjami (Otwórz istniejące / Wgraj mimo to / Anuluj); obsługa race condition 409 DUPLICATE_PHOTO; migracja 0013 (unique partial index per user_id). Manual smoke (3.M) deferred user-only.
+
+- **S-35: ujednolicony label „Doprecyzuj odczyt" we wszystkich trybach refine + widoczna informacja o koszcie (płatna analiza AI); słaby crop sygnalizowany ⚠ prefixem (rozróżnialność po tekście, nie po kolorze)** — Archived 2026-06-03 → `context/archive/2026-06-03-refine-ux-cost-info/`. Lesson: —. Ekstrakcja współdzielonego `RefineButton` (likwidacja 3 rozjeżdżających się kopii). impl-review APPROVED (1 obs accept-by-design).
 
 (Pusta przy pierwszej generacji. `/10x-archive` dopisuje tu wpis — i przerzuca Status pozycji na `done` — gdy archiwizowana zmiana ma `Change ID` zgodny z pozycją roadmapy. NIE wypełniać ręcznie.)

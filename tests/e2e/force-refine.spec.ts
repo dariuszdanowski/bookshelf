@@ -1,11 +1,12 @@
 import { test, expect, type Page } from '@playwright/test';
 
 // ---------------------------------------------------------------------------
-// force-refine — przycisk Refine dla uncertain_localization bbox
+// force-refine — przycisk refine dla uncertain_localization bbox
 //
-// Ryzyko: przycisk Refine był disabled dla bbox o złej jakości (poziomy, mały).
-// Po zmianie: amber "⚠ Spróbuj OCR" zamiast disabled — zawsze klikalny.
-// Scenariusze: dobre bbox → indigo "Doprecyzuj odczyt"; złe → amber "⚠ Spróbuj OCR".
+// Ryzyko: przycisk refine był disabled dla bbox o złej jakości (poziomy, mały).
+// Po zmianie: zawsze klikalny. Spójny label „Doprecyzuj odczyt" (S-35); słaby
+// crop sygnalizowany ⚠ prefixem (rozróżnialność po tekście, nie po kolorze).
+// Scenariusze: dobre bbox → „Doprecyzuj odczyt"; złe → „⚠ Doprecyzuj odczyt".
 // ---------------------------------------------------------------------------
 
 const PHOTO_ID = '00000000-0000-4000-8000-000000000ee1';
@@ -105,26 +106,27 @@ test.describe('force-refine — przycisk Refine dla słabych bboxów', () => {
     const btn = card.getByTestId('refine-button');
     await expect(btn).toBeVisible();
     await expect(btn).toBeEnabled();
-    await expect(btn).toHaveText('Doprecyzuj odczyt');
-    // Indigo styling — nie ma klasy amber
-    await expect(btn).not.toHaveClass(/amber/);
+    await expect(btn).toHaveText('Doprecyzuj odczyt'); // dobry crop: bez ⚠ prefixu
+    await expect(btn).not.toContainText('⚠');
+    // Informacja o koszcie widoczna obok przycisku
+    await expect(card.getByTestId('refine-cost-hint')).toBeVisible();
   });
 
   // ── Słabe bbox → amber Force Refine button ────────────────────────────────
 
-  test('słabe bbox (poziome) → "⚠ Spróbuj OCR" widoczny i klikalny', async ({ page }) => {
+  test('słabe bbox (poziome) → "⚠ Doprecyzuj odczyt" widoczny i klikalny', async ({ page }) => {
     const card = page.getByTestId('detection-card-2');
     await expect(card).toBeVisible();
 
     const btn = card.getByTestId('refine-button');
     await expect(btn).toBeVisible();
     await expect(btn).toBeEnabled();
-    await expect(btn).toContainText('Spróbuj OCR');
-    // Amber styling
-    await expect(btn).toHaveClass(/amber/);
+    // Słaby crop: spójny label + ⚠ prefix (sygnał weak po tekście, nie po kolorze)
+    await expect(btn).toContainText('⚠ Doprecyzuj odczyt');
+    await expect(card.getByTestId('refine-cost-hint')).toBeVisible();
   });
 
-  test('⚠ Spróbuj OCR wywołuje endpoint refine i jest aktywny', async ({ page }) => {
+  test('słaby crop — refine wywołuje endpoint i jest aktywny', async ({ page }) => {
     const refinePromise = page.waitForRequest(
       (req) => req.url().includes(`/api/detections/${DET_WEAK_ID}/refine`) && req.method() === 'POST'
     );
@@ -147,13 +149,13 @@ test.describe('force-refine — przycisk Refine dla słabych bboxów', () => {
 
   // ── Tryb list ─────────────────────────────────────────────────────────────
 
-  test('tryb list — słabe bbox → "⚠ OCR" widoczny i klikalny', async ({ page }) => {
+  test('tryb list — słabe bbox → "⚠ Doprecyzuj odczyt" widoczny i klikalny', async ({ page }) => {
     await page.getByRole('button', { name: 'Lista' }).click();
     await expect(page.getByTestId('detection-row-2')).toBeVisible();
 
     const btn = page.getByTestId('detection-row-2').getByTestId('refine-button');
     await expect(btn).toBeVisible();
     await expect(btn).toBeEnabled();
-    await expect(btn).toContainText('OCR');
+    await expect(btn).toContainText('⚠ Doprecyzuj odczyt');
   });
 });
