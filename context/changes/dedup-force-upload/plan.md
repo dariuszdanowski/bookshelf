@@ -181,25 +181,25 @@ Brak migracji. Polityka `shelf_photos_delete_own` (0005) już istnieje.
 
 #### Automated
 
-- [x] 1.1 Typecheck: `npm run typecheck`
-- [x] 1.2 Lint: `npm run lint`
-- [x] 1.3 Unit zielony (PhotoUploader.test.tsx): `npm run test`
-- [x] 1.4 E2E zielony bez fikcyjnego testu: `npm run test:e2e`
+- [x] 1.1 Typecheck: `npm run typecheck` — 015383b
+- [x] 1.2 Lint: `npm run lint` — 015383b
+- [x] 1.3 Unit zielony (PhotoUploader.test.tsx): `npm run test` — 015383b
+- [x] 1.4 E2E zielony bez fikcyjnego testu: `npm run test:e2e` — 015383b
 
 #### Manual
 
-- [x] 1.5 Warning duplikatu pokazuje tylko Otwórz istniejące + Anuluj (brak „Wgraj mimo to")
-- [x] 1.6 Otwórz istniejące → /photos/<id>; Anuluj → drop-zone
+- [x] 1.5 Warning duplikatu pokazuje tylko Otwórz istniejące + Anuluj (brak „Wgraj mimo to") — 015383b
+- [x] 1.6 Otwórz istniejące → /photos/<id>; Anuluj → drop-zone — 015383b
 
 ### Phase 2: Server-side cleanup sieroty przy kolizji hash (test-first)
 
 #### Automated
 
-- [ ] 2.1 Nowy test pada przed implementacją, przechodzi po: `npm run test`
-- [ ] 2.2 Istniejące index.test.ts zielone: `npm run test`
-- [ ] 2.3 Typecheck: `npm run typecheck`
-- [ ] 2.4 Lint: `npm run lint`
+- [x] 2.1 Nowy test pada przed implementacją, przechodzi po: `npm run test`
+- [x] 2.2 Istniejące index.test.ts zielone: `npm run test`
+- [x] 2.3 Typecheck: `npm run typecheck`
+- [x] 2.4 Lint: `npm run lint`
 
 #### Manual
 
-- [ ] 2.5 (opcjonalnie) race nie zostawia sieroty — pokryte testem jednostkowym
+- [x] 2.5 (opcjonalnie) race nie zostawia sieroty — pokryte testem jednostkowym

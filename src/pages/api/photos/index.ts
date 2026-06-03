@@ -61,6 +61,25 @@ export const POST: APIRoute = async ({ request, locals }) => {
       return apiError({ code: 'NOT_FOUND', status: 404, message: 'Półka nie istnieje lub brak dostępu.' });
     }
     if (error.code === '23505') {
+      // Cleanup sieroty: przy 23505 (kolizja hash) świeżo wgrany obiekt Storage nie
+      // dostał rekordu w `photos` — to jedyny unique index na photos, więc 23505 ⇒
+      // duplikat hash (zob. plan F3). Race przy współbieżnym uploadzie nowego obrazu.
+      // Best-effort — błąd cleanup logujemy, ale NIE zmieniamy odpowiedzi 409 (F1).
+      try {
+        const { error: rmError } = await locals.supabase.storage.from('shelf-photos').remove([storage_path]);
+        if (rmError) {
+          // storage.remove zwraca błędy przez {error}, nie throw (throw tylko na network)
+          console.error('[api/photos POST] orphan storage cleanup returned error', {
+            storage_path,
+            message: rmError.message,
+          });
+        }
+      } catch (cleanupErr) {
+        console.error('[api/photos POST] orphan storage cleanup threw', {
+          storage_path,
+          message: cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr),
+        });
+      }
       return apiError({ code: 'DUPLICATE_PHOTO', status: 409, message: 'Zdjęcie już istnieje w katalogu.' });
     }
     console.error('[api/photos POST] supabase insert failed', {
