@@ -195,11 +195,11 @@ Brak migracji. Polityka `shelf_photos_delete_own` (0005) już istnieje.
 
 #### Automated
 
-- [x] 2.1 Nowy test pada przed implementacją, przechodzi po: `npm run test`
-- [x] 2.2 Istniejące index.test.ts zielone: `npm run test`
-- [x] 2.3 Typecheck: `npm run typecheck`
-- [x] 2.4 Lint: `npm run lint`
+- [x] 2.1 Nowy test pada przed implementacją, przechodzi po: `npm run test` — 759c4ce
+- [x] 2.2 Istniejące index.test.ts zielone: `npm run test` — 759c4ce
+- [x] 2.3 Typecheck: `npm run typecheck` — 759c4ce
+- [x] 2.4 Lint: `npm run lint` — 759c4ce
 
 #### Manual
 
-- [x] 2.5 (opcjonalnie) race nie zostawia sieroty — pokryte testem jednostkowym
+- [x] 2.5 (opcjonalnie) race nie zostawia sieroty — pokryte testem jednostkowym — 759c4ce
