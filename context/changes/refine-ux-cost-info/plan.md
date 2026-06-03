@@ -118,13 +118,13 @@ Ekstrakcja współdzielonego komponentu `RefineButton` (label + sygnał weak-cro
 
 #### Automated
 
-- [x] 1.1 Typecheck: `npm run typecheck`
-- [x] 1.2 Lint: `npm run lint`
-- [x] 1.3 Unit: `npm run test`
-- [x] 1.4 E2E: `npm run test:e2e` (force-refine zielony)
+- [x] 1.1 Typecheck: `npm run typecheck` — 9d980c8
+- [x] 1.2 Lint: `npm run lint` — 9d980c8
+- [x] 1.3 Unit: `npm run test` — 9d980c8
+- [x] 1.4 E2E: `npm run test:e2e` (force-refine zielony) — 9d980c8
 
 #### Manual
 
-- [x] 1.5 Label spójny: „Doprecyzuj odczyt" (dobry) / „⚠ Doprecyzuj odczyt" (słaby) we wszystkich 3 trybach
-- [x] 1.6 Słaby crop: ⚠ + amber + tooltip; dobry: indigo
-- [x] 1.7 Widoczny hint „dodatkowa analiza AI — płatne" (tekst w kartach / ⓘ+tooltip w list/kafelki)
+- [x] 1.5 Label spójny: „Doprecyzuj odczyt" (dobry) / „⚠ Doprecyzuj odczyt" (słaby) we wszystkich 3 trybach — 9d980c8
+- [x] 1.6 Słaby crop: ⚠ + amber + tooltip; dobry: indigo — 9d980c8
+- [x] 1.7 Widoczny hint „dodatkowa analiza AI — płatne" (tekst w kartach / ⓘ+tooltip w list/kafelki) — 9d980c8
