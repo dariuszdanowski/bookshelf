@@ -45,7 +45,7 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | S-12  | loading-skeleton-component   | Generic React `<Skeleton />` (gray pulsing div) gotowy dla S-03/S-04/S-08 | — | UI substrate | done     |
 | S-13  | header-nav-when-auth         | header nav „Moje półki" → /shelves dla auth user'a + landing CTA pivot na /shelves (do czasu /library w S-08) | S-02 | UX polish | done     |
 | S-14  | photo-process-reload-recovery | po reloadzie /upload odzyskać stan utkniętego 'processing' (GET /api/photos/[id]) + retry | S-03 | UX recovery | proposed |
-| S-15  | review-page-nav-entry         | link do strony review (/photos/[id]) z poziomu list półek / katalogu; breadcrumbs | S-04 | UX polish | proposed |
+| S-15  | review-page-nav-entry         | link do strony review (/photos/[id]) z poziomu list półek / katalogu; breadcrumbs; **+** przycisk „Źródłowe zdjęcie" na karcie książki → `/photos/[photo_id]` z aktywnego shelf_entry (is_current=true); graceful ukrycie gdy photo_id=NULL (ręczny wpis) lub zdjęcie usunięte | S-04, S-05 | UX polish | proposed |
 | S-16  | photo-upload-dedup            | przy wgraniu zdjęcia: wykryj identyczne (hash treści SHA-256), ostrzeż i zaproponuj reuse istniejących detekcji zamiast ponownego (płatnego) vision | S-03 | FR-039 (koszt), NFR (no-dup) | done     |
 | S-17  | catalog-description-search    | full-text obejmuje „krótki opis z publicznej bazy" — capture opisu w klientach S-04 + confirm + backfill (re-fetch), rozszerzenie search_text | S-08 | FR-032 (opis, domknięcie) | proposed |
 | S-18  | photo-detection-overlay       | kliknąć zdjęcie w review → zobaczyć pełny obraz z numerowanymi ramkami (bbox) detekcji + skorelowaną numerowaną listą wykrytych pozycji | S-04, S-05 | FR-010–014 (UX domknięcie) | done     |
@@ -59,7 +59,14 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | S-26  | admin-panel                   | panel administracyjny: lista użytkowników, flaga AI-enabled (domyślnie false — admin włącza), impersonacja (zaloguj się jako user), usunięcie konta (półki/książki przechodzą do admina), przeniesienie półki między użytkownikami | S-01 | NFR (admin ops) | proposed |
 | S-27  | dark-light-mode               | przełącznik trybu ciemnego/jasnego w headerze; preferencja persystowana w localStorage; Tailwind `dark:` variant na całym UI | — | UX (standard) | proposed |
 | S-28  | mobile-responsive             | responsywność mobilna dla ścieżek read (library, shelves, book detail) i write (upload, review karty); Tailwind breakpoints `sm:`/`md:` — desktop-first zachowane, telefon bez poziomego scrollowania | S-05 | NFR (UX) | proposed |
-| S-29  | photos-crud                   | pełny CRUD dla zdjęć: lista zdjęć per półka (GET /api/photos?shelf_id=), usunięcie zdjęcia z Storage + cascade detections/book_candidates (DELETE /api/photos/[id]), edycja metadanych (PATCH — zmiana shelf_id / retitle); widok listy zdjęć na stronie półki | S-03, S-05 | FR (zarządzanie zdjęciami) | proposed |
+| S-29  | photos-crud                   | pełny CRUD dla zdjęć: lista zdjęć per półka (GET /api/photos?shelf_id=), usunięcie zdjęcia z Storage + cascade detections/book_candidates (DELETE /api/photos/[id]), edycja metadanych (PATCH — zmiana shelf_id / retitle); zakładki „Książki / Zdjęcia" na `/shelves/[id]`; badge dla zdjęć z NULL hash (stare duplikaty) | S-03, S-05, **S-30** | FR (zarządzanie zdjęciami) | proposed |
+| S-30  | vision-cost-preservation      | zachowanie historii kosztów vision przy DELETE zdjęć: dodanie `user_id` do `vision_runs` i `refine_calls`, zmiana FK `photo_id` z CASCADE na SET NULL; endpoint `GET /api/account/stats` zwracający łączny koszt i liczbę wywołań per user | S-03 | NFR (integrity kosztów) | proposed |
+| S-31  | user-account-page             | strona `/account`: edycja display_name (PATCH /api/account/profile), zmiana emaila i hasła (Supabase Auth updateUser), sekcja statystyk kosztów vision (z S-30), lista podłączonych kluczy API (z S-32) | S-01 | UX (profil użytkownika) | proposed |
+| S-32  | byok-api-keys                 | własne klucze API do modeli vision (BYOK): tabela `user_api_keys` z szyfrowaniem at rest (pgcrypto/Vault), UI zarządzania kluczami na `/account` (add/delete/test), providerzy: Anthropic / OpenAI / OpenRouter / OpenAI-compatible (base_url+model) | S-31 | FR (multi-provider vision) | proposed |
+| S-33  | byok-pipeline                 | pipeline vision wymaga klucza usera: `/api/photos/[id]/process` sprawdza `user_api_keys`, brak klucza → 403 z linkiem do `/account`; abstrakcja `VisionProvider` w `src/lib/vision/` zastępuje hardkodowany Anthropic SDK; globalny klucz z env wyłączony dla zwykłych userów | S-32 | FR (BYOK enforcement) | proposed |
+| S-34  | shelf-book-view-modes         | tryby widoku książek na `/shelves/[id]`: lista kompaktowa (1 linia), kafelki (okładka+tytuł), szczegółowe panele (obecny); przełącznik z `localStorage` + responsywny default; analogia do S-25 `detection-list-views` | S-29 | UX polish | proposed |
+| S-35  | refine-ux-cost-info           | UX fix przycisków refine: jeden spójny label „Doprecyzuj odczyt" (zamiast mylących dwóch nazw); ⚠ ikona + tooltip przy słabym cropie; widoczna informacja „Dodatkowa analiza AI (płatna)" przy każdym wariancie; opcjonalny dialog potwierdzenia dla `uncertain_localization` | — | UX polish | proposed |
+| S-36  | photo-upload-skip-process     | upload zdjęcia bez uruchamiania vision: checkbox „Analizuj od razu" (domyślnie zaznaczony) w `PhotoUploader`; zdjęcie w stanie `uploaded` widoczne w zakładce Zdjęcia (S-29) z przyciskiem „Analizuj teraz" | S-29 | UX (kontrola kosztu) | proposed |
 
 ## Streams
 
@@ -328,18 +335,100 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **Risk:** średni — refaktor `DetectionCard` na obsługę 3 trybów bez rozbijania istniejących testów (mają `data-testid`); tryby muszą zachować pełną funkcjonalność.
 - **Status:** done
 
-### S-29: Pełny CRUD dla zdjęć
+### S-30: Zachowanie historii kosztów vision (prereq S-29 DELETE)
 
-- **Outcome:** użytkownik może: zobaczyć listę zdjęć przypisanych do półki (GET /api/photos?shelf_id=) wraz ze statusem i skróconymi metadanymi; usunąć zdjęcie (DELETE /api/photos/[id]) co kasuje plik z Storage `shelf-photos` oraz kaskadowo detekcje i book_candidates (RLS: tylko właściciel); edytować metadane zdjęcia (PATCH /api/photos/[id] — zmiana `shelf_id`); widok listy zdjęć na stronie półki `/shelves/[id]` z miniaturkami i akcją usunięcia (z potwierdzeniem modalem).
-- **Change ID:** photos-crud
-- **PRD refs:** FR (zarządzanie zdjęciami — user-driven backlog)
-- **Prerequisites:** S-03 (upload), S-05 (katalog — przed DELETE musi być ostrzeżenie o utraceniu book_candidates/shelf_entries powiązanych ze zdjęciem)
-- **Parallel with:** S-27, S-28
+- **Outcome:** koszty vision przeżywają usunięcie zdjęcia: `vision_runs.user_id` i `refine_calls.user_id` dodane bezpośrednio (denorm, ale pozwala na agregację po user_id niezależnie od photos); FK `vision_runs.photo_id` i `refine_calls.photo_id` zmienione z `ON DELETE CASCADE` na `ON DELETE SET NULL`; nowy endpoint `GET /api/account/stats` zwraca `{ total_vision_cost_usd, total_refine_cost_usd, vision_run_count, refine_call_count }`.
+- **Change ID:** vision-cost-preservation
+- **PRD refs:** NFR (integralność danych kosztowych)
+- **Prerequisites:** S-03
+- **Parallel with:** S-31, S-35
 - **Blockers:** —
-- **Unknowns:**
-  - Co dzieje się z `shelf_entries` powiązanymi przez `photo_id`/`detection_id` przy DELETE zdjęcia — czy NULL-ować FK (`on delete set null` jest już w schemacie) czy blokować usunięcie gdy są aktywne shelf_entries. Decyzja: null-ować (schema już tak robi), ale UI musi ostrzegać że „usunięcie zdjęcia nie usuwa potwierdzonych książek z katalogu".
-  - Czy DELETE bez potwierdzenia = za ryzykowne (vision kosztuje pieniądze). Decyzja: modal potwierdzenia obowiązkowy.
-- **Risk:** DELETE jest destruktywny i nieodwracalny (Storage + DB). Konieczne ostrzeżenie w UI ile detekcji/kandydatów zostanie usuniętych. Nie blokować shelf_entries — book_catalog pozostaje, tylko traci link do źródłowego zdjęcia.
+- **Unknowns:** czy Supabase pozwala ALTER CONSTRAINT na istniejącym FK w jednej migracji — sprawdzić składnię (DROP + ADD CONSTRAINT).
+- **Risk:** migracja zmienia FK behaviour — test na lokalnej DB przed push. Istniejące cascade-delete przestają działać dla vision_runs przy DELETE photo (pożądana zmiana).
+- **Status:** proposed
+
+### S-31: Strona /account — profil użytkownika
+
+- **Outcome:** użytkownik widzi i może edytować: display_name (PATCH /api/account/profile, optymistyczny update); email (Supabase Auth updateUser + re-confirmation email); hasło (Supabase Auth updateUser); widzi blok statystyk kosztów vision (łączny koszt, liczba analiz — z S-30); widzi listę podłączonych kluczy API (z S-32, na początku pusta sekcja z CTA „Dodaj klucz").
+- **Change ID:** user-account-page
+- **PRD refs:** FR (profil użytkownika)
+- **Prerequisites:** S-01
+- **Parallel with:** S-30, S-35
+- **Blockers:** —
+- **Unknowns:** czy sekcja kluczy API w S-31 to placeholder (CTA) czy czeka na S-32 — rekomendacja: placeholder z CTA, S-32 wypełnia.
+- **Risk:** niski — Auth updateUser przez Supabase browser client (bez custom endpointu); jedyna pułapka to email re-confirmation flow (Supabase wysyła maila, user musi potwierdzić).
+- **Status:** proposed
+
+### S-32: Własne klucze API do modeli vision (BYOK)
+
+- **Outcome:** użytkownik może na `/account` dodać klucz API do jednego z providerów (Anthropic / OpenAI / OpenRouter / OpenAI-compatible z custom base_url+model); klucze szyfrowane at rest; lista kluczy pokazuje label, provider, model, datę dodania — NIGDY plaintext; przycisk „Testuj" weryfikuje klucz próbnym żądaniem; przycisk „Usuń" kasuje fizycznie zaszyfrowany rekord.
+- **Change ID:** byok-api-keys
+- **PRD refs:** FR (multi-provider vision, BYOK)
+- **Prerequisites:** S-31
+- **Parallel with:** —
+- **Blockers:** wybór mechanizmu szyfrowania (Supabase Vault vs pgcrypto AES-256 z kluczem z Worker Secrets) — sprawdzić dostępność Vault na tym projekcie przed planem.
+- **Unknowns:** Supabase Vault API (`vault.create_secret`) vs pgcrypto `pgp_sym_encrypt` — oba feasible, Vault czystszy ale wymaga rozszerzenia; pgcrypto bardziej przenośny.
+- **Risk:** WYSOKI dla bezpieczeństwa — klucze API userów muszą być szyfrowane, never-logged, never-returned. Ryzyko wycieku przy błędzie implementacji jest poważne. Wymagany security review przed merge.
+- **Status:** proposed
+
+### S-33: Pipeline vision wymaga klucza usera (BYOK enforcement)
+
+- **Outcome:** `POST /api/photos/[id]/process` sprawdza aktywny klucz w `user_api_keys` przed wywołaniem vision; brak klucza → 403 `NO_API_KEY` z body `{ message: "...", account_url: "/account" }`; istniejący klucz → odszyfrowany i przekazany do fabryki `VisionProvider`; `src/lib/vision/client.ts` refaktorowany do abstrakcji `VisionProvider` z implementacjami per-provider (Anthropic / OpenAI-compatible); globalny `ANTHROPIC_API_KEY` z Worker Secrets wyłączony dla zwykłych userów (może zostać jako fallback dla is_admin); `PhotoUploader` pokazuje pusty stan z CTA do `/account` gdy user nie ma klucza.
+- **Change ID:** byok-pipeline
+- **PRD refs:** FR (BYOK enforcement)
+- **Prerequisites:** S-32
+- **Parallel with:** —
+- **Blockers:** —
+- **Unknowns:** co z flagą `ai_enabled` z S-26 — czy zastąpiona przez „ma aktywny klucz" czy zostaje jako osobna bramka admina. Rekomendacja: `ai_enabled` pozostaje jako admin-gate (można blokować per user nawet gdy ma klucz); „ma klucz" to osobny warunek.
+- **Risk:** WYSOKI — zmiana breaking dla wszystkich userów bez klucza; wymaga komunikacji w UI + onboardingu. Wdrożyć po przetestowaniu S-32 na prod.
+- **Status:** proposed
+
+### S-34: Tryby widoku książek na półce
+
+- **Outcome:** na `/shelves/[id]` w zakładce Książki pojawia się przełącznik trybu prezentacji: **Karty** (obecny, pełna karta z okładką + akcjami), **Lista** (1 linia: okładka-mini + tytuł + autor + ikony akcji), **Kafelki** (siatka: okładka + tytuł); wybór persystowany w `localStorage`; domyślnie Karty na desktop, Lista na mobile; analogiczny wzorzec do S-25 `detection-list-views`.
+- **Change ID:** shelf-book-view-modes
+- **PRD refs:** UX polish
+- **Prerequisites:** S-29 (stabilna struktura zakładek)
+- **Parallel with:** S-36
+- **Blockers:** —
+- **Unknowns:** —
+- **Risk:** niski — refaktor czysto frontendowy; pułapka jak w S-25: `matchMedia` guard dla jsdom/SSR przy odczycie localStorage default.
+- **Status:** proposed
+
+### S-35: UX przycisków refine — spójny label + info o koszcie
+
+- **Outcome:** oba warianty przycisku refine (`DetectionReview.tsx`) mają ten sam label „Doprecyzuj odczyt"; przy `uncertain_localization` ikona ⚠ + tooltip „Crop o niskiej jakości — wynik może być słaby"; pod każdym wariantem drobna informacja „Dodatkowa analiza AI (płatna)" lub szacowany koszt z `CostPanel`; opcjonalnie: dialog potwierdzenia gdy crop jest słaby.
+- **Change ID:** refine-ux-cost-info
+- **PRD refs:** UX polish
+- **Prerequisites:** —
+- **Parallel with:** S-30, S-31
+- **Blockers:** —
+- **Unknowns:** —
+- **Risk:** zerowy — czysto frontendowy, bez zmian API.
+- **Status:** proposed
+
+### S-36: Upload zdjęcia bez uruchamiania vision
+
+- **Outcome:** w `PhotoUploader` pojawia się checkbox „Analizuj od razu" (domyślnie zaznaczony, persystowany w localStorage); gdy odznaczony — zdjęcie wgrane do Storage i zapisane w DB jako `status='uploaded'`, bez wywołania `/process`; takie zdjęcie widoczne w zakładce Zdjęcia (`/shelves/[id]`) z przyciskiem „Analizuj" który ręcznie uruchamia pipeline; użytkownik ma pełną kontrolę nad tym kiedy i co analizuje (i płaci).
+- **Change ID:** photo-upload-skip-process
+- **PRD refs:** FR (kontrola kosztu vision)
+- **Prerequisites:** S-29 (zakładka Zdjęcia z listą + akcjami)
+- **Parallel with:** S-34
+- **Blockers:** —
+- **Unknowns:** —
+- **Risk:** niski; pułapka: `sessionStorage.setItem('upload_resume_photo_id')` w obecnym kodzie zakłada że po wgraniu następuje process — trzeba obsłużyć ścieżkę bez process (nie zapisywać resume state lub zapisywać z flagą skip).
+- **Status:** proposed
+
+### S-29: CRUD zdjęć + zakładki Książki/Zdjęcia + NULL hash badge
+
+- **Outcome:** (1) `/shelves/[id]` dostaje dwie zakładki: **Książki** (obecny widok) i **Zdjęcia** (nowa lista z miniaturkami, statusem, akcjami); (2) GET `/api/photos?shelf_id=` zwraca listę zdjęć półki; (3) DELETE `/api/photos/[id]` kasuje plik z Storage `shelf-photos` + cascade detections/book_candidates (shelf_entries NULL-owane przez istniejący FK, skatalogowane książki zostają); (4) PATCH `/api/photos/[id]` pozwala zmienić shelf_id; (5) zdjęcia z `file_hash_sha256 = NULL` oznaczone badge „bez hasha" w zakładce Zdjęcia; (6) modal potwierdzenia DELETE z liczbą detekcji/kandydatów; UI ostrzeżenie „usunięcie zdjęcia nie usuwa skatalogowanych książek".
+- **Change ID:** photos-crud
+- **PRD refs:** FR (zarządzanie zdjęciami)
+- **Prerequisites:** S-03, S-05, **S-30** (cost preservation — DELETE nie może tracić historii kosztów vision)
+- **Parallel with:** S-27, S-28, S-35
+- **Blockers:** —
+- **Unknowns:** —
+- **Risk:** DELETE destruktywny i nieodwracalny. Modal potwierdzenia obowiązkowy. Po S-30 `vision_runs` ma SET NULL zamiast CASCADE — koszty przeżywają DELETE.
 - **Status:** proposed
 
 ### S-26: Panel administracyjny
@@ -412,7 +501,14 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 | S-26       | admin-panel                  | Panel administracyjny: users, ai_enabled, impersonacja, delete, przeniesienie półki | no   | **DUŻE** — podzielić na 3 fazy: (1) migracja + guard ai_enabled, (2) lista + przełącznik, (3) impersonacja + delete. Zaczynać od fazy 1. |
 | S-27       | dark-light-mode              | Przełącznik ciemny/jasny — Tailwind `dark:`, localStorage, prefers-color-scheme | yes     | Sprawdzić składnię Tailwind v4 dla dark mode przed planem. |
 | S-28       | mobile-responsive            | Responsywność mobilna (375px) — breakpoints Tailwind, hamburger nav, upload bez drag-drop na touch | yes | Realizować po S-27 (lub równolegle — oba cross-cutting CSS). |
-| S-29       | photos-crud                  | Pełny CRUD zdjęć: GET list per shelf, DELETE (Storage + cascade), PATCH (shelf_id/metadata) | yes | Brakuje: GET list, DELETE, PATCH. DELETE wymaga cascade: detections → book_candidates, usunięcia pliku z Storage `shelf-photos`. |
+| S-29       | photos-crud                  | CRUD zdjęć + zakładki Książki/Zdjęcia na shelf view + NULL hash badge | **no** | Czeka na S-30 (cost preservation jako prereq dla DELETE). |
+| S-30       | vision-cost-preservation     | `user_id` do vision_runs + refine_calls, FK SET NULL, GET /api/account/stats | yes | Prosta migracja — niezależna od innych nowych slice'ów. |
+| S-31       | user-account-page            | Strona /account: display_name, email, hasło, statystyki, lista kluczy | yes | Prereq: S-01 (done). Shell dla S-32 i stats z S-30. |
+| S-32       | byok-api-keys                | Tabela user_api_keys, szyfrowanie, UI na /account | no | Czeka na S-31. |
+| S-33       | byok-pipeline                | Pipeline wymaga klucza usera, abstrakcja VisionProvider, wyłączenie global env | no | Czeka na S-32. |
+| S-34       | shelf-book-view-modes        | Tryby widoku książek: lista/kafelki/panele (analogia S-25) | no | Czeka na S-29 (stabilne tabs). |
+| S-35       | refine-ux-cost-info          | Ujednolicony label refine + info o koszcie + dialog potwierdzenia | yes | Czysto frontendowy, niezależny. |
+| S-36       | photo-upload-skip-process    | Checkbox „Analizuj od razu" w uploaderze + akcja „Analizuj" na liście zdjęć | no | Czeka na S-29 (tab Zdjęcia). |
 
 ## Open Roadmap Questions
 
