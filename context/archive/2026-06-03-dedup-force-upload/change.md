@@ -1,9 +1,10 @@
 ---
 change_id: dedup-force-upload
 title: "Wgraj mimo to" vs UNIQUE constraint — sierota w Storage + ślepy zaułek
-status: implemented
+status: archived
 created: 2026-06-03
 updated: 2026-06-03
+archived_at: 2026-06-03T11:13:55Z
 ---
 
 ## Notes
