@@ -92,6 +92,38 @@ jobs:
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
 
+      - name: Warm up auth (absorb supabase-start JWT iat skew)
+        # Tuż po `supabase start` pierwsze uwierzytelnione zapytanie bywa odrzucane
+        # z "JWT issued at future": świeżo zmintowany token GoTrue ma `iat` minimalnie
+        # przed zegarem walidatora, który dogania po ~kilku sekundach (zaobserwowane:
+        # ten sam token pada, a 3.4s później przechodzi na retry). Tu robimy realny
+        # round-trip signup→authed select w pętli AŻ przejdzie czysto — wyczekujemy
+        # to okno skew, zanim ruszy Playwright, żeby auth.setup nie łapał flake'a.
+        # Best-effort: każda ścieżka kończy się exit 0 (Playwright retries zostają
+        # siatką); warm-up nigdy nie wywala joba. Throwaway user na efemerycznej DB.
+        run: |
+          eval "$(supabase status -o env)"
+          token=$(curl -s "${API_URL}/auth/v1/signup" \
+            -H "apikey: ${ANON_KEY}" -H "Content-Type: application/json" \
+            -d '{"email":"warmup@example.com","password":"warmup-pass-123"}' \
+            | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')
+          if [ -z "$token" ]; then
+            echo "::warning::warm-up: brak access_token z signup — pomijam (Playwright retries jako siatka)"
+            exit 0
+          fi
+          for i in $(seq 1 20); do
+            body=$(curl -s "${API_URL}/rest/v1/shelves?select=id&limit=1" \
+              -H "apikey: ${ANON_KEY}" -H "Authorization: Bearer ${token}")
+            if echo "$body" | grep -qi "issued at future"; then
+              echo "warm-up #$i: iat-future, czekam na zbieżność zegara…"
+              sleep 1.5
+            else
+              echo "warm-up: czysty round-trip na próbie #$i — auth gotowy"
+              exit 0
+            fi
+          done
+          echo "::warning::warm-up: iat-future utrzymał się ~30s — Playwright retries zostają siatką"
+
       - name: Run E2E tests
         # webServer w configu sam startuje `npm run dev` (czyta świeży .dev.vars) i
         # czeka na :4321. CI=true (auto) włącza retries/workers/forbidOnly.
