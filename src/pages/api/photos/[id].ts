@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
+import { z } from 'zod';
 
-import { type PhotoDTO, type DetectionWithCandidatesDTO } from '../../../lib/photos/schema';
+import { UpdatePhotoSchema, type PhotoDTO, type DetectionWithCandidatesDTO } from '../../../lib/photos/schema';
 import type { BookCandidateDTO } from '../../../lib/books/schema';
 import { checkCatalogDuplicate } from '../../../lib/matching/dedupe';
 import { apiError, apiResponse, parseUuidParam } from '../../../lib/http/response';
@@ -240,4 +241,149 @@ export const GET: APIRoute = async ({ params, locals }) => {
   });
 
   return apiResponse({ data: { photo, photo_url, detections, vision_run: visionRun } });
+};
+
+/**
+ * PATCH /api/photos/[id]
+ *
+ * Przenosi zdjęcie na inną półkę (`shelf_id`). RLS scope'uje do `auth.uid()`;
+ * próba przeniesienia na cudzą/nieistniejącą półkę → FK violation 23503 → 404.
+ * Próba update'u cudzego zdjęcia → 0 rows → PGRST116 → 404.
+ *
+ * Body: `{ shelf_id }`. „retitle" świadomie poza zakresem — `photos` nie ma kolumny title.
+ */
+export const PATCH: APIRoute = async ({ request, params, locals }) => {
+  if (!locals.user) {
+    return apiError({ code: 'UNAUTHENTICATED', status: 401, message: 'Authentication required.' });
+  }
+
+  const id = parseUuidParam(params.id);
+  if (!id) {
+    return apiError({ code: 'NOT_FOUND', status: 404, message: 'Not found.' });
+  }
+
+  let raw: unknown;
+  try {
+    raw = await request.json();
+  } catch {
+    return apiError({ code: 'VALIDATION_ERROR', status: 400, message: 'Invalid JSON body.' });
+  }
+
+  const parsed = UpdatePhotoSchema.safeParse(raw);
+  if (!parsed.success) {
+    return apiError({
+      code: 'VALIDATION_ERROR',
+      status: 400,
+      message: 'Invalid photo input.',
+      details: z.flattenError(parsed.error),
+    });
+  }
+
+  const { data, error } = await locals.supabase
+    .from('photos')
+    .update({ shelf_id: parsed.data.shelf_id })
+    .eq('id', id)
+    .select('id, shelf_id, status, detected_count, error_message, vision_cost_usd, vision_latency_ms, created_at')
+    .single();
+
+  if (error) {
+    // 23503 = FK violation — docelowa półka nie istnieje lub należy do innego usera (RLS).
+    if (error.code === '23503') {
+      return apiError({ code: 'NOT_FOUND', status: 404, message: 'Półka nie istnieje lub brak dostępu.' });
+    }
+    // PGRST116 = 0 rows (zdjęcie nie istnieje lub RLS scope).
+    if (error.code === 'PGRST116') {
+      return apiError({ code: 'NOT_FOUND', status: 404, message: 'Not found.' });
+    }
+    console.error('[api/photos PATCH] supabase update failed', {
+      name: error.name,
+      message: error.message,
+      code: error.code,
+    });
+    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się zaktualizować zdjęcia.' });
+  }
+
+  const photo: PhotoDTO = {
+    id: data.id,
+    shelf_id: data.shelf_id,
+    status: data.status,
+    detected_count: data.detected_count,
+    error_message: data.error_message,
+    vision_cost_usd: data.vision_cost_usd,
+    vision_latency_ms: data.vision_latency_ms,
+    created_at: data.created_at,
+  };
+
+  return apiResponse({ data: { photo } });
+};
+
+/**
+ * DELETE /api/photos/[id]
+ *
+ * Usuwa zdjęcie: najpierw kasuje wiersz DB (kaskada: detections → book_candidates;
+ * shelf_entries.photo_id/detection_id → SET NULL, więc skatalogowane książki zostają;
+ * vision_runs/refine_calls.photo_id → SET NULL po S-30, więc historia kosztów przeżywa),
+ * potem best-effort czyści plik ze Storage (błąd Storage tylko logujemy — wiersz DB już
+ * zniknął, więc dla usera operacja się udała; ewentualna sierota pliku do batch-cleanu).
+ *
+ * Kolejność DB-first: błąd Storage zostawia niewidzialną sierotę pliku zamiast wiersza DB
+ * z zepsutą miniaturą.
+ */
+export const DELETE: APIRoute = async ({ params, locals }) => {
+  if (!locals.user) {
+    return apiError({ code: 'UNAUTHENTICATED', status: 401, message: 'Authentication required.' });
+  }
+
+  const id = parseUuidParam(params.id);
+  if (!id) {
+    return apiError({ code: 'NOT_FOUND', status: 404, message: 'Not found.' });
+  }
+
+  // Pre-check existence + RLS scope; zachowujemy storage_path do czyszczenia po delete.
+  const { data: existing, error: selectError } = await locals.supabase
+    .from('photos')
+    .select('id, storage_path')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (selectError) {
+    console.error('[api/photos DELETE] pre-check select failed', {
+      name: selectError.name,
+      message: selectError.message,
+      code: selectError.code,
+    });
+    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się sprawdzić zdjęcia.' });
+  }
+
+  if (!existing) {
+    return apiError({ code: 'NOT_FOUND', status: 404, message: 'Not found.' });
+  }
+
+  const { error: deleteError } = await locals.supabase.from('photos').delete().eq('id', id);
+
+  if (deleteError) {
+    console.error('[api/photos DELETE] supabase delete failed', {
+      name: deleteError.name,
+      message: deleteError.message,
+      code: deleteError.code,
+    });
+    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się usunąć zdjęcia.' });
+  }
+
+  // Best-effort Storage cleanup — błąd nie zmienia sukcesu (wiersz DB już usunięty).
+  try {
+    const { error: rmError } = await locals.supabase.storage.from('shelf-photos').remove([existing.storage_path]);
+    if (rmError) {
+      console.error('[api/photos DELETE] storage remove failed (orphan left)', {
+        name: rmError.name,
+        message: rmError.message,
+      });
+    }
+  } catch (err) {
+    console.error('[api/photos DELETE] storage remove threw (orphan left)', {
+      message: err instanceof Error ? err.message : String(err),
+    });
+  }
+
+  return apiResponse({ data: { deleted: true } });
 };

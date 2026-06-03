@@ -10,6 +10,7 @@ type PhotoRow = {
   storage_path: string;
   status: string;
   created_at: string;
+  file_hash_sha256: string | null;
 };
 
 type VisionRunRow = {
@@ -72,7 +73,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
   // Photos for this shelf (RLS scoped to user)
   const { data: photos, error: photosError } = await locals.supabase
     .from('photos')
-    .select('id, storage_path, status, created_at')
+    .select('id, storage_path, status, created_at, file_hash_sha256')
     .eq('shelf_id', shelfId)
     .order('created_at', { ascending: false });
 
@@ -205,6 +206,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
         ? { id: latestRun.id, model: latestRun.model, created_at: latestRun.created_at, cost_usd: latestRun.cost_usd }
         : null,
       has_running_run: hasRunning,
+      legacy_no_hash: p.file_hash_sha256 == null,
     };
   });
 

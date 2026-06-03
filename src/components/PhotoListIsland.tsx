@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import type { PhotoListItemDTO } from '../lib/photos/schema';
+import type { ShelfDTO } from '../lib/shelves/schema';
 import ConfirmDialog from './ConfirmDialog';
 import Skeleton from './Skeleton';
 
@@ -47,6 +48,8 @@ export default function PhotoListIsland({ shelfId }: Props) {
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [rowStates, setRowStates] = useState<Record<string, RowState>>({});
   const [pendingRerunPhotoId, setPendingRerunPhotoId] = useState<string | null>(null);
+  const [pendingDeletePhotoId, setPendingDeletePhotoId] = useState<string | null>(null);
+  const [shelves, setShelves] = useState<ShelfDTO[]>([]);
 
   const fetchPhotos = useCallback(async () => {
     try {
@@ -71,6 +74,23 @@ export default function PhotoListIsland({ shelfId }: Props) {
   useEffect(() => {
     void fetchPhotos();
   }, [fetchPhotos]);
+
+  // Lista półek do pickera „Przenieś" (best-effort — brak nie blokuje listy zdjęć).
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch('/api/shelves');
+        const json = (await res.json()) as { data?: { shelves: ShelfDTO[] } };
+        if (!cancelled && res.ok && json.data) setShelves(json.data.shelves);
+      } catch {
+        // brak listy półek — picker po prostu się nie pokaże
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const patchRow = useCallback(
     (photoId: string, patch: Partial<RowState>) => {
@@ -152,6 +172,51 @@ export default function PhotoListIsland({ shelfId }: Props) {
     [fetchPhotos, patchRow]
   );
 
+  // Usunięcie zdjęcia: optymistyczne (zdejmujemy wiersz od razu), rollback przy błędzie.
+  const deletePhoto = useCallback(
+    async (photoId: string) => {
+      const snapshot = photos;
+      setPhotos((prev) => prev.filter((p) => p.id !== photoId));
+      try {
+        const res = await fetch(`/api/photos/${photoId}`, { method: 'DELETE' });
+        if (!res.ok) {
+          const json = (await res.json()) as { error?: { message?: string } };
+          setPhotos(snapshot); // rollback
+          patchRow(photoId, { toast: json.error?.message ?? `Nie udało się usunąć (${res.status}).` });
+        }
+      } catch (err) {
+        setPhotos(snapshot); // rollback
+        patchRow(photoId, { toast: err instanceof Error ? err.message : 'Błąd sieci.' });
+      }
+    },
+    [photos, patchRow]
+  );
+
+  // Przeniesienie zdjęcia na inną półkę: optymistyczne zdjęcie z bieżącej listy.
+  const movePhoto = useCallback(
+    async (photoId: string, targetShelfId: string) => {
+      if (!targetShelfId || targetShelfId === shelfId) return;
+      const snapshot = photos;
+      setPhotos((prev) => prev.filter((p) => p.id !== photoId));
+      try {
+        const res = await fetch(`/api/photos/${photoId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ shelf_id: targetShelfId }),
+        });
+        if (!res.ok) {
+          const json = (await res.json()) as { error?: { message?: string } };
+          setPhotos(snapshot); // rollback
+          patchRow(photoId, { toast: json.error?.message ?? `Nie udało się przenieść (${res.status}).` });
+        }
+      } catch (err) {
+        setPhotos(snapshot); // rollback
+        patchRow(photoId, { toast: err instanceof Error ? err.message : 'Błąd sieci.' });
+      }
+    },
+    [photos, shelfId, patchRow]
+  );
+
   const handleRunVision = useCallback(
     (photoId: string, isRerun: boolean) => {
       if (isRerun) {
@@ -166,6 +231,21 @@ export default function PhotoListIsland({ shelfId }: Props) {
   const pendingRerunPhoto = pendingRerunPhotoId
     ? photos.find((photo) => photo.id === pendingRerunPhotoId) ?? null
     : null;
+
+  const pendingDeletePhoto = pendingDeletePhotoId
+    ? photos.find((photo) => photo.id === pendingDeletePhotoId) ?? null
+    : null;
+
+  function deleteMessage(photo: PhotoListItemDTO | null): string {
+    const n = photo?.detected_count ?? 0;
+    const detPart =
+      n > 0
+        ? `Usuniemy zdjęcie wraz z ${n} wykrytymi pozycjami i propozycjami. `
+        : 'Usuniemy zdjęcie. ';
+    return `${detPart}Skatalogowane książki pozostaną na półkach, a historia kosztów vision zostanie zachowana. Tej operacji nie można cofnąć.`;
+  }
+
+  const otherShelves = shelves.filter((s) => s.id !== shelfId);
 
   function rerunEstimateMessage(photo: PhotoListItemDTO | null): string {
     if (!photo) return 'Uruchomimy nowy vision run. Poprzednie wyniki zostaną w historii.';
@@ -227,6 +307,9 @@ export default function PhotoListIsland({ shelfId }: Props) {
         const badge = STAGE_BADGE[photo.stage];
         const isRerun =
           photo.stage !== 'uploaded' && photo.stage !== 'processing';
+        // Blokujemy usuwanie/przenoszenie dopóki trwa vision run — współbieżny
+        // process.ts zapisuje detekcje/koszt do tego wiersza.
+        const isLocked = photo.has_running_run || photo.stage === 'processing';
 
         return (
           <li
@@ -272,6 +355,15 @@ export default function PhotoListIsland({ shelfId }: Props) {
                   )}
                   {badge.label}
                 </span>
+                {photo.legacy_no_hash && (
+                  <span
+                    data-testid={`legacy-hash-badge-${photo.id}`}
+                    title="Wgrane przed wdrożeniem deduplikacji — możliwy duplikat"
+                    className="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800"
+                  >
+                    ⚠ Bez hash
+                  </span>
+                )}
                 <span className="text-xs text-gray-400">
                   {formatDate(photo.created_at)}
                 </span>
@@ -359,6 +451,38 @@ export default function PhotoListIsland({ shelfId }: Props) {
                     Otwórz review
                   </a>
                 )}
+
+                {/* Przenieś na inną półkę (PATCH shelf_id) */}
+                {otherShelves.length > 0 && (
+                  <select
+                    data-testid={`move-photo-${photo.id}`}
+                    disabled={isLocked}
+                    value=""
+                    onChange={(e) => void movePhoto(photo.id, e.target.value)}
+                    title={isLocked ? 'Trwa analiza, poczekaj na zakończenie' : 'Przenieś na inną półkę'}
+                    className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 disabled:opacity-50"
+                  >
+                    <option value="" disabled>
+                      Przenieś na…
+                    </option>
+                    {otherShelves.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+
+                {/* Usuń zdjęcie */}
+                <button
+                  data-testid={`delete-photo-${photo.id}`}
+                  disabled={isLocked}
+                  onClick={() => setPendingDeletePhotoId(photo.id)}
+                  title={isLocked ? 'Trwa analiza, poczekaj na zakończenie' : 'Usuń zdjęcie'}
+                  className="inline-flex items-center rounded-md border border-red-300 bg-white px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+                >
+                  Usuń
+                </button>
               </div>
             </div>
           </li>
@@ -379,6 +503,23 @@ export default function PhotoListIsland({ shelfId }: Props) {
           const nextPhotoId = pendingRerunPhotoId;
           setPendingRerunPhotoId(null);
           void runVision(nextPhotoId);
+        }}
+      />
+
+      <ConfirmDialog
+        open={pendingDeletePhoto != null}
+        title="Usunąć zdjęcie?"
+        message={deleteMessage(pendingDeletePhoto)}
+        confirmLabel="Usuń zdjęcie"
+        cancelLabel="Anuluj"
+        confirmTone="danger"
+        testIdPrefix="photo-delete-confirm"
+        onCancel={() => setPendingDeletePhotoId(null)}
+        onConfirm={() => {
+          if (!pendingDeletePhotoId) return;
+          const nextPhotoId = pendingDeletePhotoId;
+          setPendingDeletePhotoId(null);
+          void deletePhoto(nextPhotoId);
         }}
       />
     </>

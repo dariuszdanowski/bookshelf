@@ -13,6 +13,7 @@ const basePhoto = {
   storage_path: STORAGE_PATH_1,
   status: 'processed',
   created_at: '2026-05-28T10:00:00Z',
+  file_hash_sha256: 'a'.repeat(64),
 };
 
 const baseRun = {
@@ -25,7 +26,7 @@ const baseRun = {
 
 function makeSupabase(opts: {
   shelfResult?: { data: { id: string } | null; error: { code?: string; name?: string; message?: string } | null };
-  photosResult?: { data: { id: string; storage_path: string; status: string; created_at: string }[] | null; error: null };
+  photosResult?: { data: { id: string; storage_path: string; status: string; created_at: string; file_hash_sha256?: string | null }[] | null; error: null };
   succeededRunsResult?: { data: typeof baseRun[] | null; error: null };
   runningRunsResult?: { data: { photo_id: string }[] | null; error?: null };
   detCountsResult?: { data: { vision_run_id: string; status: string; book_candidates: { id: string }[] }[] | null; error: null };
@@ -256,6 +257,22 @@ describe('GET /api/shelves/[id]/photos', () => {
     const res = await GET(makeContext(supabase) as never);
     const json = (await res.json()) as { data: { photos: { thumbnail_url: string | null }[] } };
     expect(json.data.photos[0].thumbnail_url).toBeNull();
+  });
+
+  it('legacy_no_hash=false when file_hash_sha256 present', async () => {
+    const { supabase } = makeSupabase({});
+    const res = await GET(makeContext(supabase) as never);
+    const json = (await res.json()) as { data: { photos: { legacy_no_hash: boolean }[] } };
+    expect(json.data.photos[0].legacy_no_hash).toBe(false);
+  });
+
+  it('legacy_no_hash=true when file_hash_sha256 is null', async () => {
+    const { supabase } = makeSupabase({
+      photosResult: { data: [{ ...basePhoto, file_hash_sha256: null }], error: null },
+    });
+    const res = await GET(makeContext(supabase) as never);
+    const json = (await res.json()) as { data: { photos: { legacy_no_hash: boolean }[] } };
+    expect(json.data.photos[0].legacy_no_hash).toBe(true);
   });
 
   it('stage=uploaded for photo with only failed runs (no succeeded)', async () => {
