@@ -12,6 +12,14 @@ export const RecordPhotoSchema = z.object({
 
 export type RecordPhotoInput = z.infer<typeof RecordPhotoSchema>;
 
+// PATCH /api/photos/:id — przeniesienie zdjęcia na inną półkę. `photos` nie ma
+// kolumny title/caption, więc jedyne edytowalne metadane to shelf_id (S-29).
+export const UpdatePhotoSchema = z.object({
+  shelf_id: z.uuid(),
+});
+
+export type UpdatePhotoInput = z.infer<typeof UpdatePhotoSchema>;
+
 export const CheckDuplicateSchema = z.object({
   hash: z.string().regex(SHA256_REGEX),
 });
