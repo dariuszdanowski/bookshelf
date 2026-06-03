@@ -44,8 +44,6 @@ export default function PhotoUploader({
   // Duplicate detection state
   const [duplicatePhotoId, setDuplicatePhotoId] = useState<string | null>(null);
   const [duplicateCreatedAt, setDuplicateCreatedAt] = useState<string | null>(null);
-  const [pendingFile, setPendingFile] = useState<File | null>(null);
-  const [pendingHash, setPendingHash] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -200,8 +198,6 @@ export default function PhotoUploader({
       setCurrentPhotoId(null);
       setDuplicatePhotoId(null);
       setDuplicateCreatedAt(null);
-      setPendingFile(null);
-      setPendingHash(null);
 
       try {
         if (file.size > MAX_FILE_SIZE_BYTES) {
@@ -217,8 +213,6 @@ export default function PhotoUploader({
           data?: { photo: { id: string; shelf_id: string; created_at: string } | null };
         };
         if (checkJson.data?.photo) {
-          setPendingFile(file);
-          setPendingHash(sha256);
           setDuplicatePhotoId(checkJson.data.photo.id);
           setDuplicateCreatedAt(checkJson.data.photo.created_at);
           setStage('duplicate');
@@ -234,25 +228,7 @@ export default function PhotoUploader({
     [selectedShelfId, doUpload]
   );
 
-  const handleUploadAnyway = useCallback(async () => {
-    if (!pendingFile || !pendingHash) return;
-    const file = pendingFile;
-    const sha256 = pendingHash;
-    setPendingFile(null);
-    setPendingHash(null);
-    setDuplicatePhotoId(null);
-    setDuplicateCreatedAt(null);
-    try {
-      await doUpload(file, sha256);
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Nieznany błąd');
-      setStage('error');
-    }
-  }, [pendingFile, pendingHash, doUpload]);
-
   const handleCancelDuplicate = useCallback(() => {
-    setPendingFile(null);
-    setPendingHash(null);
     setDuplicatePhotoId(null);
     setDuplicateCreatedAt(null);
     setStage('idle');
@@ -395,13 +371,6 @@ export default function PhotoUploader({
                 Otwórz istniejące
               </a>
             )}
-            <button
-              data-testid="upload-anyway-button"
-              onClick={() => void handleUploadAnyway()}
-              className="rounded bg-gray-600 px-3 py-1 text-sm text-white hover:bg-gray-700"
-            >
-              Wgraj mimo to
-            </button>
             <button
               data-testid="cancel-duplicate-button"
               onClick={handleCancelDuplicate}

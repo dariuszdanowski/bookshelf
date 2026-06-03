@@ -41,6 +41,10 @@ function makeContext(opts: {
   const insertFn = vi.fn(() => ({ select: selectFn }));
   const fromFn = vi.fn(() => ({ insert: insertFn }));
 
+  // Storage stub — endpoint kasuje świeżo wgrany obiekt przy 23505 (cleanup sieroty).
+  const removeFn = vi.fn().mockResolvedValue({ data: [], error: null });
+  const storageFromFn = vi.fn(() => ({ remove: removeFn }));
+
   const request = new Request('http://localhost/api/photos', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -51,11 +55,13 @@ function makeContext(opts: {
     context: {
       request,
       locals: {
-        supabase: { from: fromFn } as never,
+        supabase: { from: fromFn, storage: { from: storageFromFn } } as never,
         user: opts.user === undefined ? ({ id: USER_ID } as never) : (opts.user as never),
       },
     },
     insertFn,
+    removeFn,
+    storageFromFn,
   };
 }
 
@@ -177,5 +183,19 @@ describe('POST /api/photos', () => {
     expect(res.status).toBe(409);
     const json = (await res.json()) as { error: { code: string } };
     expect(json.error.code).toBe('DUPLICATE_PHOTO');
+  });
+
+  it('cleans up orphaned Storage object on 23505 before returning 409', async () => {
+    const { context, removeFn, storageFromFn } = makeContext({
+      body: { shelf_id: SHELF_ID, storage_path: STORAGE_PATH, file_hash_sha256: VALID_HASH },
+      insertResult: { data: null, error: { code: '23505', message: 'unique violation', name: 'PostgrestError' } },
+    });
+
+    const res = await POST(context as never);
+
+    // Świeżo wgrany obiekt musi zostać skasowany (sierota), zanim wróci 409
+    expect(storageFromFn).toHaveBeenCalledWith('shelf-photos');
+    expect(removeFn).toHaveBeenCalledWith([STORAGE_PATH]);
+    expect(res.status).toBe(409);
   });
 });
