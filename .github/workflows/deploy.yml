@@ -38,6 +38,34 @@ jobs:
           PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
           PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
 
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Push DB migrations to prod (migrate-first)
+        # Auto-aplikacja migracji na remote prod PO merge (push: [main]), PRZED
+        # deployem Workera — nowy kod nigdy nie trafia na nieztymigrowaną schemę.
+        # `db push` jest idempotentny (aplikuje tylko migracje spoza remote
+        # `schema_migrations`), więc no-op gdy nic nowego. Migracje są walidowane
+        # pre-merge przez job `e2e` w ci.yml (`supabase start` = świeży replay +
+        # seed). Fail tu = job pada PRZED deployem → kod nie idzie na prod ze złą
+        # schemą. Build jest wcześniej, więc niebuildowalny kod nie tknie DB.
+        #
+        # Miękki guard: bez sekretów krok się pomija (warning) — wdrożenie tej
+        # zmiany nie psuje deployów zanim SUPABASE_ACCESS_TOKEN/DB_PASSWORD
+        # zostaną dodane (env production). Po dodaniu auto-migracje włączają się same.
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ] || [ -z "$SUPABASE_DB_PASSWORD" ]; then
+            echo "::warning::SUPABASE_ACCESS_TOKEN/SUPABASE_DB_PASSWORD nieustawione — pomijam db push. Dodaj sekrety (env production), by włączyć auto-migracje."
+            exit 0
+          fi
+          supabase link --project-ref foqpoqdbicgsrbkcuckc
+          supabase db push
+
       - name: Deploy to Cloudflare Workers
         id: deploy
         uses: cloudflare/wrangler-action@v4
