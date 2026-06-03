@@ -317,10 +317,10 @@ SET NULL po S-30) już na miejscu. Slice jest czysto aplikacyjny.
 
 #### Automated
 
-- [x] 3.1 Unit test `PhotoListIsland` (delete modal, move, badge, disabled-guard) zielony
-- [x] 3.2 Unit test endpointu listy: `legacy_no_hash` zielony
-- [x] 3.3 E2E delete flow + badge (mock) zielony
-- [x] 3.4 `npm run typecheck` / `npm run lint` zielone
+- [x] 3.1 Unit test `PhotoListIsland` (delete modal, move, badge, disabled-guard) zielony — ad0253a
+- [x] 3.2 Unit test endpointu listy: `legacy_no_hash` zielony — ad0253a
+- [x] 3.3 E2E delete flow + badge (mock) zielony — ad0253a
+- [x] 3.4 `npm run typecheck` / `npm run lint` zielone — ad0253a
 
 #### Manual
 
