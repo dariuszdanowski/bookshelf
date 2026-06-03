@@ -60,7 +60,7 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | S-27  | dark-light-mode               | przełącznik trybu ciemnego/jasnego w headerze; preferencja persystowana w localStorage; Tailwind `dark:` variant na całym UI | — | UX (standard) | proposed |
 | S-28  | mobile-responsive             | responsywność mobilna dla ścieżek read (library, shelves, book detail) i write (upload, review karty); Tailwind breakpoints `sm:`/`md:` — desktop-first zachowane, telefon bez poziomego scrollowania | S-05 | NFR (UX) | proposed |
 | S-29  | photos-crud                   | pełny CRUD dla zdjęć: lista zdjęć per półka (GET /api/photos?shelf_id=), usunięcie zdjęcia z Storage + cascade detections/book_candidates (DELETE /api/photos/[id]), edycja metadanych (PATCH — zmiana shelf_id / retitle); zakładki „Książki / Zdjęcia" na `/shelves/[id]`; badge dla zdjęć z NULL hash (stare duplikaty) | S-03, S-05, **S-30** | FR (zarządzanie zdjęciami) | proposed |
-| S-30  | vision-cost-preservation      | zachowanie historii kosztów vision przy DELETE zdjęć: dodanie `user_id` do `vision_runs` i `refine_calls`, zmiana FK `photo_id` z CASCADE na SET NULL; endpoint `GET /api/account/stats` zwracający łączny koszt i liczbę wywołań per user | S-03 | NFR (integrity kosztów) | proposed |
+| S-30  | vision-cost-preservation      | zachowanie historii kosztów vision przy DELETE zdjęć: dodanie `user_id` do `vision_runs` i `refine_calls`, zmiana FK `photo_id` z CASCADE na SET NULL; endpoint `GET /api/account/stats` zwracający łączny koszt i liczbę wywołań per user | S-03 | NFR (integrity kosztów) | done |
 | S-31  | user-account-page             | strona `/account`: edycja display_name (PATCH /api/account/profile), zmiana emaila i hasła (Supabase Auth updateUser), sekcja statystyk kosztów vision (z S-30), lista podłączonych kluczy API (z S-32) | S-01 | UX (profil użytkownika) | proposed |
 | S-32  | byok-api-keys                 | własne klucze API do modeli vision (BYOK): tabela `user_api_keys` z szyfrowaniem at rest (pgcrypto/Vault), UI zarządzania kluczami na `/account` (add/delete/test), providerzy: Anthropic / OpenAI / OpenRouter / OpenAI-compatible (base_url+model) | S-31 | FR (multi-provider vision) | proposed |
 | S-33  | byok-pipeline                 | pipeline vision wymaga klucza usera: `/api/photos/[id]/process` sprawdza `user_api_keys`, brak klucza → 403 z linkiem do `/account`; abstrakcja `VisionProvider` w `src/lib/vision/` zastępuje hardkodowany Anthropic SDK; globalny klucz z env wyłączony dla zwykłych userów | S-32 | FR (BYOK enforcement) | proposed |
@@ -345,7 +345,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **Blockers:** —
 - **Unknowns:** czy Supabase pozwala ALTER CONSTRAINT na istniejącym FK w jednej migracji — sprawdzić składnię (DROP + ADD CONSTRAINT).
 - **Risk:** migracja zmienia FK behaviour — test na lokalnej DB przed push. Istniejące cascade-delete przestają działać dla vision_runs przy DELETE photo (pożądana zmiana).
-- **Status:** proposed
+- **Status:** done
 
 ### S-31: Strona /account — profil użytkownika
 
@@ -558,5 +558,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **S-16: przy wgraniu zdjęcia: wykryj identyczne (hash treści SHA-256), ostrzeż i zaproponuj reuse istniejących detekcji zamiast ponownego (płatnego) vision** — Archived 2026-06-02 → `context/archive/2026-06-02-photo-dedup/`. Lesson: —. SHA-256 obliczany w przeglądarce (SubtleCrypto) przed Storage upload; GET /api/photos/check-hash + UI warning z 3 akcjami (Otwórz istniejące / Wgraj mimo to / Anuluj); obsługa race condition 409 DUPLICATE_PHOTO; migracja 0013 (unique partial index per user_id). Manual smoke (3.M) deferred user-only.
 
 - **S-35: ujednolicony label „Doprecyzuj odczyt" we wszystkich trybach refine + widoczna informacja o koszcie (płatna analiza AI); słaby crop sygnalizowany ⚠ prefixem (rozróżnialność po tekście, nie po kolorze)** — Archived 2026-06-03 → `context/archive/2026-06-03-refine-ux-cost-info/`. Lesson: —. Ekstrakcja współdzielonego `RefineButton` (likwidacja 3 rozjeżdżających się kopii). impl-review APPROVED (1 obs accept-by-design).
+
+- **S-30: koszty vision przeżywają DELETE zdjęcia — vision_runs +user_id (denorm) + trigger derywujący z photos, FK photo_id/detection_id CASCADE→SET NULL (vision_runs + refine_calls), RLS vision_runs na user_id; GET /api/account/stats** — Archived 2026-06-03 → `context/archive/2026-06-03-vision-cost-preservation/`. Lesson: —. Prereq dla S-29 DELETE. impl-review APPROVED (1 obs: migracja walidowana post-merge db push — lokalny stack AV-blocked). Manual (db push + Studio) post-merge.
 
 (Pusta przy pierwszej generacji. `/10x-archive` dopisuje tu wpis — i przerzuca Status pozycji na `done` — gdy archiwizowana zmiana ma `Change ID` zgodny z pozycją roadmapy. NIE wypełniać ręcznie.)
