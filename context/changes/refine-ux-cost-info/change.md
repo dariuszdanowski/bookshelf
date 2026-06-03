@@ -1,7 +1,7 @@
 ---
 change_id: refine-ux-cost-info
 title: UX przycisków refine — spójny label + info o koszcie (S-35)
-status: implemented
+status: impl_reviewed
 created: 2026-06-03
 updated: 2026-06-03
 ---
