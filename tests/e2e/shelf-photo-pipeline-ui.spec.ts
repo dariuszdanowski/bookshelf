@@ -147,6 +147,20 @@ const MOCK_PHOTO_GET = {
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
+/**
+ * S-29: lista zdjęć żyje w zakładce „Zdjęcia" (domyślnie aktywne „Książki").
+ * Klik odporny na hydration race (`client:load` SSR-uje przycisk zanim React
+ * podepnie handler) — retry-click aż `aria-selected` faktycznie się przełączy.
+ */
+async function revealPhotosTab(page: import('@playwright/test').Page) {
+  await expect(async () => {
+    await page.getByTestId('shelf-tab-photos').click();
+    await expect(page.getByTestId('shelf-tab-photos')).toHaveAttribute('aria-selected', 'true', {
+      timeout: 1_000,
+    });
+  }).toPass({ timeout: 10_000 });
+}
+
 /** Navigate to /shelves (sesja z współdzielonego storageState — bez signup) */
 async function goToShelves(page: import('@playwright/test').Page) {
   await page.goto('/shelves');
@@ -272,6 +286,7 @@ test('3.6 /shelves/[id]: PhotoListIsland renders photo list with stage badge', a
   // Navigate to /shelves/[id] via the link
   await link.click();
   await page.waitForURL(/\/shelves\/[0-9a-f-]+$/, { timeout: 5_000 });
+  await revealPhotosTab(page);
 
   // PhotoListIsland renders after fetch
   await expect(page.getByTestId('photo-list')).toBeVisible({ timeout: 10_000 });
@@ -316,6 +331,7 @@ test('3.7 Run vision button → po sukcesie stage=vision_done (refetch)', async 
   const link = page.getByTestId(/^shelf-item-photos-link$/).first();
   await link.click();
   await page.waitForURL(/\/shelves\/[0-9a-f-]+$/, { timeout: 5_000 });
+  await revealPhotosTab(page);
 
   await expect(page.getByTestId(`run-vision-${PHOTO_ID}`)).toBeVisible({ timeout: 10_000 });
 
@@ -354,6 +370,7 @@ test('3.8 Re-run vision: confirm cancel → brak procesu; OK → wywołuje /proc
   const link = page.getByTestId(/^shelf-item-photos-link$/).first();
   await link.click();
   await page.waitForURL(/\/shelves\/[0-9a-f-]+$/, { timeout: 5_000 });
+  await revealPhotosTab(page);
   await expect(page.getByTestId(`rerun-vision-${PHOTO_ID}`)).toBeVisible({ timeout: 10_000 });
 
   // First click — React ConfirmDialog pojawia się, klikamy Anuluj
@@ -413,6 +430,7 @@ test('3.9 Double-click Run vision → toast "Run już w toku"', async ({ page })
   const link = page.getByTestId(/^shelf-item-photos-link$/).first();
   await link.click();
   await page.waitForURL(/\/shelves\/[0-9a-f-]+$/, { timeout: 5_000 });
+  await revealPhotosTab(page);
   await expect(page.getByTestId(`run-vision-${PHOTO_ID}`)).toBeVisible({ timeout: 10_000 });
 
   // Click — gets 409
@@ -491,6 +509,7 @@ test('3.11 Photo z tylko failed runs pokazuje stage=uploaded + Uruchom vision', 
   const link = page.getByTestId(/^shelf-item-photos-link$/).first();
   await link.click();
   await page.waitForURL(/\/shelves\/[0-9a-f-]+$/, { timeout: 5_000 });
+  await revealPhotosTab(page);
 
   await expect(page.getByTestId('photo-list')).toBeVisible({ timeout: 10_000 });
   await expect(page.getByTestId(`stage-badge-${FAILED_PHOTO_ID}`)).toHaveText('Wgrane');
@@ -517,6 +536,7 @@ test('3.12 Mobile: /shelves/[id] czytelna na 375px', async ({ page }) => {
   const link = page.getByTestId(/^shelf-item-photos-link$/).first();
   await link.click();
   await page.waitForURL(/\/shelves\/[0-9a-f-]+$/, { timeout: 5_000 });
+  await revealPhotosTab(page);
 
   await expect(page.getByTestId('photo-list')).toBeVisible({ timeout: 10_000 });
 

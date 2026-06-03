@@ -296,18 +296,18 @@ SET NULL po S-30) już na miejscu. Slice jest czysto aplikacyjny.
 
 #### Automated
 
-- [x] 1.1 Unit testy PATCH (sukces, 23503→404, 401, bad UUID→404, brak body→400) zielone
-- [x] 1.2 Unit testy DELETE (200, 404, 401, delete-error→500, Storage-error→200+log) zielone
-- [x] 1.3 `npm run typecheck` zielony
-- [x] 1.4 `npm run lint` zielony
+- [x] 1.1 Unit testy PATCH (sukces, 23503→404, 401, bad UUID→404, brak body→400) zielone — 5203798
+- [x] 1.2 Unit testy DELETE (200, 404, 401, delete-error→500, Storage-error→200+log) zielone — 5203798
+- [x] 1.3 `npm run typecheck` zielony — 5203798
+- [x] 1.4 `npm run lint` zielony — 5203798
 
 ### Phase 2: Widok półki — zakładki „Książki / Zdjęcia"
 
 #### Automated
 
-- [ ] 2.1 Unit test `ShelfTabs` (default, przełączenie, persist) zielony
-- [ ] 2.2 E2E tab persistence (klik + reload) zielony
-- [ ] 2.3 `npm run typecheck` / `npm run lint` zielone
+- [x] 2.1 Unit test `ShelfTabs` (default, przełączenie, persist) zielony
+- [x] 2.2 E2E tab persistence (klik + reload) zielony
+- [x] 2.3 `npm run typecheck` / `npm run lint` zielone
 
 #### Manual
 

@@ -3,8 +3,7 @@ export const prerender = false;
 
 import Breadcrumb from '../../components/Breadcrumb.astro';
 import Layout from '../../layouts/Layout.astro';
-import PhotoListIsland from '../../components/PhotoListIsland.tsx';
-import ShelfBooksIsland from '../../components/ShelfBooksIsland.tsx';
+import ShelfTabs from '../../components/ShelfTabs.tsx';
 import { parseUuidParam } from '../../lib/http/response';
 
 if (!Astro.locals.user) {
@@ -77,16 +76,7 @@ const catalogedCount = entriesAgg.data?.length ?? 0;
       </div>
     </div>
 
-    <!-- Sekcja książek (S-05) — grid okładek z togglem przeczytania -->
-    <section class="mb-10">
-      <h2 class="mb-3 text-lg font-semibold text-gray-800">Książki na półce</h2>
-      <ShelfBooksIsland client:load shelfId={id} />
-    </section>
-
-    <!-- Sekcja zdjęć -->
-    <section>
-      <h2 class="mb-3 text-lg font-semibold text-gray-800">Zdjęcia</h2>
-      <PhotoListIsland client:load shelfId={id} shelfName={shelf.name} />
-    </section>
+    <!-- Zakładki Książki / Zdjęcia (S-29) -->
+    <ShelfTabs client:load shelfId={id} shelfName={shelf.name} />
   </main>
 </Layout>
