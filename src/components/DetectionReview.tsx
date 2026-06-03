@@ -19,6 +19,61 @@ function getMatchTier(score: number): MatchTier {
   return 'low';
 }
 
+// ---------------------------------------------------------------------------
+// RefineButton — wspólny przycisk „Doprecyzuj odczyt" dla wszystkich trybów
+// review. Jeden label (rozróżnialność weak/good po ⚠ prefixie, nie po kolorze
+// — M3L4), sygnał weak-crop (⚠ + amber + tooltip) i widoczna informacja o
+// koszcie (refine = dodatkowe płatne wywołanie AI). Likwiduje 3 kopie inline.
+// ---------------------------------------------------------------------------
+function RefineButton({
+  bbox,
+  busy,
+  onClick,
+  size = 'md',
+}: {
+  bbox: DetectionWithCandidatesDTO['bbox'];
+  busy: boolean;
+  onClick: () => void;
+  size?: 'lg' | 'md' | 'sm';
+}) {
+  const isWeak = classifyCropQuality(bbox) === 'uncertain_localization';
+  const sizeCls = size === 'lg' ? 'px-3 py-1.5' : size === 'sm' ? 'px-2 py-1' : 'px-2.5 py-1';
+  const colorCls = isWeak
+    ? 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100'
+    : 'border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100';
+  const label = busy ? 'Doprecyzowuję...' : isWeak ? '⚠ Doprecyzuj odczyt' : 'Doprecyzuj odczyt';
+  const title = isWeak
+    ? '⚠ Crop o niskiej jakości — wynik może być słaby. Dodatkowa analiza AI (płatne).'
+    : 'Doprecyzuj odczyt — dodatkowa analiza AI (płatne)';
+  return (
+    <span className="inline-flex items-center gap-1">
+      <button
+        data-testid="refine-button"
+        disabled={busy}
+        onClick={onClick}
+        title={title}
+        className={`rounded-md border text-xs font-medium disabled:opacity-50 ${sizeCls} ${colorCls}`}
+      >
+        {label}
+      </button>
+      {size === 'lg' ? (
+        <span data-testid="refine-cost-hint" className="text-[10px] leading-tight text-gray-400">
+          dodatkowa analiza AI — płatne
+        </span>
+      ) : (
+        <span
+          data-testid="refine-cost-hint"
+          title="dodatkowa analiza AI — płatne"
+          aria-label="dodatkowa analiza AI — płatne"
+          className="cursor-help text-xs text-gray-400"
+        >
+          ⓘ
+        </span>
+      )}
+    </span>
+  );
+}
+
 const TIER_STYLES: Record<MatchTier, { border: string; badge: string; label: string }> = {
   high: {
     border: 'border-green-300 bg-green-50',
@@ -775,21 +830,7 @@ function DetectionCard({ detection, onDecided, onRefined, onSelect, isSelected =
               Popraw
             </button>
           )}
-          {(() => {
-            const quality = classifyCropQuality(detection.bbox);
-            const isWeak = quality === 'uncertain_localization';
-            return (
-              <button
-                data-testid="refine-button"
-                disabled={busy}
-                onClick={() => void handleRefine()}
-                title={isWeak ? '⚠ Crop o niskiej jakości (poziomy lub mały bbox) — wynik OCR może być słaby. Kliknij żeby spróbować mimo to.' : detection.bbox ? 'Doprecyzuj odczyt z cropa' : 'Doprecyzuj odczyt bez bbox'}
-                className={`rounded-md border px-3 py-1.5 text-xs font-medium disabled:opacity-50 ${isWeak ? 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100' : 'border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'}`}
-              >
-                {busy ? 'Doprecyzowuję...' : isWeak ? '⚠ Spróbuj OCR' : 'Doprecyzuj odczyt'}
-              </button>
-            );
-          })()}
+          <RefineButton bbox={detection.bbox} busy={busy} onClick={() => void handleRefine()} size="lg" />
         </div>
       )}
     </div>
@@ -1024,21 +1065,7 @@ export function DetectionRow({ detection, onDecided, onRefined, onSelect, isSele
             </button>
           </>
         )}
-        {(() => {
-          const quality = classifyCropQuality(detection.bbox);
-          const isWeak = quality === 'uncertain_localization';
-          return (
-            <button
-              data-testid="refine-button"
-              disabled={busy}
-              onClick={() => void handleRefine()}
-              title={isWeak ? '⚠ Słaby crop — wynik może być słaby' : 'Doprecyzuj odczyt'}
-              className={`rounded border px-2.5 py-1 text-xs font-medium disabled:opacity-50 ${isWeak ? 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100' : 'border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100'}`}
-            >
-              {busy ? '...' : isWeak ? '⚠ OCR' : 'Refine'}
-            </button>
-          );
-        })()}
+        <RefineButton bbox={detection.bbox} busy={busy} onClick={() => void handleRefine()} size="md" />
       </div>
 
       {showRematchForm && (
@@ -1227,15 +1254,7 @@ export function DetectionTile({ detection, onDecided, onRefined, onSelect, isSel
             </button>
           </>
         )}
-        <button
-          data-testid="refine-button"
-          disabled={busy}
-          onClick={() => void handleRefine()}
-          title={detection.bbox ? 'Refine crop' : 'Refine without bbox'}
-          className="rounded border border-indigo-300 bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50"
-        >
-          {busy ? '...' : 'Refine'}
-        </button>
+        <RefineButton bbox={detection.bbox} busy={busy} onClick={() => void handleRefine()} size="sm" />
       </div>
 
       {showRematchForm && (

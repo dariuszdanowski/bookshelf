@@ -305,6 +305,9 @@ describe('DetectionReview — refine', () => {
     render(<DetectionReview photoId={PHOTO_ID} />);
     await waitFor(() => screen.getByTestId('refine-button'));
     expect(screen.getByTestId('refine-button')).toBeInTheDocument();
+    expect(screen.getByTestId('refine-button')).toHaveTextContent('Doprecyzuj odczyt');
+    // Info o koszcie (refine = płatna analiza AI) widoczna obok przycisku (S-35)
+    expect(screen.getByTestId('refine-cost-hint')).toBeInTheDocument();
   });
 
   it('pokazuje przycisk Doprecyzuj odczyt dla detekcji z bbox', async () => {
