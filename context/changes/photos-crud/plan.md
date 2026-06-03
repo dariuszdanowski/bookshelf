@@ -311,7 +311,7 @@ SET NULL po S-30) już na miejscu. Slice jest czysto aplikacyjny.
 
 #### Manual
 
-- [ ] 2.4 Zakładki płynne, statystyki nad nimi, brak migotania (user)
+- [x] 2.4 Zakładki płynne, statystyki nad nimi, brak migotania (user)
 
 ### Phase 3: Akcje zarządzania zdjęciem + badge NULL hash
 
@@ -324,6 +324,6 @@ SET NULL po S-30) już na miejscu. Slice jest czysto aplikacyjny.
 
 #### Manual
 
-- [ ] 3.5 Usunięcie realnego zdjęcia: Storage + cascade + książki zostają + koszt przetrwał (user)
-- [ ] 3.6 Przeniesienie zdjęcia między półkami (user)
-- [ ] 3.7 Badge „Bez hash" dla starego zdjęcia (user)
+- [x] 3.5 Usunięcie realnego zdjęcia: Storage + cascade + książki zostają + koszt przetrwał (user)
+- [x] 3.6 Przeniesienie zdjęcia między półkami (user)
+- [x] 3.7 Badge „Bez hash" dla starego zdjęcia (user)

@@ -1,9 +1,9 @@
 ---
 change_id: photos-crud
 title: Pełny CRUD zdjęć — usuwanie, przenoszenie, zakładki Książki/Zdjęcia
-status: implementing
+status: implemented
 created: 2026-06-03
-updated: 2026-06-03
+updated: 2026-06-04
 archived_at: null
 ---
 
