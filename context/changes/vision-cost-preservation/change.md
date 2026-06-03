@@ -1,7 +1,7 @@
 ---
 change_id: vision-cost-preservation
 title: Zachowanie historii kosztów vision przy DELETE zdjęć (S-30)
-status: implemented
+status: impl_reviewed
 created: 2026-06-03
 updated: 2026-06-03
 ---
