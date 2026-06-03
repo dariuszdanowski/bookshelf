@@ -9,9 +9,9 @@ export const prerender = false;
  *
  * Agregat kosztów vision per zalogowany user — niezależny od istnienia zdjęć
  * (vision_runs/refine_calls przeżywają DELETE photo dzięki FK SET NULL z migracji
- * 0014). RLS-respecting (locals.supabase): vision_runs.user_id + refine_calls.user_id.
+ * 0015). RLS-respecting (locals.supabase): vision_runs.user_id + refine_calls.user_id.
  *
- * `(locals.supabase as any)`: vision_runs.user_id to nowa kolumna (0014) a
+ * `(locals.supabase as any)`: vision_runs.user_id to nowa kolumna (0015) a
  * refine_calls nie jest w `database.types.ts` — types regen dopiero po `db push`
  * (precedens `photos/[id]/costs.ts`).
  *
