@@ -77,10 +77,10 @@ test('duplicate detected: shows warning with date and action buttons', async ({ 
   await expect(page.getByTestId('duplicate-warning')).toBeVisible({ timeout: 10_000 });
   // Date from CREATED_AT should appear in the warning text
   await expect(page.getByTestId('duplicate-warning')).toContainText('1 maja 2026');
-  // All three buttons visible
+  // Open + Cancel only — "Wgraj mimo to" usunięte (akcja niemożliwa przy UNIQUE constraint na hash)
   await expect(page.getByTestId('open-existing-link')).toBeVisible();
-  await expect(page.getByTestId('upload-anyway-button')).toBeVisible();
   await expect(page.getByTestId('cancel-duplicate-button')).toBeVisible();
+  await expect(page.getByTestId('upload-anyway-button')).toHaveCount(0);
   // Link points to existing photo
   await expect(page.getByTestId('open-existing-link')).toHaveAttribute('href', `/photos/${EXISTING_PHOTO_ID}`);
 });
@@ -101,41 +101,6 @@ test('duplicate: clicking Anuluj returns to idle (drop zone visible)', async ({ 
   // Drop zone should reappear, warning gone
   await expect(page.getByTestId('drop-zone')).toBeVisible();
   await expect(page.getByTestId('duplicate-warning')).not.toBeVisible();
-});
-
-test('duplicate: clicking Wgraj mimo to continues upload', async ({ page }) => {
-  await setupPage(page);
-
-  await page.route('**/api/photos/check-hash**', (route) => {
-    void route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_DUPLICATE_CHECK) });
-  });
-  await page.route('**/storage/v1/object/shelf-photos/**', (route) => {
-    void route.fulfill({ status: 200, body: JSON.stringify({ Key: 'mock-path.jpg' }) });
-  });
-  await page.route('**/api/photos', (route) => {
-    if (route.request().method() === 'POST') {
-      void route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify(MOCK_RECORD_RESPONSE) });
-    } else {
-      void route.continue();
-    }
-  });
-  await page.route(`**/api/photos/${PHOTO_ID}/process`, (route) => {
-    void route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_PROCESS_RESPONSE) });
-  });
-  await page.route(`**/api/photos/${PHOTO_ID}/match`, (route) => {
-    void route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(MOCK_MATCH_RESPONSE) });
-  });
-
-  const fileInput = page.getByTestId('file-input');
-  await fileInput.setInputFiles('tests/fixtures/test-shelf.jpg');
-  await expect(page.getByTestId('duplicate-warning')).toBeVisible({ timeout: 10_000 });
-
-  await page.getByTestId('upload-anyway-button').click();
-
-  // Upload proceeds — progress area should appear
-  await expect(page.getByTestId('progress-area')).toBeVisible({ timeout: 5_000 });
-  // Eventually redirects to /photos/<id>
-  await page.waitForURL(`/photos/${PHOTO_ID}`, { timeout: 15_000 });
 });
 
 test('no duplicate: normal upload without warning', async ({ page }) => {
