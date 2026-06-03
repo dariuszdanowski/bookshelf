@@ -158,7 +158,7 @@ export default function ShelfListItem({ shelf, onUpdate, onDelete }: Props) {
           className="inline-flex items-center justify-center rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-900 hover:bg-gray-100"
           data-testid="shelf-item-photos-link"
         >
-          Zobacz zdjęcia →
+          Pokaż szczegóły →
         </a>
         {!shelf.is_system && (
           <>

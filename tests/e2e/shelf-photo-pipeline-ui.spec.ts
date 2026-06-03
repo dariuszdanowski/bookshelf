@@ -243,7 +243,7 @@ async function uploadAndGetToReviewPage(
 // ══════════════════════════════════════════════════════════════════════════════
 //  TEST 1 — /shelves: ShelfListItem shows "Zobacz zdjęcia →" link
 // ══════════════════════════════════════════════════════════════════════════════
-test('3.5 /shelves: każda półka ma link "Zobacz zdjęcia →"', async ({ page }) => {
+test('3.5 /shelves: każda półka ma link do szczegółów półki', async ({ page }) => {
   await goToShelves(page);
   // Wait for ShelvesIsland to hydrate and render shelf items
   await expect(
