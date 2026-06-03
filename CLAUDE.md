@@ -25,7 +25,7 @@ Defaults zwijające powtarzalne decyzje w pętli M2L2/L3 (`/10x-plan` → `/10x-
 - **Manual verification**: zawsze user-only — Supabase Studio, przeglądarka, oko ludzkie. Agent nie symuluje („I checked Studio" jest niedozwolone).
 - **`.claude/` w repo**: skille kursowe i `.10x-cli-manifest.json` commitowane do repo jako część workflow (świadoma decyzja dla projektu zaliczeniowego 10xDevs — skille są load-bearing artefaktem, nie tylko tooling). Aktualizacje rzadko, traktować jak deps; osobny commit `chore: install/update 10x skill pack`.
 - **Roadmap Outcome drift po archive**: `/10x-archive` kopiuje Outcome verbatim do `## Done`. Jeśli implementacja zaadaptowała literalny szczegół (np. service-role → RLS-respecting), Outcome może być nieaktualny. Korekta = 2-linijkowy commit `docs(roadmap): align <slice-id> Outcome with actual implementation`.
-- **Branch per change** (od 2026-05-26): każdy slice/foundation/fix wykonujemy w branchu `change/<change-id>`, NIE bezpośrednio na main. Cały cykl (plan → implement → impl-review → archive) ląduje w branchu. Po `/10x-archive` w branchu: `git push origin change/<change-id>` + `gh pr create --title "<change-id>: <title>" --body "<auto-gen z plan-brief + impl-review summary>"`. User mergeuje PR (z opcjonalnym review w PR comments); GitHub Actions deploy.yml deployuje main → prod. **Migracje Supabase**: `supabase db push` ZAWSZE po merge do main (irreversible w prod DB; nie pchać w branchu — odrzucony PR zostawiłby zombi schema). Integration testy w branchu używają Vitest mocks; real DB integration odraczamy do po-merge. Wyjątki od reguły branch-only: planowanie/roadmapa edits (`/10x-plan`, `/10x-roadmap`) mogą lądować bezpośrednio na main jako standalone docs commits, gdy nie są związane z aktywnym implementation cycle. Reguła i precedens: [lessons.md → „Branch per change workflow"](context/foundation/lessons.md).
+- **Branch per change** (od 2026-05-26): każdy slice/foundation/fix wykonujemy w branchu `change/<change-id>`, NIE bezpośrednio na main. Cały cykl (plan → implement → impl-review → archive) ląduje w branchu. Po `/10x-archive` w branchu: `git push origin change/<change-id>` + `gh pr create --title "<change-id>: <title>" --body "<auto-gen z plan-brief + impl-review summary>"`. User mergeuje PR (z opcjonalnym review w PR comments); GitHub Actions deploy.yml deployuje main → prod. **Migracje Supabase**: `supabase db push` uruchamiany **automatycznie** przez `deploy.yml` po merge do main (krok migrate-first PRZED `wrangler deploy`; idempotentny — aplikuje tylko nowe migracje; walidowany pre-merge przez job `e2e` w `ci.yml` `supabase start`). Wymaga sekretów `SUPABASE_ACCESS_TOKEN` + `SUPABASE_DB_PASSWORD` (GitHub env `production`); bez nich krok pomija się z warningiem (miękki guard, nie psuje deployu). Nadal **nie pchać w branchu** ręcznie (odrzucony PR zostawiłby zombi schema); ręczny `npx supabase db push` tylko jako fallback/hotfix. Integration testy w branchu używają Vitest mocks; real DB integration odraczamy do po-merge. Wyjątki od reguły branch-only: planowanie/roadmapa edits (`/10x-plan`, `/10x-roadmap`) mogą lądować bezpośrednio na main jako standalone docs commits, gdy nie są związane z aktywnym implementation cycle. Reguła i precedens: [lessons.md → „Branch per change workflow"](context/foundation/lessons.md).
 - **Model per faza** (cost/quality split, M2L2 „opusplan"): **Opus** do `/10x-plan` i `/10x-impl-review` (reasoning-dense, niski wolumen tokenów — decyzje kontraktowe + wykrycie driftu); **Sonnet** do `/10x-implement` (gros tokenów: kontekst + edycje + iteracje; Opus ≈5× droższy per token). Model jest **stanem sesji, nie atrybutem skilla** — agent NIE przełącza go sam (`/model` to user-action). Na granicy fazy, gdy aktywny model nie pasuje: agent **przypomina** userowi `/model opus` (przed plan/review) lub `/model sonnet` (przed implement) ZANIM ruszy, i czeka na przełączenie. Przełączać na **czystej granicy kontekstu** (nowy kontekst per faza — M2L5), bo zmiana modelu unieważnia prompt cache. Alternatywa `opusplan` automatyzuje plan→Opus / implement→Sonnet, ale `/10x-impl-review` w trybie normalnym poleci Sonnet — wtedy i tak ręczny `/model opus`. Pełna ekonomia tokenów: `m1m2-lessons-audit-plan.md → E2` (zob. § Kontekst zewnętrzny).
 
 ## Cloudflare adapter — specyfika
@@ -66,7 +66,7 @@ Dwa różne kanały. Nigdy ich nie miksuj.
 
 ## Lokalna Supabase dev
 
-Migracje testujemy zawsze na **lokalnym stacku** zanim trafią do PR. Reguła z § Workflow agenta („Migracje Supabase: `db push` po merge do main, nie pchać w branchu") zostaje — `db push` na remote prod wykonujemy tylko po merge. Lokalna baza to brakujący środek: dev cycle dla migracji bez ryzyka zombi schema w prodzie.
+Migracje testujemy zawsze na **lokalnym stacku** zanim trafią do PR. Reguła z § Workflow agenta zostaje — `db push` na remote prod wykonuje się **tylko po merge**, ale teraz **automatycznie** przez `deploy.yml` (nie ręcznie). Lokalna baza to brakujący środek: dev cycle dla migracji bez ryzyka zombi schema w prodzie.
 
 **Wymagania**: WSL2 (Ubuntu) + Docker engine zainstalowany **w WSL** (`apt install docker-ce`, user w grupie `docker`). Docker Desktop **nie jest używany**. Sprawdzenie: `wsl -e bash -lc "docker info"`.
 
@@ -86,7 +86,7 @@ Output podaje lokalny API URL (`http://127.0.0.1:54321`), Studio (`http://127.0.
 2. `wsl -e bash -lc "cd /mnt/c/Projekty/10xDevs/bookshelf && npx supabase db reset"` — drop + replay wszystkich migracji + `seed.sql` (idempotentne, świeże dane testowe)
 3. Manual test: Studio `:54323` + `npm run dev` (Astro czyta `.dev.vars.local` jeśli aktywne)
 4. Commit migracji + kodu → PR → review → **merge do main**
-5. **Dopiero po merge**: `npx supabase db push` na remote prod (sekrety remote w `.dev.vars`, nie pomyl z lokalnymi)
+5. **Po merge**: `deploy.yml` sam uruchamia `supabase db push` na remote prod (migrate-first przed deployem). Ręcznie (`npx supabase db push`, sekrety remote w `.dev.vars`) tylko jako fallback/hotfix.
 
 **Profile sekretów** — single source of truth dla Astro dev:
 - `.dev.vars` (gitignored) — sekrety **remote** (prod Supabase, deploy/wrangler debug)
@@ -105,7 +105,7 @@ Output podaje lokalny API URL (`http://127.0.0.1:54321`), Studio (`http://127.0.
 | `npx supabase db reset` | drop schema + replay migracji + seed (dane testowe znikają) |
 | `npx supabase migration up` | dograj brakujące migracje bez resetu (zachowuje dane) |
 | `npx supabase status` | URLs + keys + stan kontenerów |
-| `npx supabase db push` | **push do remote prod** — tylko po merge do main |
+| `npx supabase db push` | **push do remote prod** — automat w `deploy.yml` po merge; ręcznie tylko fallback/hotfix |
 
 VS Code tasks (Ctrl+Shift+P → Tasks: Run Task) zawijają te komendy przez WSL automatycznie. `Dev: full local stack (env + supabase + astro)` to compound wykonujący `env:local` → `supabase start` → `astro dev` jednym uruchomieniem.
 
