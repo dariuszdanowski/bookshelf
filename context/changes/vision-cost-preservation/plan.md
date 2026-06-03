@@ -144,9 +144,9 @@ Phase 1: migracja `0014` (schema). Phase 2: endpoint + unit test (mock DB). Migr
 
 #### Automated
 
-- [x] 1.1 Lint: `npm run lint`
-- [x] 1.2 Typecheck: `npm run typecheck`
-- [x] 1.3 Unit/regresja zielone: `npm run test`
+- [x] 1.1 Lint: `npm run lint` — 95c3799
+- [x] 1.2 Typecheck: `npm run typecheck` — 95c3799
+- [x] 1.3 Unit/regresja zielone: `npm run test` — 95c3799
 
 #### Manual
 
@@ -157,9 +157,9 @@ Phase 1: migracja `0014` (schema). Phase 2: endpoint + unit test (mock DB). Migr
 
 #### Automated
 
-- [ ] 2.1 Nowy test stats.test.ts zielony: `npm run test`
-- [ ] 2.2 Typecheck: `npm run typecheck`
-- [ ] 2.3 Lint: `npm run lint`
+- [x] 2.1 Nowy test stats.test.ts zielony: `npm run test`
+- [x] 2.2 Typecheck: `npm run typecheck`
+- [x] 2.3 Lint: `npm run lint`
 
 #### Manual
 
