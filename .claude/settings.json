@@ -97,5 +97,18 @@
     "cloudflare",
     "exa",
     "context7"
-  ]
+  ],
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/post-edit-lint.cjs"
+          }
+        ]
+      }
+    ]
+  }
 }
