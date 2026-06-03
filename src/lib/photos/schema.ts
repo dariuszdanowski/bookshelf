@@ -71,6 +71,9 @@ export type PhotoListItemDTO = {
     cost_usd: number | null;
   } | null;
   has_running_run: boolean;
+  // true gdy `file_hash_sha256 IS NULL` — zdjęcie wgrane przed wdrożeniem
+  // deduplikacji (S-16). Surowego hash NIE eksponujemy.
+  legacy_no_hash: boolean;
 };
 
 export type ShelfPhotosResponse = {

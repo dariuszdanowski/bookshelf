@@ -305,9 +305,9 @@ SET NULL po S-30) już na miejscu. Slice jest czysto aplikacyjny.
 
 #### Automated
 
-- [x] 2.1 Unit test `ShelfTabs` (default, przełączenie, persist) zielony
-- [x] 2.2 E2E tab persistence (klik + reload) zielony
-- [x] 2.3 `npm run typecheck` / `npm run lint` zielone
+- [x] 2.1 Unit test `ShelfTabs` (default, przełączenie, persist) zielony — 734a3f6
+- [x] 2.2 E2E tab persistence (klik + reload) zielony — 734a3f6
+- [x] 2.3 `npm run typecheck` / `npm run lint` zielone — 734a3f6
 
 #### Manual
 
@@ -317,10 +317,10 @@ SET NULL po S-30) już na miejscu. Slice jest czysto aplikacyjny.
 
 #### Automated
 
-- [ ] 3.1 Unit test `PhotoListIsland` (delete modal, move, badge, disabled-guard) zielony
-- [ ] 3.2 Unit test endpointu listy: `legacy_no_hash` zielony
-- [ ] 3.3 E2E delete flow + badge (mock) zielony
-- [ ] 3.4 `npm run typecheck` / `npm run lint` zielone
+- [x] 3.1 Unit test `PhotoListIsland` (delete modal, move, badge, disabled-guard) zielony
+- [x] 3.2 Unit test endpointu listy: `legacy_no_hash` zielony
+- [x] 3.3 E2E delete flow + badge (mock) zielony
+- [x] 3.4 `npm run typecheck` / `npm run lint` zielone
 
 #### Manual
 
