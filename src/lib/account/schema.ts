@@ -16,3 +16,15 @@ export const UpdateProfileSchema = z.object({
 });
 
 export type UpdateProfileInput = z.infer<typeof UpdateProfileSchema>;
+
+export const ChangePasswordSchema = z
+  .object({
+    password: z.string().min(6),
+    confirm: z.string(),
+  })
+  .refine((d) => d.password === d.confirm, {
+    path: ['confirm'],
+    message: 'Hasła nie są zgodne',
+  });
+
+export type ChangePasswordInput = z.infer<typeof ChangePasswordSchema>;

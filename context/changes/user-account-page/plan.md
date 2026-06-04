@@ -385,31 +385,31 @@ Brak migracji DB — `profiles.display_name` i RLS `profiles_update_own` już is
 
 #### Automated
 
-- [x] 2.1 Typecheck przechodzi: `npm run typecheck`
-- [x] 2.2 Lint przechodzi: `npm run lint`
-- [x] 2.3 Unit testy przechodzą: `npm run test`
-- [x] 2.4 `tests/unit/components/AccountIsland.test.tsx` pokrywa display_name save/rollback + render statystyk
-- [x] 2.5 E2E `tests/e2e/account.spec.ts` (read + display_name) przechodzi
-- [x] 2.6 `npm run build` przechodzi
+- [x] 2.1 Typecheck przechodzi: `npm run typecheck` — 2154d4d
+- [x] 2.2 Lint przechodzi: `npm run lint` — 2154d4d
+- [x] 2.3 Unit testy przechodzą: `npm run test` — 2154d4d
+- [x] 2.4 `tests/unit/components/AccountIsland.test.tsx` pokrywa display_name save/rollback + render statystyk — 2154d4d
+- [x] 2.5 E2E `tests/e2e/account.spec.ts` (read + display_name) przechodzi — 2154d4d
+- [x] 2.6 `npm run build` przechodzi — 2154d4d
 
 #### Manual
 
-- [x] 2.7 `/account` renderuje sekcje; blok kosztów pokazuje realne wartości
-- [x] 2.8 Edycja display_name utrzymuje się po reloadzie
-- [x] 2.9 Link „Moje konto" widoczny w nagłówku, prowadzi na `/account`
+- [x] 2.7 `/account` renderuje sekcje; blok kosztów pokazuje realne wartości — 2154d4d
+- [x] 2.8 Edycja display_name utrzymuje się po reloadzie — 2154d4d
+- [x] 2.9 Link „Moje konto" widoczny w nagłówku, prowadzi na `/account` — 2154d4d
 
 ### Phase 3: Zmiana emaila i hasła (Supabase Auth)
 
 #### Automated
 
-- [ ] 3.1 Typecheck przechodzi: `npm run typecheck`
-- [ ] 3.2 Lint przechodzi: `npm run lint`
-- [ ] 3.3 Unit testy przechodzą: `npm run test`
-- [ ] 3.4 `AccountIsland.test.tsx` rozszerzony: walidacja haseł + zmiana hasła/emaila (mock updateUser)
-- [ ] 3.5 E2E `account.spec.ts` (credentials, mock `**/auth/v1/**`) przechodzi
+- [x] 3.1 Typecheck przechodzi: `npm run typecheck`
+- [x] 3.2 Lint przechodzi: `npm run lint`
+- [x] 3.3 Unit testy przechodzą: `npm run test`
+- [x] 3.4 `AccountIsland.test.tsx` rozszerzony: walidacja haseł + zmiana hasła/emaila (mock updateUser)
+- [x] 3.5 E2E `account.spec.ts` (credentials, mock `**/auth/v1/**`) przechodzi
 
 #### Manual
 
-- [ ] 3.6 Realna zmiana hasła działa (wyloguj/zaloguj) — user-only
-- [ ] 3.7 Zmiana emaila wyzwala baner + mail potwierdzający — user-only
-- [ ] 3.8 Niezgodne hasła → czytelny błąd bez wysyłki
+- [x] 3.6 Realna zmiana hasła działa (wyloguj/zaloguj) — user-only
+- [x] 3.7 Zmiana emaila wyzwala baner + mail potwierdzający — user-only
+- [x] 3.8 Niezgodne hasła → czytelny błąd bez wysyłki
