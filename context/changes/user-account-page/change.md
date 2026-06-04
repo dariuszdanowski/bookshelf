@@ -1,7 +1,7 @@
 ---
 change_id: user-account-page
 roadmap_slice: S-31
-status: implementing
+status: implemented
 created: 2026-06-04
 updated: 2026-06-04
 ---

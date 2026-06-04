@@ -402,14 +402,14 @@ Brak migracji DB — `profiles.display_name` i RLS `profiles_update_own` już is
 
 #### Automated
 
-- [x] 3.1 Typecheck przechodzi: `npm run typecheck`
-- [x] 3.2 Lint przechodzi: `npm run lint`
-- [x] 3.3 Unit testy przechodzą: `npm run test`
-- [x] 3.4 `AccountIsland.test.tsx` rozszerzony: walidacja haseł + zmiana hasła/emaila (mock updateUser)
-- [x] 3.5 E2E `account.spec.ts` (credentials, mock `**/auth/v1/**`) przechodzi
+- [x] 3.1 Typecheck przechodzi: `npm run typecheck` — 2ee1cd7
+- [x] 3.2 Lint przechodzi: `npm run lint` — 2ee1cd7
+- [x] 3.3 Unit testy przechodzą: `npm run test` — 2ee1cd7
+- [x] 3.4 `AccountIsland.test.tsx` rozszerzony: walidacja haseł + zmiana hasła/emaila (mock updateUser) — 2ee1cd7
+- [x] 3.5 E2E `account.spec.ts` (credentials, mock `**/auth/v1/**`) przechodzi — 2ee1cd7
 
 #### Manual
 
-- [x] 3.6 Realna zmiana hasła działa (wyloguj/zaloguj) — user-only
-- [x] 3.7 Zmiana emaila wyzwala baner + mail potwierdzający — user-only
-- [x] 3.8 Niezgodne hasła → czytelny błąd bez wysyłki
+- [x] 3.6 Realna zmiana hasła działa (wyloguj/zaloguj) — user-only — 2ee1cd7
+- [x] 3.7 Zmiana emaila wyzwala baner + mail potwierdzający — user-only — 2ee1cd7
+- [x] 3.8 Niezgodne hasła → czytelny błąd bez wysyłki — 2ee1cd7
