@@ -35,10 +35,10 @@ async function getShelfIdWithBooksMocked(
   photoId: string | null
 ): Promise<string> {
   await page.goto('/shelves');
-  await page.waitForLoadState('networkidle');
-  const shelfLink = page.locator('a[href^="/shelves/"]').first();
+  await page.waitForSelector('[data-testid^="shelf-item-"]', { timeout: 10_000 });
+  const shelfLink = page.getByTestId(/^shelf-item-photos-link$/).first();
   const href = await shelfLink.getAttribute('href');
-  const shelfId = href!.split('/shelves/')[1];
+  const shelfId = href!.split('/').pop()!;
 
   await page.route(`**/api/shelves/${shelfId}/books`, (route) =>
     route.fulfill({
@@ -107,7 +107,7 @@ test('S-15: link nieobecny dla wpisu ręcznego (photo_id=null, /library)', async
   await page.goto('/library');
   await page.waitForResponse((r) => r.url().includes('/api/shelves') && r.request().method() === 'GET');
   await expect(page.getByTestId(`book-card-${BOOK_ID}`)).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByTestId(`source-photo-link-${BOOK_ID}`)).not.toBeVisible();
+  await expect(page.getByTestId(`source-photo-link-${BOOK_ID}`)).not.toBeAttached();
 });
 
 test('S-15: link znika po usunięciu źródłowego zdjęcia (S-29 closure)', async ({ page }) => {
@@ -129,5 +129,5 @@ test('S-15: link znika po usunięciu źródłowego zdjęcia (S-29 closure)', asy
 
   await page.reload();
   await expect(page.getByTestId(`book-card-${BOOK_ID}`)).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByTestId(`source-photo-link-${BOOK_ID}`)).not.toBeVisible();
+  await expect(page.getByTestId(`source-photo-link-${BOOK_ID}`)).not.toBeAttached();
 });
