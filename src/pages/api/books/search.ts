@@ -49,7 +49,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
   // 1. Aktualne wpisy półkowe (RLS-scoped przez book ownership); opcjonalny filtr półek
   let entriesQuery = locals.supabase
     .from('shelf_entries')
-    .select('book_id, shelf_id, position_index, shelves(id, name)')
+    .select('book_id, shelf_id, position_index, photo_id, shelves(id, name)')
     .eq('is_current', true);
   if (shelf_ids && shelf_ids.length > 0) {
     entriesQuery = entriesQuery.in('shelf_id', shelf_ids);
@@ -69,14 +69,16 @@ export const GET: APIRoute = async ({ url, locals }) => {
     book_id: string;
     shelf_id: string;
     position_index: number | null;
+    photo_id: string | null;
     shelves: { id: string; name: string } | null;
   };
-  const placement = new Map<string, { shelf_id: string; shelf_name: string; position_index: number | null }>();
+  const placement = new Map<string, { shelf_id: string; shelf_name: string; position_index: number | null; photo_id: string | null }>();
   for (const e of (entries ?? []) as EntryRow[]) {
     placement.set(e.book_id, {
       shelf_id: e.shelf_id,
       shelf_name: e.shelves?.name ?? '',
       position_index: e.position_index,
+      photo_id: e.photo_id,
     });
   }
 
@@ -126,6 +128,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       position_index: p.position_index,
       shelf_id: p.shelf_id,
       shelf_name: p.shelf_name,
+      photo_id: p.photo_id,
     };
   });
 

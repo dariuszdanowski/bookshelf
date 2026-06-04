@@ -13,6 +13,7 @@ const baseBook: ShelfBookDTO = {
   published_year: 1961,
   position_index: 1,
   is_read: false,
+  photo_id: null,
 };
 
 describe('BookCard', () => {

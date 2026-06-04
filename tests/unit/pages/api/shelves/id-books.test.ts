@@ -10,7 +10,7 @@ type BookRow = {
   id: string; title: string; authors: string[];
   cover_url: string | null; published_year: number | null; is_read: boolean;
 };
-type EntryRow = { position_index: number | null; books: BookRow | null };
+type EntryRow = { position_index: number | null; photo_id: string | null; books: BookRow | null };
 
 function makeContext(opts: {
   id?: string;
@@ -96,22 +96,22 @@ describe('GET /api/shelves/[id]/books', () => {
 
   it('200 zwraca książki w kolejności position_index', async () => {
     const entryRows: EntryRow[] = [
-      { position_index: 1, books: bookA },
-      { position_index: 2, books: bookB },
+      { position_index: 1, photo_id: null, books: bookA },
+      { position_index: 2, photo_id: 'photo-uuid-1', books: bookB },
     ];
     const ctx = makeContext({ entryRows });
     const res = await GET(ctx);
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
-      data: { books: { id: string; title: string; position_index: number | null; is_read: boolean }[] }
+      data: { books: { id: string; title: string; position_index: number | null; is_read: boolean; photo_id: string | null }[] }
     };
     expect(json.data.books).toHaveLength(2);
-    expect(json.data.books[0]).toMatchObject({ id: 'book-a', title: 'Solaris', position_index: 1, is_read: false });
-    expect(json.data.books[1]).toMatchObject({ id: 'book-b', title: 'Diuna', position_index: 2, is_read: true });
+    expect(json.data.books[0]).toMatchObject({ id: 'book-a', title: 'Solaris', position_index: 1, is_read: false, photo_id: null });
+    expect(json.data.books[1]).toMatchObject({ id: 'book-b', title: 'Diuna', position_index: 2, is_read: true, photo_id: 'photo-uuid-1' });
   });
 
   it('mapuje ShelfBookDTO prawidłowo (cover_url, authors, published_year)', async () => {
-    const ctx = makeContext({ entryRows: [{ position_index: 1, books: bookB }] });
+    const ctx = makeContext({ entryRows: [{ position_index: 1, photo_id: null, books: bookB }] });
     const res = await GET(ctx);
     const json = (await res.json()) as {
       data: { books: { cover_url: string | null; authors: string[]; published_year: number | null }[] }
@@ -124,8 +124,8 @@ describe('GET /api/shelves/[id]/books', () => {
 
   it('filtruje wiersze bez books (null join)', async () => {
     const entryRows: EntryRow[] = [
-      { position_index: 1, books: bookA },
-      { position_index: 2, books: null }, // CASCADE delete remnant
+      { position_index: 1, photo_id: null, books: bookA },
+      { position_index: 2, photo_id: null, books: null }, // CASCADE delete remnant
     ];
     const ctx = makeContext({ entryRows });
     const res = await GET(ctx);
