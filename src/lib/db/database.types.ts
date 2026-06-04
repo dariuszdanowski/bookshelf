@@ -510,6 +510,58 @@ export type Database = {
           },
         ]
       }
+      // hand-typed S-32 — regen via 'supabase gen types --linked' after 0016 lands in prod
+      // (local stack AV-blocked, see lessons.md)
+      user_api_keys: {
+        Row: {
+          id: string
+          user_id: string
+          label: string
+          provider: 'anthropic' | 'openai' | 'openrouter' | 'openai_compatible'
+          model: string | null
+          base_url: string | null
+          encrypted_key: string
+          is_active: boolean
+          last_tested_at: string | null
+          last_test_result: 'ok' | 'error' | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          label: string
+          provider: 'anthropic' | 'openai' | 'openrouter' | 'openai_compatible'
+          model?: string | null
+          base_url?: string | null
+          encrypted_key: string
+          is_active?: boolean
+          last_tested_at?: string | null
+          last_test_result?: 'ok' | 'error' | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          label?: string
+          provider?: 'anthropic' | 'openai' | 'openrouter' | 'openai_compatible'
+          model?: string | null
+          base_url?: string | null
+          encrypted_key?: string
+          is_active?: boolean
+          last_tested_at?: string | null
+          last_test_result?: 'ok' | 'error' | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_api_keys_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

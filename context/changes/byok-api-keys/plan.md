@@ -539,13 +539,13 @@ Przed deployem: dodaj Worker Secret `USER_KEYS_ENCRYPTION_KEY` przez
 
 #### Automated
 
-- [ ] 1.1 Typecheck przechodzi: `npm run typecheck`
-- [ ] 1.2 Lint przechodzi: `npm run lint`
-- [ ] 1.3 Unit testy (schema, crypto, index, [id], [id]/test) zielone: `npm run test`
+- [x] 1.1 Typecheck przechodzi: `npm run typecheck`
+- [x] 1.2 Lint przechodzi: `npm run lint`
+- [x] 1.3 Unit testy (schema, crypto, index, [id], [id]/test) zielone: `npm run test`
 
 #### Manual
 
-- [ ] 1.4 `USER_KEYS_ENCRYPTION_KEY` dodany do `.dev.vars` (lokalny dev) + Worker Secret przed deploy — user-only
+- [x] 1.4 `USER_KEYS_ENCRYPTION_KEY` dodany do `.dev.vars` (lokalny dev) + Worker Secret przed deploy — user-only
 
 (Hand-extend `database.types.ts` dla `user_api_keys` to krok automated #9 — nie wymaga
 lokalnego stacku ani user-only; weryfikowany przez 1.1 typecheck.)

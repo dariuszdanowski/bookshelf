@@ -1,7 +1,7 @@
 ---
 change_id: byok-api-keys
 roadmap_slice: S-32
-status: plan_reviewed
+status: implementing
 created: 2026-06-04
 updated: 2026-06-04
 ---
