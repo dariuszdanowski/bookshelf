@@ -2,9 +2,10 @@
 change_id: review-page-nav-entry
 slice: S-15
 title: Przycisk „Źródłowe zdjęcie" na karcie książki
-status: impl_reviewed
+status: archived
 created: 2026-06-04
 updated: 2026-06-04
+archived_at: 2026-06-04T00:00:00Z
 ---
 
 # S-15 — review-page-nav-entry
