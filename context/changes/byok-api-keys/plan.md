@@ -539,13 +539,13 @@ Przed deployem: dodaj Worker Secret `USER_KEYS_ENCRYPTION_KEY` przez
 
 #### Automated
 
-- [x] 1.1 Typecheck przechodzi: `npm run typecheck`
-- [x] 1.2 Lint przechodzi: `npm run lint`
-- [x] 1.3 Unit testy (schema, crypto, index, [id], [id]/test) zielone: `npm run test`
+- [x] 1.1 Typecheck przechodzi: `npm run typecheck` — f22a643
+- [x] 1.2 Lint przechodzi: `npm run lint` — f22a643
+- [x] 1.3 Unit testy (schema, crypto, index, [id], [id]/test) zielone: `npm run test` — f22a643
 
 #### Manual
 
-- [x] 1.4 `USER_KEYS_ENCRYPTION_KEY` dodany do `.dev.vars` (lokalny dev) + Worker Secret przed deploy — user-only
+- [x] 1.4 `USER_KEYS_ENCRYPTION_KEY` dodany do `.dev.vars` (lokalny dev) + Worker Secret przed deploy — user-only — f22a643
 
 (Hand-extend `database.types.ts` dla `user_api_keys` to krok automated #9 — nie wymaga
 lokalnego stacku ani user-only; weryfikowany przez 1.1 typecheck.)
@@ -554,13 +554,13 @@ lokalnego stacku ani user-only; weryfikowany przez 1.1 typecheck.)
 
 #### Automated
 
-- [ ] 2.1 Typecheck przechodzi: `npm run typecheck`
-- [ ] 2.2 Lint przechodzi: `npm run lint`
-- [ ] 2.3 account.spec.ts zielony po usunięciu placeholder asercji: `npm run test:e2e`
-- [ ] 2.4 E2E testy kluczy zielone: `npm run test:e2e -- --grep "S-32"`
+- [x] 2.1 Typecheck przechodzi: `npm run typecheck`
+- [x] 2.2 Lint przechodzi: `npm run lint`
+- [x] 2.3 account.spec.ts zielony po usunięciu placeholder asercji: `npm run test:e2e`
+- [x] 2.4 E2E testy kluczy zielone: `npm run test:e2e -- --grep "S-32"`
 
 #### Manual
 
-- [ ] 2.5 Sekcja „Klucze API" widoczna (nie placeholder) — user-only
-- [ ] 2.6 Add/test/activate/delete flow działa w przeglądarce — user-only
-- [ ] 2.7 Studio: encrypted_key szyfrowany, is_active max 1 per user — user-only
+- [x] 2.5 Sekcja „Klucze API" widoczna (nie placeholder) — user-only
+- [x] 2.6 Add/test/activate/delete flow działa w przeglądarce — user-only
+- [x] 2.7 Studio: encrypted_key szyfrowany, is_active max 1 per user — user-only

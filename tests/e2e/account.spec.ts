@@ -33,7 +33,7 @@ test('/account → sekcje widoczne, edycja display_name z mock PATCH', async ({ 
   await page.waitForURL('/account');
 
   await expect(page.getByTestId('account-profile-section')).toBeVisible();
-  await expect(page.getByTestId('account-keys-placeholder')).toBeVisible();
+  await expect(page.getByTestId('account-keys-section')).toBeVisible();
 
   await expect(
     page.getByTestId('account-stats-content').or(page.getByTestId('account-stats-error'))

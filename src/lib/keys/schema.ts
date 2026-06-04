@@ -14,10 +14,21 @@ export const UpdateKeySchema = z
   .object({
     label: z.string().trim().min(1).max(100).optional(),
     is_active: z.boolean().optional(),
+    provider: ProviderEnum.optional(),
+    model: z.string().max(100).nullish(),
+    base_url: z.string().url().max(500).nullish(),
+    key_value: z.string().min(1).max(500).optional(),
   })
-  .refine((d) => d.label !== undefined || d.is_active !== undefined, {
-    message: 'At least one field required',
-  });
+  .refine(
+    (d) =>
+      d.label !== undefined ||
+      d.is_active !== undefined ||
+      d.provider !== undefined ||
+      d.model !== undefined ||
+      d.base_url !== undefined ||
+      d.key_value !== undefined,
+    { message: 'At least one field required' }
+  );
 
 export const ApiKeyDTO = z.object({
   id: z.string().uuid(),

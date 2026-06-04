@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { z } from 'zod';
 
+import { encryptWithEnvKey } from '../../../../lib/keys/crypto';
 import { UpdateKeySchema } from '../../../../lib/keys/schema';
 import { apiError, apiResponse, parseUuidParam } from '../../../../lib/http/response';
 
@@ -79,9 +80,22 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
     }
   }
 
-  const updatePayload: { label?: string; is_active?: boolean } = {};
+  const updatePayload: {
+    label?: string;
+    is_active?: boolean;
+    provider?: 'anthropic' | 'openai' | 'openrouter' | 'openai_compatible';
+    model?: string | null;
+    base_url?: string | null;
+    encrypted_key?: string;
+  } = {};
   if (parsed.data.label !== undefined) updatePayload.label = parsed.data.label;
   if (parsed.data.is_active !== undefined) updatePayload.is_active = parsed.data.is_active;
+  if (parsed.data.provider !== undefined) updatePayload.provider = parsed.data.provider;
+  if (parsed.data.model !== undefined) updatePayload.model = parsed.data.model ?? null;
+  if (parsed.data.base_url !== undefined) updatePayload.base_url = parsed.data.base_url ?? null;
+  if (parsed.data.key_value !== undefined) {
+    updatePayload.encrypted_key = await encryptWithEnvKey(parsed.data.key_value);
+  }
 
   const { data, error: updateError } = await locals.supabase
     .from('user_api_keys')

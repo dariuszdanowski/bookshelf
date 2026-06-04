@@ -96,8 +96,8 @@ describe('AccountIsland — display_name', () => {
     await waitFor(() =>
       expect(screen.getByTestId('account-display-name-error')).toBeInTheDocument()
     );
-    // Tylko call stats (mount) — PATCH nie wywołany
-    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
+    // Tylko call stats + keys (mount) — PATCH nie wywołany
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2);
   });
 });
 
