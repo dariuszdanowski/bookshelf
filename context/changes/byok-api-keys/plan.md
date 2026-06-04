@@ -48,6 +48,15 @@ Zalogowany użytkownik na `/account` widzi sekcję „Klucze API":
 - **Audit log** dodawania/usuwania kluczy — poza scope.
 - **Walidacja formatu klucza** (np. `sk-...` dla OpenAI) — sprawdzamy przez test probe,
   nie regex.
+- **Twarda mitygacja SSRF dla `base_url`** (F3 plan-review) — probe `openai_compatible` robi
+  server-side `fetch(${baseUrl}/v1/models)` na user-controlled URL. Blast radius mały (CF Workers
+  egress = public-internet, brak VPC/metadata service za workerem; RLS scopuje usera do atakowania
+  tylko własnej konfiguracji), więc dla MVP akceptowalne. Tania bariera: `CreateKeySchema.base_url`
+  wymusza `z.string().url()` — opcjonalnie dociśnij `.startsWith('https://')`. Pełna allowlist/blok
+  prywatnych zakresów odsunięty.
+- **Auto-aktywacja pierwszego/jedynego klucza** (F4 plan-review) — nowe klucze mają `is_active=false`;
+  user musi kliknąć „Aktywuj". Decyzja czy jedyny klucz auto-aktywować należy do **S-33** (pipeline
+  use); S-32 nie zmienia defaultu.
 
 ## Implementation Approach
 
@@ -170,6 +179,8 @@ export const ApiKeyDTO = z.object({
   created_at:       z.string(),
 });
 export type ApiKeyDTO = z.infer<typeof ApiKeyDTO>;
+export type CreateKeyInput = z.infer<typeof CreateKeySchema>;
+export type UpdateKeyInput = z.infer<typeof UpdateKeySchema>;
 ```
 
 `model` i `base_url` nie ma w `UpdateKeySchema` — zmiana tych pól wymaga usunięcia i
@@ -248,18 +259,30 @@ Wewnętrznie:
 - `apiResponse({ data: { result } })`. Błędy decrypt/probe → `result: 'error'`, ale nadal 200
   (błąd jest wynikiem testu, nie serwera).
 
-#### 9. Regeneracja typów DB
+#### 9. Typowanie nowej tabeli w database.types.ts (hand-extend)
 
-**File**: `src/lib/db/database.types.ts` (update)
+**File**: `src/lib/db/database.types.ts` (update, committed — nie gitignored)
 
-**Intent**: Po stworzeniu migracji 0016 `from('user_api_keys')` zwraca `any` bez zaktualizowanych
-typów — TypeScript strict nie zgłasza błędu na nieznaną nazwę tabeli (confirmed), więc typecheck
-przechodzi z untyped queries.
+**Intent**: Po migracji 0016 `from('user_api_keys')` zwraca `any` bez zaktualizowanych typów
+(TypeScript strict NIE zgłasza błędu na nieznaną nazwę tabeli — confirmed; lint też przechodzi,
+bo projekt nie ma type-aware `no-unsafe-*` reguł). To znaczy: typecheck/lint są zielone nawet
+przy stale typach, ale każde zapytanie do nowej tabeli jest **untyped** — zero compile-catch na
+literówki kolumn / kształt insertu.
 
-**Contract**: Uruchom `npx supabase gen types typescript --local > src/lib/db/database.types.ts`
-(wymaga uruchomionego lokalnego Supabase z `wsl -e bash -lc "cd /mnt/... && npx supabase start"`
-i `supabase db reset` po stworzeniu migracji). Wygenerowany plik zastąpią starą wersję — dodaje
-`user_api_keys` do `Database['public']['Tables']`.
+**Dlaczego hand-extend, nie `gen types`** (F1 plan-review): regeneracja przez `gen types` jest
+**niewykonalna pre-merge** żadną ścieżką — lokalny stack jest AV-blocked na tej maszynie
+(memory: local-supabase-blocked-by-corporate-av), a `--linked` na prod nie ma `user_api_keys`
+dopóki `db push` nie wykona się **po merge** (deploy.yml). To dokładnie chicken-and-egg z
+lessons.md („Nowa funkcja/rpc Postgres…"). Rozwiązanie zgodne z lekcją: **świadomie typuj
+ręcznie i oflaguj**.
+
+**Contract**: Ręcznie dodaj `user_api_keys` do `Database['public']['Tables']` w
+`database.types.ts` — `Row` / `Insert` / `Update` (+ `Relationships` z FK do `auth.users`
+wg wzorca istniejących tabel jak `vision_runs`). Oflaguj blokiem komentarza
+`// hand-typed S-32 — regen via 'supabase gen types --linked' after 0016 lands in prod
+(local stack AV-blocked, see lessons.md)`. Typy MUSZĄ odpowiadać dokładnie migracji 0016
+(kolumny, nullability, enumy `provider`/`last_test_result`). Post-merge follow-up (opcjonalnie):
+gdy prod ma tabelę, `--linked` regen nadpisze hand-typed wersję czysto.
 
 #### 10. Unit testy — schema
 
@@ -522,8 +545,10 @@ Przed deployem: dodaj Worker Secret `USER_KEYS_ENCRYPTION_KEY` przez
 
 #### Manual
 
-- [ ] 1.4 Regeneracja `database.types.ts` po `supabase db reset` z migracją 0016 — user-only
-- [ ] 1.5 Dodaj `USER_KEYS_ENCRYPTION_KEY` jako Worker Secret + do `.dev.vars` — user-only
+- [ ] 1.4 `USER_KEYS_ENCRYPTION_KEY` dodany do `.dev.vars` (lokalny dev) + Worker Secret przed deploy — user-only
+
+(Hand-extend `database.types.ts` dla `user_api_keys` to krok automated #9 — nie wymaga
+lokalnego stacku ani user-only; weryfikowany przez 1.1 typecheck.)
 
 ### Phase 2: AccountIsland keys UI + E2E tests
 
