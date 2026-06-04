@@ -217,18 +217,18 @@ zniknięcia linku po `DELETE /api/photos/[id]` + reload. Bez CSS-selektorów, be
 
 #### Automated
 
-- [ ] 1.1 Type checking: `npm run typecheck`
-- [ ] 1.2 Lint: `npm run lint`
-- [ ] 1.3 Unit: oba endpointy zwracają `photo_id` (uuid vs null)
+- [x] 1.1 Type checking: `npm run typecheck` — 1afeded
+- [x] 1.2 Lint: `npm run lint` — 1afeded
+- [x] 1.3 Unit: oba endpointy zwracają `photo_id` (uuid vs null) — 1afeded
 
 ### Phase 2: Link „Źródłowe zdjęcie" w BookCard + E2E
 
 #### Automated
 
-- [ ] 2.1 Type checking: `npm run typecheck`
-- [ ] 2.2 Lint: `npm run lint`
-- [ ] 2.3 Unit: `npm run test`
-- [ ] 2.4 E2E: nowy spec zielony (obecny/nawiguje, nieobecny dla ręcznej, znika po usunięciu)
+- [x] 2.1 Type checking: `npm run typecheck` — 83b485b
+- [x] 2.2 Lint: `npm run lint` — 83b485b
+- [x] 2.3 Unit: `npm run test` — 83b485b (622/622)
+- [x] 2.4 E2E: nowy spec zielony (obecny/nawiguje, nieobecny dla ręcznej, znika po usunięciu) — 83b485b
 
 #### Manual
 
