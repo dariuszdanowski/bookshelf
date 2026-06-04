@@ -554,13 +554,13 @@ lokalnego stacku ani user-only; weryfikowany przez 1.1 typecheck.)
 
 #### Automated
 
-- [x] 2.1 Typecheck przechodzi: `npm run typecheck`
-- [x] 2.2 Lint przechodzi: `npm run lint`
-- [x] 2.3 account.spec.ts zielony po usunięciu placeholder asercji: `npm run test:e2e`
-- [x] 2.4 E2E testy kluczy zielone: `npm run test:e2e -- --grep "S-32"`
+- [x] 2.1 Typecheck przechodzi: `npm run typecheck` — 622ef71
+- [x] 2.2 Lint przechodzi: `npm run lint` — 622ef71
+- [x] 2.3 account.spec.ts zielony po usunięciu placeholder asercji: `npm run test:e2e` — 622ef71
+- [x] 2.4 E2E testy kluczy zielone: `npm run test:e2e -- --grep "S-32"` — 622ef71
 
 #### Manual
 
-- [x] 2.5 Sekcja „Klucze API" widoczna (nie placeholder) — user-only
-- [x] 2.6 Add/test/activate/delete flow działa w przeglądarce — user-only
-- [x] 2.7 Studio: encrypted_key szyfrowany, is_active max 1 per user — user-only
+- [x] 2.5 Sekcja „Klucze API" widoczna (nie placeholder) — user-only — 622ef71
+- [x] 2.6 Add/test/activate/delete flow działa w przeglądarce — user-only — 622ef71
+- [x] 2.7 Studio: encrypted_key szyfrowany, is_active max 1 per user — user-only — 622ef71

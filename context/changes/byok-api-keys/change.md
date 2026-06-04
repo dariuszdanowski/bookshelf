@@ -1,9 +1,9 @@
 ---
 change_id: byok-api-keys
 roadmap_slice: S-32
-status: implementing
+status: implemented
 created: 2026-06-04
-updated: 2026-06-04
+updated: 2026-06-05
 ---
 
 # S-32 — BYOK: klucze API własne użytkownika
