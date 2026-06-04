@@ -232,7 +232,7 @@ zniknięcia linku po `DELETE /api/photos/[id]` + reload. Bez CSS-selektorów, be
 
 #### Manual
 
-- [ ] 2.5 `/shelves/[id]`: link obecny + nawigacja poprawna
-- [ ] 2.6 `/library`: link identyczny
-- [ ] 2.7 Wpis ręczny: brak linku
-- [ ] 2.8 Po usunięciu zdjęcia (S-29): link znika po odświeżeniu
+- [x] 2.5 `/shelves/[id]`: link obecny + nawigacja poprawna
+- [x] 2.6 `/library`: link identyczny
+- [x] 2.7 Wpis ręczny: brak linku
+- [x] 2.8 Po usunięciu zdjęcia (S-29): link znika po odświeżeniu
