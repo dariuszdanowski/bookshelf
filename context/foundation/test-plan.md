@@ -6,7 +6,7 @@
 >
 > Refresh: re-run `/10x-test-plan --refresh` when stale (see §8).
 >
-> Last updated: 2026-06-04 (Phase 1 → implementing)
+> Last updated: 2026-06-04 (Phase 1 → complete, PR #39)
 
 ## 1. Strategy
 
@@ -82,7 +82,7 @@ względem ryzyka.
 
 | # | Phase name | Goal (one line) | Risks covered | Test types | Status | Change folder |
 |---|------------|-----------------|---------------|------------|--------|----------------|
-| 1 | RLS isolation gate w CI | Dowód izolacji per-user wykonuje się automatycznie, nie tylko ręcznie post-merge (podpiąć `test:integration` do istniejącego joba e2e — lokalna Supabase już stoi) | #1, #4 | integration | implementing | `change/testing-rls-isolation-gate` (PR) |
+| 1 | RLS isolation gate w CI | Dowód izolacji per-user wykonuje się automatycznie, nie tylko ręcznie post-merge (podpiąć `test:integration` do istniejącego joba e2e — lokalna Supabase już stoi) | #1, #4 | integration | complete | PR #39 (zmergowany, CI zielony) |
 | 2 | Authorization/IDOR contract | Każdy endpoint item ma test cross-user 404 + malformed-UUID; kontrakt 401-przed-fetch zweryfikowany na realnym RLS | #2 | unit + integration | not started | — |
 | 3 | Cost & idempotency regression | Brak podwójnego billingu / re-process; koszt przeżywa DELETE; retry idempotentny | #3, #4 | unit + integration | not started | — |
 | — | Baseline (istniejące) | 62 unit + 20 e2e: auth, CRUD półek/książek, matching/dedupe/isbn, accept-flow, search, photos-crud, account, overlay | #5, #6, cross-cutting | unit + e2e | complete | (rozproszone w `tests/`) |
