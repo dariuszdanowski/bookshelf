@@ -78,6 +78,13 @@ const titleWithEnv = `[${ENV_LABEL[dbEnv]}] ${title}`;
           >
             Dodaj zakup
           </a>
+          <a
+            href="/account"
+            class="font-medium text-gray-700 hover:text-gray-900"
+            data-testid="nav-account"
+          >
+            Moje konto
+          </a>
           <ThemeToggle client:only="react" />
           <span data-testid="user-email">{user.email}</span>
           <LogoutButton client:load />

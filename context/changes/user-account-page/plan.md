@@ -376,27 +376,27 @@ Brak migracji DB — `profiles.display_name` i RLS `profiles_update_own` już is
 
 #### Automated
 
-- [x] 1.1 Typecheck przechodzi: `npm run typecheck`
-- [x] 1.2 Lint przechodzi: `npm run lint`
-- [x] 1.3 Unit testy przechodzą: `npm run test`
-- [x] 1.4 `tests/unit/pages/api/account/profile.test.ts` pokrywa 200/401/400-Zod/400-JSON/500
+- [x] 1.1 Typecheck przechodzi: `npm run typecheck` — c7906e8
+- [x] 1.2 Lint przechodzi: `npm run lint` — c7906e8
+- [x] 1.3 Unit testy przechodzą: `npm run test` — c7906e8
+- [x] 1.4 `tests/unit/pages/api/account/profile.test.ts` pokrywa 200/401/400-Zod/400-JSON/500 — c7906e8
 
 ### Phase 2: Strona /account + statystyki + display_name + nav
 
 #### Automated
 
-- [ ] 2.1 Typecheck przechodzi: `npm run typecheck`
-- [ ] 2.2 Lint przechodzi: `npm run lint`
-- [ ] 2.3 Unit testy przechodzą: `npm run test`
-- [ ] 2.4 `tests/unit/components/AccountIsland.test.tsx` pokrywa display_name save/rollback + render statystyk
-- [ ] 2.5 E2E `tests/e2e/account.spec.ts` (read + display_name) przechodzi
-- [ ] 2.6 `npm run build` przechodzi
+- [x] 2.1 Typecheck przechodzi: `npm run typecheck`
+- [x] 2.2 Lint przechodzi: `npm run lint`
+- [x] 2.3 Unit testy przechodzą: `npm run test`
+- [x] 2.4 `tests/unit/components/AccountIsland.test.tsx` pokrywa display_name save/rollback + render statystyk
+- [x] 2.5 E2E `tests/e2e/account.spec.ts` (read + display_name) przechodzi
+- [x] 2.6 `npm run build` przechodzi
 
 #### Manual
 
-- [ ] 2.7 `/account` renderuje sekcje; blok kosztów pokazuje realne wartości
-- [ ] 2.8 Edycja display_name utrzymuje się po reloadzie
-- [ ] 2.9 Link „Moje konto" widoczny w nagłówku, prowadzi na `/account`
+- [x] 2.7 `/account` renderuje sekcje; blok kosztów pokazuje realne wartości
+- [x] 2.8 Edycja display_name utrzymuje się po reloadzie
+- [x] 2.9 Link „Moje konto" widoczny w nagłówku, prowadzi na `/account`
 
 ### Phase 3: Zmiana emaila i hasła (Supabase Auth)
 

@@ -1,0 +1,28 @@
+---
+import Layout from '../layouts/Layout.astro';
+import AccountIsland from '../components/AccountIsland.tsx';
+
+export const prerender = false;
+
+// Protected by middleware — locals.user is non-null here.
+const user = Astro.locals.user!;
+
+const { data: profile } = await Astro.locals.supabase
+  .from('profiles')
+  .select('display_name')
+  .eq('id', user.id)
+  .single();
+
+const initialDisplayName = profile?.display_name ?? null;
+---
+
+<Layout title="Moje konto">
+  <main class="mx-auto max-w-2xl p-8">
+    <h1 class="mb-6 text-3xl font-bold">Moje konto</h1>
+    <AccountIsland
+      client:load
+      initialDisplayName={initialDisplayName}
+      userEmail={user.email ?? ''}
+    />
+  </main>
+</Layout>
