@@ -12,8 +12,8 @@ type ApiJson = {
 };
 
 const entryRows = [
-  { book_id: BOOK_1, shelf_id: SHELF_A, position_index: 1, shelves: { id: SHELF_A, name: 'Salon' } },
-  { book_id: BOOK_2, shelf_id: SHELF_A, position_index: 2, shelves: { id: SHELF_A, name: 'Salon' } },
+  { book_id: BOOK_1, shelf_id: SHELF_A, position_index: 1, photo_id: 'photo-uuid-1', shelves: { id: SHELF_A, name: 'Salon' } },
+  { book_id: BOOK_2, shelf_id: SHELF_A, position_index: 2, photo_id: null, shelves: { id: SHELF_A, name: 'Salon' } },
 ];
 const bookRows = [
   { id: BOOK_1, title: 'Solaris', authors: ['Lem'], cover_url: null, published_year: 1961, is_read: false, spine_color: 'niebieski' },
@@ -78,7 +78,7 @@ describe('GET /api/books/search', () => {
     expect(res.status).toBe(200);
     const json = (await res.json()) as ApiJson;
     expect(json.data!.total).toBe(2);
-    expect(json.data!.books[0]).toMatchObject({ id: BOOK_1, shelf_name: 'Salon', spine_color: 'niebieski' });
+    expect(json.data!.books[0]).toMatchObject({ id: BOOK_1, shelf_name: 'Salon', spine_color: 'niebieski', photo_id: 'photo-uuid-1' });
     expect(res.headers.get('Cache-Control')).toBe('private, no-store');
   });
 

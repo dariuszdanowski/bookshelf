@@ -134,6 +134,17 @@ export default function BookCard({
         {book.is_read ? '✓ Przeczytana' : 'Nie przeczytana'}
       </button>
 
+      {/* Link do źródłowego zdjęcia (S-15) — tylko gdy photo_id jest present */}
+      {book.photo_id && (
+        <a
+          data-testid={`source-photo-link-${book.id}`}
+          href={`/photos/${book.photo_id}`}
+          className="w-full rounded px-2 py-1 text-center text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline"
+        >
+          Źródłowe zdjęcie
+        </a>
+      )}
+
       {/* Przeniesienie na inną półkę (S-07) — tylko gdy podano shelves + onMove */}
       {onMove && moveTargets.length > 0 && (
         <select

@@ -13,6 +13,7 @@ const baseBook: ShelfBookDTO = {
   published_year: 1961,
   position_index: 1,
   is_read: false,
+  photo_id: null,
 };
 
 describe('BookCard', () => {
@@ -67,6 +68,21 @@ describe('BookCard', () => {
     render(<BookCard book={book} onToggleRead={vi.fn()} />);
     const placeholder = screen.getByRole('img', { name: 'Solaris' });
     expect(placeholder).toBeInTheDocument();
+  });
+
+  // S-15: link „Źródłowe zdjęcie" → /photos/[photo_id]
+  it('renderuje link „Źródłowe zdjęcie" gdy photo_id jest present', () => {
+    const book = { ...baseBook, photo_id: '11111111-0000-4000-8000-000000000099' };
+    render(<BookCard book={book} onToggleRead={vi.fn()} />);
+    const link = screen.getByTestId(`source-photo-link-${BOOK_ID}`);
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute('href', '/photos/11111111-0000-4000-8000-000000000099');
+    expect(link.textContent).toContain('Źródłowe zdjęcie');
+  });
+
+  it('NIE renderuje linku „Źródłowe zdjęcie" gdy photo_id jest null', () => {
+    render(<BookCard book={baseBook} onToggleRead={vi.fn()} />);
+    expect(screen.queryByTestId(`source-photo-link-${BOOK_ID}`)).not.toBeInTheDocument();
   });
 
   // S-08: opcjonalne propsy shelfName/spineColor (wyniki wyszukiwarki)

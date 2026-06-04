@@ -56,6 +56,7 @@ export type ShelfBookDTO = {
   published_year: number | null;
   position_index: number | null;
   is_read: boolean;
+  photo_id: string | null;
 };
 
 // DTO dla wyników wyszukiwarki katalogu (S-08) — ShelfBookDTO + nazwa półki + kolor
