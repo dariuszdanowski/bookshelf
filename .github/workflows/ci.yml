@@ -124,6 +124,17 @@ jobs:
           done
           echo "::warning::warm-up: iat-future utrzymał się ~30s — Playwright retries zostają siatką"
 
+      - name: Run integration tests (RLS isolation)
+        # Dowód izolacji per-user (tests/integration/*) na świeżej lokalnej bazie —
+        # guardrail prywatności #1 z test-plan.md (§3 Phase 1). Przedtem te testy
+        # nigdy nie odpalały się automatycznie: describe.skip bez env, walidowane
+        # tylko ręcznie post-merge. vitest.integration.config.ts czyta env z
+        # .dev.vars (zapisane w kroku „Write .dev.vars") → skip się rozpina i testy
+        # hitują realny Supabase (127.0.0.1:54321). Warm-up wyżej absorbuje też tu
+        # JWT iat-skew (testy robią signup→authed select przez admin API). Lokalna
+        # Supabase już stoi — zerowy dodatkowy setup, zerowy koszt LLM.
+        run: npm run test:integration
+
       - name: Run E2E tests
         # webServer w configu sam startuje `npm run dev` (czyta świeży .dev.vars) i
         # czeka na :4321. CI=true (auto) włącza retries/workers/forbidOnly.
