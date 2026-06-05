@@ -243,6 +243,23 @@ describe('DetectionReview — confirm single', () => {
     });
   });
 
+  it('po zaakceptowaniu wszystkich detekcji przekierowuje na półkę', async () => {
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { book_id: 'b1', shelf_id: SHELF_ID } }), { status: 200 })
+      );
+
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    const confirmBtn = await waitFor(() => screen.getByTestId('confirm-button'));
+    fireEvent.click(confirmBtn);
+
+    // defekt-3 (strona pozytywna): redirect następuje gdy ≥1 zaakceptowana
+    await waitFor(() => expect(window.location.href).toBe(`/shelves/${SHELF_ID}`));
+  });
+
   it('409 z /confirm pokazuje komunikat o duplikacie', async () => {
     vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(

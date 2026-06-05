@@ -178,4 +178,67 @@ describe('POST /api/detections/[id]/rematch', () => {
     const updateCall = vi.mocked(supabase.from).mock.calls.find(([t]) => t === 'detections');
     expect(updateCall).toBeTruthy();
   });
+
+  it('odfiltrowuje kandydata z zupełnie innym autorem (Agnieszka Lis vs Kazimierz Arendt)', async () => {
+    vi.mocked(searchGoogleBooks).mockResolvedValue({
+      ok: true,
+      candidates: [{
+        source: 'google_books', externalId: 'gb-x', title: 'Poczta polska',
+        authors: ['Kazimierz Arendt'], isbn10: null, isbn13: null,
+        publisher: null, publishedYear: null, coverUrl: null,
+      }],
+    });
+    vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({ ok: false, reason: 'empty' });
+    vi.mocked(searchOpenLibrary).mockResolvedValue({ ok: false, reason: 'empty' });
+    const ctx = makeContext({ body: { title: 'Poczta', author: 'Agnieszka Lis' } });
+    const res = await POST(ctx);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as ApiJson;
+    expect(json.data!['applied']).toBe(false);
+    expect((json.data!['candidates'] as unknown[]).length).toBe(0);
+  });
+
+  it('zachowuje kandydata cross-języka ze score ≥0.25 (autor pasuje, tytuł nie) — dawne 0.55 by go odrzuciło', async () => {
+    vi.mocked(searchGoogleBooks).mockResolvedValue({
+      ok: true,
+      candidates: [{
+        source: 'google_books', externalId: 'gb-keret',
+        title: 'The Bus Driver Who Wanted to Be God',
+        authors: ['Etgar Keret'], isbn10: null, isbn13: '9781592640225',
+        publisher: null, publishedYear: 2004, coverUrl: null,
+      }],
+    });
+    vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({ ok: false, reason: 'empty' });
+    vi.mocked(searchOpenLibrary).mockResolvedValue({ ok: false, reason: 'empty' });
+    const ctx = makeContext({ body: { title: 'Usterka na skraju galaktyki', author: 'Etgar Keret' } });
+    const res = await POST(ctx);
+    const json = (await res.json()) as ApiJson;
+    expect(json.data!['applied']).toBe(true);
+    expect((json.data!['candidates'] as unknown[]).length).toBeGreaterThan(0);
+  });
+
+  it('przekazuje ISBN z formularza do Google Books i OpenLibrary', async () => {
+    vi.mocked(searchGoogleBooks).mockResolvedValue({ ok: false, reason: 'empty' });
+    vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({ ok: false, reason: 'empty' });
+    vi.mocked(searchOpenLibrary).mockResolvedValue({ ok: false, reason: 'empty' });
+    const ctx = makeContext({ body: { title: 'Coś', author: null, isbn: '9788308073087' } });
+    await POST(ctx);
+    expect(vi.mocked(searchGoogleBooks)).toHaveBeenCalledWith(
+      expect.objectContaining({ isbn: '9788308073087' })
+    );
+    expect(vi.mocked(searchOpenLibrary)).toHaveBeenCalledWith(
+      expect.objectContaining({ isbn: '9788308073087' })
+    );
+  });
+
+  it('auto-ekstrahuje autora z „Tytuł — Imię Nazwisko" gdy pole autora puste', async () => {
+    vi.mocked(searchGoogleBooks).mockResolvedValue({ ok: false, reason: 'empty' });
+    vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({ ok: false, reason: 'empty' });
+    vi.mocked(searchOpenLibrary).mockResolvedValue({ ok: false, reason: 'empty' });
+    const ctx = makeContext({ body: { title: 'Sto lat samotności — Gabriel García Márquez', author: null } });
+    await POST(ctx);
+    expect(vi.mocked(searchGoogleBooks)).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Sto lat samotności', author: 'Gabriel García Márquez' })
+    );
+  });
 });
