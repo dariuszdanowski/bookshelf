@@ -47,7 +47,7 @@ function multiAuthorConfidence(authorCount: number): number {
   return ANTHOLOGY_AUTHOR_THRESHOLD / authorCount;
 }
 
-function authorSim(detectionAuthor: string | null | undefined, candidateAuthors: string[]): number {
+export function authorSim(detectionAuthor: string | null | undefined, candidateAuthors: string[]): number {
   if (!detectionAuthor) return 0.5; // neutral — no OCR author info
   if (candidateAuthors.length === 0) return 0.5; // neutral — candidate has no author data
   const na = normalize(detectionAuthor);
