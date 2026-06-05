@@ -22,12 +22,16 @@ export function deCyrillic(s: string): string {
  * Czyści tytuł do zapytania wyszukiwania:
  * 1. homoglify cyrylica → łacina
  * 2. usuwa zakresy lat (1985-2003 / 1985–2003)
- * 3. kolapsuje białe znaki
+ * 3. usuwa ucięte OCR-em słowa na końcu: "ŻYC..." → strip całego fragmentu;
+ *    "OGARNACZ..." → strip tylko kropek (pełne słowo, zatrzymaj je)
+ * 4. kolapsuje białe znaki
  * Zwraca przyciętą wersję (zachowuje diakrytyki PL i wielkość liter).
  */
 export function cleanSearchTitle(raw: string): string {
   return deCyrillic(raw)
-    .replace(/\b\d{4}\s*[-–—]\s*\d{4}\b/g, ' ') // zakres lat
+    .replace(/\b\d{4}\s*[-–—]\s*\d{4}\b/g, ' ')       // zakres lat
+    .replace(/\s+[^\s]{1,5}(?:\.{3,}|…)\s*$/, '')      // ucięte słowo: " ŻYC..." → strip
+    .replace(/(?:\.{3,}|…)\s*$/, '')                    // pozostałe "..." na końcu → strip
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -45,6 +49,28 @@ export function mainTitleSegment(cleaned: string): string {
     .filter((p) => p.length >= 3);
   if (parts.length === 0) return cleaned;
   return parts.reduce((a, b) => (b.length > a.length ? b : a));
+}
+
+/**
+ * Heurystycznie rozdziela "Tytuł — Imię Nazwisko" na osobne pola.
+ * Pasuje gdy część po myślniku em/en wygląda jak imię i nazwisko:
+ * 2–3 słowa, każde zaczyna się wielką literą i zawiera małe litery
+ * (wyklucza WIELKIE_LITERY będące podtytułami).
+ * Zwraca { title, author: null } gdy wzorzec nie pasuje.
+ */
+export function extractAuthorFromTitle(raw: string): { title: string; author: string | null } {
+  const match = /^(.{3,}?)\s*[–—]\s*(.+?)\s*$/.exec(raw);
+  if (!match) return { title: raw, author: null };
+  const candidate = match[2].trim();
+  const words = candidate.split(/\s+/);
+  if (
+    words.length >= 2 &&
+    words.length <= 3 &&
+    words.every((w) => /^[A-ZĄĆĘŁŃÓŚŹŻ]/.test(w) && /[a-ząćęłńóśźż]/.test(w))
+  ) {
+    return { title: match[1].trim(), author: candidate };
+  }
+  return { title: raw, author: null };
 }
 
 /**

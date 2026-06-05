@@ -42,11 +42,30 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   const input = parsed.data;
 
-  // Resolve „Zakupione" (RLS-scoped). Brak = stan nieoczekiwany (signup ją tworzy).
-  const shelfId = await getPurchasedShelfId(locals.supabase);
-  if (!shelfId) {
-    console.error('[api/books POST] Zakupione shelf not found for user', { userId: locals.user.id });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie znaleziono półki „Zakupione".' });
+  // Półka docelowa: podana (dodanie ręczne na dowolną półkę, S-33) lub „Zakupione"
+  // (Flow B). Podaną walidujemy RLS-scoped (cudza/nieistniejąca → 404).
+  let shelfId: string | null;
+  if (input.shelf_id) {
+    const { data: shelf, error: shelfErr } = await locals.supabase
+      .from('shelves')
+      .select('id')
+      .eq('id', input.shelf_id)
+      .maybeSingle();
+    if (shelfErr) {
+      console.error('[api/books POST] shelf select failed', { name: shelfErr.name, message: shelfErr.message, code: shelfErr.code });
+      return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Błąd serwera.' });
+    }
+    if (!shelf) {
+      return apiError({ code: 'NOT_FOUND', status: 404, message: 'Półka nie istnieje.' });
+    }
+    shelfId = shelf.id;
+  } else {
+    // Resolve „Zakupione" (RLS-scoped). Brak = stan nieoczekiwany (signup ją tworzy).
+    shelfId = await getPurchasedShelfId(locals.supabase);
+    if (!shelfId) {
+      console.error('[api/books POST] Zakupione shelf not found for user', { userId: locals.user.id });
+      return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie znaleziono półki „Zakupione".' });
+    }
   }
 
   // Exact-dup pre-check po isbn_13 (gdy podany) → 409 z shelfHint
@@ -68,7 +87,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
     }
   }
 
-  const purchaseDate = input.purchase_date ?? new Date().toISOString().slice(0, 10);
+  // purchase_date: dla „Zakupione" (Flow B) domyślnie dziś; dla ręcznego dodania
+  // na inną półkę tylko gdy user poda (zakup to nie to samo co „mam na półce").
+  const purchaseDate = input.purchase_date ?? (input.shelf_id ? null : new Date().toISOString().slice(0, 10));
 
   // INSERT books
   const { data: newBook, error: bookError } = await locals.supabase
@@ -81,6 +102,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       published_year: input.published_year ?? null,
       isbn_13: input.isbn_13 ?? null,
       isbn_10: input.isbn_10 ?? null,
+      cover_url: input.cover_url ?? null,
       purchase_date: purchaseDate,
       source: 'manual',
     })

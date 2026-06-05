@@ -89,6 +89,44 @@ test('keys section — dodaj klucz flow (formularz → zapis → wiersz w liści
   await expect(page.getByTestId(`account-key-label-${NEW_KEY.id}`)).toHaveText('Nowy klucz');
 });
 
+test('keys section — deaktywuj klucz flow (aktywny klucz traci badge aktywny)', async ({ page }) => {
+  await page.route('**/api/account/keys', (route) => {
+    if (route.request().method() === 'GET') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { keys: [MOCK_KEY] } }),
+      });
+    }
+    return route.continue();
+  });
+
+  await page.route(`**/api/account/keys/${MOCK_KEY.id}`, (route) => {
+    if (route.request().method() === 'PATCH') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { key: { ...MOCK_KEY, is_active: false } } }),
+      });
+    }
+    return route.continue();
+  });
+
+  await page.goto('/account');
+
+  const row = page.getByTestId(`account-key-row-${MOCK_KEY.id}`);
+  await expect(row).toBeVisible({ timeout: 5_000 });
+  await expect(page.getByTestId(`account-key-active-badge-${MOCK_KEY.id}`)).toBeVisible();
+
+  await page.getByTestId(`account-key-deactivate-btn-${MOCK_KEY.id}`).click();
+
+  await expect(page.getByTestId(`account-key-active-badge-${MOCK_KEY.id}`)).not.toBeVisible({ timeout: 5_000 });
+  // Klucz nadal w liście (nie usunięty)
+  await expect(row).toBeVisible();
+  // Przycisk Aktywuj pojawia się
+  await expect(page.getByTestId(`account-key-activate-btn-${MOCK_KEY.id}`)).toBeVisible();
+});
+
 test('keys section — usuń klucz flow (klucz znika z listy po DELETE)', async ({ page }) => {
   await page.route('**/api/account/keys', (route) => {
     if (route.request().method() === 'GET') {

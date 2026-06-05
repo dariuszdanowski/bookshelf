@@ -32,10 +32,12 @@ export default function PhotoUploader({
   userId: string;
   presetShelfId?: string;
 }) {
+  const [hasActiveKey, setHasActiveKey] = useState<boolean | null>(null);
   const [shelves, setShelves] = useState<ShelfDTO[]>([]);
   const [selectedShelfId, setSelectedShelfId] = useState('');
   const [stage, setStage] = useState<UploadStage>('idle');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [noApiKey, setNoApiKey] = useState(false);
   const [currentPhotoId, setCurrentPhotoId] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [shelvesError, setShelvesError] = useState<string | null>(null);
@@ -45,6 +47,16 @@ export default function PhotoUploader({
   const [duplicatePhotoId, setDuplicatePhotoId] = useState<string | null>(null);
   const [duplicateCreatedAt, setDuplicateCreatedAt] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    fetch('/api/account/keys')
+      .then((r) => r.json() as Promise<{ data?: { keys?: { is_active: boolean }[] } }>)
+      .then((body) => {
+        const active = (body.data?.keys ?? []).some((k) => k.is_active);
+        setHasActiveKey(active);
+      })
+      .catch(() => { /* silent: don't block on key check failure */ });
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -84,13 +96,17 @@ export default function PhotoUploader({
   const processPhoto = useCallback(
     async (photoId: string) => {
       setCanRetryMatchOnly(false);
+      setNoApiKey(false);
       setStage('processing');
       const processRes = await fetch(`/api/photos/${photoId}/process`, { method: 'POST' });
       const processJson = (await processRes.json()) as {
         data?: { photo: PhotoDTO; detections: unknown[] };
-        error?: { message?: string };
+        error?: { code?: string; message?: string };
       };
       if (!processRes.ok || !processJson.data) {
+        if (processRes.status === 403 && processJson.error?.code === 'NO_API_KEY') {
+          setNoApiKey(true);
+        }
         throw new Error(processJson.error?.message ?? `Błąd przetwarzania (${processRes.status})`);
       }
       setCanRetryMatchOnly(true);
@@ -301,7 +317,7 @@ export default function PhotoUploader({
             value={selectedShelfId}
             onChange={(e) => setSelectedShelfId(e.target.value)}
             disabled={isProcessing}
-            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
           >
             {shelves.map((s) => (
               <option key={s.id} value={s.id}>
@@ -311,6 +327,20 @@ export default function PhotoUploader({
           </select>
         )}
       </div>
+
+      {/* No-key informational banner (non-blocking) */}
+      {hasActiveKey === false && (
+        <div
+          data-testid="photo-uploader-no-key-warning"
+          className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+        >
+          Brak aktywnego klucza API — zdjęcie zostanie wgrane, ale analiza LLM nie zostanie uruchomiona.{' '}
+          <a href="/account" className="font-medium underline hover:text-amber-900">
+            Dodaj klucz w ustawieniach konta
+          </a>
+          .
+        </div>
+      )}
 
       {/* Drop zone */}
       {!isProcessing && stage !== 'done' && stage !== 'duplicate' && (
@@ -389,6 +419,26 @@ export default function PhotoUploader({
           className="mt-4 rounded-md border border-red-300 bg-red-50 px-4 py-3"
         >
           <p className="mb-2 text-sm text-red-700">{errorMsg}</p>
+          {noApiKey && (
+            <div className="mb-2 flex flex-wrap gap-3">
+              <a
+                data-testid="no-api-key-link"
+                href="/account"
+                className="text-sm text-blue-600 underline hover:text-blue-800"
+              >
+                Dodaj klucz API w ustawieniach konta
+              </a>
+              {currentPhotoId && (
+                <a
+                  data-testid="uploaded-photo-link"
+                  href={`/photos/${currentPhotoId}`}
+                  className="text-sm text-blue-600 underline hover:text-blue-800"
+                >
+                  Przejdź do wgranego zdjęcia
+                </a>
+              )}
+            </div>
+          )}
           {currentPhotoId && (
             <button
               data-testid="retry-button"

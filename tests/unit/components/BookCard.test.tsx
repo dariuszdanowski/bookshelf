@@ -14,6 +14,12 @@ const baseBook: ShelfBookDTO = {
   position_index: 1,
   is_read: false,
   photo_id: null,
+  isbn_13: '9788373191723',
+  isbn_10: null,
+  publisher: 'Wydawnictwo Literackie',
+  user_cover_url: null,
+  cover_photo_url: null,
+  cover_source: 'auto',
 };
 
 describe('BookCard', () => {
@@ -41,6 +47,28 @@ describe('BookCard', () => {
     expect(img).toHaveAttribute('src', 'https://example.com/cover.jpg');
   });
 
+  it('cover_source=url → pokazuje user_cover_url (override)', () => {
+    const book = {
+      ...baseBook,
+      cover_url: 'https://auto.jpg',
+      user_cover_url: 'https://user.jpg',
+      cover_source: 'url' as const,
+    };
+    render(<BookCard book={book} onToggleRead={vi.fn()} />);
+    expect(screen.getByAltText(/Solaris/)).toHaveAttribute('src', 'https://user.jpg');
+  });
+
+  it('cover_source=photo → pokazuje cover_photo_url', () => {
+    const book = {
+      ...baseBook,
+      cover_url: 'https://auto.jpg',
+      cover_photo_url: 'https://photo.jpg',
+      cover_source: 'photo' as const,
+    };
+    render(<BookCard book={book} onToggleRead={vi.fn()} />);
+    expect(screen.getByAltText(/Solaris/)).toHaveAttribute('src', 'https://photo.jpg');
+  });
+
   it('toggle button aria-pressed=false gdy nie przeczytana', () => {
     render(<BookCard book={baseBook} onToggleRead={vi.fn()} />);
     const btn = screen.getByTestId(`toggle-read-${BOOK_ID}`);
@@ -61,6 +89,15 @@ describe('BookCard', () => {
     render(<BookCard book={baseBook} onToggleRead={onToggle} />);
     fireEvent.click(screen.getByTestId(`toggle-read-${BOOK_ID}`));
     expect(onToggle).toHaveBeenCalledWith(BOOK_ID, false);
+  });
+
+  it('klik w okładkę otwiera podgląd szczegółów (ISBN, wydawca)', () => {
+    render(<BookCard book={baseBook} onToggleRead={vi.fn()} />);
+    expect(screen.queryByTestId('book-detail-modal')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId(`book-cover-button-${BOOK_ID}`));
+    expect(screen.getByTestId('book-detail-modal')).toBeInTheDocument();
+    expect(screen.getByText('9788373191723')).toBeInTheDocument();
+    expect(screen.getByText('Wydawnictwo Literackie')).toBeInTheDocument();
   });
 
   it('brak autora — alt tylko tytuł', () => {

@@ -3,7 +3,7 @@ project: "BookShelf Scanner"
 version: 1
 status: draft
 created: 2026-05-25
-updated: 2026-06-04
+updated: 2026-06-05
 prd_version: 1
 main_goal: speed
 top_blocker: time
@@ -62,7 +62,7 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | S-29  | photos-crud                   | pełny CRUD dla zdjęć: lista zdjęć per półka (GET /api/photos?shelf_id=), usunięcie zdjęcia z Storage + cascade detections/book_candidates (DELETE /api/photos/[id]), edycja metadanych (PATCH — zmiana shelf_id / retitle); zakładki „Książki / Zdjęcia" na `/shelves/[id]`; badge dla zdjęć z NULL hash (stare duplikaty) | S-03, S-05, **S-30** | FR (zarządzanie zdjęciami) | done |
 | S-30  | vision-cost-preservation      | zachowanie historii kosztów vision przy DELETE zdjęć: dodanie `user_id` do `vision_runs` i `refine_calls`, zmiana FK `photo_id` z CASCADE na SET NULL; endpoint `GET /api/account/stats` zwracający łączny koszt i liczbę wywołań per user | S-03 | NFR (integrity kosztów) | done |
 | S-31  | user-account-page             | strona `/account`: edycja display_name (PATCH /api/account/profile), zmiana emaila i hasła (Supabase Auth updateUser), sekcja statystyk kosztów vision (z S-30), lista podłączonych kluczy API (z S-32) | S-01 | UX (profil użytkownika) | proposed |
-| S-32  | byok-api-keys                 | własne klucze API do modeli vision (BYOK): tabela `user_api_keys` z szyfrowaniem at rest (pgcrypto/Vault), UI zarządzania kluczami na `/account` (add/delete/test), providerzy: Anthropic / OpenAI / OpenRouter / OpenAI-compatible (base_url+model) | S-31 | FR (multi-provider vision) | proposed |
+| S-32  | byok-api-keys                 | własne klucze API do modeli vision (BYOK): tabela `user_api_keys` z szyfrowaniem at rest (pgcrypto/Vault), UI zarządzania kluczami na `/account` (add/delete/test), providerzy: Anthropic / OpenAI / OpenRouter / OpenAI-compatible (base_url+model) | S-31 | FR (multi-provider vision) | done |
 | S-33  | byok-pipeline                 | pipeline vision wymaga klucza usera: `/api/photos/[id]/process` sprawdza `user_api_keys`, brak klucza → 403 z linkiem do `/account`; abstrakcja `VisionProvider` w `src/lib/vision/` zastępuje hardkodowany Anthropic SDK; globalny klucz z env wyłączony dla zwykłych userów | S-32 | FR (BYOK enforcement) | proposed |
 | S-34  | shelf-book-view-modes         | tryby widoku książek na `/shelves/[id]`: lista kompaktowa (1 linia), kafelki (okładka+tytuł), szczegółowe panele (obecny); przełącznik z `localStorage` + responsywny default; analogia do S-25 `detection-list-views` | S-29 | UX polish | proposed |
 | S-35  | refine-ux-cost-info           | UX fix przycisków refine: jeden spójny label „Doprecyzuj odczyt" (zamiast mylących dwóch nazw); ⚠ ikona + tooltip przy słabym cropie; widoczna informacja „Dodatkowa analiza AI (płatna)" przy każdym wariancie; opcjonalny dialog potwierdzenia dla `uncertain_localization` | — | UX polish | done |
@@ -369,7 +369,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **Blockers:** wybór mechanizmu szyfrowania (Supabase Vault vs pgcrypto AES-256 z kluczem z Worker Secrets) — sprawdzić dostępność Vault na tym projekcie przed planem.
 - **Unknowns:** Supabase Vault API (`vault.create_secret`) vs pgcrypto `pgp_sym_encrypt` — oba feasible, Vault czystszy ale wymaga rozszerzenia; pgcrypto bardziej przenośny.
 - **Risk:** WYSOKI dla bezpieczeństwa — klucze API userów muszą być szyfrowane, never-logged, never-returned. Ryzyko wycieku przy błędzie implementacji jest poważne. Wymagany security review przed merge.
-- **Status:** proposed
+- **Status:** done
 
 ### S-33: Pipeline vision wymaga klucza usera (BYOK enforcement)
 
@@ -564,5 +564,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **S-29: `/shelves/[id]` zakładki Książki/Zdjęcia; DELETE `/api/photos/[id]` (Storage + cascade detections/book_candidates, shelf_entries i koszty SET NULL — katalog i historia kosztów zostają); PATCH shelf_id (przeniesienie zdjęcia); badge „Bez hash" dla NULL `file_hash_sha256`; modal potwierdzenia usunięcia.** — Archived 2026-06-04 → `context/archive/2026-06-03-photos-crud/`. Lesson: adaptacje literalne — lista zdjęć reuse istniejącego `GET /api/shelves/[id]/photos` (nie nowy `?shelf_id=`), „retitle" porzucone (brak kolumny title); DELETE DB-first → best-effort Storage remove (orphan-safe); cascade + SET-NULL zweryfikowane na prod (zdjęcie usunięte, 2 vision_runs / $0.061 przeżyły z user_id). B1 (rename „Zobacz zdjęcia"→„Pokaż szczegóły") zafoldowany. Pozostałe uwagi z review → memory `backlog-s29-review-2026-06-04`.
 
 - **S-15: przycisk „Źródłowe zdjęcie" na karcie książki → `/photos/[photo_id]` z aktywnego shelf_entry (is_current=true); graceful ukrycie gdy photo_id=NULL (ręczny wpis lub zdjęcie usunięte); pokrywa /shelves/[id] i /library** — Archived 2026-06-04 → `context/archive/2026-06-04-review-page-nav-entry/`. Lesson: —.
+
+- **S-32: użytkownik może na `/account` dodać klucz API do jednego z providerów (Anthropic / OpenAI / OpenRouter / OpenAI-compatible z custom base_url+model); klucze szyfrowane at rest; lista kluczy pokazuje label, provider, model, datę dodania — NIGDY plaintext; przycisk „Testuj" weryfikuje klucz próbnym żądaniem; przycisk „Usuń" kasuje fizycznie zaszyfrowany rekord.** — Archived 2026-06-05 → `context/archive/2026-06-04-byok-api-keys/`. Lesson: —.
 
 (Pusta przy pierwszej generacji. `/10x-archive` dopisuje tu wpis — i przerzuca Status pozycji na `done` — gdy archiwizowana zmiana ma `Change ID` zgodny z pozycją roadmapy. NIE wypełniać ręcznie.)

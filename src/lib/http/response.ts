@@ -16,7 +16,8 @@ export type ApiErrorCode =
   | 'RATE_LIMITED'
   | 'CONFLICT'
   | 'DUPLICATE_PHOTO'
-  | 'AI_DISABLED';
+  | 'AI_DISABLED'
+  | 'NO_API_KEY';
 
 const DEFAULT_HEADERS = {
   'Content-Type': 'application/json',

@@ -4,6 +4,7 @@ const mockDeriveDetectionCrop = vi.hoisted(() => vi.fn());
 const mockDetectSingleSpineFromCrop = vi.hoisted(() => vi.fn());
 const mockSearchGoogleBooks = vi.hoisted(() => vi.fn());
 const mockSearchOpenLibrary = vi.hoisted(() => vi.fn());
+const mockGetActiveProviderConfig = vi.hoisted(() => vi.fn());
 
 vi.mock('../../../../../src/lib/images/crop', () => ({
   deriveDetectionCrop: mockDeriveDetectionCrop,
@@ -19,6 +20,10 @@ vi.mock('../../../../../src/lib/books/googleBooks', () => ({
 
 vi.mock('../../../../../src/lib/books/openLibrary', () => ({
   searchOpenLibrary: mockSearchOpenLibrary,
+}));
+
+vi.mock('../../../../../src/lib/keys/getActiveProviderConfig', () => ({
+  getActiveProviderConfig: mockGetActiveProviderConfig,
 }));
 
 import { POST } from '../../../../../src/pages/api/detections/[id]/refine';
@@ -78,13 +83,25 @@ function makeSupabase(opts?: {
   existingCandidatesResult?: { data: { match_score: number; source: string; external_id: string; title: string; authors: string[]; isbn_10: string | null; isbn_13: string | null; publisher: string | null; published_year: number | null; cover_url: string | null; rank: number }[] | null; error: { code?: string; name: string; message: string } | null };
   booksResult?: { data: { id: string; title: string; authors: string[]; isbn_13: string | null; isbn_10: string | null }[] | null; error: { code?: string; name: string; message: string } | null };
   track?: { detectionUpdatePayload: unknown[]; candidateInsertPayload: unknown[]; candidateDeleteCalls: number };
+  aiEnabled?: boolean;
 }) {
   const detectionResult = opts?.detectionResult ?? { data: detectionRow, error: null };
   const photoResult = opts?.photoResult ?? { data: photoRow, error: null };
   const existingCandidatesResult = opts?.existingCandidatesResult ?? { data: [], error: null };
   const booksResult = opts?.booksResult ?? { data: [], error: null };
+  const aiEnabled = opts?.aiEnabled ?? true;
 
   const from = vi.fn((table: string) => {
+    if (table === 'profiles') {
+      return {
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            single: vi.fn().mockResolvedValue({ data: { ai_enabled: aiEnabled }, error: null }),
+          })),
+        })),
+      };
+    }
+
     if (table === 'detections') {
       return {
         select: vi.fn(() => ({
@@ -168,8 +185,11 @@ function makeContext(supabase: ReturnType<typeof makeSupabase>, user = true, id 
   } as never;
 }
 
+const activeProviderConfig = { provider: 'anthropic' as const, apiKey: 'sk-test' };
+
 beforeEach(() => {
   vi.clearAllMocks();
+  mockGetActiveProviderConfig.mockResolvedValue(activeProviderConfig);
 
   mockDeriveDetectionCrop.mockResolvedValue({
     bytes: new Uint8Array([1, 2, 3]),
@@ -200,6 +220,24 @@ describe('POST /api/detections/[id]/refine', () => {
     const supabase = makeSupabase();
     const res = await POST(makeContext(supabase, false));
     expect(res.status).toBe(401);
+  });
+
+  it('returns 403 AI_DISABLED when profile.ai_enabled = false', async () => {
+    const supabase = makeSupabase({ aiEnabled: false });
+    const res = await POST(makeContext(supabase));
+    expect(res.status).toBe(403);
+    const json = (await res.json()) as { error: { code: string } };
+    expect(json.error.code).toBe('AI_DISABLED');
+  });
+
+  it('returns 403 NO_API_KEY when no active key in user_api_keys', async () => {
+    mockGetActiveProviderConfig.mockResolvedValueOnce(null);
+    const supabase = makeSupabase();
+    const res = await POST(makeContext(supabase));
+    expect(res.status).toBe(403);
+    const json = (await res.json()) as { error: { code: string; details: { account_url: string } } };
+    expect(json.error.code).toBe('NO_API_KEY');
+    expect(json.error.details.account_url).toBe('/account');
   });
 
   it('returns 404 for malformed detection id', async () => {

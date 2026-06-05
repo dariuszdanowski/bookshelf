@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { searchOpenLibrary } from '../../../../src/lib/books/openLibrary';
+import { searchOpenLibrary, searchOpenLibraryByTitle } from '../../../../src/lib/books/openLibrary';
 
 const VALID_DOC = {
   key: '/works/OL123W',
@@ -114,5 +114,57 @@ describe('searchOpenLibrary', () => {
     if (!result.ok) return;
     // When cover_i is missing but ISBN is present, falls back to OL ISBN cover URL
     expect(result.candidates[0].coverUrl).toBe('https://covers.openlibrary.org/b/isbn/9780156027601-M.jpg?default=false');
+  });
+});
+
+describe('searchOpenLibraryByTitle', () => {
+  it('returns mapped candidates for title search', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(
+      new Response(JSON.stringify({ docs: [VALID_DOC] }), { status: 200 })
+    ));
+
+    const result = await searchOpenLibraryByTitle({ title: 'Solaris', author: 'Lem' });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.candidates[0].title).toBe('Solaris');
+    expect(result.candidates[0].source).toBe('open_library');
+  });
+
+  it('includes title and author params in URL', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      new Response(JSON.stringify({ docs: [VALID_DOC] }), { status: 200 })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await searchOpenLibraryByTitle({ title: 'Usterka na skraju', author: 'Etgar Keret' });
+
+    const url = fetchMock.mock.calls[0][0] as string;
+    expect(url).toContain('title=Usterka+na+skraju');
+    expect(url).toContain('author=Etgar+Keret');
+  });
+
+  it('returns empty when no docs found', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(
+      new Response(JSON.stringify({ docs: [] }), { status: 200 })
+    ));
+
+    const result = await searchOpenLibraryByTitle({ title: 'NoSuchBook' });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe('empty');
+  });
+
+  it('returns rate_limited on 429', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(
+      new Response('Too Many Requests', { status: 429 })
+    ));
+
+    const result = await searchOpenLibraryByTitle({ title: 'Solaris' });
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe('rate_limited');
   });
 });

@@ -6,7 +6,7 @@ import { SPINE_COLORS } from '../vision/prompt';
 // ---------------------------------------------------------------------------
 
 export type BookCandidate = {
-  source: 'google_books' | 'open_library';
+  source: 'google_books' | 'open_library' | 'national_library';
   externalId: string;
   title: string;
   authors: string[];
@@ -48,6 +48,17 @@ export type BookCandidateDTO = z.infer<typeof BookCandidateDTOSchema>;
 // DTO dla widoku półki (S-05)
 // ---------------------------------------------------------------------------
 
+// Który slot okładki pokazać (S-33): automatyczna / wklejony URL / wgrane zdjęcie.
+export type CoverSource = 'auto' | 'url' | 'photo';
+
+// Zmiana okładki propagowana z modala do listy (optimistic update w islandzie).
+export type BookCoverPatch = Partial<{
+  cover_url: string | null;
+  user_cover_url: string | null;
+  cover_photo_url: string | null;
+  cover_source: CoverSource;
+}>;
+
 export type ShelfBookDTO = {
   id: string;
   title: string;
@@ -57,6 +68,15 @@ export type ShelfBookDTO = {
   position_index: number | null;
   is_read: boolean;
   photo_id: string | null;
+  // Pola do podglądu szczegółów książki (S-33). Nullable — starsze wpisy lub
+  // ręczne dodania mogą ich nie mieć.
+  isbn_13: string | null;
+  isbn_10: string | null;
+  publisher: string | null;
+  // Override okładki (S-33): 3 sloty mogą współistnieć; cover_source wybiera który.
+  user_cover_url: string | null;
+  cover_photo_url: string | null;
+  cover_source: CoverSource;
 };
 
 // DTO dla wyników wyszukiwarki katalogu (S-08) — ShelfBookDTO + nazwa półki + kolor
@@ -137,6 +157,27 @@ export const UpdateBookReadSchema = z
   .strict(); // odrzuca dodatkowe pola (inne pola books nie są edytowalne przez ten endpoint)
 export type UpdateBookReadInput = z.infer<typeof UpdateBookReadSchema>;
 
+// PATCH /api/books/[id] — pełny update edytowalnych pól (S-33): is_read, override
+// okładki ORAZ ręczna edycja metadanych (user jest ostateczną instancją — automaty
+// to tylko propozycje). Każde pole opcjonalne; `null` = wyczyść; wymaga ≥1 pola.
+// search_text jest GENERATED z (title, authors, publisher) → auto-aktualizacja.
+export const UpdateBookSchema = z
+  .object({
+    is_read: z.boolean().optional(),
+    user_cover_url: z.string().url('Nieprawidłowy URL').max(1000).nullable().optional(),
+    cover_photo_url: z.string().url('Nieprawidłowy URL').max(1000).nullable().optional(),
+    cover_source: z.enum(['auto', 'url', 'photo']).optional(),
+    title: z.string().min(1, 'Tytuł nie może być pusty').max(300).optional(),
+    authors: z.array(z.string().min(1).max(200)).optional(),
+    publisher: z.string().max(300).nullable().optional(),
+    published_year: z.number().int().min(1000, 'Rok po 1000').max(2100, 'Rok przed 2100').nullable().optional(),
+    isbn_13: z.string().regex(/^\d{13}$/, 'ISBN-13 = 13 cyfr').nullable().optional(),
+    isbn_10: z.string().regex(/^\d{9}[\dX]$/, 'ISBN-10 = 10 znaków').nullable().optional(),
+  })
+  .strict()
+  .refine((v) => Object.keys(v).length > 0, { message: 'Podaj co najmniej jedno pole.' });
+export type UpdateBookInput = z.infer<typeof UpdateBookSchema>;
+
 // POST /api/books/[id]/move — przeniesienie książki na inną półkę (S-07).
 // Zapisuje wersjonowaną historię lokalizacji (FR-038); shelf_id z klienta walidowany RLS (oba-FK, 0009).
 export const MoveBookSchema = z
@@ -146,10 +187,38 @@ export const MoveBookSchema = z
   .strict();
 export type MoveBookInput = z.infer<typeof MoveBookSchema>;
 
+// POST /api/books/[id]/identify — „Szukaj po tytule" dla zatwierdzonej książki
+// (re-identyfikacja). Tryb 'search' zwraca kandydatów; 'apply' zapisuje wybranego.
+const IdentifyCandidateShape = z.object({
+  title: z.string().min(1).max(300),
+  authors: z.array(z.string().max(200)).default([]),
+  isbn13: z.string().max(20).nullable().optional(),
+  isbn10: z.string().max(20).nullable().optional(),
+  publisher: z.string().max(300).nullable().optional(),
+  publishedYear: z.number().int().min(1000).max(2100).nullable().optional(),
+  coverUrl: z.string().url().max(1000).nullable().optional(),
+  source: z.string().max(50).nullable().optional(),
+  externalId: z.string().max(200).nullable().optional(),
+});
+export const IdentifyBookSchema = z.discriminatedUnion('mode', [
+  z.object({
+    mode: z.literal('search'),
+    title: z.string().min(1, 'Tytuł nie może być pusty').max(300),
+    author: z.string().max(200).nullable().optional(),
+    isbn: z.string().max(20).nullable().optional(),
+  }),
+  z.object({
+    mode: z.literal('apply'),
+    candidate: IdentifyCandidateShape,
+  }),
+]);
+export type IdentifyBookInput = z.infer<typeof IdentifyBookSchema>;
+
 // POST /api/detections/[id]/rematch — wyszukanie Google Books z poprawionym tytułem/autorem
 export const RematchDetectionSchema = z.object({
   title: z.string().min(1, 'Tytuł nie może być pusty').max(300),
   author: z.string().max(200).nullable().optional(),
+  isbn: z.string().max(20).nullable().optional(),
 });
 export type RematchDetectionInput = z.infer<typeof RematchDetectionSchema>;
 
@@ -169,6 +238,9 @@ export const AddPurchaseSchema = z
     isbn_13: z.string().regex(/^\d{13}$/).optional(),
     isbn_10: z.string().regex(/^\d{9}[\dX]$/).optional(),
     purchase_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data w formacie YYYY-MM-DD').optional(),
+    // S-33: dodanie ręczne na DOWOLNĄ półkę (bez zdjęcia). Brak → „Zakupione" (Flow B).
+    shelf_id: z.uuid().optional(),
+    cover_url: z.string().url().max(1000).optional(),
   })
   .strict();
 export type AddPurchaseInput = z.infer<typeof AddPurchaseSchema>;

@@ -145,6 +145,12 @@ const SHELF_BOOKS_AFTER = [
     published_year: 1961,
     position_index: 1,
     is_read: false,
+    isbn_13: '9788373191723',
+    isbn_10: null,
+    publisher: 'Wydawnictwo Literackie',
+    user_cover_url: null,
+    cover_photo_url: null,
+    cover_source: 'auto',
   },
 ];
 
@@ -213,6 +219,15 @@ test.describe('S-05 — proposal-accept-to-catalog golden path (mock)', () => {
       });
     });
 
+    // Mock POST /api/detections/*/unreject (cofnięcie odrzucenia)
+    await page.route(`**/api/detections/${DET_REJECT}/unreject`, (route) => {
+      void route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { status: 'matched' } }),
+      });
+    });
+
     // Mock GET /api/shelves/[id]/books (widok półki po decyzjach)
     await page.route(`**/api/shelves/${SHELF_ID}/books`, (route) => {
       void route.fulfill({
@@ -274,11 +289,49 @@ test.describe('S-05 — proposal-accept-to-catalog golden path (mock)', () => {
     await expect(page.getByTestId('correct-form')).toBeVisible();
   });
 
-  test('reject — karta oznaczona jako zdecydowana', async ({ page }) => {
+  test('reject — karta pokazuje „Odrzucono" + Cofnij (nie zielony stan akceptacji)', async ({ page }) => {
     await page.goto(`/photos/${PHOTO_ID}`);
     await page.getByTestId('detection-card-4').getByTestId('reject-button').click();
-    // Po reject karta zmienia wygląd (decided state)
-    await expect(page.getByTestId(`detection-card-4`)).toContainText('Grzbiet niezidentyfikowany');
+    // Po reject karta przechodzi w stan odrzucenia — odrębny od akceptacji
+    const card = page.getByTestId('detection-card-4');
+    await expect(card).toContainText('Odrzucono');
+    await expect(card).toContainText('Grzbiet niezidentyfikowany');
+    await expect(card.getByTestId('undo-reject-button')).toBeVisible();
+  });
+
+  test('reject → Cofnij — przywraca akcje detekcji (woła /unreject)', async ({ page }) => {
+    await page.goto(`/photos/${PHOTO_ID}`);
+    const card = page.getByTestId('detection-card-4');
+    await card.getByTestId('reject-button').click();
+    const undoBtn = card.getByTestId('undo-reject-button');
+    await expect(undoBtn).toBeVisible();
+    await undoBtn.click();
+    // Wraca do stanu nierozstrzygniętego — przycisk Odrzuć znów dostępny
+    await expect(page.getByTestId('detection-card-4').getByTestId('reject-button')).toBeVisible();
+  });
+
+  test('podgląd szczegówów — klik w okładkę propozycji otwiera modal z danymi', async ({ page }) => {
+    await page.goto(`/photos/${PHOTO_ID}`);
+    const coverBtn = page.getByTestId('detection-card-1').getByTestId('candidate-cover-button');
+    await expect(coverBtn).toBeVisible();
+    await coverBtn.click();
+    const modal = page.getByTestId('book-detail-modal');
+    await expect(modal).toBeVisible();
+    await expect(modal).toContainText('Solaris');
+    await expect(modal).toContainText('9780156027601'); // ISBN kandydata
+    // zamknięcie przez X
+    await modal.getByTestId('book-detail-close').click();
+    await expect(modal).not.toBeVisible();
+  });
+
+  test('web search — „Szukaj w sieci" linkuje do Google w nowej karcie', async ({ page }) => {
+    await page.goto(`/photos/${PHOTO_ID}`);
+    const link = page.getByTestId('detection-card-1').getByTestId('web-search-button');
+    await expect(link).toBeVisible();
+    await expect(link).toHaveAttribute('target', '_blank');
+    const href = (await link.getAttribute('href')) ?? '';
+    expect(href).toContain('google.com/search');
+    expect(decodeURIComponent(href)).toContain('Solaris');
   });
 
   test('widok półki — grid książek + toggle read', async ({ page }) => {
@@ -323,5 +376,37 @@ test.describe('S-05 — proposal-accept-to-catalog golden path (mock)', () => {
     await toggleBtn.click();
     // Optimistic update
     await expect(toggleBtn).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('edycja okładki — wklej URL + flaga „URL" → PATCH user_cover_url', async ({ page }) => {
+    await page.goto('/shelves');
+    const shelfHref = await page.locator('a[href^="/shelves/"]').first().getAttribute('href');
+    const realShelfId = shelfHref?.split('/shelves/')[1] ?? '';
+
+    await page.route(`**/api/shelves/${realShelfId}/books`, (route) =>
+      void route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { books: SHELF_BOOKS_AFTER } }) })
+    );
+    let patchBody: Record<string, unknown> | null = null;
+    await page.route(`**/api/books/${BOOK_HIGH}`, (route) => {
+      if (route.request().method() === 'PATCH') {
+        patchBody = route.request().postDataJSON() as Record<string, unknown>;
+        void route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { id: BOOK_HIGH } }) });
+      } else void route.continue();
+    });
+
+    await page.goto(`/shelves/${realShelfId}`);
+    await expect(page.getByTestId(`book-card-${BOOK_HIGH}`)).toBeVisible({ timeout: 10000 });
+
+    // Klik okładki → modal → panel edycji
+    await page.getByTestId(`book-cover-button-${BOOK_HIGH}`).click();
+    await expect(page.getByTestId('book-detail-modal')).toBeVisible();
+    await page.getByTestId('cover-edit-toggle').click();
+    await page.getByTestId('cover-url-input').fill('https://example.com/moja-okladka.jpg');
+    await page.getByTestId('cover-source-url').click();
+    await page.getByTestId('cover-save').click();
+
+    const readPatch = () => patchBody as Record<string, unknown> | null;
+    await expect.poll(() => readPatch()?.user_cover_url).toBe('https://example.com/moja-okladka.jpg');
+    expect(readPatch()?.cover_source).toBe('url');
   });
 });

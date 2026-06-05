@@ -3,6 +3,7 @@ import type { APIRoute } from 'astro';
 import { apiError, apiResponse, parseUuidParam } from '../../../../lib/http/response';
 import { searchGoogleBooks } from '../../../../lib/books/googleBooks';
 import { searchOpenLibrary } from '../../../../lib/books/openLibrary';
+import { searchNationalLibrary } from '../../../../lib/books/nationalLibrary';
 import { scoreCandidate, MATCH_MID } from '../../../../lib/matching/score';
 import { dedupeCandidates, checkCatalogDuplicate, type CatalogDuplicate } from '../../../../lib/matching/dedupe';
 import type { BookCandidate, ScoredCandidate } from '../../../../lib/books/schema';
@@ -86,18 +87,29 @@ async function matchDetection(
   const rawTitle = detection.raw_title ?? '';
   const rawAuthor = detection.raw_author ?? null;
 
-  const googleResult = await searchGoogleBooks({ title: rawTitle, author: rawAuthor });
+  // GB + Biblioteka Narodowa równolegle. BN ma natywne pokrycie polskich edycji
+  // (recall, którego brakuje GB). Nie robimy early-return na porażce GB — BN może
+  // mieć kandydatów mimo pustego/rate-limited GB.
+  const [googleResult, bnResult] = await Promise.all([
+    searchGoogleBooks({ title: rawTitle, author: rawAuthor }),
+    searchNationalLibrary({ title: rawTitle, author: rawAuthor }),
+  ]);
 
-  if (!googleResult.ok) {
-    return { candidates: [], duplicate: null, rateLimited: googleResult.reason === 'rate_limited' };
+  const allCandidates: BookCandidate[] = [
+    ...(googleResult.ok ? googleResult.candidates : []),
+    ...(bnResult.ok ? bnResult.candidates : []),
+  ];
+
+  // Rate-limited tylko gdy GB rate-limited ORAZ brak kandydatów (BN też pusty) —
+  // zachowuje retry. Gdy BN dostarczył kandydatów, idziemy dalej mimo GB 429.
+  if (allCandidates.length === 0) {
+    return { candidates: [], duplicate: null, rateLimited: !googleResult.ok && googleResult.reason === 'rate_limited' };
   }
 
-  const allCandidates: BookCandidate[] = [...googleResult.candidates];
-
-  // OL ISBN-enrichment: only when ISBN available from Google candidates
+  // OL ISBN-enrichment: only when ISBN available from gathered candidates (GB or BN)
   const firstIsbn =
-    googleResult.candidates.find((c) => c.isbn13)?.isbn13 ??
-    googleResult.candidates.find((c) => c.isbn10)?.isbn10 ??
+    allCandidates.find((c) => c.isbn13)?.isbn13 ??
+    allCandidates.find((c) => c.isbn10)?.isbn10 ??
     null;
 
   if (firstIsbn) {

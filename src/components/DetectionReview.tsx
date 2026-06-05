@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import type { BookCandidateDTO } from '../lib/books/schema';
 import type { PhotoDTO, DetectionWithCandidatesDTO, BboxEditSet } from '../lib/photos/schema';
 import { classifyCropQuality } from '../lib/matching/fallbackPolicy';
+import BookDetailModal, { type BookDetailData } from './BookDetailModal';
 import ConfirmDialog from './ConfirmDialog';
 import CostPanel from './CostPanel';
 import PhotoDetectionOverlay from './PhotoDetectionOverlay';
@@ -74,6 +75,44 @@ function RefineButton({
   );
 }
 
+// ---------------------------------------------------------------------------
+// WebSearchButton — „Szukaj w sieci": otwiera nową kartę z Google na naszych
+// danych (tytuł + autor). Ratunek gdy Google Books/OpenLibrary nie indeksują
+// danej edycji (małe polskie wydawnictwa), a zwykła wyszukiwarka ją znajduje.
+// Link <a target="_blank">, nie fetch — żadnego kosztu API, user wybiera ręcznie.
+// ---------------------------------------------------------------------------
+function WebSearchButton({
+  title,
+  author,
+  size = 'md',
+}: {
+  title: string;
+  author: string | null | undefined;
+  size?: 'lg' | 'md' | 'sm';
+}) {
+  const query = [title, author].filter(Boolean).join(' ').trim();
+  if (!query) return null;
+  const href = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+  const sizeCls = size === 'lg' ? 'px-3 py-1.5' : size === 'sm' ? 'px-2 py-1' : 'px-2.5 py-1';
+  return (
+    <a
+      data-testid="web-search-button"
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      title={`Wyszukaj „${query}" w Google (nowa karta)`}
+      className={`inline-flex items-center gap-1 rounded-md border border-sky-300 bg-sky-50 text-xs font-medium text-sky-700 hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-900/20 dark:text-sky-300 dark:hover:bg-sky-900/40 ${sizeCls}`}
+    >
+      <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="8.5" cy="8.5" r="5.5" />
+        <line x1="13" y1="13" x2="18" y2="18" />
+      </svg>
+      Szukaj w sieci
+    </a>
+  );
+}
+
 const TIER_STYLES: Record<MatchTier, { border: string; badge: string; label: string }> = {
   high: {
     border: 'border-green-300 bg-green-50',
@@ -117,6 +156,22 @@ function CoverImage({ url, title }: { url: string | null; title: string }) {
       onError={() => setFailed(true)}
     />
   );
+}
+
+// Mapuje kandydata (propozycję) na wspólny kształt podglądu — ten sam modal
+// co dla książek zatwierdzonych (jednolity dostęp przez klik w okładkę).
+function candidateToDetail(c: BookCandidateDTO): BookDetailData {
+  return {
+    title: c.title,
+    authors: c.authors,
+    coverUrl: c.coverUrl,
+    isbn13: c.isbn13,
+    isbn10: c.isbn10,
+    publisher: c.publisher,
+    publishedYear: c.publishedYear,
+    source: c.source,
+    matchScore: c.matchScore,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -205,7 +260,7 @@ function CorrectForm({
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           required
-          className="mt-0.5 w-full rounded border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
         />
       </div>
       <div>
@@ -216,7 +271,7 @@ function CorrectForm({
           data-testid="correct-authors"
           value={authors}
           onChange={(e) => setAuthors(e.target.value)}
-          className="mt-0.5 w-full rounded border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
         />
       </div>
       <div className="flex gap-2">
@@ -226,7 +281,7 @@ function CorrectForm({
             data-testid="correct-publisher"
             value={publisher}
             onChange={(e) => setPublisher(e.target.value)}
-            className="mt-0.5 w-full rounded border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
           />
         </div>
         <div className="w-24">
@@ -238,7 +293,7 @@ function CorrectForm({
             max="2100"
             value={year}
             onChange={(e) => setYear(e.target.value)}
-            className="mt-0.5 w-full rounded border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
           />
         </div>
       </div>
@@ -276,20 +331,22 @@ function CorrectForm({
 type RematchFormProps = {
   initialTitle: string;
   initialAuthor: string;
+  initialIsbn: string;
   busy: boolean;
   errorMsg: string | null;
-  onSubmit: (title: string, author: string | null) => void;
+  onSubmit: (title: string, author: string | null, isbn: string | null) => void;
   onCancel: () => void;
 };
 
-function RematchForm({ initialTitle, initialAuthor, busy, errorMsg, onSubmit, onCancel }: RematchFormProps) {
+function RematchForm({ initialTitle, initialAuthor, initialIsbn, busy, errorMsg, onSubmit, onCancel }: RematchFormProps) {
   const [title, setTitle] = useState(initialTitle);
   const [author, setAuthor] = useState(initialAuthor);
+  const [isbn, setIsbn] = useState(initialIsbn);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
-    onSubmit(title.trim(), author.trim() || null);
+    onSubmit(title.trim(), author.trim() || null, isbn.trim() || null);
   }
 
   return (
@@ -321,6 +378,18 @@ function RematchForm({ initialTitle, initialAuthor, busy, errorMsg, onSubmit, on
           />
         </label>
       </div>
+      <div>
+        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+          ISBN (opcjonalnie — gdy tytuł nie daje wyników)
+          <input
+            data-testid="rematch-isbn"
+            value={isbn}
+            onChange={(e) => setIsbn(e.target.value)}
+            placeholder="np. 9788308073087"
+            className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 placeholder:text-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500"
+          />
+        </label>
+      </div>
       {errorMsg && (
         <p data-testid="rematch-error" className="text-xs text-red-600 dark:text-red-400" role="alert">
           {errorMsg}
@@ -349,10 +418,52 @@ function RematchForm({ initialTitle, initialAuthor, busy, errorMsg, onSubmit, on
 }
 
 // ---------------------------------------------------------------------------
+// Widok detekcji odrzuconej — wspólny dla 3 trybów (Karty/Lista/Kafelki).
+// Świadomie ODRÓŻNIA się od widoku zaakceptowanej (zielony ptaszek): szary,
+// przekreślony tytuł, ikona „×", etykieta „Odrzucono" + przycisk „Cofnij".
+// Bez tego odrzucenie wyglądało jak akceptacja i było nieodwracalne (dziura UX).
+// ---------------------------------------------------------------------------
+function RejectedDecidedView({
+  title,
+  busy,
+  onUndo,
+  testId,
+}: {
+  title: string;
+  busy: boolean;
+  onUndo: () => void;
+  testId: string;
+}) {
+  return (
+    <div
+      data-testid={testId}
+      className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800/50"
+    >
+      <svg className="flex-shrink-0 text-gray-400" width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+      </svg>
+      <span className="truncate text-sm text-gray-500 line-through dark:text-gray-400">{title}</span>
+      <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-gray-700 dark:text-gray-300">
+        Odrzucono
+      </span>
+      <button
+        data-testid="undo-reject-button"
+        disabled={busy}
+        onClick={onUndo}
+        className="ml-auto rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+      >
+        {busy ? 'Cofam...' : 'Cofnij'}
+      </button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Karta detekcji z akcjami
 // ---------------------------------------------------------------------------
 
 type DecisionState = 'pending' | 'decided' | 'error';
+type DecisionKind = 'confirmed' | 'rejected';
 
 // ---------------------------------------------------------------------------
 // Hook decyzji — współdzielona logika akceptacji/odrzucenia/korekty per detekcja.
@@ -363,11 +474,13 @@ type DecisionState = 'pending' | 'decided' | 'error';
 
 function useDetectionDecision(
   detection: DetectionWithCandidatesDTO,
-  onDecided: (detectionId: string) => void,
-  onRefined?: (next: DetectionWithCandidatesDTO) => void
+  onDecided: (detectionId: string, kind: DecisionKind) => void,
+  onRefined?: (next: DetectionWithCandidatesDTO) => void,
+  onUndecided?: (detectionId: string) => void
 ) {
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
   const [state, setState] = useState<DecisionState>('pending');
+  const [decidedKind, setDecidedKind] = useState<DecisionKind | null>(null);
   const [busy, setBusy] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -396,8 +509,9 @@ function useDetectionDecision(
         setState('error');
         return;
       }
+      setDecidedKind('confirmed');
       setState('decided');
-      onDecided(detection.id);
+      onDecided(detection.id, 'confirmed');
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : 'Błąd sieci.');
     } finally {
@@ -415,8 +529,9 @@ function useDetectionDecision(
         setErrorMsg(json.error?.message ?? `Błąd (${res.status})`);
         return;
       }
+      setDecidedKind('rejected');
       setState('decided');
-      onDecided(detection.id);
+      onDecided(detection.id, 'rejected');
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : 'Błąd sieci.');
     } finally {
@@ -424,14 +539,35 @@ function useDetectionDecision(
     }
   }
 
-  async function handleRematch(title: string, author: string | null): Promise<boolean> {
+  // Cofnięcie odrzucenia — przywraca detekcję do edycji (status w DB → matched/pending).
+  async function handleUndoReject() {
+    setBusy(true);
+    setErrorMsg(null);
+    try {
+      const res = await fetch(`/api/detections/${detection.id}/unreject`, { method: 'POST' });
+      if (!res.ok) {
+        const json = (await res.json()) as { error?: { message?: string } };
+        setErrorMsg(json.error?.message ?? `Błąd (${res.status})`);
+        return;
+      }
+      setDecidedKind(null);
+      setState('pending');
+      onUndecided?.(detection.id);
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : 'Błąd sieci.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleRematch(title: string, author: string | null, isbn: string | null): Promise<boolean> {
     setBusy(true);
     setErrorMsg(null);
     try {
       const res = await fetch(`/api/detections/${detection.id}/rematch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, author }),
+        body: JSON.stringify({ title, author, isbn }),
       });
       const json = (await res.json()) as {
         data?: {
@@ -476,11 +612,16 @@ function useDetectionDecision(
           candidates?: BookCandidateDTO[];
           duplicate?: DetectionWithCandidatesDTO['duplicate'];
         };
-        error?: { message?: string };
+        error?: { code?: string; message?: string };
       };
 
       if (res.status === 429) {
         setErrorMsg('Rate limit, spróbuj za chwilę.');
+        return;
+      }
+
+      if (res.status === 403 && json.error?.code === 'NO_API_KEY') {
+        setErrorMsg('Brak klucza API. Dodaj klucz w ustawieniach konta.');
         return;
       }
 
@@ -513,14 +654,16 @@ function useDetectionDecision(
   // Po sukcesie korekty: detekcja zdecydowana. Komponent przechodzi w widok
   // 'decided' (early return), więc reset lokalnego showCorrectForm jest zbędny.
   function handleCorrectSuccess() {
+    setDecidedKind('confirmed');
     setState('decided');
-    onDecided(detection.id);
+    onDecided(detection.id, 'confirmed');
   }
 
   return {
     selectedCandidateId,
     setSelectedCandidateId,
     state,
+    decidedKind,
     busy,
     errorMsg,
     top,
@@ -529,6 +672,7 @@ function useDetectionDecision(
     activeCandidate,
     handleConfirm,
     handleReject,
+    handleUndoReject,
     handleRefine,
     handleRematch,
     handleCorrectSuccess,
@@ -537,22 +681,25 @@ function useDetectionDecision(
 
 type DetectionCardProps = {
   detection: DetectionWithCandidatesDTO;
-  onDecided: (detectionId: string) => void;
+  onDecided: (detectionId: string, kind: DecisionKind) => void;
   onRefined?: (next: DetectionWithCandidatesDTO) => void;
+  onUndecided?: (detectionId: string) => void;
   onSelect?: (detectionId: string) => void;
   isSelected?: boolean;
   onNavigateToMarker?: () => void;
   photoId?: string;
 };
 
-function DetectionCard({ detection, onDecided, onRefined, onSelect, isSelected = false, onNavigateToMarker, photoId }: DetectionCardProps) {
+function DetectionCard({ detection, onDecided, onRefined, onUndecided, onSelect, isSelected = false, onNavigateToMarker, photoId }: DetectionCardProps) {
   const [showAlts, setShowAlts] = useState(false);
   const [showCorrectForm, setShowCorrectForm] = useState(false);
   const [showRematchForm, setShowRematchForm] = useState(false);
   const [rematchNoResults, setRematchNoResults] = useState(false);
+  const [showCandidateDetail, setShowCandidateDetail] = useState(false);
   const {
     setSelectedCandidateId,
     state,
+    decidedKind,
     busy,
     errorMsg,
     top,
@@ -561,12 +708,23 @@ function DetectionCard({ detection, onDecided, onRefined, onSelect, isSelected =
     activeCandidate,
     handleConfirm,
     handleReject,
+    handleUndoReject,
     handleRefine,
     handleRematch,
     handleCorrectSuccess,
-  } = useDetectionDecision(detection, onDecided, onRefined);
+  } = useDetectionDecision(detection, onDecided, onRefined, onUndecided);
 
   if (state === 'decided') {
+    if (decidedKind === 'rejected') {
+      return (
+        <RejectedDecidedView
+          testId={`detection-card-${detection.position_index}`}
+          title={detection.raw_title}
+          busy={busy}
+          onUndo={() => void handleUndoReject()}
+        />
+      );
+    }
     return (
       <div
         data-testid={`detection-card-${detection.position_index}`}
@@ -652,7 +810,7 @@ function DetectionCard({ detection, onDecided, onRefined, onSelect, isSelected =
           <button
             data-testid="rematch-button"
             onClick={() => { setShowRematchForm(true); setRematchNoResults(false); }}
-            className="mt-2 w-full rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+            className="mt-2 w-full rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
           >
             Szukaj po tytule
           </button>
@@ -671,10 +829,11 @@ function DetectionCard({ detection, onDecided, onRefined, onSelect, isSelected =
         <RematchForm
           initialTitle={detection.raw_title ?? ''}
           initialAuthor={detection.raw_author ?? ''}
+          initialIsbn={''}
           busy={busy}
           errorMsg={errorMsg}
-          onSubmit={async (title, author) => {
-            const found = await handleRematch(title, author);
+          onSubmit={async (title, author, isbn) => {
+            const found = await handleRematch(title, author, isbn);
             if (!found) {
               setRematchNoResults(true);
               setShowRematchForm(false);
@@ -725,7 +884,15 @@ function DetectionCard({ detection, onDecided, onRefined, onSelect, isSelected =
           {/* Active candidate card */}
           {activeCandidate && (
             <div className={`flex gap-3 rounded-lg border-2 p-3 ${TIER_STYLES[getMatchTier(activeCandidate.matchScore)].border}`}>
-              <CoverImage url={activeCandidate.coverUrl} title={activeCandidate.title} />
+              <button
+                type="button"
+                data-testid="candidate-cover-button"
+                onClick={(e) => { e.stopPropagation(); setShowCandidateDetail(true); }}
+                title="Pokaż szczegóły książki"
+                className="cursor-zoom-in rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+              >
+                <CoverImage url={activeCandidate.coverUrl} title={activeCandidate.title} />
+              </button>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-start gap-2">
                   <p data-testid="candidate-title" className="font-semibold text-gray-900 leading-tight">
@@ -830,8 +997,49 @@ function DetectionCard({ detection, onDecided, onRefined, onSelect, isSelected =
               Popraw
             </button>
           )}
+          {top && (
+            <button
+              data-testid="rematch-button"
+              disabled={busy}
+              onClick={() => { setShowRematchForm(true); setRematchNoResults(false); }}
+              className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
+            >
+              Szukaj po tytule
+            </button>
+          )}
+          <WebSearchButton
+            title={detection.raw_title}
+            author={detection.raw_author}
+            size="lg"
+          />
           <RefineButton bbox={detection.bbox} busy={busy} onClick={() => void handleRefine()} size="lg" />
         </div>
+      )}
+
+      {/* Rematch form when candidates already exist */}
+      {top && showRematchForm && (
+        <RematchForm
+          initialTitle={detection.raw_title ?? ''}
+          initialAuthor={detection.raw_author ?? ''}
+          initialIsbn={top.isbn13 ?? top.isbn10 ?? ''}
+          busy={busy}
+          errorMsg={errorMsg}
+          onSubmit={async (title, author, isbn) => {
+            const found = await handleRematch(title, author, isbn);
+            setShowRematchForm(false);
+            if (!found) setRematchNoResults(true);
+          }}
+          onCancel={() => setShowRematchForm(false)}
+        />
+      )}
+      {top && rematchNoResults && !showRematchForm && (
+        <p className="mt-1 text-center text-xs text-amber-600" data-testid="rematch-no-results">
+          Nie znaleziono wyników dla podanego tytułu
+        </p>
+      )}
+
+      {showCandidateDetail && activeCandidate && (
+        <BookDetailModal book={candidateToDetail(activeCandidate)} onClose={() => setShowCandidateDetail(false)} />
       )}
     </div>
   );
@@ -915,18 +1123,20 @@ function DetectionCorrectionModal({
 
 type DetectionRowProps = {
   detection: DetectionWithCandidatesDTO;
-  onDecided: (detectionId: string) => void;
+  onDecided: (detectionId: string, kind: DecisionKind) => void;
   onRefined?: (next: DetectionWithCandidatesDTO) => void;
+  onUndecided?: (detectionId: string) => void;
   onSelect?: (detectionId: string) => void;
   isSelected?: boolean;
   onNavigateToMarker?: () => void;
 };
 
-export function DetectionRow({ detection, onDecided, onRefined, onSelect, isSelected = false, onNavigateToMarker }: DetectionRowProps) {
+export function DetectionRow({ detection, onDecided, onRefined, onUndecided, onSelect, isSelected = false, onNavigateToMarker }: DetectionRowProps) {
   const [showModal, setShowModal] = useState(false);
   const [showRematchForm, setShowRematchForm] = useState(false);
   const {
     state,
+    decidedKind,
     busy,
     errorMsg,
     top,
@@ -934,12 +1144,23 @@ export function DetectionRow({ detection, onDecided, onRefined, onSelect, isSele
     activeCandidate,
     handleConfirm,
     handleReject,
+    handleUndoReject,
     handleRefine,
     handleRematch,
     handleCorrectSuccess,
-  } = useDetectionDecision(detection, onDecided, onRefined);
+  } = useDetectionDecision(detection, onDecided, onRefined, onUndecided);
 
   if (state === 'decided') {
+    if (decidedKind === 'rejected') {
+      return (
+        <RejectedDecidedView
+          testId={`detection-row-${detection.position_index}`}
+          title={detection.raw_title}
+          busy={busy}
+          onUndo={() => void handleUndoReject()}
+        />
+      );
+    }
     return (
       <div
         data-testid={`detection-row-${detection.position_index}`}
@@ -1052,7 +1273,7 @@ export function DetectionRow({ detection, onDecided, onRefined, onSelect, isSele
               data-testid="rematch-button"
               disabled={busy}
               onClick={() => setShowRematchForm(true)}
-              className="rounded border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+              className="rounded border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
             >
               Szukaj
             </button>
@@ -1065,6 +1286,11 @@ export function DetectionRow({ detection, onDecided, onRefined, onSelect, isSele
             </button>
           </>
         )}
+        <WebSearchButton
+          title={detection.raw_title}
+          author={detection.raw_author}
+          size="md"
+        />
         <RefineButton bbox={detection.bbox} busy={busy} onClick={() => void handleRefine()} size="md" />
       </div>
 
@@ -1072,10 +1298,11 @@ export function DetectionRow({ detection, onDecided, onRefined, onSelect, isSele
         <RematchForm
           initialTitle={detection.raw_title ?? ''}
           initialAuthor={detection.raw_author ?? ''}
+          initialIsbn={detection.candidates?.[0]?.isbn13 ?? detection.candidates?.[0]?.isbn10 ?? ''}
           busy={busy}
           errorMsg={errorMsg}
-          onSubmit={async (title, author) => {
-            const found = await handleRematch(title, author);
+          onSubmit={async (title, author, isbn) => {
+            const found = await handleRematch(title, author, isbn);
             if (found) setShowRematchForm(false);
           }}
           onCancel={() => setShowRematchForm(false)}
@@ -1105,18 +1332,21 @@ export function DetectionRow({ detection, onDecided, onRefined, onSelect, isSele
 
 type DetectionTileProps = {
   detection: DetectionWithCandidatesDTO;
-  onDecided: (detectionId: string) => void;
+  onDecided: (detectionId: string, kind: DecisionKind) => void;
   onRefined?: (next: DetectionWithCandidatesDTO) => void;
+  onUndecided?: (detectionId: string) => void;
   onSelect?: (detectionId: string) => void;
   isSelected?: boolean;
   onNavigateToMarker?: () => void;
 };
 
-export function DetectionTile({ detection, onDecided, onRefined, onSelect, isSelected = false, onNavigateToMarker }: DetectionTileProps) {
+export function DetectionTile({ detection, onDecided, onRefined, onUndecided, onSelect, isSelected = false, onNavigateToMarker }: DetectionTileProps) {
   const [showModal, setShowModal] = useState(false);
   const [showRematchForm, setShowRematchForm] = useState(false);
+  const [showCandidateDetail, setShowCandidateDetail] = useState(false);
   const {
     state,
+    decidedKind,
     busy,
     errorMsg,
     top,
@@ -1124,12 +1354,23 @@ export function DetectionTile({ detection, onDecided, onRefined, onSelect, isSel
     activeCandidate,
     handleConfirm,
     handleReject,
+    handleUndoReject,
     handleRefine,
     handleRematch,
     handleCorrectSuccess,
-  } = useDetectionDecision(detection, onDecided, onRefined);
+  } = useDetectionDecision(detection, onDecided, onRefined, onUndecided);
 
   if (state === 'decided') {
+    if (decidedKind === 'rejected') {
+      return (
+        <RejectedDecidedView
+          testId={`detection-tile-${detection.position_index}`}
+          title={detection.raw_title}
+          busy={busy}
+          onUndo={() => void handleUndoReject()}
+        />
+      );
+    }
     return (
       <div
         data-testid={`detection-tile-${detection.position_index}`}
@@ -1152,8 +1393,24 @@ export function DetectionTile({ detection, onDecided, onRefined, onSelect, isSel
       onClick={() => onSelect?.(detection.id)}
     >
       <div className="flex justify-center">
-        <CoverImage url={activeCandidate?.coverUrl ?? null} title={displayTitle} />
+        {activeCandidate ? (
+          <button
+            type="button"
+            data-testid="candidate-cover-button"
+            onClick={(e) => { e.stopPropagation(); setShowCandidateDetail(true); }}
+            title="Pokaż szczegóły książki"
+            className="cursor-zoom-in rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+          >
+            <CoverImage url={activeCandidate.coverUrl} title={displayTitle} />
+          </button>
+        ) : (
+          <CoverImage url={null} title={displayTitle} />
+        )}
       </div>
+
+      {showCandidateDetail && activeCandidate && (
+        <BookDetailModal book={candidateToDetail(activeCandidate)} onClose={() => setShowCandidateDetail(false)} />
+      )}
 
       <div className="mt-2 flex items-center gap-1">
         <span className="text-xs font-medium text-gray-400">#{detection.position_index}</span>
@@ -1241,7 +1498,7 @@ export function DetectionTile({ detection, onDecided, onRefined, onSelect, isSel
               data-testid="rematch-button"
               disabled={busy}
               onClick={() => setShowRematchForm(true)}
-              className="rounded border border-emerald-300 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+              className="rounded border border-emerald-300 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
             >
               Szukaj
             </button>
@@ -1254,6 +1511,11 @@ export function DetectionTile({ detection, onDecided, onRefined, onSelect, isSel
             </button>
           </>
         )}
+        <WebSearchButton
+          title={detection.raw_title}
+          author={detection.raw_author}
+          size="sm"
+        />
         <RefineButton bbox={detection.bbox} busy={busy} onClick={() => void handleRefine()} size="sm" />
       </div>
 
@@ -1261,10 +1523,11 @@ export function DetectionTile({ detection, onDecided, onRefined, onSelect, isSel
         <RematchForm
           initialTitle={detection.raw_title ?? ''}
           initialAuthor={detection.raw_author ?? ''}
+          initialIsbn={detection.candidates?.[0]?.isbn13 ?? detection.candidates?.[0]?.isbn10 ?? ''}
           busy={busy}
           errorMsg={errorMsg}
-          onSubmit={async (title, author) => {
-            const found = await handleRematch(title, author);
+          onSubmit={async (title, author, isbn) => {
+            const found = await handleRematch(title, author, isbn);
             if (found) setShowRematchForm(false);
           }}
           onCancel={() => setShowRematchForm(false)}
@@ -1440,6 +1703,7 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
   const [actionBusy, setActionBusy] = useState(false);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
   const [decidedIds, setDecidedIds] = useState<Set<string>>(new Set());
+  const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
   const [viewMode, setViewMode] = useDetectionViewMode();
   const [focusedDetectionId, setFocusedDetectionId] = useState<string | null>(null);
@@ -1471,20 +1735,45 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
     return () => { cancelled = true; };
   }, [photoId]);
 
-  function handleDecided(detectionId: string) {
+  function handleDecided(detectionId: string, kind: DecisionKind = 'confirmed') {
     setDecidedIds((prev) => new Set([...prev, detectionId]));
+    if (kind === 'confirmed') {
+      setConfirmedIds((prev) => new Set([...prev, detectionId]));
+    }
+  }
+
+  // Cofnięcie odrzucenia — detekcja wraca do nierozstrzygniętych, blokuje też
+  // ewentualny auto-redirect (poniżej), bo „pozostało" znów > 0.
+  function handleUndecided(detectionId: string) {
+    setDecidedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(detectionId);
+      return next;
+    });
+    setConfirmedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(detectionId);
+      return next;
+    });
   }
 
   function handleRefined(next: DetectionWithCandidatesDTO) {
     setDetections((prev) => prev.map((d) => (d.id === next.id ? next : d)));
   }
 
-  // Redirect gdy wszystkie zdecydowane (osobny useEffect na świeżym stanie)
+  // Redirect gdy wszystkie zdecydowane ORAZ co najmniej jedna zaakceptowana.
+  // Bez warunku confirmedIds.size > 0 odrzucenie ostatniej detekcji wyrzucało
+  // usera na półkę, zanim zdążył kliknąć „Cofnij" (dziura UX).
   useEffect(() => {
-    if (detections.length > 0 && detections.every((d) => decidedIds.has(d.id)) && photo?.shelf_id) {
+    if (
+      detections.length > 0 &&
+      detections.every((d) => decidedIds.has(d.id)) &&
+      confirmedIds.size > 0 &&
+      photo?.shelf_id
+    ) {
       window.location.href = `/shelves/${photo.shelf_id}`;
     }
-  }, [decidedIds, detections, photo]);
+  }, [decidedIds, confirmedIds, detections, photo]);
 
   // Pre-zaznaczone = detekcje z top kandydatem ≥ 0.75, jeszcze nie zdecydowane
   const preSelected = detections.filter(
@@ -1517,6 +1806,7 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
       const skipped = json.data?.skipped ?? [];
       confirmed.forEach((c) => {
         setDecidedIds((prev) => new Set([...prev, c.detection_id]));
+        setConfirmedIds((prev) => new Set([...prev, c.detection_id]));
       });
       if (skipped.length > 0) {
         setActionMsg(`${skipped.length} pominięte (duplikaty lub błędy).`);
@@ -1533,13 +1823,17 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
     setActionMsg(null);
     try {
       const res = await fetch(`/api/photos/${photoId}/process`, { method: 'POST' });
-      const json = (await res.json()) as { data?: unknown; error?: { message?: string } };
+      const json = (await res.json()) as { data?: unknown; error?: { code?: string; message?: string } };
       if (res.status === 409) {
         setActionMsg('Vision run w toku, poczekaj 1 minutę.');
         return;
       }
       if (res.status === 429) {
         setActionMsg('Rate limit, spróbuj za chwilę.');
+        return;
+      }
+      if (res.status === 403 && json.error?.code === 'NO_API_KEY') {
+        setActionMsg('Brak klucza API. Dodaj klucz w ustawieniach konta.');
         return;
       }
       if (!res.ok) {
@@ -1718,12 +2012,43 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
   }
 
   if (detections.length === 0) {
+    const status = photo?.status;
+    const notYetProcessed = status === 'uploaded' || status === 'processing';
+    const processFailed = status === 'failed';
+    const subMsg = notYetProcessed
+      ? 'Zdjęcie nie zostało jeszcze przetworzone.'
+      : processFailed
+        ? 'Poprzednie przetwarzanie zakończyło się błędem.'
+        : 'Zdjęcie zostało przetworzone, ale nie wykryto żadnych książek.';
+    const btnLabel = notYetProcessed ? 'Przetwórz zdjęcie' : 'Ponów przetwarzanie';
     return (
-      <div data-testid="detection-review-empty" className="rounded-xl border border-dashed border-gray-300 px-6 py-12 text-center">
-        <p className="text-gray-500">Brak detekcji dla tego zdjęcia.</p>
-        {photo?.status !== 'processed' && (
-          <p className="mt-2 text-sm text-gray-400">Zdjęcie może być jeszcze przetwarzane.</p>
+      <div data-testid="detection-review-empty">
+        {photoUrl && (
+          <div className="mb-6">
+            <img
+              src={photoUrl}
+              alt="Zdjęcie półki"
+              className="max-h-[60vh] w-full rounded-xl object-contain"
+            />
+          </div>
         )}
+        <div className="rounded-xl border border-dashed border-gray-300 px-6 py-8 text-center">
+          <p className="text-gray-500">Brak detekcji dla tego zdjęcia.</p>
+          <p className="mt-1 text-sm text-gray-400">{subMsg}</p>
+          <div className="mt-4">
+            {actionMsg && (
+              <p className="mb-3 text-sm text-red-600">{actionMsg}</p>
+            )}
+            <button
+              data-testid="process-now-button"
+              onClick={() => void runRerunVision()}
+              disabled={actionBusy}
+              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {actionBusy ? 'Przetwarzanie...' : btnLabel}
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -1822,6 +2147,7 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
                 detection={det}
                 onDecided={handleDecided}
                 onRefined={handleRefined}
+                onUndecided={handleUndecided}
                 onSelect={setFocusedDetectionId}
                 isSelected={focusedDetectionId === det.id}
                 onNavigateToMarker={() => handleCardContextMenu(det)}
@@ -1837,6 +2163,7 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
                 detection={det}
                 onDecided={handleDecided}
                 onRefined={handleRefined}
+                onUndecided={handleUndecided}
                 onSelect={setFocusedDetectionId}
                 isSelected={focusedDetectionId === det.id}
                 onNavigateToMarker={() => handleCardContextMenu(det)}
@@ -1852,6 +2179,7 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
                 detection={det}
                 onDecided={handleDecided}
                 onRefined={handleRefined}
+                onUndecided={handleUndecided}
                 onSelect={setFocusedDetectionId}
                 isSelected={focusedDetectionId === det.id}
                 onNavigateToMarker={() => handleCardContextMenu(det)}

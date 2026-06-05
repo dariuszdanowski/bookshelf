@@ -110,7 +110,7 @@ describe('DetectionTile — akcje', () => {
     const onDecided = vi.fn();
     render(<DetectionTile detection={detMatched} onDecided={onDecided} />);
     fireEvent.click(screen.getByTestId('reject-button'));
-    await waitFor(() => expect(onDecided).toHaveBeenCalledWith(DET_ID));
+    await waitFor(() => expect(onDecided).toHaveBeenCalledWith(DET_ID, 'rejected'));
   });
 
   it('klik Refine woła POST /refine', async () => {

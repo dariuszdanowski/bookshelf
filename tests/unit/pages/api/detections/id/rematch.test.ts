@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { POST } from '../../../../../../src/pages/api/detections/[id]/rematch';
 
@@ -7,10 +7,15 @@ vi.mock('../../../../../../src/lib/books/googleBooks', () => ({
 }));
 vi.mock('../../../../../../src/lib/books/openLibrary', () => ({
   searchOpenLibrary: vi.fn(),
+  searchOpenLibraryByTitle: vi.fn(),
+}));
+vi.mock('../../../../../../src/lib/books/nationalLibrary', () => ({
+  searchNationalLibrary: vi.fn(),
 }));
 
 import { searchGoogleBooks } from '../../../../../../src/lib/books/googleBooks';
-import { searchOpenLibrary } from '../../../../../../src/lib/books/openLibrary';
+import { searchOpenLibrary, searchOpenLibraryByTitle } from '../../../../../../src/lib/books/openLibrary';
+import { searchNationalLibrary } from '../../../../../../src/lib/books/nationalLibrary';
 
 const DET_ID = '00000000-0000-4000-8000-000000000020';
 const CAND_ID = '00000000-0000-4000-8000-000000000030';
@@ -101,6 +106,11 @@ function makeContext(opts: {
 }
 
 describe('POST /api/detections/[id]/rematch', () => {
+  beforeEach(() => {
+    // Domyślnie BN pusty — testy GB/OL nadpisują swoje, BN nie zakłóca.
+    vi.mocked(searchNationalLibrary).mockResolvedValue({ ok: false, reason: 'empty' });
+  });
+
   it('401 gdy brak użytkownika', async () => {
     const ctx = makeContext({ user: false });
     const res = await POST(ctx);
@@ -125,6 +135,7 @@ describe('POST /api/detections/[id]/rematch', () => {
 
   it('404 gdy detekcja nie istnieje', async () => {
     vi.mocked(searchGoogleBooks).mockResolvedValue({ ok: false, reason: 'empty' });
+    vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({ ok: false, reason: 'empty' });
     const ctx = makeContext({ supabase: makeSupabase({ detection: null }) });
     const res = await POST(ctx);
     expect(res.status).toBe(404);
@@ -132,6 +143,7 @@ describe('POST /api/detections/[id]/rematch', () => {
 
   it('happy path — zwraca kandydatów z DB id gdy Google Books zwraca wyniki', async () => {
     vi.mocked(searchGoogleBooks).mockResolvedValue({ ok: true, candidates: [MOCK_GOOGLE_CANDIDATE] });
+    vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({ ok: false, reason: 'empty' });
     vi.mocked(searchOpenLibrary).mockResolvedValue({ ok: false, reason: 'empty' });
     const ctx = makeContext({});
     const res = await POST(ctx);
@@ -146,6 +158,7 @@ describe('POST /api/detections/[id]/rematch', () => {
 
   it('applied: false gdy Google Books zwraca pustą listę', async () => {
     vi.mocked(searchGoogleBooks).mockResolvedValue({ ok: false, reason: 'empty' });
+    vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({ ok: false, reason: 'empty' });
     const ctx = makeContext({});
     const res = await POST(ctx);
     expect(res.status).toBe(200);
@@ -156,6 +169,7 @@ describe('POST /api/detections/[id]/rematch', () => {
 
   it('429 gdy Google Books rate limited', async () => {
     vi.mocked(searchGoogleBooks).mockResolvedValue({ ok: false, reason: 'rate_limited' });
+    vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({ ok: false, reason: 'empty' });
     const ctx = makeContext({});
     const res = await POST(ctx);
     expect(res.status).toBe(429);
@@ -165,11 +179,95 @@ describe('POST /api/detections/[id]/rematch', () => {
 
   it('aktualizuje raw_title i raw_author w DB', async () => {
     vi.mocked(searchGoogleBooks).mockResolvedValue({ ok: true, candidates: [MOCK_GOOGLE_CANDIDATE] });
+    vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({ ok: false, reason: 'empty' });
     vi.mocked(searchOpenLibrary).mockResolvedValue({ ok: false, reason: 'empty' });
     const supabase = makeSupabase({});
     const ctx = makeContext({ supabase, body: { title: 'Nowy Tytuł', author: 'Autor' } });
     await POST(ctx);
     const updateCall = vi.mocked(supabase.from).mock.calls.find(([t]) => t === 'detections');
     expect(updateCall).toBeTruthy();
+  });
+
+  it('odfiltrowuje kandydata z zupełnie innym autorem (Agnieszka Lis vs Kazimierz Arendt)', async () => {
+    vi.mocked(searchGoogleBooks).mockResolvedValue({
+      ok: true,
+      candidates: [{
+        source: 'google_books', externalId: 'gb-x', title: 'Poczta polska',
+        authors: ['Kazimierz Arendt'], isbn10: null, isbn13: null,
+        publisher: null, publishedYear: null, coverUrl: null,
+      }],
+    });
+    vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({ ok: false, reason: 'empty' });
+    vi.mocked(searchOpenLibrary).mockResolvedValue({ ok: false, reason: 'empty' });
+    const ctx = makeContext({ body: { title: 'Poczta', author: 'Agnieszka Lis' } });
+    const res = await POST(ctx);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as ApiJson;
+    expect(json.data!['applied']).toBe(false);
+    expect((json.data!['candidates'] as unknown[]).length).toBe(0);
+  });
+
+  it('zachowuje kandydata cross-języka ze score ≥0.25 (autor pasuje, tytuł nie) — dawne 0.55 by go odrzuciło', async () => {
+    vi.mocked(searchGoogleBooks).mockResolvedValue({
+      ok: true,
+      candidates: [{
+        source: 'google_books', externalId: 'gb-keret',
+        title: 'The Bus Driver Who Wanted to Be God',
+        authors: ['Etgar Keret'], isbn10: null, isbn13: '9781592640225',
+        publisher: null, publishedYear: 2004, coverUrl: null,
+      }],
+    });
+    vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({ ok: false, reason: 'empty' });
+    vi.mocked(searchOpenLibrary).mockResolvedValue({ ok: false, reason: 'empty' });
+    const ctx = makeContext({ body: { title: 'Usterka na skraju galaktyki', author: 'Etgar Keret' } });
+    const res = await POST(ctx);
+    const json = (await res.json()) as ApiJson;
+    expect(json.data!['applied']).toBe(true);
+    expect((json.data!['candidates'] as unknown[]).length).toBeGreaterThan(0);
+  });
+
+  it('dorzuca kandydata z Biblioteki Narodowej gdy GB+OL puste (polska edycja)', async () => {
+    vi.mocked(searchGoogleBooks).mockResolvedValue({ ok: false, reason: 'empty' });
+    vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({ ok: false, reason: 'empty' });
+    vi.mocked(searchOpenLibrary).mockResolvedValue({ ok: false, reason: 'empty' });
+    vi.mocked(searchNationalLibrary).mockResolvedValue({
+      ok: true,
+      candidates: [{
+        source: 'national_library', externalId: 'bn-1',
+        title: 'Usterka na skraju galaktyki', authors: ['Keret, Etgar'],
+        isbn10: null, isbn13: '9788308073087', publisher: 'Wydawnictwo Literackie',
+        publishedYear: 2020, coverUrl: null,
+      }],
+    });
+    const ctx = makeContext({ body: { title: 'Usterka na skraju galaktyki', author: 'Etgar Keret' } });
+    const res = await POST(ctx);
+    const json = (await res.json()) as ApiJson;
+    expect(json.data!['applied']).toBe(true);
+    expect((json.data!['candidates'] as unknown[]).length).toBeGreaterThan(0);
+  });
+
+  it('przekazuje ISBN z formularza do Google Books i OpenLibrary', async () => {
+    vi.mocked(searchGoogleBooks).mockResolvedValue({ ok: false, reason: 'empty' });
+    vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({ ok: false, reason: 'empty' });
+    vi.mocked(searchOpenLibrary).mockResolvedValue({ ok: false, reason: 'empty' });
+    const ctx = makeContext({ body: { title: 'Coś', author: null, isbn: '9788308073087' } });
+    await POST(ctx);
+    expect(vi.mocked(searchGoogleBooks)).toHaveBeenCalledWith(
+      expect.objectContaining({ isbn: '9788308073087' })
+    );
+    expect(vi.mocked(searchOpenLibrary)).toHaveBeenCalledWith(
+      expect.objectContaining({ isbn: '9788308073087' })
+    );
+  });
+
+  it('auto-ekstrahuje autora z „Tytuł — Imię Nazwisko" gdy pole autora puste', async () => {
+    vi.mocked(searchGoogleBooks).mockResolvedValue({ ok: false, reason: 'empty' });
+    vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({ ok: false, reason: 'empty' });
+    vi.mocked(searchOpenLibrary).mockResolvedValue({ ok: false, reason: 'empty' });
+    const ctx = makeContext({ body: { title: 'Sto lat samotności — Gabriel García Márquez', author: null } });
+    await POST(ctx);
+    expect(vi.mocked(searchGoogleBooks)).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Sto lat samotności', author: 'Gabriel García Márquez' })
+    );
   });
 });

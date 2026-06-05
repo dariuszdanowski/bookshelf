@@ -76,6 +76,8 @@ export type Database = {
       books: {
         Row: {
           authors: string[]
+          cover_photo_url: string | null
+          cover_source: string
           cover_url: string | null
           created_at: string
           id: string
@@ -91,10 +93,13 @@ export type Database = {
           source_external_id: string | null
           spine_color: string | null
           title: string
+          user_cover_url: string | null
           user_id: string
         }
         Insert: {
           authors?: string[]
+          cover_photo_url?: string | null
+          cover_source?: string
           cover_url?: string | null
           created_at?: string
           id?: string
@@ -110,10 +115,13 @@ export type Database = {
           source_external_id?: string | null
           spine_color?: string | null
           title: string
+          user_cover_url?: string | null
           user_id: string
         }
         Update: {
           authors?: string[]
+          cover_photo_url?: string | null
+          cover_source?: string
           cover_url?: string | null
           created_at?: string
           id?: string
@@ -129,6 +137,7 @@ export type Database = {
           source_external_id?: string | null
           spine_color?: string | null
           title?: string
+          user_cover_url?: string | null
           user_id?: string
         }
         Relationships: []

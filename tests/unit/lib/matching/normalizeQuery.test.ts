@@ -4,6 +4,7 @@ import {
   cleanSearchTitle,
   mainTitleSegment,
   titleQueryVariants,
+  extractAuthorFromTitle,
 } from '../../../../src/lib/matching/normalizeQuery';
 
 describe('deCyrillic', () => {
@@ -31,6 +32,22 @@ describe('cleanSearchTitle', () => {
   it('kolapsuje białe znaki', () => {
     expect(cleanSearchTitle('A   B    C')).toBe('A B C');
   });
+
+  it('stripuje ucięte OCR słowo ŻYC... na końcu', () => {
+    expect(cleanSearchTitle('WIELKI OGARNACZ ŻYC...')).toBe('WIELKI OGARNACZ');
+  });
+
+  it('stripuje trailing "..." bez poprzedzającego słowa-fragmentu', () => {
+    expect(cleanSearchTitle('Wielki Ogarnacz...')).toBe('Wielki Ogarnacz');
+  });
+
+  it('stripuje poziomy wielokropek (…)', () => {
+    expect(cleanSearchTitle('Wielki Ogarnacz…')).toBe('Wielki Ogarnacz');
+  });
+
+  it('zostawia długie pełne słowo przed "..." — strip tylko kropek', () => {
+    expect(cleanSearchTitle('WIELKI OGARNACZ OGARNIACZ...')).toBe('WIELKI OGARNACZ OGARNIACZ');
+  });
 });
 
 describe('mainTitleSegment', () => {
@@ -44,6 +61,36 @@ describe('mainTitleSegment', () => {
 
   it('ignoruje człony krótsze niż 3 znaki', () => {
     expect(mainTitleSegment('Y: Coś Dłuższego')).toBe('Coś Dłuższego');
+  });
+});
+
+describe('extractAuthorFromTitle', () => {
+  it('rozdziela "Tytuł — Imię Nazwisko"', () => {
+    const r = extractAuthorFromTitle('Usterka na skraju — Etgar Keret');
+    expect(r.title).toBe('Usterka na skraju');
+    expect(r.author).toBe('Etgar Keret');
+  });
+
+  it('obsługuje trójczłonowe nazwisko', () => {
+    const r = extractAuthorFromTitle('Sto lat samotności — Gabriel García Márquez');
+    expect(r.title).toBe('Sto lat samotności');
+    expect(r.author).toBe('Gabriel García Márquez');
+  });
+
+  it('nie ekstrahuje ALL-CAPS podtytułu jako autora', () => {
+    const r = extractAuthorFromTitle('Y: OSTATNI Z MĘŻCZYZN — ZARAZA');
+    expect(r.author).toBeNull();
+  });
+
+  it('nie ekstrahuje pojedynczego słowa jako autora', () => {
+    const r = extractAuthorFromTitle('Solaris — Lem');
+    expect(r.author).toBeNull();
+  });
+
+  it('zwraca oryginalny tytuł gdy wzorzec nie pasuje', () => {
+    const r = extractAuthorFromTitle('Solaris');
+    expect(r.title).toBe('Solaris');
+    expect(r.author).toBeNull();
   });
 });
 

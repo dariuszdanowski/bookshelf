@@ -11,6 +11,7 @@ vi.mock('../../../../../src/lib/books/confirm', () => ({
 
 import { POST as confirmPost } from '../../../../../src/pages/api/detections/[id]/confirm';
 import { POST as rejectPost } from '../../../../../src/pages/api/detections/[id]/reject';
+import { POST as unrejectPost } from '../../../../../src/pages/api/detections/[id]/unreject';
 import { POST as correctPost } from '../../../../../src/pages/api/detections/[id]/correct';
 
 // ---------------------------------------------------------------------------
@@ -249,6 +250,103 @@ describe('POST /api/detections/[id]/reject', () => {
   it('Cache-Control header obecny', async () => {
     const ctx = makeContext({});
     const res = await rejectPost(ctx);
+    expect(res.headers.get('Cache-Control')).toBe('private, no-store');
+  });
+});
+
+// ===========================================================================
+// UNREJECT endpoint
+// ===========================================================================
+
+function makeUnrejectContext(opts: {
+  id?: string;
+  user?: boolean;
+  detResult?: { data: { id: string; status: string } | null; error: PgError };
+  candCount?: number;
+  updateError?: PgError;
+}) {
+  const detResult = opts.detResult ?? { data: { id: DET_ID, status: 'rejected' }, error: null };
+  const candCount = opts.candCount ?? 0;
+  const deleteEqInner = vi.fn().mockResolvedValue({ error: null });
+
+  const fromMock = vi.fn((table: string) => {
+    if (table === 'detections') {
+      return {
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            maybeSingle: vi.fn().mockResolvedValue(detResult),
+          })),
+        })),
+        update: vi.fn(() => ({
+          eq: vi.fn().mockResolvedValue({ error: opts.updateError ?? null }),
+        })),
+      };
+    }
+    if (table === 'book_candidates') {
+      return {
+        select: vi.fn(() => ({
+          eq: vi.fn().mockResolvedValue({ count: candCount, error: null }),
+        })),
+      };
+    }
+    if (table === 'corrections') {
+      return {
+        delete: vi.fn(() => ({
+          eq: vi.fn(() => ({ eq: deleteEqInner })),
+        })),
+      };
+    }
+    return {};
+  });
+
+  return {
+    params: { id: opts.id ?? DET_ID },
+    locals: {
+      user: opts.user !== false ? { id: USER_ID, email: 'test@example.com' } : null,
+      supabase: { from: fromMock } as never,
+    },
+  } as never;
+}
+
+describe('POST /api/detections/[id]/unreject', () => {
+  it('401 gdy brak użytkownika', async () => {
+    const res = await unrejectPost(makeUnrejectContext({ user: false }));
+    expect(res.status).toBe(401);
+  });
+
+  it('404 gdy id nie jest UUID', async () => {
+    const res = await unrejectPost(makeUnrejectContext({ id: 'not-a-uuid' }));
+    expect(res.status).toBe(404);
+  });
+
+  it('404 gdy detekcja nie istnieje', async () => {
+    const res = await unrejectPost(makeUnrejectContext({ detResult: { data: null, error: null } }));
+    expect(res.status).toBe(404);
+  });
+
+  it('200 status=matched gdy detekcja ma kandydatów', async () => {
+    const res = await unrejectPost(makeUnrejectContext({ candCount: 3 }));
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as ApiJson;
+    expect(json.data!.status).toBe('matched');
+  });
+
+  it('200 status=pending gdy brak kandydatów', async () => {
+    const res = await unrejectPost(makeUnrejectContext({ candCount: 0 }));
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as ApiJson;
+    expect(json.data!.status).toBe('pending');
+  });
+
+  it('500 gdy update DB pada', async () => {
+    const res = await unrejectPost(
+      makeUnrejectContext({ updateError: { name: 'PostgrestError', message: 'boom' } })
+    );
+    expect(res.status).toBe(500);
+  });
+
+  it('Cache-Control header obecny', async () => {
+    const res = await unrejectPost(makeUnrejectContext({}));
     expect(res.headers.get('Cache-Control')).toBe('private, no-store');
   });
 });

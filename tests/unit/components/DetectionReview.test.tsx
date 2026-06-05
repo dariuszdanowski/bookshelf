@@ -243,6 +243,23 @@ describe('DetectionReview — confirm single', () => {
     });
   });
 
+  it('po zaakceptowaniu wszystkich detekcji przekierowuje na półkę', async () => {
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { book_id: 'b1', shelf_id: SHELF_ID } }), { status: 200 })
+      );
+
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    const confirmBtn = await waitFor(() => screen.getByTestId('confirm-button'));
+    fireEvent.click(confirmBtn);
+
+    // defekt-3 (strona pozytywna): redirect następuje gdy ≥1 zaakceptowana
+    await waitFor(() => expect(window.location.href).toBe(`/shelves/${SHELF_ID}`));
+  });
+
   it('409 z /confirm pokazuje komunikat o duplikacie', async () => {
     vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(
@@ -290,6 +307,135 @@ describe('DetectionReview — reject', () => {
       );
       expect(rejectCall).toBeDefined();
     });
+  });
+
+  it('po Odrzuć pokazuje stan „Odrzucono" z przyciskiem Cofnij (nie zielony ptaszek)', async () => {
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { rejected: true } }), { status: 200 })
+      );
+
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    const rejectBtn = await waitFor(() => screen.getByTestId('reject-button'));
+    fireEvent.click(rejectBtn);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('undo-reject-button')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Odrzucono')).toBeInTheDocument();
+    // brak auto-redirectu po odrzuceniu ostatniej detekcji (0 zaakceptowanych)
+    expect(window.location.href).toBe('');
+  });
+
+  it('klik Cofnij woła POST /unreject i przywraca akcje detekcji', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { rejected: true } }), { status: 200 })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { status: 'matched' } }), { status: 200 })
+      );
+
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    const rejectBtn = await waitFor(() => screen.getByTestId('reject-button'));
+    fireEvent.click(rejectBtn);
+
+    const undoBtn = await waitFor(() => screen.getByTestId('undo-reject-button'));
+    fireEvent.click(undoBtn);
+
+    await waitFor(() => {
+      const unrejectCall = fetchMock.mock.calls.find(([url]) =>
+        typeof url === 'string' && url.includes('/unreject')
+      );
+      expect(unrejectCall).toBeDefined();
+    });
+    // wraca do stanu nierozstrzygniętego — przycisk Odrzuć znów dostępny
+    await waitFor(() => expect(screen.getByTestId('reject-button')).toBeInTheDocument());
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Podgląd szczegółów kandydata (klik w okładkę)
+// ---------------------------------------------------------------------------
+
+describe('DetectionReview — podgląd szczegółów kandydata', () => {
+  it('klik w okładkę propozycji otwiera ten sam modal szczegółów', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 })
+    );
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    const coverBtn = await waitFor(() => screen.getByTestId('candidate-cover-button'));
+    expect(screen.queryByTestId('book-detail-modal')).not.toBeInTheDocument();
+    fireEvent.click(coverBtn);
+    expect(screen.getByTestId('book-detail-modal')).toBeInTheDocument();
+    // dane kandydata (candHigh): ISBN + rok widoczne w podglądzie
+    expect(screen.getByText('9780156027601')).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Akcja: Szukaj w sieci
+// ---------------------------------------------------------------------------
+
+describe('DetectionReview — web search', () => {
+  it('pokazuje „Szukaj w sieci" z linkiem do Google na tytuł+autor w nowej karcie', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 })
+    );
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    const link = await waitFor(() => screen.getByTestId('web-search-button'));
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'));
+    const href = link.getAttribute('href') ?? '';
+    expect(href).toContain('google.com/search');
+    // używa ODCZYTANYCH danych (raw_title/raw_author), nie proponowanego kandydata
+    expect(decodeURIComponent(href)).toContain('Solaris');
+    expect(decodeURIComponent(href)).toContain('Lem');
+  });
+
+  it('używa odczytanych danych (raw), nie danych kandydata przy błędnym matchu', async () => {
+    // raw = „Pocz / Agnieszka LIS", kandydat = błędny „Czy to jest kochanie? / Danuta Bieńkowska"
+    const detWrongMatch: DetectionWithCandidatesDTO = {
+      id: '00000000-0000-4000-8000-000000000099',
+      position_index: 5,
+      raw_title: 'Poczekaj mi kochanie',
+      raw_author: 'Agnieszka Lis',
+      vision_confidence: 0.8,
+      spine_color: null,
+      bbox: null,
+      status: 'matched',
+      candidates: [{
+        id: '00000000-0000-4000-8000-0000000000a0',
+        source: 'google_books',
+        externalId: 'gb-x',
+        title: 'Czy to jest kochanie?',
+        authors: ['Danuta Bieńkowska'],
+        isbn10: null,
+        isbn13: null,
+        publisher: null,
+        publishedYear: null,
+        coverUrl: null,
+        matchScore: 0.36,
+        rank: 1,
+      }],
+      duplicate: null,
+    };
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(makePhotoResponse([detWrongMatch])), { status: 200 })
+    );
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    const link = await waitFor(() => screen.getByTestId('web-search-button'));
+    const decoded = decodeURIComponent(link.getAttribute('href') ?? '');
+    expect(decoded).toContain('Poczekaj mi kochanie');
+    expect(decoded).toContain('Agnieszka Lis');
+    expect(decoded).not.toContain('Danuta Bieńkowska');
+    expect(decoded).not.toContain('Czy to jest kochanie');
   });
 });
 

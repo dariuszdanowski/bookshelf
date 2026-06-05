@@ -1,18 +1,14 @@
 import type { APIRoute } from 'astro';
 import { z } from 'zod';
 
-import type { BookCandidate, ScoredCandidate } from '../../../../lib/books/schema';
 import { RematchDetectionSchema } from '../../../../lib/books/schema';
-import { searchGoogleBooks } from '../../../../lib/books/googleBooks';
-import { searchOpenLibrary } from '../../../../lib/books/openLibrary';
 import { apiError, apiResponse, parseUuidParam } from '../../../../lib/http/response';
 import { CONSERVATIVE_REPLACE_MARGIN } from '../../../../lib/matching/fallbackPolicy';
-import { checkCatalogDuplicate, dedupeCandidates } from '../../../../lib/matching/dedupe';
-import { scoreCandidate } from '../../../../lib/matching/score';
+import { checkCatalogDuplicate } from '../../../../lib/matching/dedupe';
+import { findBookCandidates } from '../../../../lib/matching/findCandidates';
+import { extractAuthorFromTitle } from '../../../../lib/matching/normalizeQuery';
 
 export const prerender = false;
-
-const MAX_CANDIDATES = 5;
 
 type ExistingBook = {
   id: string;
@@ -21,49 +17,6 @@ type ExistingBook = {
   isbn_13: string | null;
   isbn_10: string | null;
 };
-
-async function matchOne(
-  rawTitle: string,
-  rawAuthor: string | null,
-  existingBooks: ExistingBook[]
-): Promise<{ candidates: ScoredCandidate[]; rateLimited: boolean }> {
-  const googleResult = await searchGoogleBooks({ title: rawTitle, author: rawAuthor });
-  if (!googleResult.ok) {
-    return { candidates: [], rateLimited: googleResult.reason === 'rate_limited' };
-  }
-
-  const allCandidates: BookCandidate[] = [...googleResult.candidates];
-  const firstIsbn =
-    googleResult.candidates.find((c) => c.isbn13)?.isbn13 ??
-    googleResult.candidates.find((c) => c.isbn10)?.isbn10 ??
-    null;
-
-  if (firstIsbn) {
-    const olResult = await searchOpenLibrary({ title: rawTitle, isbn: firstIsbn });
-    if (olResult.ok) allCandidates.push(...olResult.candidates);
-  }
-
-  const scored: ScoredCandidate[] = allCandidates.map((c) => ({
-    ...c,
-    matchScore: scoreCandidate(
-      { raw_title: rawTitle, raw_author: rawAuthor },
-      { title: c.title, authors: c.authors, isbn13: c.isbn13, isbn10: c.isbn10 }
-    ),
-  }));
-
-  scored.sort((a, b) => b.matchScore - a.matchScore);
-  const candidates = dedupeCandidates(scored)
-    .slice(0, MAX_CANDIDATES)
-    .map((c) => {
-      if (c.coverUrl) return c;
-      const isbn = c.isbn13 ?? c.isbn10;
-      if (!isbn) return c;
-      return { ...c, coverUrl: `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg?default=false` };
-    });
-
-  void existingBooks; // used only for duplicate check downstream
-  return { candidates, rateLimited: false };
-}
 
 /**
  * POST /api/detections/[id]/rematch
@@ -101,8 +54,15 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     });
   }
 
-  const { title, author } = parsed.data;
-  const rawAuthor = author ?? null;
+  const { title: rawTitle, author, isbn: rawIsbn } = parsed.data;
+  const rawAuthorFromForm = author ?? null;
+  const rawIsbnFromForm = rawIsbn?.trim() || null;
+
+  // Auto-extract autora gdy tytuł zawiera wzorzec "Tytuł — Imię Nazwisko"
+  // i pole autora jest puste (np. user wkleił pełny opis z grzbietem).
+  const extracted = !rawAuthorFromForm ? extractAuthorFromTitle(rawTitle) : null;
+  const title = extracted?.title ?? rawTitle;
+  const rawAuthor = extracted?.author ?? rawAuthorFromForm;
 
   const { data: detection, error: detectionError } = await locals.supabase
     .from('detections')
@@ -150,7 +110,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     isbn_10: b.isbn_10,
   }));
 
-  const match = await matchOne(title, rawAuthor, catalog);
+  const match = await findBookCandidates(title, rawAuthor, rawIsbnFromForm);
   if (match.rateLimited) {
     return apiError({
       code: 'RATE_LIMITED',

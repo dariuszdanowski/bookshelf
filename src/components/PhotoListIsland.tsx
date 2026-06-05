@@ -111,7 +111,7 @@ export default function PhotoListIsland({ shelfId }: Props) {
         });
         const json = (await res.json()) as {
           data?: unknown;
-          error?: { message?: string };
+          error?: { code?: string; message?: string };
         };
         if (res.status === 409) {
           patchRow(photoId, { toast: 'Run już w toku, poczekaj chwilę.' });
@@ -119,6 +119,10 @@ export default function PhotoListIsland({ shelfId }: Props) {
         }
         if (res.status === 429) {
           patchRow(photoId, { toast: 'Vision rate limit — spróbuj za chwilę.' });
+          return;
+        }
+        if (res.status === 403 && json.error?.code === 'NO_API_KEY') {
+          patchRow(photoId, { toast: 'Brak klucza API. Dodaj klucz w ustawieniach konta.' });
           return;
         }
         if (!res.ok) {
@@ -442,15 +446,13 @@ export default function PhotoListIsland({ shelfId }: Props) {
                   </button>
                 )}
 
-                {isRerun && (
-                  <a
-                    href={`/photos/${photo.id}`}
-                    data-testid={`open-review-${photo.id}`}
-                    className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                  >
-                    Otwórz review
-                  </a>
-                )}
+                <a
+                  href={`/photos/${photo.id}`}
+                  data-testid={`open-review-${photo.id}`}
+                  className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  {isRerun ? 'Otwórz review' : 'Otwórz'}
+                </a>
 
                 {/* Przenieś na inną półkę (PATCH shelf_id) */}
                 {otherShelves.length > 0 && (
@@ -460,7 +462,7 @@ export default function PhotoListIsland({ shelfId }: Props) {
                     value=""
                     onChange={(e) => void movePhoto(photo.id, e.target.value)}
                     title={isLocked ? 'Trwa analiza, poczekaj na zakończenie' : 'Przenieś na inną półkę'}
-                    className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 disabled:opacity-50"
+                    className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-900 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
                   >
                     <option value="" disabled>
                       Przenieś na…

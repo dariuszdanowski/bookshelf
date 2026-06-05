@@ -5,6 +5,7 @@ const mockDetectSpines = vi.hoisted(() => vi.fn());
 const mockDeriveWorkingCopy = vi.hoisted(() =>
   vi.fn().mockResolvedValue({ bytes: new Uint8Array([0xff, 0xd8, 0xff]), mediaType: 'image/jpeg' as const })
 );
+const mockGetActiveProviderConfig = vi.hoisted(() => vi.fn());
 
 vi.mock('../../../../../src/lib/vision/client', () => ({
   detectSpines: mockDetectSpines,
@@ -12,6 +13,10 @@ vi.mock('../../../../../src/lib/vision/client', () => ({
 
 vi.mock('../../../../../src/lib/images/resize', () => ({
   deriveWorkingCopy: mockDeriveWorkingCopy,
+}));
+
+vi.mock('../../../../../src/lib/keys/getActiveProviderConfig', () => ({
+  getActiveProviderConfig: mockGetActiveProviderConfig,
 }));
 
 import { POST } from '../../../../../src/pages/api/photos/[id]/process';
@@ -173,10 +178,13 @@ function makeContext(
   };
 }
 
+const activeProviderConfig = { provider: 'anthropic' as const, apiKey: 'sk-test' };
+
 beforeEach(() => {
   vi.clearAllMocks();
   mockDetectSpines.mockResolvedValue(validVisionResult);
   mockDeriveWorkingCopy.mockResolvedValue({ bytes: new Uint8Array([0xff, 0xd8, 0xff]), mediaType: 'image/jpeg' as const });
+  mockGetActiveProviderConfig.mockResolvedValue(activeProviderConfig);
 });
 
 describe('POST /api/photos/[id]/process', () => {
@@ -207,6 +215,16 @@ describe('POST /api/photos/[id]/process', () => {
     expect(res.status).toBe(403);
     const json = (await res.json()) as { error: { code: string } };
     expect(json.error.code).toBe('AI_DISABLED');
+  });
+
+  it('returns 403 NO_API_KEY when no active key in user_api_keys', async () => {
+    mockGetActiveProviderConfig.mockResolvedValueOnce(null);
+    const { supabase } = makeSupabase({});
+    const res = await POST(makeContext(supabase) as never);
+    expect(res.status).toBe(403);
+    const json = (await res.json()) as { error: { code: string; details: { account_url: string } } };
+    expect(json.error.code).toBe('NO_API_KEY');
+    expect(json.error.details.account_url).toBe('/account');
   });
 
   it('returns 404 for malformed UUID', async () => {

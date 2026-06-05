@@ -1,5 +1,8 @@
-import type { ShelfBookDTO } from '../lib/books/schema';
+import { useState } from 'react';
+import type { ShelfBookDTO, BookCoverPatch } from '../lib/books/schema';
 import type { ShelfDTO } from '../lib/shelves/schema';
+import { effectiveCover } from '../lib/books/cover';
+import BookDetailModal from './BookDetailModal';
 
 /** Mapa nazwanych kolorów grzbietu (SPINE_COLORS) → swatch CSS dla wyników wyszukiwarki. */
 const SPINE_COLOR_CSS: Record<string, string> = {
@@ -30,6 +33,8 @@ type BookCardProps = {
   currentShelfId?: string;
   /** S-07: handler przeniesienia (optimistic po stronie rodzica). */
   onMove?: (bookId: string, targetShelfId: string) => void;
+  /** S-33: zmiana okładki z modala (optimistic po stronie rodzica). */
+  onCoverUpdated?: (bookId: string, patch: BookCoverPatch) => void;
 };
 
 /**
@@ -46,9 +51,12 @@ export default function BookCard({
   shelves,
   currentShelfId,
   onMove,
+  onCoverUpdated,
 }: BookCardProps) {
+  const [showDetail, setShowDetail] = useState(false);
   const authorsStr = book.authors.join(', ');
   const altText = authorsStr ? `${book.title} — ${authorsStr}` : book.title;
+  const cover = effectiveCover(book); // wybrany slot wg cover_source (+ fallback)
   const swatch = spineColor ? SPINE_COLOR_CSS[spineColor] : undefined;
   const moveTargets = (shelves ?? []).filter((s) => s.id !== currentShelfId);
 
@@ -57,34 +65,68 @@ export default function BookCard({
       data-testid={`book-card-${book.id}`}
       className="flex flex-col gap-2 rounded-lg border border-gray-200 bg-white p-3 shadow-sm"
     >
-      {/* Okładka */}
+      {/* Okładka — klik otwiera podgląd szczegółów */}
       <div className="flex justify-center">
-        {book.cover_url ? (
-          <img
-            src={book.cover_url}
-            alt={altText}
-            className="h-28 w-20 rounded object-cover shadow-sm"
-            loading="lazy"
-          />
-        ) : (
-          <div
-            className="flex h-28 w-20 items-center justify-center rounded bg-gray-100"
-            aria-label={altText}
-            role="img"
-          >
-            <svg
-              className="text-gray-300"
-              width="32"
-              height="32"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-              aria-hidden="true"
+        <button
+          type="button"
+          data-testid={`book-cover-button-${book.id}`}
+          onClick={() => setShowDetail(true)}
+          title="Pokaż szczegóły książki"
+          className="cursor-zoom-in rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+        >
+          {cover ? (
+            <img
+              src={cover}
+              alt={altText}
+              className="h-28 w-20 rounded object-cover shadow-sm"
+              loading="lazy"
+            />
+          ) : (
+            <div
+              className="flex h-28 w-20 items-center justify-center rounded bg-gray-100"
+              aria-label={altText}
+              role="img"
             >
-              <path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 15H7v-2h10v2zm0-4H7v-2h10v2zm0-4H7V7h10v2z" />
-            </svg>
-          </div>
-        )}
+              <svg
+                className="text-gray-300"
+                width="32"
+                height="32"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 15H7v-2h10v2zm0-4H7v-2h10v2zm0-4H7V7h10v2z" />
+              </svg>
+            </div>
+          )}
+        </button>
       </div>
+
+      {showDetail && (
+        <BookDetailModal
+          book={{
+            title: book.title,
+            authors: book.authors,
+            coverUrl: cover,
+            isbn13: book.isbn_13,
+            isbn10: book.isbn_10,
+            publisher: book.publisher,
+            publishedYear: book.published_year,
+            spineColor: spineColor ?? null,
+          }}
+          editableBookId={book.id}
+          coverSlots={{
+            cover_url: book.cover_url,
+            user_cover_url: book.user_cover_url,
+            cover_photo_url: book.cover_photo_url,
+            cover_source: book.cover_source,
+            isbn: book.isbn_13 ?? book.isbn_10 ?? null,
+          }}
+          onCoverUpdated={(patch) => onCoverUpdated?.(book.id, patch)}
+          sourcePhotoId={book.photo_id}
+          onClose={() => setShowDetail(false)}
+        />
+      )}
 
       {/* Metadane */}
       <div className="min-w-0 flex-1">
@@ -155,7 +197,7 @@ export default function BookCard({
             const target = e.target.value;
             if (target) onMove(book.id, target);
           }}
-          className="w-full rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-600 hover:bg-gray-50"
+          className="w-full rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-900 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
         >
           <option value="">{'Przenieś na półkę…'}</option>
           {moveTargets.map((s) => (

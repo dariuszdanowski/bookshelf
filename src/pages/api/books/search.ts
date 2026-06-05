@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 import { z } from 'zod';
 import { apiError, apiResponse } from '../../../lib/http/response';
-import { SearchBooksQuerySchema, type CatalogBookDTO } from '../../../lib/books/schema';
+import { SearchBooksQuerySchema, type CatalogBookDTO, type CoverSource } from '../../../lib/books/schema';
 
 export const prerender = false;
 
@@ -90,7 +90,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
   // 2. books filtrowane przez book_ids z aktualnych placementów + search/color/read
   let booksQuery = locals.supabase
     .from('books')
-    .select('id, title, authors, cover_url, published_year, is_read, spine_color')
+    .select('id, title, authors, cover_url, published_year, is_read, spine_color, isbn_13, isbn_10, publisher, user_cover_url, cover_photo_url, cover_source')
     .in('id', bookIds);
 
   if (q && q.trim()) {
@@ -129,6 +129,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
       shelf_id: p.shelf_id,
       shelf_name: p.shelf_name,
       photo_id: p.photo_id,
+      isbn_13: b.isbn_13,
+      isbn_10: b.isbn_10,
+      publisher: b.publisher,
+      user_cover_url: b.user_cover_url,
+      cover_photo_url: b.cover_photo_url,
+      cover_source: (b.cover_source ?? 'auto') as CoverSource,
     };
   });
 

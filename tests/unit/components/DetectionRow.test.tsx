@@ -125,7 +125,7 @@ describe('DetectionRow — akcje', () => {
     const onDecided = vi.fn();
     render(<DetectionRow detection={detMatched} onDecided={onDecided} />);
     fireEvent.click(screen.getByTestId('reject-button'));
-    await waitFor(() => expect(onDecided).toHaveBeenCalledWith(DET_ID));
+    await waitFor(() => expect(onDecided).toHaveBeenCalledWith(DET_ID, 'rejected'));
   });
 
   it('klik Refine woła POST /refine', async () => {
