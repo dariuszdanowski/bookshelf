@@ -7,10 +7,11 @@ vi.mock('../../../../../../src/lib/books/googleBooks', () => ({
 }));
 vi.mock('../../../../../../src/lib/books/openLibrary', () => ({
   searchOpenLibrary: vi.fn(),
+  searchOpenLibraryByTitle: vi.fn(),
 }));
 
 import { searchGoogleBooks } from '../../../../../../src/lib/books/googleBooks';
-import { searchOpenLibrary } from '../../../../../../src/lib/books/openLibrary';
+import { searchOpenLibrary, searchOpenLibraryByTitle } from '../../../../../../src/lib/books/openLibrary';
 
 const DET_ID = '00000000-0000-4000-8000-000000000020';
 const CAND_ID = '00000000-0000-4000-8000-000000000030';
@@ -125,6 +126,7 @@ describe('POST /api/detections/[id]/rematch', () => {
 
   it('404 gdy detekcja nie istnieje', async () => {
     vi.mocked(searchGoogleBooks).mockResolvedValue({ ok: false, reason: 'empty' });
+    vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({ ok: false, reason: 'empty' });
     const ctx = makeContext({ supabase: makeSupabase({ detection: null }) });
     const res = await POST(ctx);
     expect(res.status).toBe(404);
@@ -132,6 +134,7 @@ describe('POST /api/detections/[id]/rematch', () => {
 
   it('happy path — zwraca kandydatów z DB id gdy Google Books zwraca wyniki', async () => {
     vi.mocked(searchGoogleBooks).mockResolvedValue({ ok: true, candidates: [MOCK_GOOGLE_CANDIDATE] });
+    vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({ ok: false, reason: 'empty' });
     vi.mocked(searchOpenLibrary).mockResolvedValue({ ok: false, reason: 'empty' });
     const ctx = makeContext({});
     const res = await POST(ctx);
@@ -146,6 +149,7 @@ describe('POST /api/detections/[id]/rematch', () => {
 
   it('applied: false gdy Google Books zwraca pustą listę', async () => {
     vi.mocked(searchGoogleBooks).mockResolvedValue({ ok: false, reason: 'empty' });
+    vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({ ok: false, reason: 'empty' });
     const ctx = makeContext({});
     const res = await POST(ctx);
     expect(res.status).toBe(200);
@@ -156,6 +160,7 @@ describe('POST /api/detections/[id]/rematch', () => {
 
   it('429 gdy Google Books rate limited', async () => {
     vi.mocked(searchGoogleBooks).mockResolvedValue({ ok: false, reason: 'rate_limited' });
+    vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({ ok: false, reason: 'empty' });
     const ctx = makeContext({});
     const res = await POST(ctx);
     expect(res.status).toBe(429);
@@ -165,6 +170,7 @@ describe('POST /api/detections/[id]/rematch', () => {
 
   it('aktualizuje raw_title i raw_author w DB', async () => {
     vi.mocked(searchGoogleBooks).mockResolvedValue({ ok: true, candidates: [MOCK_GOOGLE_CANDIDATE] });
+    vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({ ok: false, reason: 'empty' });
     vi.mocked(searchOpenLibrary).mockResolvedValue({ ok: false, reason: 'empty' });
     const supabase = makeSupabase({});
     const ctx = makeContext({ supabase, body: { title: 'Nowy Tytuł', author: 'Autor' } });

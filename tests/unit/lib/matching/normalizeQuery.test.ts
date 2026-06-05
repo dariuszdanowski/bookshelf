@@ -32,6 +32,22 @@ describe('cleanSearchTitle', () => {
   it('kolapsuje białe znaki', () => {
     expect(cleanSearchTitle('A   B    C')).toBe('A B C');
   });
+
+  it('stripuje ucięte OCR słowo ŻYC... na końcu', () => {
+    expect(cleanSearchTitle('WIELKI OGARNACZ ŻYC...')).toBe('WIELKI OGARNACZ');
+  });
+
+  it('stripuje trailing "..." bez poprzedzającego słowa-fragmentu', () => {
+    expect(cleanSearchTitle('Wielki Ogarnacz...')).toBe('Wielki Ogarnacz');
+  });
+
+  it('stripuje poziomy wielokropek (…)', () => {
+    expect(cleanSearchTitle('Wielki Ogarnacz…')).toBe('Wielki Ogarnacz');
+  });
+
+  it('zostawia długie pełne słowo przed "..." — strip tylko kropek', () => {
+    expect(cleanSearchTitle('WIELKI OGARNACZ OGARNIACZ...')).toBe('WIELKI OGARNACZ OGARNIACZ');
+  });
 });
 
 describe('mainTitleSegment', () => {

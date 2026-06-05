@@ -22,12 +22,16 @@ export function deCyrillic(s: string): string {
  * Czyści tytuł do zapytania wyszukiwania:
  * 1. homoglify cyrylica → łacina
  * 2. usuwa zakresy lat (1985-2003 / 1985–2003)
- * 3. kolapsuje białe znaki
+ * 3. usuwa ucięte OCR-em słowa na końcu: "ŻYC..." → strip całego fragmentu;
+ *    "OGARNACZ..." → strip tylko kropek (pełne słowo, zatrzymaj je)
+ * 4. kolapsuje białe znaki
  * Zwraca przyciętą wersję (zachowuje diakrytyki PL i wielkość liter).
  */
 export function cleanSearchTitle(raw: string): string {
   return deCyrillic(raw)
-    .replace(/\b\d{4}\s*[-–—]\s*\d{4}\b/g, ' ') // zakres lat
+    .replace(/\b\d{4}\s*[-–—]\s*\d{4}\b/g, ' ')       // zakres lat
+    .replace(/\s+[^\s]{1,5}(?:\.{3,}|…)\s*$/, '')      // ucięte słowo: " ŻYC..." → strip
+    .replace(/(?:\.{3,}|…)\s*$/, '')                    // pozostałe "..." na końcu → strip
     .replace(/\s+/g, ' ')
     .trim();
 }
