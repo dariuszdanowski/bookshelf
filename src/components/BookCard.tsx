@@ -123,6 +123,7 @@ export default function BookCard({
             isbn: book.isbn_13 ?? book.isbn_10 ?? null,
           }}
           onCoverUpdated={(patch) => onCoverUpdated?.(book.id, patch)}
+          sourcePhotoId={book.photo_id}
           onClose={() => setShowDetail(false)}
         />
       )}

@@ -326,11 +326,221 @@ function CoverEditor({
   );
 }
 
+function googleSearchUrl(title: string, authors: string[]): string {
+  const q = [title, ...authors].filter(Boolean).join(' ').trim();
+  return `https://www.google.com/search?q=${encodeURIComponent(q)}`;
+}
+
+type IdentCandidate = {
+  title: string;
+  authors: string[];
+  isbn13: string | null;
+  isbn10: string | null;
+  publisher: string | null;
+  publishedYear: number | null;
+  coverUrl: string | null;
+  source: string;
+  externalId: string;
+  matchScore: number;
+};
+
+// ---------------------------------------------------------------------------
+// Panel „Szukaj po tytule" / re-identyfikacja (S-33) — ta sama funkcja co w
+// propozycjach, ale dla zatwierdzonej książki. Szuka w GB/OL/BN, user wybiera
+// trafienie → nadpisuje metadane + okładkę. Po zastosowaniu: reload strony.
+// ---------------------------------------------------------------------------
+function IdentifyPanel({
+  bookId,
+  initialTitle,
+  initialAuthor,
+  onApplied,
+}: {
+  bookId: string;
+  initialTitle: string;
+  initialAuthor: string;
+  onApplied: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState(initialTitle);
+  const [author, setAuthor] = useState(initialAuthor);
+  const [candidates, setCandidates] = useState<IdentCandidate[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function search(e: React.FormEvent) {
+    e.preventDefault();
+    if (!title.trim()) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await fetch(`/api/books/${bookId}/identify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'search', title: title.trim(), author: author.trim() || null }),
+      });
+      const json = (await res.json()) as { data?: { candidates: IdentCandidate[] }; error?: { message?: string } };
+      if (res.status === 429) {
+        setErr('Rate limit, spróbuj za chwilę.');
+        return;
+      }
+      if (!res.ok) {
+        setErr(json.error?.message ?? 'Błąd wyszukiwania.');
+        return;
+      }
+      setCandidates(json.data?.candidates ?? []);
+    } catch {
+      setErr('Błąd sieci.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function apply(c: IdentCandidate) {
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await fetch(`/api/books/${bookId}/identify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'apply',
+          candidate: {
+            title: c.title,
+            authors: c.authors,
+            isbn13: c.isbn13,
+            isbn10: c.isbn10,
+            publisher: c.publisher,
+            publishedYear: c.publishedYear,
+            coverUrl: c.coverUrl,
+            source: c.source,
+            externalId: c.externalId,
+          },
+        }),
+      });
+      const json = (await res.json()) as { error?: { message?: string } };
+      if (!res.ok) {
+        setErr(json.error?.message ?? 'Błąd zapisu.');
+        return;
+      }
+      onApplied();
+    } catch {
+      setErr('Błąd sieci.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        data-testid="identify-toggle"
+        onClick={() => setOpen(true)}
+        className="rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
+      >
+        Szukaj po tytule
+      </button>
+    );
+  }
+
+  return (
+    <div data-testid="identify-panel" className="mt-3 w-full space-y-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-emerald-950">
+      <form onSubmit={search} className="space-y-2">
+        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+          Tytuł
+          <input
+            data-testid="identify-title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+            required
+          />
+        </label>
+        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+          Autor (opcjonalnie)
+          <input
+            data-testid="identify-author"
+            value={author}
+            onChange={(e) => setAuthor(e.target.value)}
+            className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+          />
+        </label>
+        <div className="flex gap-2">
+          <button
+            type="submit"
+            data-testid="identify-search"
+            disabled={busy || !title.trim()}
+            className="flex-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+          >
+            {busy ? 'Szukam...' : 'Szukaj'}
+          </button>
+          <button
+            type="button"
+            data-testid="identify-cancel"
+            onClick={() => setOpen(false)}
+            className="rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-700"
+          >
+            Zamknij
+          </button>
+        </div>
+      </form>
+
+      {err && (
+        <p data-testid="identify-error" className="text-xs text-red-600 dark:text-red-400" role="alert">
+          {err}
+        </p>
+      )}
+
+      {candidates != null && candidates.length === 0 && (
+        <p data-testid="identify-no-results" className="text-xs text-amber-600">
+          Nie znaleziono wyników. Spróbuj zmienić tytuł/autora albo „Szukaj w sieci”.
+        </p>
+      )}
+
+      {candidates != null && candidates.length > 0 && (
+        <ul data-testid="identify-results" className="space-y-1">
+          {candidates.map((c, i) => (
+            <li
+              key={`${c.source}-${c.externalId}-${i}`}
+              className="flex items-center gap-2 rounded border border-gray-200 bg-white p-2 dark:border-gray-700 dark:bg-gray-800"
+            >
+              {c.coverUrl ? (
+                <img src={c.coverUrl} alt="" className="h-12 w-8 flex-shrink-0 rounded object-cover" loading="lazy" />
+              ) : (
+                <span className="h-12 w-8 flex-shrink-0 rounded bg-gray-100 dark:bg-gray-700" aria-hidden="true" />
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-medium text-gray-800 dark:text-gray-100">{c.title}</p>
+                <p className="truncate text-[11px] text-gray-500">
+                  {c.authors.join(', ')}
+                  {c.publishedYear ? ` · ${c.publishedYear}` : ''}
+                  {c.isbn13 ? ` · ${c.isbn13}` : ''}
+                  {` · ${Math.round(c.matchScore * 100)}%`}
+                </p>
+              </div>
+              <button
+                type="button"
+                data-testid={`identify-apply-${i}`}
+                disabled={busy}
+                onClick={() => void apply(c)}
+                className="flex-shrink-0 rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                Użyj
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 /**
  * Modal ze szczegółami książki — duża okładka + tytuł, autorzy, ISBN, rok,
  * wydawca, źródło. Wspólny dla propozycji i książek zatwierdzonych (jednolity
  * dostęp przez klik w okładkę). Dla zatwierdzonych (editableBookId) dochodzi
- * panel edycji okładki (URL / upload / auto). Zamknięcie: Esc lub klik w tło.
+ * panel edycji okładki (URL / upload / auto), „Szukaj po tytule" (identyfikacja)
+ * i link do źródłowego zdjęcia. Zamknięcie: Esc lub klik w tło.
  */
 export default function BookDetailModal({
   book,
@@ -338,12 +548,14 @@ export default function BookDetailModal({
   editableBookId,
   coverSlots,
   onCoverUpdated,
+  sourcePhotoId,
 }: {
   book: BookDetailData;
   onClose: () => void;
   editableBookId?: string;
   coverSlots?: CoverSlots;
   onCoverUpdated?: (patch: BookCoverPatch) => void;
+  sourcePhotoId?: string | null;
 }) {
   const [displayCover, setDisplayCover] = useState<string | null>(book.coverUrl);
 
@@ -423,6 +635,36 @@ export default function BookDetailModal({
                 Brak dodatkowych metadanych dla tej książki.
               </p>
             )}
+
+            {/* Akcje: szukaj w sieci (zawsze), zdjęcie półki + identyfikacja (książki zatwierdzone) */}
+            <div className="mt-4 flex flex-wrap items-start gap-2">
+              <a
+                data-testid="modal-web-search"
+                href={googleSearchUrl(book.title, book.authors)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-md border border-sky-300 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-900/20 dark:text-sky-300 dark:hover:bg-sky-900/40"
+              >
+                Szukaj w sieci
+              </a>
+              {sourcePhotoId && (
+                <a
+                  data-testid="modal-source-photo"
+                  href={`/photos/${sourcePhotoId}`}
+                  className="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
+                >
+                  Źródłowe zdjęcie
+                </a>
+              )}
+              {editableBookId && (
+                <IdentifyPanel
+                  bookId={editableBookId}
+                  initialTitle={book.title}
+                  initialAuthor={authorsStr}
+                  onApplied={() => window.location.reload()}
+                />
+              )}
+            </div>
           </div>
         </div>
       </div>

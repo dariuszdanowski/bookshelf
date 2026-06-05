@@ -179,6 +179,33 @@ export const MoveBookSchema = z
   .strict();
 export type MoveBookInput = z.infer<typeof MoveBookSchema>;
 
+// POST /api/books/[id]/identify — „Szukaj po tytule" dla zatwierdzonej książki
+// (re-identyfikacja). Tryb 'search' zwraca kandydatów; 'apply' zapisuje wybranego.
+const IdentifyCandidateShape = z.object({
+  title: z.string().min(1).max(300),
+  authors: z.array(z.string().max(200)).default([]),
+  isbn13: z.string().max(20).nullable().optional(),
+  isbn10: z.string().max(20).nullable().optional(),
+  publisher: z.string().max(300).nullable().optional(),
+  publishedYear: z.number().int().min(1000).max(2100).nullable().optional(),
+  coverUrl: z.string().url().max(1000).nullable().optional(),
+  source: z.string().max(50).nullable().optional(),
+  externalId: z.string().max(200).nullable().optional(),
+});
+export const IdentifyBookSchema = z.discriminatedUnion('mode', [
+  z.object({
+    mode: z.literal('search'),
+    title: z.string().min(1, 'Tytuł nie może być pusty').max(300),
+    author: z.string().max(200).nullable().optional(),
+    isbn: z.string().max(20).nullable().optional(),
+  }),
+  z.object({
+    mode: z.literal('apply'),
+    candidate: IdentifyCandidateShape,
+  }),
+]);
+export type IdentifyBookInput = z.infer<typeof IdentifyBookSchema>;
+
 // POST /api/detections/[id]/rematch — wyszukanie Google Books z poprawionym tytułem/autorem
 export const RematchDetectionSchema = z.object({
   title: z.string().min(1, 'Tytuł nie może być pusty').max(300),

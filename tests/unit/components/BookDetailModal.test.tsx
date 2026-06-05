@@ -124,3 +124,53 @@ describe('BookDetailModal — edycja okładki (S-33)', () => {
     expect(screen.getByTestId('cover-autocheck')).toBeDisabled();
   });
 });
+
+describe('BookDetailModal — akcje (szukaj w sieci / zdjęcie półki / identyfikacja)', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('„Szukaj w sieci" — link Google z tytułem+autorem (zawsze, też propozycja)', () => {
+    render(<BookDetailModal book={fullBook} onClose={vi.fn()} />);
+    const link = screen.getByTestId('modal-web-search');
+    expect(link).toHaveAttribute('target', '_blank');
+    const href = link.getAttribute('href') ?? '';
+    expect(href).toContain('google.com/search');
+    expect(decodeURIComponent(href)).toContain('Solaris');
+    expect(decodeURIComponent(href)).toContain('Stanisław Lem');
+  });
+
+  it('„Źródłowe zdjęcie" tylko gdy podano sourcePhotoId', () => {
+    const { rerender } = render(<BookDetailModal book={fullBook} onClose={vi.fn()} />);
+    expect(screen.queryByTestId('modal-source-photo')).not.toBeInTheDocument();
+    rerender(<BookDetailModal book={fullBook} onClose={vi.fn()} sourcePhotoId="photo-9" />);
+    expect(screen.getByTestId('modal-source-photo')).toHaveAttribute('href', '/photos/photo-9');
+  });
+
+  it('„Szukaj po tytule" tylko z editableBookId; szukaj → wyniki → Użyj woła apply', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { candidates: [{ source: 'national_library', externalId: 'bn-1', title: 'Przytulajka', authors: ['Krawczyk, Agnieszka'], isbn13: '9788379768578', isbn10: null, publisher: 'Czwarta Strona', publishedYear: 2018, coverUrl: null, matchScore: 0.9 }] } }), { status: 200 })
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { applied: true } }), { status: 200 }));
+
+    render(<BookDetailModal book={fullBook} onClose={vi.fn()} editableBookId="b1" />);
+    expect(screen.getByTestId('identify-toggle')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('identify-toggle'));
+    fireEvent.click(screen.getByTestId('identify-search'));
+
+    const useBtn = await waitFor(() => screen.getByTestId('identify-apply-0'));
+    fireEvent.click(useBtn);
+
+    await waitFor(() => {
+      const applyCall = fetchMock.mock.calls.find(
+        ([url, opt]) => typeof url === 'string' && url.includes('/api/books/b1/identify') &&
+          JSON.parse((opt as RequestInit).body as string).mode === 'apply'
+      );
+      expect(applyCall).toBeDefined();
+    });
+  });
+
+  it('panel identyfikacji NIEwidoczny bez editableBookId', () => {
+    render(<BookDetailModal book={fullBook} onClose={vi.fn()} />);
+    expect(screen.queryByTestId('identify-toggle')).not.toBeInTheDocument();
+  });
+});

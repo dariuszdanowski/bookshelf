@@ -1,24 +1,14 @@
 import type { APIRoute } from 'astro';
 import { z } from 'zod';
 
-import type { BookCandidate, ScoredCandidate } from '../../../../lib/books/schema';
 import { RematchDetectionSchema } from '../../../../lib/books/schema';
-import { searchGoogleBooks } from '../../../../lib/books/googleBooks';
-import { searchOpenLibrary, searchOpenLibraryByTitle } from '../../../../lib/books/openLibrary';
-import { searchNationalLibrary } from '../../../../lib/books/nationalLibrary';
 import { apiError, apiResponse, parseUuidParam } from '../../../../lib/http/response';
 import { CONSERVATIVE_REPLACE_MARGIN } from '../../../../lib/matching/fallbackPolicy';
-import { checkCatalogDuplicate, dedupeCandidates } from '../../../../lib/matching/dedupe';
-import { scoreCandidate, authorTokensMatch } from '../../../../lib/matching/score';
+import { checkCatalogDuplicate } from '../../../../lib/matching/dedupe';
+import { findBookCandidates } from '../../../../lib/matching/findCandidates';
 import { extractAuthorFromTitle } from '../../../../lib/matching/normalizeQuery';
 
 export const prerender = false;
-
-// Niższy próg niż MATCH_MID (0.55) — rematch to świadome wyszukiwanie przez usera,
-// który i tak wybiera ręcznie. Pozwala na wyniki cross-języka (Keret po polsku vs
-// angielskie wpisy GB — author match ~0.30 przechodzi próg 0.25).
-const REMATCH_MIN_SCORE = 0.25;
-const MAX_CANDIDATES = 8;
 
 type ExistingBook = {
   id: string;
@@ -27,76 +17,6 @@ type ExistingBook = {
   isbn_13: string | null;
   isbn_10: string | null;
 };
-
-async function matchOne(
-  rawTitle: string,
-  rawAuthor: string | null,
-  rawIsbn: string | null,
-  existingBooks: ExistingBook[]
-): Promise<{ candidates: ScoredCandidate[]; rateLimited: boolean }> {
-  // GB + OL + Biblioteka Narodowa równolegle — OL i BN mają polskie edycje
-  // których brakuje w GB (BN: natywne pokrycie polskich wydań).
-  const [googleResult, olTitleResult, bnResult] = await Promise.all([
-    searchGoogleBooks({ title: rawTitle, author: rawAuthor, isbn: rawIsbn ?? undefined }),
-    searchOpenLibraryByTitle({ title: rawTitle, author: rawAuthor }),
-    searchNationalLibrary({ title: rawTitle, author: rawAuthor, isbn: rawIsbn ?? undefined }),
-  ]);
-
-  if (!googleResult.ok && googleResult.reason === 'rate_limited') {
-    return { candidates: [], rateLimited: true };
-  }
-
-  const allCandidates: BookCandidate[] = [
-    ...(googleResult.ok ? googleResult.candidates : []),
-    ...(olTitleResult.ok ? olTitleResult.candidates : []),
-    ...(bnResult.ok ? bnResult.candidates : []),
-  ];
-
-  // OL ISBN lookup: najpierw user-supplied ISBN, potem z najlepszego kandydata GB
-  const isbnForOl =
-    rawIsbn ??
-    (googleResult.ok
-      ? (googleResult.candidates.find((c) => c.isbn13)?.isbn13 ??
-        googleResult.candidates.find((c) => c.isbn10)?.isbn10 ??
-        null)
-      : null);
-  if (isbnForOl) {
-    const olIsbnResult = await searchOpenLibrary({ title: rawTitle, isbn: isbnForOl });
-    if (olIsbnResult.ok) allCandidates.push(...olIsbnResult.candidates);
-  }
-
-  if (allCandidates.length === 0) {
-    void existingBooks;
-    return { candidates: [], rateLimited: false };
-  }
-
-  const scored: ScoredCandidate[] = allCandidates.map((c) => ({
-    ...c,
-    matchScore: scoreCandidate(
-      { raw_title: rawTitle, raw_author: rawAuthor },
-      { title: c.title, authors: c.authors, isbn13: c.isbn13, isbn10: c.isbn10 }
-    ),
-  }));
-
-  scored.sort((a, b) => b.matchScore - a.matchScore);
-  const candidates = dedupeCandidates(
-    scored.filter(
-      (c) =>
-        c.matchScore >= REMATCH_MIN_SCORE &&
-        authorTokensMatch(rawAuthor, c.authors)
-    )
-  )
-    .slice(0, MAX_CANDIDATES)
-    .map((c) => {
-      if (c.coverUrl) return c;
-      const isbn = c.isbn13 ?? c.isbn10;
-      if (!isbn) return c;
-      return { ...c, coverUrl: `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg?default=false` };
-    });
-
-  void existingBooks; // used only for duplicate check downstream
-  return { candidates, rateLimited: false };
-}
 
 /**
  * POST /api/detections/[id]/rematch
@@ -190,7 +110,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     isbn_10: b.isbn_10,
   }));
 
-  const match = await matchOne(title, rawAuthor, rawIsbnFromForm, catalog);
+  const match = await findBookCandidates(title, rawAuthor, rawIsbnFromForm);
   if (match.rateLimited) {
     return apiError({
       code: 'RATE_LIMITED',

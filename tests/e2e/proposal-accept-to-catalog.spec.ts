@@ -405,7 +405,8 @@ test.describe('S-05 — proposal-accept-to-catalog golden path (mock)', () => {
     await page.getByTestId('cover-source-url').click();
     await page.getByTestId('cover-save').click();
 
-    await expect.poll(() => patchBody?.user_cover_url).toBe('https://example.com/moja-okladka.jpg');
-    expect(patchBody?.cover_source).toBe('url');
+    const readPatch = () => patchBody as Record<string, unknown> | null;
+    await expect.poll(() => readPatch()?.user_cover_url).toBe('https://example.com/moja-okladka.jpg');
+    expect(readPatch()?.cover_source).toBe('url');
   });
 });
