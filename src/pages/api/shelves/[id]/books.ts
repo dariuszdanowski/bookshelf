@@ -48,7 +48,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
   // Join shelf_entries → books; is_current=true; order position_index ASC nulls last
   const { data: rows, error } = await locals.supabase
     .from('shelf_entries')
-    .select('position_index, photo_id, books(id, title, authors, cover_url, published_year, is_read, isbn_13, isbn_10, publisher)')
+    .select('position_index, photo_id, books(id, title, authors, cover_url, published_year, is_read, isbn_13, isbn_10, publisher, user_cover_url, cover_photo_url, cover_source)')
     .eq('shelf_id', shelfId)
     .eq('is_current', true)
     .order('position_index', { ascending: true, nullsFirst: false });
@@ -75,6 +75,9 @@ export const GET: APIRoute = async ({ params, locals }) => {
         isbn_13: string | null;
         isbn_10: string | null;
         publisher: string | null;
+        user_cover_url: string | null;
+        cover_photo_url: string | null;
+        cover_source: 'auto' | 'url' | 'photo';
       };
       return {
         id: b.id,
@@ -88,6 +91,9 @@ export const GET: APIRoute = async ({ params, locals }) => {
         isbn_13: b.isbn_13,
         isbn_10: b.isbn_10,
         publisher: b.publisher,
+        user_cover_url: b.user_cover_url,
+        cover_photo_url: b.cover_photo_url,
+        cover_source: b.cover_source ?? 'auto',
       };
     });
 

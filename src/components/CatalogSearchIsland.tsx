@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { CatalogBookDTO } from '../lib/books/schema';
+import type { CatalogBookDTO, BookCoverPatch } from '../lib/books/schema';
 import type { ShelfDTO } from '../lib/shelves/schema';
 import { SPINE_COLORS } from '../lib/vision/prompt';
 import BookCard from './BookCard';
@@ -95,6 +95,10 @@ export default function CatalogSearchIsland() {
     } catch {
       setBooks((prev) => prev.map((b) => (b.id === bookId ? { ...b, is_read: currentValue } : b)));
     }
+  }
+
+  function handleCoverUpdated(bookId: string, patch: BookCoverPatch) {
+    setBooks((prev) => prev.map((b) => (b.id === bookId ? { ...b, ...patch } : b)));
   }
 
   async function handleMove(bookId: string, targetShelfId: string) {
@@ -234,6 +238,7 @@ export default function CatalogSearchIsland() {
                   shelves={shelves}
                   currentShelfId={b.shelf_id}
                   onMove={handleMove}
+                  onCoverUpdated={handleCoverUpdated}
                 />
               ))}
             </div>

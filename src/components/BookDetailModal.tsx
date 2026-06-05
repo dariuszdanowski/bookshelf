@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { largeCoverUrl } from '../lib/books/cover';
+import { largeCoverUrl, effectiveCover } from '../lib/books/cover';
+import type { CoverSource, BookCoverPatch } from '../lib/books/schema';
+import { createBrowserSupabaseClient } from '../lib/db/supabase.browser';
 
 // Znormalizowane dane do podglądu — wspólne dla propozycji (BookCandidateDTO)
 // i książek zatwierdzonych (ShelfBookDTO/CatalogBookDTO). Pola opcjonalne, bo
@@ -17,6 +19,17 @@ export type BookDetailData = {
   matchScore?: number | null;
 };
 
+// Surowe sloty okładki + ISBN — do panelu edycji (tylko książki zatwierdzone).
+export type CoverSlots = {
+  cover_url: string | null;
+  user_cover_url: string | null;
+  cover_photo_url: string | null;
+  cover_source: CoverSource;
+  isbn: string | null;
+};
+
+const MAX_COVER_BYTES = 15 * 1024 * 1024; // 15 MB jak PhotoUploader
+
 const SOURCE_LABELS: Record<string, string> = {
   google_books: 'Google Books',
   open_library: 'OpenLibrary',
@@ -24,9 +37,17 @@ const SOURCE_LABELS: Record<string, string> = {
   manual: 'Wpis ręczny',
 };
 
+const COVER_SOURCE_LABELS: Record<CoverSource, string> = {
+  auto: 'Automatyczna',
+  url: 'Wklejony URL',
+  photo: 'Wgrane zdjęcie',
+};
+
 function CoverLarge({ url, alt }: { url: string | null; alt: string }) {
   const [failed, setFailed] = useState(false);
   const big = largeCoverUrl(url);
+  // reset błędu gdy url się zmienia (live-preview w edytorze)
+  useEffect(() => setFailed(false), [big]);
   if (!big || failed) {
     return (
       <div
@@ -60,18 +81,272 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Panel edycji okładki (S-33) — 3 sloty (auto / URL / zdjęcie) + flaga wyboru.
+// Tylko dla książek zatwierdzonych (mają books.id). Live-preview przez onPreview.
+// ---------------------------------------------------------------------------
+function CoverEditor({
+  bookId,
+  slots,
+  onPreview,
+  onApplied,
+}: {
+  bookId: string;
+  slots: CoverSlots;
+  onPreview: (url: string | null) => void;
+  onApplied: (patch: BookCoverPatch) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [source, setSource] = useState<CoverSource>(slots.cover_source);
+  const [autoUrl, setAutoUrl] = useState(slots.cover_url);
+  const [urlDraft, setUrlDraft] = useState(slots.user_cover_url ?? '');
+  const [photoUrl, setPhotoUrl] = useState(slots.cover_photo_url);
+  const [busy, setBusy] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const draftSlot: Record<CoverSource, string | null> = {
+    auto: autoUrl,
+    url: urlDraft.trim() || null,
+    photo: photoUrl,
+  };
+
+  function preview(nextSource: CoverSource, override?: Partial<Record<CoverSource, string | null>>) {
+    const merged = { ...draftSlot, ...override };
+    onPreview(merged[nextSource] ?? merged.auto ?? merged.url ?? merged.photo ?? null);
+  }
+
+  function selectSource(s: CoverSource) {
+    setSource(s);
+    preview(s);
+  }
+
+  async function handleUpload(file: File) {
+    if (file.size > MAX_COVER_BYTES) {
+      setErr('Plik za duży (max 15 MB).');
+      return;
+    }
+    setBusy(true);
+    setErr(null);
+    try {
+      const supabase = createBrowserSupabaseClient();
+      const { data: auth } = await supabase.auth.getUser();
+      const uid = auth.user?.id;
+      if (!uid) {
+        setErr('Brak sesji — zaloguj się ponownie.');
+        return;
+      }
+      const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg';
+      const path = `${uid}/${bookId}-${crypto.randomUUID()}.${ext}`;
+      const { error } = await supabase.storage
+        .from('book-covers')
+        .upload(path, file, { contentType: file.type || 'image/jpeg', upsert: false });
+      if (error) {
+        setErr(error.message);
+        return;
+      }
+      const { data: pub } = supabase.storage.from('book-covers').getPublicUrl(path);
+      setPhotoUrl(pub.publicUrl);
+      setSource('photo');
+      preview('photo', { photo: pub.publicUrl });
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Błąd uploadu.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleAutoCheck() {
+    setChecking(true);
+    setErr(null);
+    try {
+      const res = await fetch(`/api/books/${bookId}/cover-suggestion`);
+      const json = (await res.json()) as { data?: { cover_url: string | null }; error?: { message?: string } };
+      if (!res.ok) {
+        setErr(json.error?.message ?? 'Błąd sprawdzania okładki.');
+        return;
+      }
+      const found = json.data?.cover_url ?? null;
+      if (found) {
+        setAutoUrl(found);
+        setSource('auto');
+        preview('auto', { auto: found });
+      } else {
+        setErr('Nie znaleziono okładki automatycznie dla tego ISBN.');
+      }
+    } catch {
+      setErr('Błąd sieci.');
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  async function handleSave() {
+    setBusy(true);
+    setErr(null);
+    const newUserUrl = urlDraft.trim() || null;
+    const patch: BookCoverPatch = { cover_source: source };
+    if (newUserUrl !== slots.user_cover_url) patch.user_cover_url = newUserUrl;
+    if (photoUrl !== slots.cover_photo_url) patch.cover_photo_url = photoUrl;
+    try {
+      const res = await fetch(`/api/books/${bookId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+      const json = (await res.json()) as { error?: { message?: string } };
+      if (!res.ok) {
+        setErr(json.error?.message ?? `Błąd zapisu (${res.status})`);
+        return;
+      }
+      // autoUrl mógł zostać zaktualizowany przez „sprawdź automatycznie" (już w DB)
+      onApplied({ ...patch, cover_url: autoUrl });
+      setOpen(false);
+    } catch {
+      setErr('Błąd sieci.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        data-testid="cover-edit-toggle"
+        onClick={() => setOpen(true)}
+        className="mt-4 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+      >
+        Zmień okładkę
+      </button>
+    );
+  }
+
+  return (
+    <div
+      data-testid="cover-editor"
+      className="mt-4 space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/40"
+    >
+      <p className="text-xs font-medium text-gray-700 dark:text-gray-300">Pokaż jako okładkę:</p>
+      <div role="group" aria-label="Wybór okładki" className="flex flex-wrap gap-1">
+        {(['auto', 'url', 'photo'] as CoverSource[]).map((s) => {
+          const active = source === s;
+          const hasData = draftSlot[s] != null;
+          return (
+            <button
+              key={s}
+              type="button"
+              data-testid={`cover-source-${s}`}
+              aria-pressed={active}
+              onClick={() => selectSource(s)}
+              className={`rounded-md border px-2.5 py-1 text-xs font-medium ${
+                active
+                  ? 'border-blue-400 bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300'
+                  : 'border-gray-300 bg-white text-gray-600 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300'
+              }`}
+            >
+              {COVER_SOURCE_LABELS[s]}
+              {!hasData && <span className="ml-1 text-gray-400">(brak)</span>}
+            </button>
+          );
+        })}
+      </div>
+
+      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+        URL okładki (wklej link, np. ze „Szukaj w sieci”)
+        <input
+          data-testid="cover-url-input"
+          value={urlDraft}
+          onChange={(e) => {
+            setUrlDraft(e.target.value);
+            const v = e.target.value.trim() || null;
+            if (source === 'url') onPreview(v);
+          }}
+          placeholder="https://..."
+          className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 placeholder:text-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+        />
+      </label>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="cursor-pointer rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200">
+          {busy ? 'Wgrywam...' : 'Wgraj zdjęcie'}
+          <input
+            data-testid="cover-upload-input"
+            type="file"
+            accept="image/*"
+            className="hidden"
+            disabled={busy}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void handleUpload(f);
+            }}
+          />
+        </label>
+        <button
+          type="button"
+          data-testid="cover-autocheck"
+          disabled={checking || !slots.isbn}
+          onClick={() => void handleAutoCheck()}
+          title={slots.isbn ? 'Szukaj okładki po ISBN (OpenLibrary + Google Books)' : 'Brak ISBN'}
+          className="rounded-md border border-indigo-300 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50 dark:border-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300"
+        >
+          {checking ? 'Sprawdzam...' : 'Sprawdź okładkę automatycznie'}
+        </button>
+      </div>
+
+      {err && (
+        <p data-testid="cover-editor-error" className="text-xs text-red-600 dark:text-red-400" role="alert">
+          {err}
+        </p>
+      )}
+
+      <div className="flex gap-2">
+        <button
+          type="button"
+          data-testid="cover-save"
+          disabled={busy}
+          onClick={() => void handleSave()}
+          className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+        >
+          {busy ? 'Zapisuję...' : 'Zapisz'}
+        </button>
+        <button
+          type="button"
+          data-testid="cover-cancel"
+          onClick={() => {
+            setOpen(false);
+            onPreview(effectiveCover(slots));
+          }}
+          className="rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-700"
+        >
+          Anuluj
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /**
  * Modal ze szczegółami książki — duża okładka + tytuł, autorzy, ISBN, rok,
  * wydawca, źródło. Wspólny dla propozycji i książek zatwierdzonych (jednolity
- * dostęp przez klik w okładkę). Zamknięcie: Esc lub klik w tło.
+ * dostęp przez klik w okładkę). Dla zatwierdzonych (editableBookId) dochodzi
+ * panel edycji okładki (URL / upload / auto). Zamknięcie: Esc lub klik w tło.
  */
 export default function BookDetailModal({
   book,
   onClose,
+  editableBookId,
+  coverSlots,
+  onCoverUpdated,
 }: {
   book: BookDetailData;
   onClose: () => void;
+  editableBookId?: string;
+  coverSlots?: CoverSlots;
+  onCoverUpdated?: (patch: BookCoverPatch) => void;
 }) {
+  const [displayCover, setDisplayCover] = useState<string | null>(book.coverUrl);
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose();
@@ -83,6 +358,7 @@ export default function BookDetailModal({
   const authorsStr = book.authors.join(', ');
   const isbn = book.isbn13 ?? book.isbn10 ?? null;
   const sourceLabel = book.source ? (SOURCE_LABELS[book.source] ?? book.source) : null;
+  const canEdit = Boolean(editableBookId && coverSlots);
 
   return (
     <div
@@ -109,8 +385,18 @@ export default function BookDetailModal({
         </button>
 
         <div className="flex flex-col gap-5 sm:flex-row">
-          <div className="flex justify-center">
-            <CoverLarge url={book.coverUrl} alt={authorsStr ? `${book.title} — ${authorsStr}` : book.title} />
+          <div className="flex flex-col items-center">
+            <CoverLarge url={displayCover} alt={authorsStr ? `${book.title} — ${authorsStr}` : book.title} />
+            {canEdit && (
+              <CoverEditor
+                bookId={editableBookId!}
+                slots={coverSlots!}
+                onPreview={setDisplayCover}
+                onApplied={(patch) => {
+                  onCoverUpdated?.(patch);
+                }}
+              />
+            )}
           </div>
 
           <div className="min-w-0 flex-1">

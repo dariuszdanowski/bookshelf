@@ -145,6 +145,12 @@ const SHELF_BOOKS_AFTER = [
     published_year: 1961,
     position_index: 1,
     is_read: false,
+    isbn_13: '9788373191723',
+    isbn_10: null,
+    publisher: 'Wydawnictwo Literackie',
+    user_cover_url: null,
+    cover_photo_url: null,
+    cover_source: 'auto',
   },
 ];
 
@@ -370,5 +376,36 @@ test.describe('S-05 — proposal-accept-to-catalog golden path (mock)', () => {
     await toggleBtn.click();
     // Optimistic update
     await expect(toggleBtn).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('edycja okładki — wklej URL + flaga „URL" → PATCH user_cover_url', async ({ page }) => {
+    await page.goto('/shelves');
+    const shelfHref = await page.locator('a[href^="/shelves/"]').first().getAttribute('href');
+    const realShelfId = shelfHref?.split('/shelves/')[1] ?? '';
+
+    await page.route(`**/api/shelves/${realShelfId}/books`, (route) =>
+      void route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { books: SHELF_BOOKS_AFTER } }) })
+    );
+    let patchBody: Record<string, unknown> | null = null;
+    await page.route(`**/api/books/${BOOK_HIGH}`, (route) => {
+      if (route.request().method() === 'PATCH') {
+        patchBody = route.request().postDataJSON() as Record<string, unknown>;
+        void route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { id: BOOK_HIGH } }) });
+      } else void route.continue();
+    });
+
+    await page.goto(`/shelves/${realShelfId}`);
+    await expect(page.getByTestId(`book-card-${BOOK_HIGH}`)).toBeVisible({ timeout: 10000 });
+
+    // Klik okładki → modal → panel edycji
+    await page.getByTestId(`book-cover-button-${BOOK_HIGH}`).click();
+    await expect(page.getByTestId('book-detail-modal')).toBeVisible();
+    await page.getByTestId('cover-edit-toggle').click();
+    await page.getByTestId('cover-url-input').fill('https://example.com/moja-okladka.jpg');
+    await page.getByTestId('cover-source-url').click();
+    await page.getByTestId('cover-save').click();
+
+    await expect.poll(() => patchBody?.user_cover_url).toBe('https://example.com/moja-okladka.jpg');
+    expect(patchBody?.cover_source).toBe('url');
   });
 });

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { ShelfBookDTO } from '../lib/books/schema';
+import type { ShelfBookDTO, BookCoverPatch } from '../lib/books/schema';
 import type { ShelfDTO } from '../lib/shelves/schema';
 import BookCard from './BookCard';
 import Skeleton from './Skeleton';
@@ -80,6 +80,10 @@ export default function ShelfBooksIsland({ shelfId }: Props) {
         prev.map((b) => (b.id === bookId ? { ...b, is_read: currentValue } : b))
       );
     }
+  }
+
+  function handleCoverUpdated(bookId: string, patch: BookCoverPatch) {
+    setBooks((prev) => prev.map((b) => (b.id === bookId ? { ...b, ...patch } : b)));
   }
 
   async function handleMove(bookId: string, targetShelfId: string) {
@@ -163,6 +167,7 @@ export default function ShelfBooksIsland({ shelfId }: Props) {
           shelves={shelves}
           currentShelfId={shelfId}
           onMove={handleMove}
+          onCoverUpdated={handleCoverUpdated}
         />
       ))}
     </div>

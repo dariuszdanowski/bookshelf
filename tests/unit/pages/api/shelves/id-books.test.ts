@@ -10,6 +10,7 @@ type BookRow = {
   id: string; title: string; authors: string[];
   cover_url: string | null; published_year: number | null; is_read: boolean;
   isbn_13: string | null; isbn_10: string | null; publisher: string | null;
+  user_cover_url: string | null; cover_photo_url: string | null; cover_source: 'auto' | 'url' | 'photo';
 };
 type EntryRow = { position_index: number | null; photo_id: string | null; books: BookRow | null };
 
@@ -60,11 +61,13 @@ const bookA: BookRow = {
   id: 'book-a', title: 'Solaris', authors: ['S. Lem'],
   cover_url: null, published_year: 1961, is_read: false,
   isbn_13: null, isbn_10: null, publisher: null,
+  user_cover_url: null, cover_photo_url: null, cover_source: 'auto',
 };
 const bookB: BookRow = {
   id: 'book-b', title: 'Diuna', authors: ['F. Herbert'],
   cover_url: 'https://example.com/cover.jpg', published_year: 1965, is_read: true,
   isbn_13: '9788373191723', isbn_10: null, publisher: 'Rebis',
+  user_cover_url: 'https://user.jpg', cover_photo_url: null, cover_source: 'url',
 };
 
 beforeEach(() => vi.clearAllMocks());
@@ -117,12 +120,14 @@ describe('GET /api/shelves/[id]/books', () => {
     const ctx = makeContext({ entryRows: [{ position_index: 1, photo_id: null, books: bookB }] });
     const res = await GET(ctx);
     const json = (await res.json()) as {
-      data: { books: { cover_url: string | null; authors: string[]; published_year: number | null; isbn_13: string | null; publisher: string | null }[] }
+      data: { books: { cover_url: string | null; authors: string[]; published_year: number | null; isbn_13: string | null; publisher: string | null; user_cover_url: string | null; cover_source: string }[] }
     };
     const book = json.data.books[0];
     expect(book.cover_url).toBe('https://example.com/cover.jpg');
     expect(book.isbn_13).toBe('9788373191723');
     expect(book.publisher).toBe('Rebis');
+    expect(book.user_cover_url).toBe('https://user.jpg');
+    expect(book.cover_source).toBe('url');
     expect(book.authors).toEqual(['F. Herbert']);
     expect(book.published_year).toBe(1965);
   });

@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import type { ShelfBookDTO } from '../lib/books/schema';
+import type { ShelfBookDTO, BookCoverPatch } from '../lib/books/schema';
 import type { ShelfDTO } from '../lib/shelves/schema';
+import { effectiveCover } from '../lib/books/cover';
 import BookDetailModal from './BookDetailModal';
 
 /** Mapa nazwanych kolorów grzbietu (SPINE_COLORS) → swatch CSS dla wyników wyszukiwarki. */
@@ -32,6 +33,8 @@ type BookCardProps = {
   currentShelfId?: string;
   /** S-07: handler przeniesienia (optimistic po stronie rodzica). */
   onMove?: (bookId: string, targetShelfId: string) => void;
+  /** S-33: zmiana okładki z modala (optimistic po stronie rodzica). */
+  onCoverUpdated?: (bookId: string, patch: BookCoverPatch) => void;
 };
 
 /**
@@ -48,10 +51,12 @@ export default function BookCard({
   shelves,
   currentShelfId,
   onMove,
+  onCoverUpdated,
 }: BookCardProps) {
   const [showDetail, setShowDetail] = useState(false);
   const authorsStr = book.authors.join(', ');
   const altText = authorsStr ? `${book.title} — ${authorsStr}` : book.title;
+  const cover = effectiveCover(book); // wybrany slot wg cover_source (+ fallback)
   const swatch = spineColor ? SPINE_COLOR_CSS[spineColor] : undefined;
   const moveTargets = (shelves ?? []).filter((s) => s.id !== currentShelfId);
 
@@ -69,9 +74,9 @@ export default function BookCard({
           title="Pokaż szczegóły książki"
           className="cursor-zoom-in rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
         >
-          {book.cover_url ? (
+          {cover ? (
             <img
-              src={book.cover_url}
+              src={cover}
               alt={altText}
               className="h-28 w-20 rounded object-cover shadow-sm"
               loading="lazy"
@@ -102,13 +107,22 @@ export default function BookCard({
           book={{
             title: book.title,
             authors: book.authors,
-            coverUrl: book.cover_url,
+            coverUrl: cover,
             isbn13: book.isbn_13,
             isbn10: book.isbn_10,
             publisher: book.publisher,
             publishedYear: book.published_year,
             spineColor: spineColor ?? null,
           }}
+          editableBookId={book.id}
+          coverSlots={{
+            cover_url: book.cover_url,
+            user_cover_url: book.user_cover_url,
+            cover_photo_url: book.cover_photo_url,
+            cover_source: book.cover_source,
+            isbn: book.isbn_13 ?? book.isbn_10 ?? null,
+          }}
+          onCoverUpdated={(patch) => onCoverUpdated?.(book.id, patch)}
           onClose={() => setShowDetail(false)}
         />
       )}

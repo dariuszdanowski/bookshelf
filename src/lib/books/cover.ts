@@ -6,6 +6,27 @@
 //   to efekt zagiętej kartki — zbędny w podglądzie)
 // Dla nieznanych źródeł zwraca URL bez zmian.
 
+import type { CoverSource } from './schema';
+
+/**
+ * Efektywna okładka wg flagi `cover_source` (S-33): 3 sloty mogą współistnieć,
+ * flaga wybiera który pokazać. Gdy wybrany slot pusty — fallback do pierwszego
+ * dostępnego (auto → url → photo), inaczej null (placeholder).
+ */
+export function effectiveCover(book: {
+  cover_url: string | null;
+  user_cover_url: string | null;
+  cover_photo_url: string | null;
+  cover_source: CoverSource;
+}): string | null {
+  const slot: Record<CoverSource, string | null> = {
+    auto: book.cover_url,
+    url: book.user_cover_url,
+    photo: book.cover_photo_url,
+  };
+  return slot[book.cover_source] ?? book.cover_url ?? book.user_cover_url ?? book.cover_photo_url ?? null;
+}
+
 export function largeCoverUrl(url: string | null | undefined): string | null {
   if (!url) return null;
 

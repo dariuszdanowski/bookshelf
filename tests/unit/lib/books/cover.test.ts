@@ -1,5 +1,33 @@
 import { describe, it, expect } from 'vitest';
-import { largeCoverUrl } from '../../../../src/lib/books/cover';
+import { largeCoverUrl, effectiveCover } from '../../../../src/lib/books/cover';
+
+describe('effectiveCover', () => {
+  const slots = {
+    cover_url: 'https://auto.jpg',
+    user_cover_url: 'https://url.jpg',
+    cover_photo_url: 'https://photo.jpg',
+  };
+
+  it('flaga auto → cover_url', () => {
+    expect(effectiveCover({ ...slots, cover_source: 'auto' })).toBe('https://auto.jpg');
+  });
+  it('flaga url → user_cover_url', () => {
+    expect(effectiveCover({ ...slots, cover_source: 'url' })).toBe('https://url.jpg');
+  });
+  it('flaga photo → cover_photo_url', () => {
+    expect(effectiveCover({ ...slots, cover_source: 'photo' })).toBe('https://photo.jpg');
+  });
+  it('fallback gdy wybrany slot pusty (flaga url, brak user_cover) → auto', () => {
+    expect(
+      effectiveCover({ cover_url: 'https://auto.jpg', user_cover_url: null, cover_photo_url: null, cover_source: 'url' })
+    ).toBe('https://auto.jpg');
+  });
+  it('wszystkie puste → null', () => {
+    expect(
+      effectiveCover({ cover_url: null, user_cover_url: null, cover_photo_url: null, cover_source: 'auto' })
+    ).toBeNull();
+  });
+});
 
 describe('largeCoverUrl', () => {
   it('podbija OpenLibrary -M.jpg → -L.jpg', () => {
