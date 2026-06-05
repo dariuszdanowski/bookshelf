@@ -469,10 +469,10 @@ przez empty state + CTA.
 
 #### Automated
 
-- [x] 4.1 `npm run test` — pass (nowe unit testy + zaktualizowane)
-- [x] 4.2 `npm run test:e2e` — pass (byok-enforcement: upload zawsze widoczny + NO_API_KEY error)
-- [x] 4.3 `npm run typecheck` — pass
-- [x] 4.4 `npm run lint` — pass
+- [x] 4.1 `npm run test` — pass (nowe unit testy + zaktualizowane) — b6abd2f
+- [x] 4.2 `npm run test:e2e` — pass (byok-enforcement: upload zawsze widoczny + NO_API_KEY error) — b6abd2f
+- [x] 4.3 `npm run typecheck` — pass — b6abd2f
+- [x] 4.4 `npm run lint` — pass — b6abd2f
 
 #### Manual
 

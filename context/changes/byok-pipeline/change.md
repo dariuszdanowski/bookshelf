@@ -1,7 +1,7 @@
 ---
 change_id: byok-pipeline
 roadmap_slice: S-33
-status: implementing
+status: implemented
 created: 2026-06-05
 updated: 2026-06-05
 ---
