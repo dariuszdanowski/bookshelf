@@ -127,6 +127,26 @@ describe('POST /api/books (Flow B manual)', () => {
     expect(res.status).toBe(500);
   });
 
+  it('201 dodanie ręczne na wskazaną półkę (shelf_id, bez zdjęcia)', async () => {
+    const { ctx } = makeContext({ body: { title: 'Allah 2.0', authors: ['Mieszko Zagańczyk'], shelf_id: SHELF_ID, cover_url: 'https://c.jpg' } });
+    const res = await POST(ctx);
+    expect(res.status).toBe(201);
+    const json = (await res.json()) as ApiJson;
+    expect(json.data!.shelf_id).toBe(SHELF_ID);
+  });
+
+  it('404 gdy wskazana półka nie istnieje / cudza', async () => {
+    const { ctx } = makeContext({ body: { title: 'X', shelf_id: SHELF_ID }, shelfResult: { data: null, error: null } });
+    const res = await POST(ctx);
+    expect(res.status).toBe(404);
+  });
+
+  it('400 gdy cover_url nie jest URL', async () => {
+    const { ctx } = makeContext({ body: { title: 'X', cover_url: 'nie-url' } });
+    const res = await POST(ctx);
+    expect(res.status).toBe(400);
+  });
+
   it('409 gdy isbn_13 już w katalogu (pre-check)', async () => {
     const { ctx } = makeContext({
       body: { title: 'Dup', isbn_13: '9780000000001' },

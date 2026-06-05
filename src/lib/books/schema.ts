@@ -238,6 +238,9 @@ export const AddPurchaseSchema = z
     isbn_13: z.string().regex(/^\d{13}$/).optional(),
     isbn_10: z.string().regex(/^\d{9}[\dX]$/).optional(),
     purchase_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data w formacie YYYY-MM-DD').optional(),
+    // S-33: dodanie ręczne na DOWOLNĄ półkę (bez zdjęcia). Brak → „Zakupione" (Flow B).
+    shelf_id: z.uuid().optional(),
+    cover_url: z.string().url().max(1000).optional(),
   })
   .strict();
 export type AddPurchaseInput = z.infer<typeof AddPurchaseSchema>;

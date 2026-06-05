@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { ShelfBookDTO, BookCoverPatch } from '../lib/books/schema';
 import type { ShelfDTO } from '../lib/shelves/schema';
 import BookCard from './BookCard';
+import ManualAddBook from './ManualAddBook';
 import Skeleton from './Skeleton';
 
 type Props = { shelfId: string };
@@ -21,25 +22,25 @@ export default function ShelfBooksIsland({ shelfId }: Props) {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(`/api/shelves/${shelfId}/books`);
-        const json = (await res.json()) as ApiResponse;
-        if (cancelled) return;
-        if (!res.ok || !json.data) {
-          throw new Error(json.error?.message ?? `HTTP ${res.status}`);
-        }
-        setBooks(json.data.books);
-      } catch (err) {
-        if (!cancelled) setErrorMsg(err instanceof Error ? err.message : 'Nie udało się załadować książek.');
-      } finally {
-        if (!cancelled) setLoading(false);
+  const loadBooks = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/shelves/${shelfId}/books`);
+      const json = (await res.json()) as ApiResponse;
+      if (!res.ok || !json.data) {
+        throw new Error(json.error?.message ?? `HTTP ${res.status}`);
       }
-    })();
-    return () => { cancelled = true; };
+      setBooks(json.data.books);
+      setErrorMsg(null);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Nie udało się załadować książek.');
+    } finally {
+      setLoading(false);
+    }
   }, [shelfId]);
+
+  useEffect(() => {
+    void loadBooks();
+  }, [loadBooks]);
 
   // Lista półek do pickera „Przenieś na półkę…"
   useEffect(() => {
@@ -142,34 +143,40 @@ export default function ShelfBooksIsland({ shelfId }: Props) {
 
   if (books.length === 0) {
     return (
-      <div
-        data-testid="shelf-books-empty"
-        className="rounded-xl border border-dashed border-gray-300 px-6 py-10 text-center"
-      >
-        <p className="text-gray-500">Brak książek na tej półce.</p>
-        <p className="mt-1 text-sm text-gray-400">
-          Przetwórz zdjęcie półki i zaakceptuj propozycje, żeby tu zobaczyć książki.
-        </p>
+      <div className="space-y-4">
+        <div
+          data-testid="shelf-books-empty"
+          className="rounded-xl border border-dashed border-gray-300 px-6 py-10 text-center"
+        >
+          <p className="text-gray-500">Brak książek na tej półce.</p>
+          <p className="mt-1 text-sm text-gray-400">
+            Dodaj książkę ręcznie poniżej albo przetwórz zdjęcie półki i zaakceptuj propozycje.
+          </p>
+        </div>
+        <ManualAddBook shelfId={shelfId} onAdded={() => void loadBooks()} />
       </div>
     );
   }
 
   return (
-    <div
-      data-testid="shelf-books-grid"
-      className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
-    >
-      {books.map((book) => (
-        <BookCard
-          key={book.id}
-          book={book}
-          onToggleRead={handleToggleRead}
-          shelves={shelves}
-          currentShelfId={shelfId}
-          onMove={handleMove}
-          onCoverUpdated={handleCoverUpdated}
-        />
-      ))}
+    <div className="space-y-4">
+      <ManualAddBook shelfId={shelfId} onAdded={() => void loadBooks()} />
+      <div
+        data-testid="shelf-books-grid"
+        className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
+      >
+        {books.map((book) => (
+          <BookCard
+            key={book.id}
+            book={book}
+            onToggleRead={handleToggleRead}
+            shelves={shelves}
+            currentShelfId={shelfId}
+            onMove={handleMove}
+            onCoverUpdated={handleCoverUpdated}
+          />
+        ))}
+      </div>
     </div>
   );
 }
