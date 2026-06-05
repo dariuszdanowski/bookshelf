@@ -5,6 +5,7 @@ import type { BookCandidate, ScoredCandidate } from '../../../../lib/books/schem
 import { RematchDetectionSchema } from '../../../../lib/books/schema';
 import { searchGoogleBooks } from '../../../../lib/books/googleBooks';
 import { searchOpenLibrary, searchOpenLibraryByTitle } from '../../../../lib/books/openLibrary';
+import { searchNationalLibrary } from '../../../../lib/books/nationalLibrary';
 import { apiError, apiResponse, parseUuidParam } from '../../../../lib/http/response';
 import { CONSERVATIVE_REPLACE_MARGIN } from '../../../../lib/matching/fallbackPolicy';
 import { checkCatalogDuplicate, dedupeCandidates } from '../../../../lib/matching/dedupe';
@@ -33,10 +34,12 @@ async function matchOne(
   rawIsbn: string | null,
   existingBooks: ExistingBook[]
 ): Promise<{ candidates: ScoredCandidate[]; rateLimited: boolean }> {
-  // GB i OL title search równolegle — OL może mieć polskie edycje których nie ma GB.
-  const [googleResult, olTitleResult] = await Promise.all([
+  // GB + OL + Biblioteka Narodowa równolegle — OL i BN mają polskie edycje
+  // których brakuje w GB (BN: natywne pokrycie polskich wydań).
+  const [googleResult, olTitleResult, bnResult] = await Promise.all([
     searchGoogleBooks({ title: rawTitle, author: rawAuthor, isbn: rawIsbn ?? undefined }),
     searchOpenLibraryByTitle({ title: rawTitle, author: rawAuthor }),
+    searchNationalLibrary({ title: rawTitle, author: rawAuthor, isbn: rawIsbn ?? undefined }),
   ]);
 
   if (!googleResult.ok && googleResult.reason === 'rate_limited') {
@@ -46,6 +49,7 @@ async function matchOne(
   const allCandidates: BookCandidate[] = [
     ...(googleResult.ok ? googleResult.candidates : []),
     ...(olTitleResult.ok ? olTitleResult.candidates : []),
+    ...(bnResult.ok ? bnResult.candidates : []),
   ];
 
   // OL ISBN lookup: najpierw user-supplied ISBN, potem z najlepszego kandydata GB

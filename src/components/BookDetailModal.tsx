@@ -20,6 +20,7 @@ export type BookDetailData = {
 const SOURCE_LABELS: Record<string, string> = {
   google_books: 'Google Books',
   open_library: 'OpenLibrary',
+  national_library: 'Biblioteka Narodowa',
   manual: 'Wpis ręczny',
 };
 

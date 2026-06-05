@@ -6,7 +6,7 @@ import { SPINE_COLORS } from '../vision/prompt';
 // ---------------------------------------------------------------------------
 
 export type BookCandidate = {
-  source: 'google_books' | 'open_library';
+  source: 'google_books' | 'open_library' | 'national_library';
   externalId: string;
   title: string;
   authors: string[];

@@ -2,12 +2,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockSearchGoogleBooks = vi.hoisted(() => vi.fn());
 const mockSearchOpenLibrary = vi.hoisted(() => vi.fn());
+const mockSearchNationalLibrary = vi.hoisted(() => vi.fn());
 
 vi.mock('../../../../../src/lib/books/googleBooks', () => ({
   searchGoogleBooks: mockSearchGoogleBooks,
 }));
 vi.mock('../../../../../src/lib/books/openLibrary', () => ({
   searchOpenLibrary: mockSearchOpenLibrary,
+}));
+vi.mock('../../../../../src/lib/books/nationalLibrary', () => ({
+  searchNationalLibrary: mockSearchNationalLibrary,
 }));
 
 import { POST } from '../../../../../src/pages/api/photos/[id]/match';
@@ -179,6 +183,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockSearchGoogleBooks.mockResolvedValue({ ok: true, candidates: [googleCandidate] });
   mockSearchOpenLibrary.mockResolvedValue({ ok: false, reason: 'empty' });
+  mockSearchNationalLibrary.mockResolvedValue({ ok: false, reason: 'empty' });
 });
 
 describe('POST /api/photos/[id]/match', () => {
@@ -258,6 +263,32 @@ describe('POST /api/photos/[id]/match', () => {
     expect(json.data.detections).toHaveLength(1);
     expect(json.data.detections[0].status).toBe('matched');
     expect(json.data.detections[0].candidates[0].title).toBe('Solaris');
+  });
+
+  it('BN-fallback: dopasowuje kandydata z Biblioteki Narodowej gdy GB pusty', async () => {
+    mockSearchGoogleBooks.mockResolvedValue({ ok: false, reason: 'empty' });
+    mockSearchNationalLibrary.mockResolvedValue({
+      ok: true,
+      candidates: [{
+        source: 'national_library' as const,
+        externalId: 'bn-1',
+        title: 'Solaris',
+        authors: ['Lem, Stanisław'],
+        isbn10: null,
+        isbn13: '9788308069790',
+        publisher: 'Wydawnictwo Literackie',
+        publishedYear: 2016,
+        coverUrl: null,
+      }],
+    });
+    const { supabase } = makeSupabase({});
+    const res = await POST(makeContext(supabase) as never);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      data: { matched: number; detections: { status: string; candidates: { source: string; title: string }[] }[] };
+    };
+    expect(json.data.matched).toBe(1);
+    expect(json.data.detections[0].candidates[0].source).toBe('national_library');
   });
 
   it('idempotency: delete-then-insert on re-match', async () => {

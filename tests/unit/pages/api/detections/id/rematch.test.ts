@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { POST } from '../../../../../../src/pages/api/detections/[id]/rematch';
 
@@ -9,9 +9,13 @@ vi.mock('../../../../../../src/lib/books/openLibrary', () => ({
   searchOpenLibrary: vi.fn(),
   searchOpenLibraryByTitle: vi.fn(),
 }));
+vi.mock('../../../../../../src/lib/books/nationalLibrary', () => ({
+  searchNationalLibrary: vi.fn(),
+}));
 
 import { searchGoogleBooks } from '../../../../../../src/lib/books/googleBooks';
 import { searchOpenLibrary, searchOpenLibraryByTitle } from '../../../../../../src/lib/books/openLibrary';
+import { searchNationalLibrary } from '../../../../../../src/lib/books/nationalLibrary';
 
 const DET_ID = '00000000-0000-4000-8000-000000000020';
 const CAND_ID = '00000000-0000-4000-8000-000000000030';
@@ -102,6 +106,11 @@ function makeContext(opts: {
 }
 
 describe('POST /api/detections/[id]/rematch', () => {
+  beforeEach(() => {
+    // Domyślnie BN pusty — testy GB/OL nadpisują swoje, BN nie zakłóca.
+    vi.mocked(searchNationalLibrary).mockResolvedValue({ ok: false, reason: 'empty' });
+  });
+
   it('401 gdy brak użytkownika', async () => {
     const ctx = makeContext({ user: false });
     const res = await POST(ctx);
@@ -210,6 +219,26 @@ describe('POST /api/detections/[id]/rematch', () => {
     });
     vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({ ok: false, reason: 'empty' });
     vi.mocked(searchOpenLibrary).mockResolvedValue({ ok: false, reason: 'empty' });
+    const ctx = makeContext({ body: { title: 'Usterka na skraju galaktyki', author: 'Etgar Keret' } });
+    const res = await POST(ctx);
+    const json = (await res.json()) as ApiJson;
+    expect(json.data!['applied']).toBe(true);
+    expect((json.data!['candidates'] as unknown[]).length).toBeGreaterThan(0);
+  });
+
+  it('dorzuca kandydata z Biblioteki Narodowej gdy GB+OL puste (polska edycja)', async () => {
+    vi.mocked(searchGoogleBooks).mockResolvedValue({ ok: false, reason: 'empty' });
+    vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({ ok: false, reason: 'empty' });
+    vi.mocked(searchOpenLibrary).mockResolvedValue({ ok: false, reason: 'empty' });
+    vi.mocked(searchNationalLibrary).mockResolvedValue({
+      ok: true,
+      candidates: [{
+        source: 'national_library', externalId: 'bn-1',
+        title: 'Usterka na skraju galaktyki', authors: ['Keret, Etgar'],
+        isbn10: null, isbn13: '9788308073087', publisher: 'Wydawnictwo Literackie',
+        publishedYear: 2020, coverUrl: null,
+      }],
+    });
     const ctx = makeContext({ body: { title: 'Usterka na skraju galaktyki', author: 'Etgar Keret' } });
     const res = await POST(ctx);
     const json = (await res.json()) as ApiJson;
