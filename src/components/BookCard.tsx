@@ -155,7 +155,7 @@ export default function BookCard({
             const target = e.target.value;
             if (target) onMove(book.id, target);
           }}
-          className="w-full rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-600 hover:bg-gray-50"
+          className="w-full rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-900 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
         >
           <option value="">{'Przenieś na półkę…'}</option>
           {moveTargets.map((s) => (

@@ -84,7 +84,7 @@ export default function SignupForm() {
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="mt-1 block w-full rounded border px-3 py-2"
+          className="mt-1 block w-full rounded border border-gray-300 bg-white px-3 py-2 text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
         />
         {fieldErrors?.email?.[0] && (
           <p className="mt-1 text-sm text-red-600" data-testid="error-email">
@@ -105,7 +105,7 @@ export default function SignupForm() {
           required
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
-          className="mt-1 block w-full rounded border px-3 py-2"
+          className="mt-1 block w-full rounded border border-gray-300 bg-white px-3 py-2 text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
         />
         {fieldErrors?.display_name?.[0] && (
           <p className="mt-1 text-sm text-red-600" data-testid="error-display-name">
@@ -126,7 +126,7 @@ export default function SignupForm() {
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="mt-1 block w-full rounded border px-3 py-2"
+          className="mt-1 block w-full rounded border border-gray-300 bg-white px-3 py-2 text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
         />
         {fieldErrors?.password?.[0] && (
           <p className="mt-1 text-sm text-red-600" data-testid="error-password">

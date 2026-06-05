@@ -140,7 +140,7 @@ export default function CatalogSearchIsland() {
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder="Szukaj po tytule, autorze, wydawnictwie…"
-        className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+        className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
         aria-label="Szukaj w katalogu"
       />
 
@@ -153,7 +153,7 @@ export default function CatalogSearchIsland() {
             data-testid="filter-color"
             value={color}
             onChange={(e) => setColor(e.target.value)}
-            className="rounded border border-gray-300 px-2 py-1 text-xs"
+            className="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
           >
             <option value="">dowolny</option>
             {SPINE_COLORS.map((c) => (
