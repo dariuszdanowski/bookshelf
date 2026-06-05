@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { scoreCandidate, MATCH_HIGH, MATCH_MID } from '../../../../src/lib/matching/score';
+import { scoreCandidate, authorTokensMatch, MATCH_HIGH, MATCH_MID } from '../../../../src/lib/matching/score';
 
 const exactDetection = { raw_title: 'Solaris', raw_author: 'Stanisław Lem' };
 const exactCandidate = {
@@ -144,5 +144,41 @@ describe('scoreCandidate', () => {
       { title: 'Opowiadania', authors: ['Jozef Hen'], isbn13: null, isbn10: null }
     );
     expect(withAccent).toBeCloseTo(withoutAccent, 2);
+  });
+});
+
+describe('authorTokensMatch', () => {
+  it('wyklucza zupełnie innego autora (Agnieszka Lis vs Kazimierz Arendt)', () => {
+    // Realny przypadek: rematch „Poczta"/Agnieszka Lis dopasował „Poczta polska"
+    // Kazimierza Arendta (authorSim Levenshtein = 0.31, fałszywie > próg 0.30).
+    expect(authorTokensMatch('Agnieszka Lis', ['Kazimierz Arendt'])).toBe(false);
+  });
+
+  it('akceptuje wspólny token nazwiska (Lem vs Stanisław Lem)', () => {
+    expect(authorTokensMatch('Lem', ['Stanisław Lem'])).toBe(true);
+  });
+
+  it('akceptuje pełne dopasowanie z odwróconą kolejnością tokenów', () => {
+    expect(authorTokensMatch('Agnieszka Lis', ['Lis Agnieszka'])).toBe(true);
+  });
+
+  it('toleruje literówkę OCR w obrębie tokenu (Liss ~ Lis)', () => {
+    expect(authorTokensMatch('Agnieszka Liss', ['Agnieszka Lis'])).toBe(true);
+  });
+
+  it('ignoruje diakrytyki (Józef Hen ~ Jozef Hen)', () => {
+    expect(authorTokensMatch('Józef Hen', ['Jozef Hen'])).toBe(true);
+  });
+
+  it('nie wyklucza gdy brak wykrytego autora', () => {
+    expect(authorTokensMatch(null, ['Kazimierz Arendt'])).toBe(true);
+  });
+
+  it('nie wyklucza gdy kandydat nie ma danych autora', () => {
+    expect(authorTokensMatch('Agnieszka Lis', [])).toBe(true);
+  });
+
+  it('akceptuje gdy choć jeden autor wieloautorskiego kandydata pasuje', () => {
+    expect(authorTokensMatch('Gaiman', ['Terry Pratchett', 'Neil Gaiman'])).toBe(true);
   });
 });

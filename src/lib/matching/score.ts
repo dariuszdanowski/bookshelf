@@ -60,6 +60,40 @@ export function authorSim(detectionAuthor: string | null | undefined, candidateA
   return Math.max(...sims) * multiAuthorConfidence(candidateAuthors.length);
 }
 
+// Tokeny nazwiska/imienia (≥3 znaki po normalizacji) — wyklucza inicjały i szum
+// typu „de", „van". Diakrytyki zdjęte przez normalize.
+function authorTokens(s: string): string[] {
+  return normalize(s)
+    .split(/[^a-z0-9]+/)
+    .filter((t) => t.length >= 3);
+}
+
+/**
+ * Czy autor kandydata to PLAUSYBILNIE ta sama osoba co wykryty autor — sygnał
+ * tokenowy (po nazwisku/imieniu), NIE Levenshtein na całym ciągu. Dwa różne
+ * nazwiska o podobnej długości („Agnieszka Lis" vs „Kazimierz Arendt") dają
+ * przez Levenshtein ~0.31 z samego nakładania liter — fałszywie przechodziły
+ * próg filtra. Token-overlap jest właściwym dyskryminatorem dla nazwisk.
+ *
+ * Zwraca true (nie wykluczaj) gdy: brak wykrytego autora, brak danych autora
+ * u kandydata, albo wykryty autor ma tylko bardzo krótkie tokeny (nie da się
+ * rozróżnić). Wyklucza tylko gdy kandydat MA autora i ŻADEN token się nie zgadza.
+ */
+export function authorTokensMatch(detectionAuthor: string | null | undefined, candidateAuthors: string[]): boolean {
+  if (!detectionAuthor) return true;
+  const dTokens = authorTokens(detectionAuthor);
+  if (dTokens.length === 0) return true; // tylko krótkie tokeny — brak sygnału
+  const cTokens = candidateAuthors.flatMap(authorTokens);
+  if (cTokens.length === 0) return true; // kandydat bez autora — nie wykluczaj
+  return dTokens.some((dt) =>
+    cTokens.some((ct) => {
+      if (dt === ct) return true;
+      const maxLen = Math.max(dt.length, ct.length);
+      return 1 - levenshtein(dt, ct) / maxLen >= 0.8; // tolerancja literówki OCR per token
+    })
+  );
+}
+
 type Detection = { raw_title: string; raw_author: string | null };
 type Candidate = { title: string; authors: string[]; isbn13: string | null; isbn10: string | null };
 

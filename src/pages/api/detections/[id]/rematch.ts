@@ -8,7 +8,7 @@ import { searchOpenLibrary, searchOpenLibraryByTitle } from '../../../../lib/boo
 import { apiError, apiResponse, parseUuidParam } from '../../../../lib/http/response';
 import { CONSERVATIVE_REPLACE_MARGIN } from '../../../../lib/matching/fallbackPolicy';
 import { checkCatalogDuplicate, dedupeCandidates } from '../../../../lib/matching/dedupe';
-import { scoreCandidate, authorSim } from '../../../../lib/matching/score';
+import { scoreCandidate, authorTokensMatch } from '../../../../lib/matching/score';
 import { extractAuthorFromTitle } from '../../../../lib/matching/normalizeQuery';
 
 export const prerender = false;
@@ -18,9 +18,6 @@ export const prerender = false;
 // angielskie wpisy GB — author match ~0.30 przechodzi próg 0.25).
 const REMATCH_MIN_SCORE = 0.25;
 const MAX_CANDIDATES = 8;
-// Gdy autor jest znany, odfiltrowuj kandydatów z zupełnie innym autorem.
-// Neutralna wartość authorSim (0.5) dla braku danych autora przechodzi.
-const AUTHOR_MIN_SIM_WHEN_KNOWN = 0.30;
 
 type ExistingBook = {
   id: string;
@@ -82,7 +79,7 @@ async function matchOne(
     scored.filter(
       (c) =>
         c.matchScore >= REMATCH_MIN_SCORE &&
-        (!rawAuthor || authorSim(rawAuthor, c.authors) >= AUTHOR_MIN_SIM_WHEN_KNOWN)
+        authorTokensMatch(rawAuthor, c.authors)
     )
   )
     .slice(0, MAX_CANDIDATES)
