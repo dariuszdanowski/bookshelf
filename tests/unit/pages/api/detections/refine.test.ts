@@ -83,18 +83,20 @@ function makeSupabase(opts?: {
   existingCandidatesResult?: { data: { match_score: number; source: string; external_id: string; title: string; authors: string[]; isbn_10: string | null; isbn_13: string | null; publisher: string | null; published_year: number | null; cover_url: string | null; rank: number }[] | null; error: { code?: string; name: string; message: string } | null };
   booksResult?: { data: { id: string; title: string; authors: string[]; isbn_13: string | null; isbn_10: string | null }[] | null; error: { code?: string; name: string; message: string } | null };
   track?: { detectionUpdatePayload: unknown[]; candidateInsertPayload: unknown[]; candidateDeleteCalls: number };
+  aiEnabled?: boolean;
 }) {
   const detectionResult = opts?.detectionResult ?? { data: detectionRow, error: null };
   const photoResult = opts?.photoResult ?? { data: photoRow, error: null };
   const existingCandidatesResult = opts?.existingCandidatesResult ?? { data: [], error: null };
   const booksResult = opts?.booksResult ?? { data: [], error: null };
+  const aiEnabled = opts?.aiEnabled ?? true;
 
   const from = vi.fn((table: string) => {
     if (table === 'profiles') {
       return {
         select: vi.fn(() => ({
           eq: vi.fn(() => ({
-            single: vi.fn().mockResolvedValue({ data: { ai_enabled: true }, error: null }),
+            single: vi.fn().mockResolvedValue({ data: { ai_enabled: aiEnabled }, error: null }),
           })),
         })),
       };
@@ -221,20 +223,7 @@ describe('POST /api/detections/[id]/refine', () => {
   });
 
   it('returns 403 AI_DISABLED when profile.ai_enabled = false', async () => {
-    const supabase = makeSupabase() as ReturnType<typeof makeSupabase> & { from: ReturnType<typeof vi.fn> };
-    // Override profiles mock for this test
-    (supabase.from as ReturnType<typeof vi.fn>).mockImplementation((table: string) => {
-      if (table === 'profiles') {
-        return {
-          select: vi.fn(() => ({
-            eq: vi.fn(() => ({
-              single: vi.fn().mockResolvedValue({ data: { ai_enabled: false }, error: null }),
-            })),
-          })),
-        };
-      }
-      return {};
-    });
+    const supabase = makeSupabase({ aiEnabled: false });
     const res = await POST(makeContext(supabase));
     expect(res.status).toBe(403);
     const json = (await res.json()) as { error: { code: string } };

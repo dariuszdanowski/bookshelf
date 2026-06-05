@@ -442,11 +442,11 @@ przez empty state + CTA.
 
 #### Automated
 
-- [x] 2.1 `npm run typecheck` — pass (nowe importy zgodne)
-- [x] 2.2 `npm run lint` — pass
-- [x] 2.3 unit testy process.ts — pass (happy path + NO_API_KEY path)
-- [x] 2.4 unit testy refine.ts — pass (AI_DISABLED + NO_API_KEY + happy path)
-- [x] 2.5 `npm run test` — pass
+- [x] 2.1 `npm run typecheck` — pass (nowe importy zgodne) — c8947f1
+- [x] 2.2 `npm run lint` — pass — c8947f1
+- [x] 2.3 unit testy process.ts — pass (happy path + NO_API_KEY path) — c8947f1
+- [x] 2.4 unit testy refine.ts — pass (AI_DISABLED + NO_API_KEY + happy path) — c8947f1
+- [x] 2.5 `npm run test` — pass — c8947f1
 
 #### Manual
 
@@ -457,8 +457,8 @@ przez empty state + CTA.
 
 #### Automated
 
-- [ ] 3.1 `npm run typecheck` — pass
-- [ ] 3.2 `npm run lint` — pass
+- [x] 3.1 `npm run typecheck` — pass
+- [x] 3.2 `npm run lint` — pass
 
 #### Manual
 

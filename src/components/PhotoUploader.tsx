@@ -32,6 +32,7 @@ export default function PhotoUploader({
   userId: string;
   presetShelfId?: string;
 }) {
+  const [hasActiveKey, setHasActiveKey] = useState<boolean | null>(null);
   const [shelves, setShelves] = useState<ShelfDTO[]>([]);
   const [selectedShelfId, setSelectedShelfId] = useState('');
   const [stage, setStage] = useState<UploadStage>('idle');
@@ -45,6 +46,16 @@ export default function PhotoUploader({
   const [duplicatePhotoId, setDuplicatePhotoId] = useState<string | null>(null);
   const [duplicateCreatedAt, setDuplicateCreatedAt] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    fetch('/api/account/keys')
+      .then((r) => r.json() as Promise<{ data?: { keys?: { is_active: boolean }[] } }>)
+      .then((body) => {
+        const active = (body.data?.keys ?? []).some((k) => k.is_active);
+        setHasActiveKey(active);
+      })
+      .catch(() => setHasActiveKey(false));
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -276,6 +287,30 @@ export default function PhotoUploader({
   const formattedDuplicateDate = duplicateCreatedAt
     ? new Date(duplicateCreatedAt).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' })
     : null;
+
+  if (hasActiveKey === null) {
+    return (
+      <div data-testid="photo-uploader-loading" className="space-y-3 py-4">
+        <Skeleton className="h-8 w-full" />
+        <Skeleton className="h-32 w-full" />
+      </div>
+    );
+  }
+
+  if (hasActiveKey === false) {
+    return (
+      <div data-testid="photo-uploader-no-key" className="rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 px-6 py-12 text-center">
+        <p className="mb-1 text-sm font-medium text-gray-700">Brak klucza API</p>
+        <p className="mb-4 text-xs text-gray-500">Aby korzystać z analizy zdjęć, dodaj klucz API w ustawieniach konta.</p>
+        <a
+          href="/account"
+          className="inline-block rounded bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
+        >
+          Dodaj klucz w ustawieniach
+        </a>
+      </div>
+    );
+  }
 
   return (
     <div data-testid="photo-uploader">
