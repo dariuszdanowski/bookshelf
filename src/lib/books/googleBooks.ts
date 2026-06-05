@@ -113,7 +113,7 @@ export async function searchGoogleBooks(query: SearchQuery): Promise<BookSearchR
 
   if (cleanAuthor) {
     const result = await fetchBooks(
-      buildUrl(`intitle:${cleanTitle}+inauthor:${cleanAuthor}`, apiKey)
+      buildUrl(`intitle:"${cleanTitle}"+inauthor:"${cleanAuthor}"`, apiKey)
     );
     if (result.ok || result.reason === 'rate_limited') return result;
   }

@@ -107,14 +107,14 @@ describe('PhotoListIsland', () => {
     expect(screen.getByTestId('stage-badge-p4')).toHaveTextContent('Zatwierdzone');
   });
 
-  it('uploaded stage shows "Uruchom vision" + Usuń (no rerun/match/review)', async () => {
+  it('uploaded stage shows "Uruchom vision" + Otwórz + Usuń (no rerun/match)', async () => {
     mockFetch({ photosList: () => jsonResponse({ data: { photos: [makePhoto({ id: PHOTO_ID, stage: 'uploaded' })] } }) });
     render(<PhotoListIsland shelfId={SHELF_ID} shelfName="Salon" />);
     await waitFor(() => expect(screen.getByTestId(`run-vision-${PHOTO_ID}`)).toBeInTheDocument());
     expect(screen.getByTestId(`delete-photo-${PHOTO_ID}`)).toBeInTheDocument();
+    expect(screen.getByTestId(`open-review-${PHOTO_ID}`)).toBeInTheDocument();
     expect(screen.queryByTestId(`rerun-vision-${PHOTO_ID}`)).not.toBeInTheDocument();
     expect(screen.queryByTestId(`run-match-${PHOTO_ID}`)).not.toBeInTheDocument();
-    expect(screen.queryByTestId(`open-review-${PHOTO_ID}`)).not.toBeInTheDocument();
   });
 
   it('vision_done stage shows match + rerun-vision + open-review buttons', async () => {

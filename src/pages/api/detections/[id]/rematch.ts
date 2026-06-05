@@ -8,7 +8,7 @@ import { searchOpenLibrary } from '../../../../lib/books/openLibrary';
 import { apiError, apiResponse, parseUuidParam } from '../../../../lib/http/response';
 import { CONSERVATIVE_REPLACE_MARGIN } from '../../../../lib/matching/fallbackPolicy';
 import { checkCatalogDuplicate, dedupeCandidates } from '../../../../lib/matching/dedupe';
-import { scoreCandidate } from '../../../../lib/matching/score';
+import { scoreCandidate, MATCH_MID } from '../../../../lib/matching/score';
 
 export const prerender = false;
 
@@ -52,7 +52,7 @@ async function matchOne(
   }));
 
   scored.sort((a, b) => b.matchScore - a.matchScore);
-  const candidates = dedupeCandidates(scored)
+  const candidates = dedupeCandidates(scored.filter((c) => c.matchScore >= MATCH_MID))
     .slice(0, MAX_CANDIDATES)
     .map((c) => {
       if (c.coverUrl) return c;
