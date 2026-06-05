@@ -1727,7 +1727,15 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
   }
 
   if (detections.length === 0) {
-    const notProcessed = photo?.status === 'uploaded' || photo?.status === 'processing';
+    const status = photo?.status;
+    const notYetProcessed = status === 'uploaded' || status === 'processing';
+    const processFailed = status === 'failed';
+    const subMsg = notYetProcessed
+      ? 'Zdjęcie nie zostało jeszcze przetworzone.'
+      : processFailed
+        ? 'Poprzednie przetwarzanie zakończyło się błędem.'
+        : 'Zdjęcie zostało przetworzone, ale nie wykryto żadnych książek.';
+    const btnLabel = notYetProcessed ? 'Przetwórz zdjęcie' : 'Ponów przetwarzanie';
     return (
       <div data-testid="detection-review-empty">
         {photoUrl && (
@@ -1741,24 +1749,20 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
         )}
         <div className="rounded-xl border border-dashed border-gray-300 px-6 py-8 text-center">
           <p className="text-gray-500">Brak detekcji dla tego zdjęcia.</p>
-          {notProcessed ? (
-            <div className="mt-4">
-              <p className="mb-3 text-sm text-gray-400">Zdjęcie nie zostało jeszcze przetworzone.</p>
-              {actionMsg && (
-                <p className="mb-3 text-sm text-red-600">{actionMsg}</p>
-              )}
-              <button
-                data-testid="process-now-button"
-                onClick={() => void runRerunVision()}
-                disabled={actionBusy}
-                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-              >
-                {actionBusy ? 'Przetwarzanie...' : 'Przetwórz zdjęcie'}
-              </button>
-            </div>
-          ) : (
-            <p className="mt-2 text-sm text-gray-400">Zdjęcie zostało przetworzone, ale nie wykryto żadnych książek.</p>
-          )}
+          <p className="mt-1 text-sm text-gray-400">{subMsg}</p>
+          <div className="mt-4">
+            {actionMsg && (
+              <p className="mb-3 text-sm text-red-600">{actionMsg}</p>
+            )}
+            <button
+              data-testid="process-now-button"
+              onClick={() => void runRerunVision()}
+              disabled={actionBusy}
+              className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {actionBusy ? 'Przetwarzanie...' : btnLabel}
+            </button>
+          </div>
         </div>
       </div>
     );
