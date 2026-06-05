@@ -4,6 +4,7 @@ const mockDeriveDetectionCrop = vi.hoisted(() => vi.fn());
 const mockDetectSingleSpineFromCrop = vi.hoisted(() => vi.fn());
 const mockSearchGoogleBooks = vi.hoisted(() => vi.fn());
 const mockSearchOpenLibrary = vi.hoisted(() => vi.fn());
+const mockGetActiveProviderConfig = vi.hoisted(() => vi.fn());
 
 vi.mock('../../../../../src/lib/images/crop', () => ({
   deriveDetectionCrop: mockDeriveDetectionCrop,
@@ -19,6 +20,10 @@ vi.mock('../../../../../src/lib/books/googleBooks', () => ({
 
 vi.mock('../../../../../src/lib/books/openLibrary', () => ({
   searchOpenLibrary: mockSearchOpenLibrary,
+}));
+
+vi.mock('../../../../../src/lib/keys/getActiveProviderConfig', () => ({
+  getActiveProviderConfig: mockGetActiveProviderConfig,
 }));
 
 import { POST } from '../../../../../src/pages/api/detections/[id]/refine';
@@ -85,6 +90,16 @@ function makeSupabase(opts?: {
   const booksResult = opts?.booksResult ?? { data: [], error: null };
 
   const from = vi.fn((table: string) => {
+    if (table === 'profiles') {
+      return {
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            single: vi.fn().mockResolvedValue({ data: { ai_enabled: true }, error: null }),
+          })),
+        })),
+      };
+    }
+
     if (table === 'detections') {
       return {
         select: vi.fn(() => ({
@@ -168,8 +183,11 @@ function makeContext(supabase: ReturnType<typeof makeSupabase>, user = true, id 
   } as never;
 }
 
+const activeProviderConfig = { provider: 'anthropic' as const, apiKey: 'sk-test' };
+
 beforeEach(() => {
   vi.clearAllMocks();
+  mockGetActiveProviderConfig.mockResolvedValue(activeProviderConfig);
 
   mockDeriveDetectionCrop.mockResolvedValue({
     bytes: new Uint8Array([1, 2, 3]),
@@ -200,6 +218,37 @@ describe('POST /api/detections/[id]/refine', () => {
     const supabase = makeSupabase();
     const res = await POST(makeContext(supabase, false));
     expect(res.status).toBe(401);
+  });
+
+  it('returns 403 AI_DISABLED when profile.ai_enabled = false', async () => {
+    const supabase = makeSupabase() as ReturnType<typeof makeSupabase> & { from: ReturnType<typeof vi.fn> };
+    // Override profiles mock for this test
+    (supabase.from as ReturnType<typeof vi.fn>).mockImplementation((table: string) => {
+      if (table === 'profiles') {
+        return {
+          select: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              single: vi.fn().mockResolvedValue({ data: { ai_enabled: false }, error: null }),
+            })),
+          })),
+        };
+      }
+      return {};
+    });
+    const res = await POST(makeContext(supabase));
+    expect(res.status).toBe(403);
+    const json = (await res.json()) as { error: { code: string } };
+    expect(json.error.code).toBe('AI_DISABLED');
+  });
+
+  it('returns 403 NO_API_KEY when no active key in user_api_keys', async () => {
+    mockGetActiveProviderConfig.mockResolvedValueOnce(null);
+    const supabase = makeSupabase();
+    const res = await POST(makeContext(supabase));
+    expect(res.status).toBe(403);
+    const json = (await res.json()) as { error: { code: string; details: { account_url: string } } };
+    expect(json.error.code).toBe('NO_API_KEY');
+    expect(json.error.details.account_url).toBe('/account');
   });
 
   it('returns 404 for malformed detection id', async () => {

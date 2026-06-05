@@ -1,7 +1,7 @@
 import type { APIRoute } from 'astro';
 
-import { env } from 'cloudflare:workers';
 import type { BookCandidate, ScoredCandidate } from '../../../../lib/books/schema';
+import { getActiveProviderConfig } from '../../../../lib/keys/getActiveProviderConfig';
 import { searchGoogleBooks } from '../../../../lib/books/googleBooks';
 import { searchOpenLibrary } from '../../../../lib/books/openLibrary';
 import { apiError, apiResponse, parseUuidParam } from '../../../../lib/http/response';
@@ -84,6 +84,27 @@ async function matchOne(
 export const POST: APIRoute = async ({ params, locals }) => {
   if (!locals.user) {
     return apiError({ code: 'UNAUTHENTICATED', status: 401, message: 'Authentication required.' });
+  }
+
+  // Guard: ai_enabled per profile (parity z process.ts)
+  const { data: profile } = await locals.supabase
+    .from('profiles')
+    .select('ai_enabled')
+    .eq('id', locals.user.id)
+    .single();
+  if (!profile?.ai_enabled) {
+    return apiError({ code: 'AI_DISABLED', status: 403, message: 'Analiza AI jest wyłączona.' });
+  }
+
+  // Guard: active API key required (S-33)
+  const providerConfig = await getActiveProviderConfig(locals.supabase, locals.user.id);
+  if (!providerConfig) {
+    return apiError({
+      code: 'NO_API_KEY',
+      status: 403,
+      message: 'Brak aktywnego klucza API. Dodaj klucz na stronie /account.',
+      details: { account_url: '/account' },
+    });
   }
 
   const detectionId = parseUuidParam(params.id);
@@ -176,11 +197,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
     return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się przygotować cropa.' });
   }
 
-  // Phase 1 stub — replaced by getActiveProviderConfig lookup in Phase 2
-  const refined = await detectSingleSpineFromCrop({ base64: cropBase64, mediaType: 'image/jpeg' }, {
-    provider: 'anthropic',
-    apiKey: env?.ANTHROPIC_API_KEY ?? import.meta.env.ANTHROPIC_API_KEY,
-  });
+  const refined = await detectSingleSpineFromCrop({ base64: cropBase64, mediaType: 'image/jpeg' }, providerConfig);
   if (!refined.ok) {
     await locals.supabase.from('corrections').insert({
       user_id: locals.user.id,

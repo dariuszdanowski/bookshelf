@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 
-import { env } from 'cloudflare:workers';
+import { getActiveProviderConfig } from '../../../../lib/keys/getActiveProviderConfig';
 import { detectSpines } from '../../../../lib/vision/client';
 import { deriveWorkingCopy } from '../../../../lib/images/resize';
 import { PROMPT_VERSION } from '../../../../lib/vision/prompt';
@@ -79,6 +79,17 @@ export const POST: APIRoute = async ({ params, locals }) => {
     .single();
   if (!profile?.ai_enabled) {
     return apiError({ code: 'AI_DISABLED', status: 403, message: 'Funkcje AI wyłączone dla tego konta.' });
+  }
+
+  // Guard: active API key required (S-33)
+  const providerConfig = await getActiveProviderConfig(locals.supabase, locals.user.id);
+  if (!providerConfig) {
+    return apiError({
+      code: 'NO_API_KEY',
+      status: 403,
+      message: 'Brak aktywnego klucza API. Dodaj klucz na stronie /account.',
+      details: { account_url: '/account' },
+    });
   }
 
   // 1. Load photo (RLS scope — PGRST116 if not found or other user)
@@ -168,11 +179,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
   // 4. Call vision LLM
   let visionResult: Awaited<ReturnType<typeof detectSpines>>;
   try {
-    // Phase 1 stub — replaced by getActiveProviderConfig lookup in Phase 2
-    visionResult = await detectSpines({ base64, mediaType }, {
-      provider: 'anthropic',
-      apiKey: env?.ANTHROPIC_API_KEY ?? import.meta.env.ANTHROPIC_API_KEY,
-    });
+    visionResult = await detectSpines({ base64, mediaType }, providerConfig);
   } catch (err) {
     const status = (err as { status?: number })?.status;
     const msg = err instanceof Error ? err.message : String(err);

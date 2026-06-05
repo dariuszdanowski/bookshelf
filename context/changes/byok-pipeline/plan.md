@@ -430,23 +430,23 @@ przez empty state + CTA.
 
 #### Automated
 
-- [x] 1.1 `npm run typecheck` — pass (NO_API_KEY w union, VisionProviderConfig types)
-- [x] 1.2 `npm run lint` — pass
-- [x] 1.3 unit testy vision client — pass z zaktualizowanymi sygnaturami
+- [x] 1.1 `npm run typecheck` — pass (NO_API_KEY w union, VisionProviderConfig types) — 839acb4
+- [x] 1.2 `npm run lint` — pass — 839acb4
+- [x] 1.3 unit testy vision client — pass z zaktualizowanymi sygnaturami — 839acb4
 
 #### Manual
 
-- [x] 1.4 brak zmian widocznych dla usera (refaktor wewnętrzny)
+- [x] 1.4 brak zmian widocznych dla usera (refaktor wewnętrzny) — 839acb4
 
 ### Phase 2: Key Lookup + Endpoint Enforcement
 
 #### Automated
 
-- [ ] 2.1 `npm run typecheck` — pass (nowe importy zgodne)
-- [ ] 2.2 `npm run lint` — pass
-- [ ] 2.3 unit testy process.ts — pass (happy path + NO_API_KEY path)
-- [ ] 2.4 unit testy refine.ts — pass (AI_DISABLED + NO_API_KEY + happy path)
-- [ ] 2.5 `npm run test` — pass
+- [x] 2.1 `npm run typecheck` — pass (nowe importy zgodne)
+- [x] 2.2 `npm run lint` — pass
+- [x] 2.3 unit testy process.ts — pass (happy path + NO_API_KEY path)
+- [x] 2.4 unit testy refine.ts — pass (AI_DISABLED + NO_API_KEY + happy path)
+- [x] 2.5 `npm run test` — pass
 
 #### Manual
 
