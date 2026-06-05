@@ -98,6 +98,8 @@ async function fetchBooks(url: string): Promise<BookSearchResult> {
  * 1. isbn: lookup (most precise) — stop on first non-empty result
  * 2. intitle: + inauthor: — if author available
  * 3. Free-text fallback (OCR-garbled friendly)
+ * 4. inauthor: only — returns full author bibliography for cross-language scoring
+ *    (e.g. Polish title vs English GB records — scorer ranks by author match)
  */
 export async function searchGoogleBooks(query: SearchQuery): Promise<BookSearchResult> {
   const apiKey = getApiKey();
@@ -125,6 +127,15 @@ export async function searchGoogleBooks(query: SearchQuery): Promise<BookSearchR
   for (const variant of titleQueryVariants(query.title)) {
     lastResult = await fetchBooks(buildUrl(variant, apiKey));
     if (lastResult.ok || lastResult.reason !== 'empty') return lastResult;
+  }
+
+  // Fallback inauthor: — zwraca bibliografię autora gdy tytuł nie dał wyników.
+  // Przydatne dla tłumaczeń: "Usterka na skraju" → Keret bibliography w j. angielskim.
+  // Scorer dopasuje po autorze (~0.30 wagi) nawet gdy titleSim jest niski.
+  if (cleanAuthor) {
+    const result = await fetchBooks(buildUrl(`inauthor:"${cleanAuthor}"`, apiKey));
+    if (result.ok || result.reason === 'rate_limited') return result;
+    lastResult = result;
   }
 
   return lastResult;

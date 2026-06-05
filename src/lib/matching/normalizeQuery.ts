@@ -48,6 +48,28 @@ export function mainTitleSegment(cleaned: string): string {
 }
 
 /**
+ * Heurystycznie rozdziela "Tytuł — Imię Nazwisko" na osobne pola.
+ * Pasuje gdy część po myślniku em/en wygląda jak imię i nazwisko:
+ * 2–3 słowa, każde zaczyna się wielką literą i zawiera małe litery
+ * (wyklucza WIELKIE_LITERY będące podtytułami).
+ * Zwraca { title, author: null } gdy wzorzec nie pasuje.
+ */
+export function extractAuthorFromTitle(raw: string): { title: string; author: string | null } {
+  const match = /^(.{3,}?)\s*[–—]\s*(.+?)\s*$/.exec(raw);
+  if (!match) return { title: raw, author: null };
+  const candidate = match[2].trim();
+  const words = candidate.split(/\s+/);
+  if (
+    words.length >= 2 &&
+    words.length <= 3 &&
+    words.every((w) => /^[A-ZĄĆĘŁŃÓŚŹŻ]/.test(w) && /[a-ząćęłńóśźż]/.test(w))
+  ) {
+    return { title: match[1].trim(), author: candidate };
+  }
+  return { title: raw, author: null };
+}
+
+/**
  * Warianty zapytania do kaskady wyszukiwania, od najpełniejszego do najwęższego,
  * bez duplikatów. Konsument próbuje kolejno aż do pierwszego trafienia.
  */

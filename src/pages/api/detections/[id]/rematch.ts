@@ -4,15 +4,20 @@ import { z } from 'zod';
 import type { BookCandidate, ScoredCandidate } from '../../../../lib/books/schema';
 import { RematchDetectionSchema } from '../../../../lib/books/schema';
 import { searchGoogleBooks } from '../../../../lib/books/googleBooks';
-import { searchOpenLibrary } from '../../../../lib/books/openLibrary';
+import { searchOpenLibrary, searchOpenLibraryByTitle } from '../../../../lib/books/openLibrary';
 import { apiError, apiResponse, parseUuidParam } from '../../../../lib/http/response';
 import { CONSERVATIVE_REPLACE_MARGIN } from '../../../../lib/matching/fallbackPolicy';
 import { checkCatalogDuplicate, dedupeCandidates } from '../../../../lib/matching/dedupe';
-import { scoreCandidate, MATCH_MID } from '../../../../lib/matching/score';
+import { scoreCandidate } from '../../../../lib/matching/score';
+import { extractAuthorFromTitle } from '../../../../lib/matching/normalizeQuery';
 
 export const prerender = false;
 
-const MAX_CANDIDATES = 5;
+// Niższy próg niż MATCH_MID (0.55) — rematch to świadome wyszukiwanie przez usera,
+// który i tak wybiera ręcznie. Pozwala na wyniki cross-języka (Keret po polsku vs
+// angielskie wpisy GB — author match ~0.30 przechodzi próg 0.25).
+const REMATCH_MIN_SCORE = 0.25;
+const MAX_CANDIDATES = 8;
 
 type ExistingBook = {
   id: string;
@@ -27,20 +32,36 @@ async function matchOne(
   rawAuthor: string | null,
   existingBooks: ExistingBook[]
 ): Promise<{ candidates: ScoredCandidate[]; rateLimited: boolean }> {
-  const googleResult = await searchGoogleBooks({ title: rawTitle, author: rawAuthor });
-  if (!googleResult.ok) {
-    return { candidates: [], rateLimited: googleResult.reason === 'rate_limited' };
+  // GB i OL title search równolegle — OL może mieć polskie edycje których nie ma GB.
+  const [googleResult, olTitleResult] = await Promise.all([
+    searchGoogleBooks({ title: rawTitle, author: rawAuthor }),
+    searchOpenLibraryByTitle({ title: rawTitle, author: rawAuthor }),
+  ]);
+
+  if (!googleResult.ok && googleResult.reason === 'rate_limited') {
+    return { candidates: [], rateLimited: true };
   }
 
-  const allCandidates: BookCandidate[] = [...googleResult.candidates];
-  const firstIsbn =
-    googleResult.candidates.find((c) => c.isbn13)?.isbn13 ??
-    googleResult.candidates.find((c) => c.isbn10)?.isbn10 ??
-    null;
+  const allCandidates: BookCandidate[] = [
+    ...(googleResult.ok ? googleResult.candidates : []),
+    ...(olTitleResult.ok ? olTitleResult.candidates : []),
+  ];
 
-  if (firstIsbn) {
-    const olResult = await searchOpenLibrary({ title: rawTitle, isbn: firstIsbn });
-    if (olResult.ok) allCandidates.push(...olResult.candidates);
+  // OL ISBN enrichment z najlepszego kandydata GB
+  if (googleResult.ok) {
+    const firstIsbn =
+      googleResult.candidates.find((c) => c.isbn13)?.isbn13 ??
+      googleResult.candidates.find((c) => c.isbn10)?.isbn10 ??
+      null;
+    if (firstIsbn) {
+      const olIsbnResult = await searchOpenLibrary({ title: rawTitle, isbn: firstIsbn });
+      if (olIsbnResult.ok) allCandidates.push(...olIsbnResult.candidates);
+    }
+  }
+
+  if (allCandidates.length === 0) {
+    void existingBooks;
+    return { candidates: [], rateLimited: false };
   }
 
   const scored: ScoredCandidate[] = allCandidates.map((c) => ({
@@ -52,7 +73,7 @@ async function matchOne(
   }));
 
   scored.sort((a, b) => b.matchScore - a.matchScore);
-  const candidates = dedupeCandidates(scored.filter((c) => c.matchScore >= MATCH_MID))
+  const candidates = dedupeCandidates(scored.filter((c) => c.matchScore >= REMATCH_MIN_SCORE))
     .slice(0, MAX_CANDIDATES)
     .map((c) => {
       if (c.coverUrl) return c;
@@ -101,8 +122,14 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     });
   }
 
-  const { title, author } = parsed.data;
-  const rawAuthor = author ?? null;
+  const { title: rawTitle, author } = parsed.data;
+  const rawAuthorFromForm = author ?? null;
+
+  // Auto-extract autora gdy tytuł zawiera wzorzec "Tytuł — Imię Nazwisko"
+  // i pole autora jest puste (np. user wkleił pełny opis z grzbietem).
+  const extracted = !rawAuthorFromForm ? extractAuthorFromTitle(rawTitle) : null;
+  const title = extracted?.title ?? rawTitle;
+  const rawAuthor = extracted?.author ?? rawAuthorFromForm;
 
   const { data: detection, error: detectionError } = await locals.supabase
     .from('detections')

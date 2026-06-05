@@ -143,6 +143,33 @@ describe('searchGoogleBooks', () => {
     expect(result.reason).toBe('network');
   });
 
+  it('falls back to inauthor-only when all title queries return empty and author known', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(makeEmptyResponse()) // intitle+inauthor: empty
+      .mockResolvedValueOnce(makeEmptyResponse()) // free-text "Usterka na skraju": empty
+      .mockResolvedValueOnce(makeOkResponse());   // inauthor:"Etgar Keret": hit
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await searchGoogleBooks({ title: 'Usterka na skraju', author: 'Etgar Keret' });
+
+    expect(result.ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    const lastUrl = decodeURIComponent(fetchMock.mock.calls[2][0] as string);
+    expect(lastUrl).toContain('inauthor:');
+    expect(lastUrl).not.toContain('intitle:');
+  });
+
+  it('skips inauthor fallback when no author provided', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(makeEmptyResponse());
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await searchGoogleBooks({ title: 'NoSuchBook' });
+
+    expect(result.ok).toBe(false);
+    expect(fetchMock).toHaveBeenCalledTimes(1); // only free-text, no inauthor attempt
+  });
+
   it('skips isbn cascade step when no isbn provided', async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(makeOkResponse());
     vi.stubGlobal('fetch', fetchMock);

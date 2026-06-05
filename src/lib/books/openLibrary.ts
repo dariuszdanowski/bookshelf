@@ -47,53 +47,61 @@ function mapDoc(doc: z.infer<typeof OLDocSchema>): BookCandidate {
   };
 }
 
-/**
- * Search OpenLibrary by ISBN only.
- *
- * OL title-search returns 0 results for Polish titles → used exclusively for
- * ISBN-enrichment when an ISBN is already known (from detection or Google candidate).
- * Returns { ok: false, reason: 'empty' } immediately when no ISBN provided.
- */
-export async function searchOpenLibrary(query: SearchQuery): Promise<BookSearchResult> {
-  if (!query.isbn) return { ok: false, reason: 'empty' };
-
-  const params = new URLSearchParams({
-    isbn: query.isbn.replace(/[-\s]/g, ''),
-    fields: 'key,title,author_name,first_publish_year,isbn,cover_i,publisher',
-    limit: '5',
-  });
-
+async function fetchOL(url: string): Promise<BookSearchResult> {
   let response: Response;
   try {
-    response = await fetch(`${OL_BASE}?${params.toString()}`, {
-      headers: { 'User-Agent': USER_AGENT },
-    });
+    response = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
   } catch (e) {
     console.error('[openLibrary] network error', { err: e instanceof Error ? e.message : String(e) });
     return { ok: false, reason: 'network' };
   }
-
   if (response.status === 429) return { ok: false, reason: 'rate_limited' };
-
   if (!response.ok) {
     console.error('[openLibrary] HTTP error', { status: response.status });
     return { ok: false, reason: 'network' };
   }
-
   let data: unknown;
   try {
     data = await response.json();
   } catch {
     return { ok: false, reason: 'network' };
   }
-
   const parsed = OLResponseSchema.safeParse(data);
   if (!parsed.success) {
     console.error('[openLibrary] schema parse failed', JSON.stringify(parsed.error.issues));
     return { ok: false, reason: 'network' };
   }
-
   const docs = parsed.data.docs ?? [];
   if (docs.length === 0) return { ok: false, reason: 'empty' };
   return { ok: true, candidates: docs.map(mapDoc) };
+}
+
+/**
+ * Search OpenLibrary by title + optional author.
+ * Parallel source alongside Google Books — OL has broader Polish edition coverage.
+ */
+export async function searchOpenLibraryByTitle(query: { title: string; author?: string | null }): Promise<BookSearchResult> {
+  const params = new URLSearchParams({
+    title: query.title,
+    fields: 'key,title,author_name,first_publish_year,isbn,cover_i,publisher',
+    limit: '5',
+  });
+  if (query.author) params.set('author', query.author);
+  return fetchOL(`${OL_BASE}?${params.toString()}`);
+}
+
+/**
+ * Search OpenLibrary by ISBN only.
+ *
+ * Used for ISBN-enrichment when an ISBN is already known (from Google candidate).
+ * Returns { ok: false, reason: 'empty' } immediately when no ISBN provided.
+ */
+export async function searchOpenLibrary(query: SearchQuery): Promise<BookSearchResult> {
+  if (!query.isbn) return { ok: false, reason: 'empty' };
+  const params = new URLSearchParams({
+    isbn: query.isbn.replace(/[-\s]/g, ''),
+    fields: 'key,title,author_name,first_publish_year,isbn,cover_i,publisher',
+    limit: '5',
+  });
+  return fetchOL(`${OL_BASE}?${params.toString()}`);
 }
