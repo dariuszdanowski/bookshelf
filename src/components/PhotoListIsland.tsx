@@ -446,15 +446,13 @@ export default function PhotoListIsland({ shelfId }: Props) {
                   </button>
                 )}
 
-                {isRerun && (
-                  <a
-                    href={`/photos/${photo.id}`}
-                    data-testid={`open-review-${photo.id}`}
-                    className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                  >
-                    Otwórz review
-                  </a>
-                )}
+                <a
+                  href={`/photos/${photo.id}`}
+                  data-testid={`open-review-${photo.id}`}
+                  className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  {isRerun ? 'Otwórz review' : 'Otwórz'}
+                </a>
 
                 {/* Przenieś na inną półkę (PATCH shelf_id) */}
                 {otherShelves.length > 0 && (
