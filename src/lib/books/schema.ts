@@ -222,6 +222,20 @@ export const RematchDetectionSchema = z.object({
 });
 export type RematchDetectionInput = z.infer<typeof RematchDetectionSchema>;
 
+// POST /api/books/candidates — bezksiążkowe wyszukiwanie kandydatów (S-36).
+// Co najmniej tytuł lub ISBN wymagany. Nie zapisuje nic do DB — read-only.
+export const SearchCandidatesSchema = z
+  .object({
+    title: z.string().trim().max(300).optional(),
+    author: z.string().trim().max(200).optional(),
+    isbn: z.string().trim().max(20).optional(),
+  })
+  .strict()
+  .refine((v) => !!(v.title || v.isbn), {
+    message: 'Podaj tytuł lub ISBN.',
+  });
+export type SearchCandidatesInput = z.infer<typeof SearchCandidatesSchema>;
+
 // POST /api/books — ręczny zakup (Flow B, S-06). Książka ląduje na „Zakupione".
 // title wymagany; reszta opcjonalna; purchase_date pominięte → endpoint ustawia dziś.
 export const AddPurchaseSchema = z

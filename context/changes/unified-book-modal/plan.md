@@ -51,8 +51,12 @@ w istniejących przepływach (toggle read, move, identyfikacja edycyjna, manual 
 
 ### Key Discoveries
 
-- `findBookCandidates` (`src/lib/matching/findCandidates.ts`) jest bezDB i reużywalny — wystarczy
-  bezksiążkowy endpoint, by włączyć identyfikację w trybie add.
+- `findBookCandidates` (`src/lib/matching/findCandidates.ts`) jest bezDB i reużywalny w trybie
+  add — ALE jest title-centryczny: filtruje wyniki progiem `matchScore >= 0.25` (`findCandidates.ts:67`).
+  Dla zapytania **sam ISBN** (title='') każdy kandydat dostaje `0.65×0 (titleSim) + 0.30×0.5
+  (authorSim neutral) + 0.05 (isbnBonus) = 0.20 < 0.25` → odpada. Identify nigdy tego nie ćwiczył
+  (`IdentifyBookSchema` wymaga `title.min(1)`). Dlatego ISBN-only wymaga **ISBN-first short-circuit
+  w silniku** (Faza 1 #3), nie tylko nowego endpointu.
 - `BookDetailModal` już hostuje 3 sub-panele (Metadata/Identify/Cover) — `BookModal` to ich
   re-aranżacja pod wspólny `mode`, nie pisanie od zera.
 - Storage RLS `book-covers` sprawdza tylko pierwszy segment ścieżki = `auth.uid()` (migracja 0018),
@@ -63,8 +67,10 @@ w istniejących przepływach (toggle read, move, identyfikacja edycyjna, manual 
 
 ## What We're NOT Doing
 
-- Nie zmieniamy modelu danych / migracji (reuse istniejących kolumn i endpointów; jedyny nowy
-  artefakt to bezksiążkowy endpoint wyszukiwania — read-only, bez DB-write).
+- Nie zmieniamy modelu danych / migracji (reuse istniejących kolumn i endpointów; nowe artefakty:
+  bezksiążkowy endpoint wyszukiwania — read-only, bez DB-write — oraz **wąski ISBN-first path w
+  `findBookCandidates`** dla zapytań „sam ISBN", patrz Faza 1 #3). Poza tym silnika matchingu nie
+  ruszamy (scoring/dedup/enrich bez zmian).
 - Nie przenosimy akcji akceptacji kandydata (confirm/correct) do modala — `DetectionReview` zostaje
   właścicielem decyzji katalogowych; propose-mode to podgląd.
 - Nie robimy crop/edycji obrazu okładki.
@@ -90,13 +96,16 @@ Umożliwić identyfikację po wpisanych danych / samym ISBN ZANIM książka istn
 **File**: `src/pages/api/books/candidates.ts` (new)
 
 **Intent**: Bezksiążkowe wyszukiwanie kandydatów po częściowych danych (tytuł i/lub autor i/lub
-ISBN). Reużywa `findBookCandidates`; gdy podano sam ISBN — wyszukuje po ISBN; auto-ekstrakcja
-autora z „Tytuł — Imię Nazwisko" jak w identify.
+ISBN). Reużywa `findBookCandidates`; gdy podano sam ISBN — przekazuje flagę ISBN-first (zob. #3),
+by ominąć title-score gate; auto-ekstrakcja autora z „Tytuł — Imię Nazwisko" jak w identify.
 
 **Contract**: `POST /api/books/candidates`, body `{ title?, author?, isbn? }` (min. jedno z
 title/isbn wymagane). 200 `{ data: { candidates: ScoredCandidate[] } }`, 429 rate_limited, 400
 walidacja. Auth wymagany (spójność + ochrona przed otwartym proxy do API). Reuse:
-`findBookCandidates` (`src/lib/matching/findCandidates.ts`), `extractAuthorFromTitle`.
+`findBookCandidates` (`src/lib/matching/findCandidates.ts`), `extractAuthorFromTitle`
+(`src/lib/matching/normalizeQuery.ts`). **Docstring obowiązkowo rozróżnia** ten endpoint
+(identyfikacja w źródłach zewnętrznych GB/OL/BN, POST) od istniejącego sąsiada
+`search.ts` (`GET /api/books/search` — pełnotekstowa wyszukiwarka *katalogu* usera, S-08).
 
 #### 2. Schemat zapytania
 
@@ -106,10 +115,43 @@ walidacja. Auth wymagany (spójność + ochrona przed otwartym proxy do API). Re
 
 **Contract**: `SearchCandidatesSchema` (z.object + refine „title || isbn").
 
+#### 3. ISBN-first path w silniku wyszukiwania
+
+**File**: `src/lib/matching/findCandidates.ts`
+
+**Intent**: Umożliwić zwrot kandydatów dla zapytania „sam ISBN" (title puste). Dziś filtr
+`matchScore >= SEARCH_MIN_SCORE (0.25)` (l.67) odrzuca wszystkie wyniki ISBN-only (score=0.20).
+Dodać opcjonalną flagę (np. `isbnOnly`/`skipScoreFilter`) lub gałąź: gdy `rawTitle` puste a
+`rawIsbn` podane → pomiń title-score gate i zwróć kandydatów dopasowanych po ISBN (filtr autora
+i tak przepuszcza — `authorTokensMatch(null, …) = true`). Scoring/dedup/enrich dla pozostałych
+trybów (tytuł / tytuł+autor) bez zmian — gate aktywny jak dziś.
+
+**Contract**: sygnatura `findBookCandidates(rawTitle, rawAuthor, rawIsbn, opts?)` lub równoważny
+flag; zachowanie dla istniejących callerów (`identify`, `rematch`) niezmienione (flaga domyślnie
+off). Zweryfikować dedup/enrich okładki na wejściu z pustym tytułem.
+
+#### 4. Book-less lookup okładki po ISBN (dla „Wyszukaj okładki" w trybie add)
+
+**File**: `src/pages/api/books/cover-suggestion.ts` (new) + `src/pages/api/books/[id]/cover-suggestion.ts` (refactor)
+
+**Intent**: Dziś `GET /[id]/cover-suggestion` jest id-keyed I **zapisuje** `cover_url` do wiersza —
+nie da się użyć w add (brak id i wiersza). Wynieść samą logikę lookup'u (OL covers HEAD + GB
+fallback, `[id]/cover-suggestion.ts:52-69`) do helpera `findCoverByIsbn(isbn, title?)` w
+`src/lib/books/` i dodać **read-only** book-less route `GET /api/books/cover-suggestion?isbn=…`
+(bez DB-write — zwraca URL do podstawienia w slocie okładki). Istniejący `[id]` route deleguje do
+helpera i zachowuje swój write (edit-mode) — zero regresji.
+
+**Contract**: `GET /api/books/cover-suggestion?isbn=<isbn>` → 200 `{ data: { cover_url: string|null } }`,
+400 brak/zły ISBN, 401 auth. `[id]/cover-suggestion` zachowuje obecny kontrakt (write + 404).
+Helper `findCoverByIsbn` czysty (bez DB).
+
 ### Success Criteria
 
 #### Automated Verification:
-- Unit endpointu `/candidates` (sam ISBN / sam tytuł / tytuł+autor / brak → 400 / rate_limited 429): `npm run test`
+- Unit endpointu `/candidates`: **sam ISBN → niepusta lista kandydatów** (regresja gate'u 0.25),
+  sam tytuł / tytuł+autor → wyniki, brak title∧isbn → 400, rate_limited → 429: `npm run test`
+- Unit `findBookCandidates` ISBN-first: title='' + ISBN znanej książki → ≥1 kandydat: `npm run test`
+- Unit `GET /api/books/cover-suggestion?isbn=` book-less (zwraca cover_url|null, bez DB-write; 400 zły ISBN) + `[id]` route nadal pisze po refaktorze: `npm run test`
 - Typecheck: `npm run typecheck`
 - Lint: `npm run lint`
 
@@ -140,16 +182,20 @@ w `propose`. Po zapisie: `onSaved` (rodzic odświeża listę / zamyka).
 **Contract**: Props `mode: 'add'|'edit'|'propose'`, `shelfId?` (add), `book?` (edit/propose: dane
 + sloty okładki + id + photoId), `onSaved?`, `onClose`. Reuse istniejącej logiki z BookDetailModal
 (CoverEditor/CoverThumb/IdentifyPanel/MetadataEditor — wyniesione lub zaadaptowane). Upload okładki
-w add: ścieżka `{uid}/{uuid}.ext` (RLS po uid). „Wyszukaj okładki" = `GET /cover-suggestion` (edit,
-po id) lub po ISBN klient-side fallback w add.
+w add: ścieżka `{uid}/{uuid}.ext` (RLS po uid). „Wyszukaj okładki" = `GET /api/books/[id]/cover-suggestion`
+(edit, po id, z zapisem) lub book-less `GET /api/books/cover-suggestion?isbn=…` w add (read-only,
+podstawia URL w slocie — Faza 1 #4).
 
-#### 2. Wydzielenie wspólnych pól (opcjonalnie)
+#### 2. Wydzielenie wspólnych pól (BookFields)
 
-**File**: `src/components/book/BookFields.tsx` (new, opcjonalne)
+**File**: `src/components/book/BookFields.tsx` (new)
 
-**Intent**: Wspólny zestaw inputów metadanych (DRY między trybami) — jeśli redukuje duplikację.
+**Intent**: Wspólny zestaw inputów metadanych wyniesiony z `BookModal` — DRY między trybami
+add/edit (jedno źródło prawdy dla pól + walidacji klientowej zamiast duplikatu per tryb).
+`BookModal` konsumuje `BookFields`; tryb `propose` renderuje je read-only.
 
-**Contract**: kontrolowane inputy (title/authors/publisher/year/isbn13/isbn10) + walidacja klientowa.
+**Contract**: kontrolowane inputy (title/authors/publisher/year/isbn13/isbn10) + walidacja
+klientowa; prop `readOnly` dla trybu propose. Pokryte unitem `BookModal` (2.1).
 
 ### Success Criteria
 
@@ -231,8 +277,9 @@ pozostawić cienką re-eksportową kompatybilność, jeśli używany gdzie indzi
 3. Review → klik kandydata → podgląd + „Szukaj w sieci".
 
 ## Migration Notes
-Brak migracji — reuse istniejących endpointów i kolumn (S-33). Jedyny nowy artefakt to read-only
-endpoint wyszukiwania (bez DB-write).
+Brak migracji — reuse istniejących endpointów i kolumn (S-33). Nowe artefakty, wszystkie bez
+DB-write: read-only endpoint wyszukiwania `/candidates`, book-less `/cover-suggestion?isbn=`,
+oraz ISBN-first flaga w `findBookCandidates` (istniejący `[id]/cover-suggestion` zachowuje write).
 
 ## References
 - Prereq slice (dostarcza bazę): `context/changes/byok-pipeline/` (S-33, branch `change/byok-pipeline`)
@@ -246,9 +293,11 @@ endpoint wyszukiwania (bez DB-write).
 ### Phase 1: Bezksiążkowy endpoint wyszukiwania kandydatów
 
 #### Automated
-- [ ] 1.1 Unit endpointu /candidates (ISBN-only / title-only / title+author / 400 / 429)
-- [ ] 1.2 Typecheck
-- [ ] 1.3 Lint
+- [x] 1.1 Unit endpointu /candidates (ISBN-only → niepusta lista / title-only / title+author / 400 / 429)
+- [x] 1.2 Unit findBookCandidates ISBN-first (title='' + ISBN → ≥1 kandydat)
+- [x] 1.3 Unit book-less /cover-suggestion?isbn= (cover_url|null, bez write, 400; [id] route nadal pisze)
+- [x] 1.4 Typecheck
+- [x] 1.5 Lint
 
 ### Phase 2: Komponent BookModal(mode)
 
@@ -267,4 +316,5 @@ endpoint wyszukiwania (bez DB-write).
 #### Manual
 - [ ] 3.4 Dodanie książki na półkę z okna (sam ISBN → wyszukaj → wybór → zapis)
 - [ ] 3.5 Edycja istniejącej (pola + okładka + re-identyfikacja)
-- [ ] 3.6 Podgląd kandydata (read-only) + „Szukaj w sieci"; brak regresji toggle/move/search
+- [ ] 3.6 Podgląd kandydata (read-only) + „Szukaj w sieci"
+- [ ] 3.7 Brak regresji: toggle read, przenoszenie, wyszukiwarka katalogu

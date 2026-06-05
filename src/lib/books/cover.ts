@@ -1,3 +1,30 @@
+import { searchGoogleBooks } from './googleBooks';
+
+/**
+ * Szuka okładki po ISBN w darmowych źródłach (OpenLibrary covers + Google Books).
+ * Czysta funkcja (bez DB) — read-only; używana przez book-less
+ * `GET /api/books/cover-suggestion?isbn=` (add-mode) oraz przez
+ * `GET /api/books/:id/cover-suggestion` (edit-mode, po refaktorze).
+ */
+export async function findCoverByIsbn(isbn: string, title?: string): Promise<string | null> {
+  const normalized = isbn.replace(/[-\s]/g, '');
+
+  const olUrl = `https://covers.openlibrary.org/b/isbn/${normalized}-L.jpg?default=false`;
+  try {
+    const head = await fetch(olUrl, { method: 'HEAD' });
+    if (head.ok) return olUrl;
+  } catch {
+    // sieć — pomiń, spróbuj GB
+  }
+
+  const gb = await searchGoogleBooks({ title: title ?? '', isbn: normalized });
+  if (gb.ok) {
+    return gb.candidates.find((c) => c.coverUrl)?.coverUrl ?? null;
+  }
+
+  return null;
+}
+
 // Podbicie rozdzielczości okładki do podglądu („wyraźna, nie ikonka").
 //
 // Okładki w katalogu/propozycjach są zapisane w rozmiarze M (~128-180px):

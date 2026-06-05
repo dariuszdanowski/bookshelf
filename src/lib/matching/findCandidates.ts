@@ -11,6 +11,13 @@ import { dedupeCandidates } from './dedupe';
 export const SEARCH_MIN_SCORE = 0.25;
 export const SEARCH_MAX_CANDIDATES = 8;
 
+export type FindCandidatesOpts = {
+  /** Gdy true i rawTitle puste: pomija title-score gate (SEARCH_MIN_SCORE).
+   *  Pozwala zwrócić kandydatów dla zapytań „sam ISBN" gdzie titleSim=0 → score=0.20 < 0.25.
+   *  Nie wpływa na zapytania z tytułem — gate aktywny jak dotychczas. */
+  isbnOnly?: boolean;
+};
+
 /**
  * Wspólny silnik wyszukiwania kandydatów książek (GB + OpenLibrary + Biblioteka
  * Narodowa równolegle → score → filtr autora → dedup → enrich okładki). Czysta
@@ -19,7 +26,8 @@ export const SEARCH_MAX_CANDIDATES = 8;
 export async function findBookCandidates(
   rawTitle: string,
   rawAuthor: string | null,
-  rawIsbn: string | null
+  rawIsbn: string | null,
+  opts?: FindCandidatesOpts
 ): Promise<{ candidates: ScoredCandidate[]; rateLimited: boolean }> {
   const [googleResult, olTitleResult, bnResult] = await Promise.all([
     searchGoogleBooks({ title: rawTitle, author: rawAuthor, isbn: rawIsbn ?? undefined }),
@@ -63,8 +71,9 @@ export async function findBookCandidates(
   }));
 
   scored.sort((a, b) => b.matchScore - a.matchScore);
+  const skipScoreGate = opts?.isbnOnly && !rawTitle;
   const candidates = dedupeCandidates(
-    scored.filter((c) => c.matchScore >= SEARCH_MIN_SCORE && authorTokensMatch(rawAuthor, c.authors))
+    scored.filter((c) => (skipScoreGate || c.matchScore >= SEARCH_MIN_SCORE) && authorTokensMatch(rawAuthor, c.authors))
   )
     .slice(0, SEARCH_MAX_CANDIDATES)
     .map((c) => {
