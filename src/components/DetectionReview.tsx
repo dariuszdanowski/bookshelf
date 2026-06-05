@@ -835,8 +835,39 @@ function DetectionCard({ detection, onDecided, onRefined, onSelect, isSelected =
               Popraw
             </button>
           )}
+          {top && (
+            <button
+              data-testid="rematch-button"
+              disabled={busy}
+              onClick={() => { setShowRematchForm(true); setRematchNoResults(false); }}
+              className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50"
+            >
+              Szukaj po tytule
+            </button>
+          )}
           <RefineButton bbox={detection.bbox} busy={busy} onClick={() => void handleRefine()} size="lg" />
         </div>
+      )}
+
+      {/* Rematch form when candidates already exist */}
+      {top && showRematchForm && (
+        <RematchForm
+          initialTitle={detection.raw_title ?? ''}
+          initialAuthor={detection.raw_author ?? ''}
+          busy={busy}
+          errorMsg={errorMsg}
+          onSubmit={async (title, author) => {
+            const found = await handleRematch(title, author);
+            setShowRematchForm(false);
+            if (!found) setRematchNoResults(true);
+          }}
+          onCancel={() => setShowRematchForm(false)}
+        />
+      )}
+      {top && rematchNoResults && !showRematchForm && (
+        <p className="mt-1 text-center text-xs text-amber-600" data-testid="rematch-no-results">
+          Nie znaleziono wyników dla podanego tytułu
+        </p>
       )}
     </div>
   );
