@@ -74,6 +74,44 @@ function RefineButton({
   );
 }
 
+// ---------------------------------------------------------------------------
+// WebSearchButton — „Szukaj w sieci": otwiera nową kartę z Google na naszych
+// danych (tytuł + autor). Ratunek gdy Google Books/OpenLibrary nie indeksują
+// danej edycji (małe polskie wydawnictwa), a zwykła wyszukiwarka ją znajduje.
+// Link <a target="_blank">, nie fetch — żadnego kosztu API, user wybiera ręcznie.
+// ---------------------------------------------------------------------------
+function WebSearchButton({
+  title,
+  author,
+  size = 'md',
+}: {
+  title: string;
+  author: string | null | undefined;
+  size?: 'lg' | 'md' | 'sm';
+}) {
+  const query = [title, author].filter(Boolean).join(' ').trim();
+  if (!query) return null;
+  const href = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+  const sizeCls = size === 'lg' ? 'px-3 py-1.5' : size === 'sm' ? 'px-2 py-1' : 'px-2.5 py-1';
+  return (
+    <a
+      data-testid="web-search-button"
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      title={`Wyszukaj „${query}" w Google (nowa karta)`}
+      className={`inline-flex items-center gap-1 rounded-md border border-sky-300 bg-sky-50 text-xs font-medium text-sky-700 hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-900/20 dark:text-sky-300 dark:hover:bg-sky-900/40 ${sizeCls}`}
+    >
+      <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="8.5" cy="8.5" r="5.5" />
+        <line x1="13" y1="13" x2="18" y2="18" />
+      </svg>
+      Szukaj w sieci
+    </a>
+  );
+}
+
 const TIER_STYLES: Record<MatchTier, { border: string; badge: string; label: string }> = {
   high: {
     border: 'border-green-300 bg-green-50',
@@ -363,10 +401,52 @@ function RematchForm({ initialTitle, initialAuthor, initialIsbn, busy, errorMsg,
 }
 
 // ---------------------------------------------------------------------------
+// Widok detekcji odrzuconej — wspólny dla 3 trybów (Karty/Lista/Kafelki).
+// Świadomie ODRÓŻNIA się od widoku zaakceptowanej (zielony ptaszek): szary,
+// przekreślony tytuł, ikona „×", etykieta „Odrzucono" + przycisk „Cofnij".
+// Bez tego odrzucenie wyglądało jak akceptacja i było nieodwracalne (dziura UX).
+// ---------------------------------------------------------------------------
+function RejectedDecidedView({
+  title,
+  busy,
+  onUndo,
+  testId,
+}: {
+  title: string;
+  busy: boolean;
+  onUndo: () => void;
+  testId: string;
+}) {
+  return (
+    <div
+      data-testid={testId}
+      className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800/50"
+    >
+      <svg className="flex-shrink-0 text-gray-400" width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+      </svg>
+      <span className="truncate text-sm text-gray-500 line-through dark:text-gray-400">{title}</span>
+      <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-gray-700 dark:text-gray-300">
+        Odrzucono
+      </span>
+      <button
+        data-testid="undo-reject-button"
+        disabled={busy}
+        onClick={onUndo}
+        className="ml-auto rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+      >
+        {busy ? 'Cofam...' : 'Cofnij'}
+      </button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Karta detekcji z akcjami
 // ---------------------------------------------------------------------------
 
 type DecisionState = 'pending' | 'decided' | 'error';
+type DecisionKind = 'confirmed' | 'rejected';
 
 // ---------------------------------------------------------------------------
 // Hook decyzji — współdzielona logika akceptacji/odrzucenia/korekty per detekcja.
@@ -377,11 +457,13 @@ type DecisionState = 'pending' | 'decided' | 'error';
 
 function useDetectionDecision(
   detection: DetectionWithCandidatesDTO,
-  onDecided: (detectionId: string) => void,
-  onRefined?: (next: DetectionWithCandidatesDTO) => void
+  onDecided: (detectionId: string, kind: DecisionKind) => void,
+  onRefined?: (next: DetectionWithCandidatesDTO) => void,
+  onUndecided?: (detectionId: string) => void
 ) {
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
   const [state, setState] = useState<DecisionState>('pending');
+  const [decidedKind, setDecidedKind] = useState<DecisionKind | null>(null);
   const [busy, setBusy] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -410,8 +492,9 @@ function useDetectionDecision(
         setState('error');
         return;
       }
+      setDecidedKind('confirmed');
       setState('decided');
-      onDecided(detection.id);
+      onDecided(detection.id, 'confirmed');
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : 'Błąd sieci.');
     } finally {
@@ -429,8 +512,30 @@ function useDetectionDecision(
         setErrorMsg(json.error?.message ?? `Błąd (${res.status})`);
         return;
       }
+      setDecidedKind('rejected');
       setState('decided');
-      onDecided(detection.id);
+      onDecided(detection.id, 'rejected');
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : 'Błąd sieci.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Cofnięcie odrzucenia — przywraca detekcję do edycji (status w DB → matched/pending).
+  async function handleUndoReject() {
+    setBusy(true);
+    setErrorMsg(null);
+    try {
+      const res = await fetch(`/api/detections/${detection.id}/unreject`, { method: 'POST' });
+      if (!res.ok) {
+        const json = (await res.json()) as { error?: { message?: string } };
+        setErrorMsg(json.error?.message ?? `Błąd (${res.status})`);
+        return;
+      }
+      setDecidedKind(null);
+      setState('pending');
+      onUndecided?.(detection.id);
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : 'Błąd sieci.');
     } finally {
@@ -532,14 +637,16 @@ function useDetectionDecision(
   // Po sukcesie korekty: detekcja zdecydowana. Komponent przechodzi w widok
   // 'decided' (early return), więc reset lokalnego showCorrectForm jest zbędny.
   function handleCorrectSuccess() {
+    setDecidedKind('confirmed');
     setState('decided');
-    onDecided(detection.id);
+    onDecided(detection.id, 'confirmed');
   }
 
   return {
     selectedCandidateId,
     setSelectedCandidateId,
     state,
+    decidedKind,
     busy,
     errorMsg,
     top,
@@ -548,6 +655,7 @@ function useDetectionDecision(
     activeCandidate,
     handleConfirm,
     handleReject,
+    handleUndoReject,
     handleRefine,
     handleRematch,
     handleCorrectSuccess,
@@ -556,15 +664,16 @@ function useDetectionDecision(
 
 type DetectionCardProps = {
   detection: DetectionWithCandidatesDTO;
-  onDecided: (detectionId: string) => void;
+  onDecided: (detectionId: string, kind: DecisionKind) => void;
   onRefined?: (next: DetectionWithCandidatesDTO) => void;
+  onUndecided?: (detectionId: string) => void;
   onSelect?: (detectionId: string) => void;
   isSelected?: boolean;
   onNavigateToMarker?: () => void;
   photoId?: string;
 };
 
-function DetectionCard({ detection, onDecided, onRefined, onSelect, isSelected = false, onNavigateToMarker, photoId }: DetectionCardProps) {
+function DetectionCard({ detection, onDecided, onRefined, onUndecided, onSelect, isSelected = false, onNavigateToMarker, photoId }: DetectionCardProps) {
   const [showAlts, setShowAlts] = useState(false);
   const [showCorrectForm, setShowCorrectForm] = useState(false);
   const [showRematchForm, setShowRematchForm] = useState(false);
@@ -572,6 +681,7 @@ function DetectionCard({ detection, onDecided, onRefined, onSelect, isSelected =
   const {
     setSelectedCandidateId,
     state,
+    decidedKind,
     busy,
     errorMsg,
     top,
@@ -580,12 +690,23 @@ function DetectionCard({ detection, onDecided, onRefined, onSelect, isSelected =
     activeCandidate,
     handleConfirm,
     handleReject,
+    handleUndoReject,
     handleRefine,
     handleRematch,
     handleCorrectSuccess,
-  } = useDetectionDecision(detection, onDecided, onRefined);
+  } = useDetectionDecision(detection, onDecided, onRefined, onUndecided);
 
   if (state === 'decided') {
+    if (decidedKind === 'rejected') {
+      return (
+        <RejectedDecidedView
+          testId={`detection-card-${detection.position_index}`}
+          title={detection.raw_title}
+          busy={busy}
+          onUndo={() => void handleUndoReject()}
+        />
+      );
+    }
     return (
       <div
         data-testid={`detection-card-${detection.position_index}`}
@@ -860,6 +981,11 @@ function DetectionCard({ detection, onDecided, onRefined, onSelect, isSelected =
               Szukaj po tytule
             </button>
           )}
+          <WebSearchButton
+            title={activeCandidate?.title ?? detection.raw_title}
+            author={activeCandidate?.authors?.[0] ?? detection.raw_author}
+            size="lg"
+          />
           <RefineButton bbox={detection.bbox} busy={busy} onClick={() => void handleRefine()} size="lg" />
         </div>
       )}
@@ -967,18 +1093,20 @@ function DetectionCorrectionModal({
 
 type DetectionRowProps = {
   detection: DetectionWithCandidatesDTO;
-  onDecided: (detectionId: string) => void;
+  onDecided: (detectionId: string, kind: DecisionKind) => void;
   onRefined?: (next: DetectionWithCandidatesDTO) => void;
+  onUndecided?: (detectionId: string) => void;
   onSelect?: (detectionId: string) => void;
   isSelected?: boolean;
   onNavigateToMarker?: () => void;
 };
 
-export function DetectionRow({ detection, onDecided, onRefined, onSelect, isSelected = false, onNavigateToMarker }: DetectionRowProps) {
+export function DetectionRow({ detection, onDecided, onRefined, onUndecided, onSelect, isSelected = false, onNavigateToMarker }: DetectionRowProps) {
   const [showModal, setShowModal] = useState(false);
   const [showRematchForm, setShowRematchForm] = useState(false);
   const {
     state,
+    decidedKind,
     busy,
     errorMsg,
     top,
@@ -986,12 +1114,23 @@ export function DetectionRow({ detection, onDecided, onRefined, onSelect, isSele
     activeCandidate,
     handleConfirm,
     handleReject,
+    handleUndoReject,
     handleRefine,
     handleRematch,
     handleCorrectSuccess,
-  } = useDetectionDecision(detection, onDecided, onRefined);
+  } = useDetectionDecision(detection, onDecided, onRefined, onUndecided);
 
   if (state === 'decided') {
+    if (decidedKind === 'rejected') {
+      return (
+        <RejectedDecidedView
+          testId={`detection-row-${detection.position_index}`}
+          title={detection.raw_title}
+          busy={busy}
+          onUndo={() => void handleUndoReject()}
+        />
+      );
+    }
     return (
       <div
         data-testid={`detection-row-${detection.position_index}`}
@@ -1117,6 +1256,11 @@ export function DetectionRow({ detection, onDecided, onRefined, onSelect, isSele
             </button>
           </>
         )}
+        <WebSearchButton
+          title={activeCandidate?.title ?? detection.raw_title}
+          author={activeCandidate?.authors?.[0] ?? detection.raw_author}
+          size="md"
+        />
         <RefineButton bbox={detection.bbox} busy={busy} onClick={() => void handleRefine()} size="md" />
       </div>
 
@@ -1158,18 +1302,20 @@ export function DetectionRow({ detection, onDecided, onRefined, onSelect, isSele
 
 type DetectionTileProps = {
   detection: DetectionWithCandidatesDTO;
-  onDecided: (detectionId: string) => void;
+  onDecided: (detectionId: string, kind: DecisionKind) => void;
   onRefined?: (next: DetectionWithCandidatesDTO) => void;
+  onUndecided?: (detectionId: string) => void;
   onSelect?: (detectionId: string) => void;
   isSelected?: boolean;
   onNavigateToMarker?: () => void;
 };
 
-export function DetectionTile({ detection, onDecided, onRefined, onSelect, isSelected = false, onNavigateToMarker }: DetectionTileProps) {
+export function DetectionTile({ detection, onDecided, onRefined, onUndecided, onSelect, isSelected = false, onNavigateToMarker }: DetectionTileProps) {
   const [showModal, setShowModal] = useState(false);
   const [showRematchForm, setShowRematchForm] = useState(false);
   const {
     state,
+    decidedKind,
     busy,
     errorMsg,
     top,
@@ -1177,12 +1323,23 @@ export function DetectionTile({ detection, onDecided, onRefined, onSelect, isSel
     activeCandidate,
     handleConfirm,
     handleReject,
+    handleUndoReject,
     handleRefine,
     handleRematch,
     handleCorrectSuccess,
-  } = useDetectionDecision(detection, onDecided, onRefined);
+  } = useDetectionDecision(detection, onDecided, onRefined, onUndecided);
 
   if (state === 'decided') {
+    if (decidedKind === 'rejected') {
+      return (
+        <RejectedDecidedView
+          testId={`detection-tile-${detection.position_index}`}
+          title={detection.raw_title}
+          busy={busy}
+          onUndo={() => void handleUndoReject()}
+        />
+      );
+    }
     return (
       <div
         data-testid={`detection-tile-${detection.position_index}`}
@@ -1307,6 +1464,11 @@ export function DetectionTile({ detection, onDecided, onRefined, onSelect, isSel
             </button>
           </>
         )}
+        <WebSearchButton
+          title={activeCandidate?.title ?? detection.raw_title}
+          author={activeCandidate?.authors?.[0] ?? detection.raw_author}
+          size="sm"
+        />
         <RefineButton bbox={detection.bbox} busy={busy} onClick={() => void handleRefine()} size="sm" />
       </div>
 
@@ -1494,6 +1656,7 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
   const [actionBusy, setActionBusy] = useState(false);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
   const [decidedIds, setDecidedIds] = useState<Set<string>>(new Set());
+  const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
   const [viewMode, setViewMode] = useDetectionViewMode();
   const [focusedDetectionId, setFocusedDetectionId] = useState<string | null>(null);
@@ -1525,20 +1688,45 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
     return () => { cancelled = true; };
   }, [photoId]);
 
-  function handleDecided(detectionId: string) {
+  function handleDecided(detectionId: string, kind: DecisionKind = 'confirmed') {
     setDecidedIds((prev) => new Set([...prev, detectionId]));
+    if (kind === 'confirmed') {
+      setConfirmedIds((prev) => new Set([...prev, detectionId]));
+    }
+  }
+
+  // Cofnięcie odrzucenia — detekcja wraca do nierozstrzygniętych, blokuje też
+  // ewentualny auto-redirect (poniżej), bo „pozostało" znów > 0.
+  function handleUndecided(detectionId: string) {
+    setDecidedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(detectionId);
+      return next;
+    });
+    setConfirmedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(detectionId);
+      return next;
+    });
   }
 
   function handleRefined(next: DetectionWithCandidatesDTO) {
     setDetections((prev) => prev.map((d) => (d.id === next.id ? next : d)));
   }
 
-  // Redirect gdy wszystkie zdecydowane (osobny useEffect na świeżym stanie)
+  // Redirect gdy wszystkie zdecydowane ORAZ co najmniej jedna zaakceptowana.
+  // Bez warunku confirmedIds.size > 0 odrzucenie ostatniej detekcji wyrzucało
+  // usera na półkę, zanim zdążył kliknąć „Cofnij" (dziura UX).
   useEffect(() => {
-    if (detections.length > 0 && detections.every((d) => decidedIds.has(d.id)) && photo?.shelf_id) {
+    if (
+      detections.length > 0 &&
+      detections.every((d) => decidedIds.has(d.id)) &&
+      confirmedIds.size > 0 &&
+      photo?.shelf_id
+    ) {
       window.location.href = `/shelves/${photo.shelf_id}`;
     }
-  }, [decidedIds, detections, photo]);
+  }, [decidedIds, confirmedIds, detections, photo]);
 
   // Pre-zaznaczone = detekcje z top kandydatem ≥ 0.75, jeszcze nie zdecydowane
   const preSelected = detections.filter(
@@ -1571,6 +1759,7 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
       const skipped = json.data?.skipped ?? [];
       confirmed.forEach((c) => {
         setDecidedIds((prev) => new Set([...prev, c.detection_id]));
+        setConfirmedIds((prev) => new Set([...prev, c.detection_id]));
       });
       if (skipped.length > 0) {
         setActionMsg(`${skipped.length} pominięte (duplikaty lub błędy).`);
@@ -1911,6 +2100,7 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
                 detection={det}
                 onDecided={handleDecided}
                 onRefined={handleRefined}
+                onUndecided={handleUndecided}
                 onSelect={setFocusedDetectionId}
                 isSelected={focusedDetectionId === det.id}
                 onNavigateToMarker={() => handleCardContextMenu(det)}
@@ -1926,6 +2116,7 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
                 detection={det}
                 onDecided={handleDecided}
                 onRefined={handleRefined}
+                onUndecided={handleUndecided}
                 onSelect={setFocusedDetectionId}
                 isSelected={focusedDetectionId === det.id}
                 onNavigateToMarker={() => handleCardContextMenu(det)}
@@ -1941,6 +2132,7 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
                 detection={det}
                 onDecided={handleDecided}
                 onRefined={handleRefined}
+                onUndecided={handleUndecided}
                 onSelect={setFocusedDetectionId}
                 isSelected={focusedDetectionId === det.id}
                 onNavigateToMarker={() => handleCardContextMenu(det)}

@@ -213,6 +213,15 @@ test.describe('S-05 — proposal-accept-to-catalog golden path (mock)', () => {
       });
     });
 
+    // Mock POST /api/detections/*/unreject (cofnięcie odrzucenia)
+    await page.route(`**/api/detections/${DET_REJECT}/unreject`, (route) => {
+      void route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { status: 'matched' } }),
+      });
+    });
+
     // Mock GET /api/shelves/[id]/books (widok półki po decyzjach)
     await page.route(`**/api/shelves/${SHELF_ID}/books`, (route) => {
       void route.fulfill({
@@ -274,11 +283,35 @@ test.describe('S-05 — proposal-accept-to-catalog golden path (mock)', () => {
     await expect(page.getByTestId('correct-form')).toBeVisible();
   });
 
-  test('reject — karta oznaczona jako zdecydowana', async ({ page }) => {
+  test('reject — karta pokazuje „Odrzucono" + Cofnij (nie zielony stan akceptacji)', async ({ page }) => {
     await page.goto(`/photos/${PHOTO_ID}`);
     await page.getByTestId('detection-card-4').getByTestId('reject-button').click();
-    // Po reject karta zmienia wygląd (decided state)
-    await expect(page.getByTestId(`detection-card-4`)).toContainText('Grzbiet niezidentyfikowany');
+    // Po reject karta przechodzi w stan odrzucenia — odrębny od akceptacji
+    const card = page.getByTestId('detection-card-4');
+    await expect(card).toContainText('Odrzucono');
+    await expect(card).toContainText('Grzbiet niezidentyfikowany');
+    await expect(card.getByTestId('undo-reject-button')).toBeVisible();
+  });
+
+  test('reject → Cofnij — przywraca akcje detekcji (woła /unreject)', async ({ page }) => {
+    await page.goto(`/photos/${PHOTO_ID}`);
+    const card = page.getByTestId('detection-card-4');
+    await card.getByTestId('reject-button').click();
+    const undoBtn = card.getByTestId('undo-reject-button');
+    await expect(undoBtn).toBeVisible();
+    await undoBtn.click();
+    // Wraca do stanu nierozstrzygniętego — przycisk Odrzuć znów dostępny
+    await expect(page.getByTestId('detection-card-4').getByTestId('reject-button')).toBeVisible();
+  });
+
+  test('web search — „Szukaj w sieci" linkuje do Google w nowej karcie', async ({ page }) => {
+    await page.goto(`/photos/${PHOTO_ID}`);
+    const link = page.getByTestId('detection-card-1').getByTestId('web-search-button');
+    await expect(link).toBeVisible();
+    await expect(link).toHaveAttribute('target', '_blank');
+    const href = (await link.getAttribute('href')) ?? '';
+    expect(href).toContain('google.com/search');
+    expect(decodeURIComponent(href)).toContain('Solaris');
   });
 
   test('widok półki — grid książek + toggle read', async ({ page }) => {

@@ -291,6 +291,76 @@ describe('DetectionReview — reject', () => {
       expect(rejectCall).toBeDefined();
     });
   });
+
+  it('po Odrzuć pokazuje stan „Odrzucono" z przyciskiem Cofnij (nie zielony ptaszek)', async () => {
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { rejected: true } }), { status: 200 })
+      );
+
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    const rejectBtn = await waitFor(() => screen.getByTestId('reject-button'));
+    fireEvent.click(rejectBtn);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('undo-reject-button')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Odrzucono')).toBeInTheDocument();
+    // brak auto-redirectu po odrzuceniu ostatniej detekcji (0 zaakceptowanych)
+    expect(window.location.href).toBe('');
+  });
+
+  it('klik Cofnij woła POST /unreject i przywraca akcje detekcji', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { rejected: true } }), { status: 200 })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { status: 'matched' } }), { status: 200 })
+      );
+
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    const rejectBtn = await waitFor(() => screen.getByTestId('reject-button'));
+    fireEvent.click(rejectBtn);
+
+    const undoBtn = await waitFor(() => screen.getByTestId('undo-reject-button'));
+    fireEvent.click(undoBtn);
+
+    await waitFor(() => {
+      const unrejectCall = fetchMock.mock.calls.find(([url]) =>
+        typeof url === 'string' && url.includes('/unreject')
+      );
+      expect(unrejectCall).toBeDefined();
+    });
+    // wraca do stanu nierozstrzygniętego — przycisk Odrzuć znów dostępny
+    await waitFor(() => expect(screen.getByTestId('reject-button')).toBeInTheDocument());
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Akcja: Szukaj w sieci
+// ---------------------------------------------------------------------------
+
+describe('DetectionReview — web search', () => {
+  it('pokazuje „Szukaj w sieci" z linkiem do Google na tytuł+autor w nowej karcie', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 })
+    );
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    const link = await waitFor(() => screen.getByTestId('web-search-button'));
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'));
+    const href = link.getAttribute('href') ?? '';
+    expect(href).toContain('google.com/search');
+    expect(decodeURIComponent(href)).toContain('Solaris');
+    expect(decodeURIComponent(href)).toContain('Stanisław Lem');
+  });
 });
 
 // ---------------------------------------------------------------------------
