@@ -147,6 +147,40 @@ describe('scoreCandidate', () => {
   });
 });
 
+describe('authorSim — order-independent (przez scoreCandidate)', () => {
+  // Realny case S-33: BN zwraca autora w formacie „Nazwisko, Imię". Whole-string
+  // Levenshtein dawał authorSim 0.16 → score 75% mimo idealnego matchu (tytuł+autor
+  // +ISBN). Order-independent token-set → authorSim ~1.0 → wysoka pewność.
+  it('„Imię Nazwisko" vs „Nazwisko, Imię" (format BN) → wysoki score', () => {
+    const score = scoreCandidate(
+      { raw_title: 'Przytulajka', raw_author: 'Agnieszka Krawczyk' },
+      { title: 'Przytulajka', authors: ['Krawczyk, Agnieszka'], isbn13: '9788379768578', isbn10: null }
+    );
+    expect(score).toBeGreaterThanOrEqual(MATCH_HIGH); // >= 0.75, realnie ~1.0
+  });
+
+  it('OCR złapał samo nazwisko: „Lem" vs „Stanisław Lem" → pełny kredyt autora', () => {
+    const partial = scoreCandidate(
+      { raw_title: 'Solaris', raw_author: 'Lem' },
+      { title: 'Solaris', authors: ['Stanisław Lem'], isbn13: null, isbn10: null }
+    );
+    const full = scoreCandidate(
+      { raw_title: 'Solaris', raw_author: 'Stanisław Lem' },
+      { title: 'Solaris', authors: ['Stanisław Lem'], isbn13: null, isbn10: null }
+    );
+    expect(partial).toBeCloseTo(full, 2); // nazwisko wystarcza
+  });
+
+  it('inny autor nadal niski (Agnieszka Krawczyk vs Danuta Bieńkowska)', () => {
+    const score = scoreCandidate(
+      { raw_title: 'X', raw_author: 'Agnieszka Krawczyk' },
+      { title: 'X', authors: ['Danuta Bieńkowska'], isbn13: null, isbn10: null }
+    );
+    // tytuł exact 0.65, autor ~0 → poniżej MATCH_HIGH (nie windujemy złego autora)
+    expect(score).toBeLessThan(MATCH_HIGH);
+  });
+});
+
 describe('authorTokensMatch', () => {
   it('wyklucza zupełnie innego autora (Agnieszka Lis vs Kazimierz Arendt)', () => {
     // Realny przypadek: rematch „Poczta"/Agnieszka Lis dopasował „Poczta polska"
