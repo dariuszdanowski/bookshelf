@@ -3,17 +3,24 @@
 // require). Dynamic import inside async functions bypasses the static dep graph,
 // so Vite never tries to create deps_ssr/@anthropic-ai_sdk.js.
 import type Anthropic from '@anthropic-ai/sdk';
-import { env } from 'cloudflare:workers';
 
 import { REFINE_VISION_SYSTEM_PROMPT, VISION_SYSTEM_PROMPT } from './prompt';
 import { DetectionSchema, type Detection } from './schema';
 
-const MODEL = 'claude-sonnet-4-6';
+const DEFAULT_ANTHROPIC_MODEL = 'claude-sonnet-4-6';
+const DEFAULT_OPENAI_COMPAT_MODEL = 'gpt-4o-mini';
 const MAX_TOKENS = 4096;
 const THINKING_BUDGET_TOKENS = 1536;
 // Sonnet pricing: $3/1M input tokens, $15/1M output tokens
 const COST_IN_PER_M = 3;
 const COST_OUT_PER_M = 15;
+
+export type VisionProviderConfig = {
+  provider: 'anthropic' | 'openai' | 'openrouter' | 'openai_compatible';
+  apiKey: string;
+  model?: string | null;
+  baseUrl?: string | null;
+};
 
 async function makeClient(apiKey: string) {
   const { default: AnthropicSDK } = await import('@anthropic-ai/sdk');
@@ -81,16 +88,86 @@ function tryParseDetections(
   }
 }
 
-export async function detectSpines(input: {
-  base64: string;
-  mediaType: 'image/jpeg' | 'image/png' | 'image/webp';
-}): Promise<VisionResult> {
-  const apiKey = env?.ANTHROPIC_API_KEY ?? import.meta.env.ANTHROPIC_API_KEY;
-  const client = await makeClient(apiKey);
+// OpenAI-compatible path: single-attempt fetch, no retry-with-thinking, costUsd = 0.
+async function detectSpinesOpenAICompat(
+  input: { base64: string; mediaType: 'image/jpeg' | 'image/png' | 'image/webp' },
+  config: VisionProviderConfig,
+  systemPrompt: string,
+  userText: string
+): Promise<{ ok: true; text: string } | { ok: false }> {
+  const baseUrl = config.baseUrl ?? 'https://api.openai.com';
+  const model = config.model ?? DEFAULT_OPENAI_COMPAT_MODEL;
+  const resp = await fetch(`${baseUrl}/v1/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${config.apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      max_tokens: MAX_TOKENS,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image_url',
+              image_url: { url: `data:${input.mediaType};base64,${input.base64}` },
+            },
+            { type: 'text', text: userText },
+          ],
+        },
+      ],
+    }),
+  });
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => '');
+    console.error('[vision:openai-compat:http-error]', { status: resp.status, body });
+    return { ok: false };
+  }
+  const json = await resp.json();
+  const content: unknown = (json as { choices?: { message?: { content?: unknown } }[] })
+    ?.choices?.[0]?.message?.content;
+  if (typeof content !== 'string') {
+    console.error('[vision:openai-compat:no-content]', JSON.stringify(json));
+    return { ok: false };
+  }
+  return { ok: true, text: content };
+}
+
+export async function detectSpines(
+  input: { base64: string; mediaType: 'image/jpeg' | 'image/png' | 'image/webp' },
+  config: VisionProviderConfig
+): Promise<VisionResult> {
   const start = Date.now();
 
+  if (config.provider !== 'anthropic') {
+    const result = await detectSpinesOpenAICompat(
+      input,
+      config,
+      VISION_SYSTEM_PROMPT,
+      'Wymień książki na zdjęciu.'
+    );
+    const latencyMs = Date.now() - start;
+    if (!result.ok) return { ok: false, reason: 'parse_failure', latencyMs };
+    const parsed = tryParseDetections(result.text, 'first');
+    if (!parsed.ok) return { ok: false, reason: 'parse_failure', latencyMs };
+    return {
+      ok: true,
+      detections: parsed.data,
+      model: config.model ?? DEFAULT_OPENAI_COMPAT_MODEL,
+      costUsd: 0,
+      latencyMs,
+    };
+  }
+
+  // Anthropic path
+  const client = await makeClient(config.apiKey);
+  const model = config.model ?? DEFAULT_ANTHROPIC_MODEL;
+
   console.log('[vision:request]', {
-    model: MODEL,
+    model,
     mediaType: input.mediaType,
     base64Bytes: input.base64.length,
     systemPrompt: VISION_SYSTEM_PROMPT,
@@ -100,9 +177,8 @@ export async function detectSpines(input: {
     { role: 'user', content: buildUserContent(input.base64, input.mediaType) },
   ];
 
-  // First attempt (no thinking)
   const first = await client.messages.create({
-    model: MODEL,
+    model,
     max_tokens: MAX_TOKENS,
     system: VISION_SYSTEM_PROMPT,
     messages,
@@ -127,7 +203,7 @@ export async function detectSpines(input: {
   // Retry once with extended thinking (ZodError/JSON-parse-fail fallback)
   console.log('[vision:retry-with-thinking]');
   const retry = await client.messages.create({
-    model: MODEL,
+    model,
     max_tokens: MAX_TOKENS,
     thinking: { type: 'enabled', budget_tokens: THINKING_BUDGET_TOKENS },
     system: VISION_SYSTEM_PROMPT,
@@ -160,20 +236,42 @@ export type RefineVisionResult =
   | { ok: true; detection: Detection; model: string; costUsd: number; latencyMs: number }
   | { ok: false; reason: 'parse_failure'; latencyMs: number };
 
-export async function detectSingleSpineFromCrop(input: {
-  base64: string;
-  mediaType: 'image/jpeg' | 'image/png' | 'image/webp';
-}): Promise<RefineVisionResult> {
-  const apiKey = env?.ANTHROPIC_API_KEY ?? import.meta.env.ANTHROPIC_API_KEY;
-  const client = await makeClient(apiKey);
+export async function detectSingleSpineFromCrop(
+  input: { base64: string; mediaType: 'image/jpeg' | 'image/png' | 'image/webp' },
+  config: VisionProviderConfig
+): Promise<RefineVisionResult> {
   const start = Date.now();
+
+  if (config.provider !== 'anthropic') {
+    const result = await detectSpinesOpenAICompat(
+      input,
+      config,
+      REFINE_VISION_SYSTEM_PROMPT,
+      'To jest crop pojedynczego grzbietu. Zwróć jedną najlepszą propozycję albo [].'
+    );
+    const latencyMs = Date.now() - start;
+    if (!result.ok) return { ok: false, reason: 'parse_failure', latencyMs };
+    const parsed = tryParseDetections(result.text, 'first');
+    if (!parsed.ok || parsed.data.length === 0) return { ok: false, reason: 'parse_failure', latencyMs };
+    return {
+      ok: true,
+      detection: parsed.data[0],
+      model: config.model ?? DEFAULT_OPENAI_COMPAT_MODEL,
+      costUsd: 0,
+      latencyMs,
+    };
+  }
+
+  // Anthropic path
+  const client = await makeClient(config.apiKey);
+  const model = config.model ?? DEFAULT_ANTHROPIC_MODEL;
 
   const messages: Anthropic.MessageParam[] = [
     { role: 'user', content: buildRefineUserContent(input.base64, input.mediaType) },
   ];
 
   const first = await client.messages.create({
-    model: MODEL,
+    model,
     max_tokens: MAX_TOKENS,
     system: REFINE_VISION_SYSTEM_PROMPT,
     messages,
@@ -191,7 +289,7 @@ export async function detectSingleSpineFromCrop(input: {
   }
 
   const retry = await client.messages.create({
-    model: MODEL,
+    model,
     max_tokens: MAX_TOKENS,
     thinking: { type: 'enabled', budget_tokens: THINKING_BUDGET_TOKENS },
     system: REFINE_VISION_SYSTEM_PROMPT,

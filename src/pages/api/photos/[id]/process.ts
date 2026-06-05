@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 
+import { env } from 'cloudflare:workers';
 import { detectSpines } from '../../../../lib/vision/client';
 import { deriveWorkingCopy } from '../../../../lib/images/resize';
 import { PROMPT_VERSION } from '../../../../lib/vision/prompt';
@@ -167,7 +168,11 @@ export const POST: APIRoute = async ({ params, locals }) => {
   // 4. Call vision LLM
   let visionResult: Awaited<ReturnType<typeof detectSpines>>;
   try {
-    visionResult = await detectSpines({ base64, mediaType });
+    // Phase 1 stub — replaced by getActiveProviderConfig lookup in Phase 2
+    visionResult = await detectSpines({ base64, mediaType }, {
+      provider: 'anthropic',
+      apiKey: env?.ANTHROPIC_API_KEY ?? import.meta.env.ANTHROPIC_API_KEY,
+    });
   } catch (err) {
     const status = (err as { status?: number })?.status;
     const msg = err instanceof Error ? err.message : String(err);

@@ -10,8 +10,10 @@ vi.mock('@anthropic-ai/sdk', () => {
   return { default: MockAnthropic };
 });
 
-import { detectSingleSpineFromCrop, detectSpines, stripCodeFences } from '../../../../src/lib/vision/client';
+import { detectSingleSpineFromCrop, detectSpines, stripCodeFences, type VisionProviderConfig } from '../../../../src/lib/vision/client';
 import { SPINE_COLORS } from '../../../../src/lib/vision/prompt';
+
+const anthropicConfig: VisionProviderConfig = { provider: 'anthropic', apiKey: 'sk-test' };
 
 function makeAnthropicResponse(
   textContent: string,
@@ -41,7 +43,7 @@ describe('detectSpines', () => {
     const validJson = JSON.stringify([validDetection]);
     mockCreate.mockResolvedValueOnce(makeAnthropicResponse(validJson, 1000, 500));
 
-    const result = await detectSpines({ base64: 'abc123', mediaType: 'image/jpeg' });
+    const result = await detectSpines({ base64: 'abc123', mediaType: 'image/jpeg' }, anthropicConfig);
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -59,7 +61,7 @@ describe('detectSpines', () => {
   it('sends image before text in first call', async () => {
     mockCreate.mockResolvedValueOnce(makeAnthropicResponse(JSON.stringify([])));
 
-    await detectSpines({ base64: 'imgdata', mediaType: 'image/png' });
+    await detectSpines({ base64: 'imgdata', mediaType: 'image/png' }, anthropicConfig);
 
     const call = mockCreate.mock.calls[0][0];
     expect(call.messages[0].content[0].type).toBe('image');
@@ -76,7 +78,7 @@ describe('detectSpines', () => {
       .mockResolvedValueOnce(makeAnthropicResponse(invalidJson, 100, 50))
       .mockResolvedValueOnce(makeAnthropicResponse(validJson, 200, 100));
 
-    const result = await detectSpines({ base64: 'abc123', mediaType: 'image/jpeg' });
+    const result = await detectSpines({ base64: 'abc123', mediaType: 'image/jpeg' }, anthropicConfig);
 
     expect(mockCreate).toHaveBeenCalledTimes(2);
     expect(mockCreate).toHaveBeenNthCalledWith(
@@ -97,7 +99,7 @@ describe('detectSpines', () => {
       .mockResolvedValueOnce(makeAnthropicResponse('bad', 1000, 500))   // first fail
       .mockResolvedValueOnce(makeAnthropicResponse(JSON.stringify([validDetection]), 2000, 1000)); // retry success
 
-    const result = await detectSpines({ base64: 'img', mediaType: 'image/jpeg' });
+    const result = await detectSpines({ base64: 'img', mediaType: 'image/jpeg' }, anthropicConfig);
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -112,7 +114,7 @@ describe('detectSpines', () => {
       .mockResolvedValueOnce(makeAnthropicResponse('bad json'))
       .mockResolvedValueOnce(makeAnthropicResponse('{}')); // valid JSON but not array
 
-    const result = await detectSpines({ base64: 'abc123', mediaType: 'image/jpeg' });
+    const result = await detectSpines({ base64: 'abc123', mediaType: 'image/jpeg' }, anthropicConfig);
 
     expect(mockCreate).toHaveBeenCalledTimes(2);
     expect(result.ok).toBe(false);
@@ -129,7 +131,7 @@ describe('detectSpines', () => {
       .mockResolvedValueOnce(makeAnthropicResponse(wrongShape))
       .mockResolvedValueOnce(makeAnthropicResponse(alsoWrong));
 
-    const result = await detectSpines({ base64: 'img', mediaType: 'image/webp' });
+    const result = await detectSpines({ base64: 'img', mediaType: 'image/webp' }, anthropicConfig);
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -140,7 +142,7 @@ describe('detectSpines', () => {
     const apiError = Object.assign(new Error('Rate limit exceeded'), { status: 429 });
     mockCreate.mockRejectedValueOnce(apiError);
 
-    await expect(detectSpines({ base64: 'img', mediaType: 'image/jpeg' })).rejects.toThrow(
+    await expect(detectSpines({ base64: 'img', mediaType: 'image/jpeg' }, anthropicConfig)).rejects.toThrow(
       'Rate limit exceeded'
     );
     expect(mockCreate).toHaveBeenCalledTimes(1);
@@ -151,7 +153,7 @@ describe('detectSpines', () => {
     response.model = 'claude-sonnet-4-6-custom';
     mockCreate.mockResolvedValueOnce(response);
 
-    const result = await detectSpines({ base64: 'img', mediaType: 'image/jpeg' });
+    const result = await detectSpines({ base64: 'img', mediaType: 'image/jpeg' }, anthropicConfig);
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -162,7 +164,7 @@ describe('detectSpines', () => {
     const fenced = '```json\n' + JSON.stringify([validDetection]) + '\n```';
     mockCreate.mockResolvedValueOnce(makeAnthropicResponse(fenced));
 
-    const result = await detectSpines({ base64: 'img', mediaType: 'image/jpeg' });
+    const result = await detectSpines({ base64: 'img', mediaType: 'image/jpeg' }, anthropicConfig);
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -173,9 +175,79 @@ describe('detectSpines', () => {
     const fenced = '```\n' + JSON.stringify([validDetection]) + '\n```';
     mockCreate.mockResolvedValueOnce(makeAnthropicResponse(fenced));
 
-    const result = await detectSpines({ base64: 'img', mediaType: 'image/jpeg' });
+    const result = await detectSpines({ base64: 'img', mediaType: 'image/jpeg' }, anthropicConfig);
 
     expect(result.ok).toBe(true);
+  });
+
+  it('OpenAI-compat path: returns detections with costUsd=0 on success', async () => {
+    const openaiConfig: VisionProviderConfig = { provider: 'openai', apiKey: 'sk-openai-test' };
+    const validJson = JSON.stringify([validDetection]);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: validJson } }] }),
+    }));
+
+    const result = await detectSpines({ base64: 'img', mediaType: 'image/jpeg' }, openaiConfig);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.detections[0].title).toBe('Solaris');
+    expect(result.costUsd).toBe(0);
+    expect(mockCreate).not.toHaveBeenCalled();
+
+    vi.unstubAllGlobals();
+  });
+
+  it('OpenAI-compat path: returns parse_failure when HTTP error', async () => {
+    const openaiConfig: VisionProviderConfig = { provider: 'openrouter', apiKey: 'sk-or-test' };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce({
+      ok: false,
+      status: 401,
+      text: async () => 'Unauthorized',
+    }));
+
+    const result = await detectSpines({ base64: 'img', mediaType: 'image/jpeg' }, openaiConfig);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe('parse_failure');
+
+    vi.unstubAllGlobals();
+  });
+
+  it('OpenAI-compat path: returns parse_failure when response parse fails', async () => {
+    const openaiConfig: VisionProviderConfig = { provider: 'openai_compatible', apiKey: 'sk-test', baseUrl: 'https://custom.api.example.com' };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: 'not valid json' } }] }),
+    }));
+
+    const result = await detectSpines({ base64: 'img', mediaType: 'image/jpeg' }, openaiConfig);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe('parse_failure');
+
+    vi.unstubAllGlobals();
+  });
+
+  it('OpenAI-compat path: uses custom baseUrl from config', async () => {
+    const openaiConfig: VisionProviderConfig = { provider: 'openai_compatible', apiKey: 'sk-test', baseUrl: 'https://custom.example.com' };
+    const mockFetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: JSON.stringify([validDetection]) } }] }),
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    await detectSpines({ base64: 'img', mediaType: 'image/jpeg' }, openaiConfig);
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://custom.example.com/v1/chat/completions',
+      expect.objectContaining({ method: 'POST' })
+    );
+
+    vi.unstubAllGlobals();
   });
 });
 
@@ -183,7 +255,7 @@ describe('detectSingleSpineFromCrop', () => {
   it('returns a single refined detection when parse succeeds', async () => {
     mockCreate.mockResolvedValueOnce(makeAnthropicResponse(JSON.stringify([validDetection]), 500, 250));
 
-    const result = await detectSingleSpineFromCrop({ base64: 'crop123', mediaType: 'image/jpeg' });
+    const result = await detectSingleSpineFromCrop({ base64: 'crop123', mediaType: 'image/jpeg' }, anthropicConfig);
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
@@ -196,12 +268,30 @@ describe('detectSingleSpineFromCrop', () => {
       .mockResolvedValueOnce(makeAnthropicResponse(JSON.stringify([]), 100, 50))
       .mockResolvedValueOnce(makeAnthropicResponse(JSON.stringify([]), 100, 50));
 
-    const result = await detectSingleSpineFromCrop({ base64: 'crop123', mediaType: 'image/jpeg' });
+    const result = await detectSingleSpineFromCrop({ base64: 'crop123', mediaType: 'image/jpeg' }, anthropicConfig);
 
     expect(mockCreate).toHaveBeenCalledTimes(2);
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.reason).toBe('parse_failure');
+  });
+
+  it('OpenAI-compat path: returns single detection with costUsd=0', async () => {
+    const openaiConfig: VisionProviderConfig = { provider: 'openai', apiKey: 'sk-openai-test' };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: JSON.stringify([validDetection]) } }] }),
+    }));
+
+    const result = await detectSingleSpineFromCrop({ base64: 'crop', mediaType: 'image/jpeg' }, openaiConfig);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.detection.title).toBe('Solaris');
+    expect(result.costUsd).toBe(0);
+    expect(mockCreate).not.toHaveBeenCalled();
+
+    vi.unstubAllGlobals();
   });
 });
 

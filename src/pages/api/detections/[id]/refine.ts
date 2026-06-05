@@ -1,5 +1,6 @@
 import type { APIRoute } from 'astro';
 
+import { env } from 'cloudflare:workers';
 import type { BookCandidate, ScoredCandidate } from '../../../../lib/books/schema';
 import { searchGoogleBooks } from '../../../../lib/books/googleBooks';
 import { searchOpenLibrary } from '../../../../lib/books/openLibrary';
@@ -175,7 +176,11 @@ export const POST: APIRoute = async ({ params, locals }) => {
     return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się przygotować cropa.' });
   }
 
-  const refined = await detectSingleSpineFromCrop({ base64: cropBase64, mediaType: 'image/jpeg' });
+  // Phase 1 stub — replaced by getActiveProviderConfig lookup in Phase 2
+  const refined = await detectSingleSpineFromCrop({ base64: cropBase64, mediaType: 'image/jpeg' }, {
+    provider: 'anthropic',
+    apiKey: env?.ANTHROPIC_API_KEY ?? import.meta.env.ANTHROPIC_API_KEY,
+  });
   if (!refined.ok) {
     await locals.supabase.from('corrections').insert({
       user_id: locals.user.id,
