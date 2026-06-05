@@ -344,6 +344,35 @@ type IdentCandidate = {
   matchScore: number;
 };
 
+// Miniatura okładki kandydata — placeholder przy braku URL ORAZ przy błędzie
+// ładowania (OL z ?default=false zwraca 404 gdy nie ma okładki → bez onError
+// pokazywałby połamany obrazek).
+function CoverThumb({ url }: { url: string | null }) {
+  const [failed, setFailed] = useState(false);
+  if (!url || failed) {
+    return (
+      <span
+        data-testid="ident-cover-placeholder"
+        className="flex h-12 w-8 flex-shrink-0 items-center justify-center rounded bg-gray-100 text-gray-300 dark:bg-gray-700 dark:text-gray-500"
+        aria-hidden="true"
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 15H7v-2h10v2zm0-4H7v-2h10v2zm0-4H7V7h10v2z" />
+        </svg>
+      </span>
+    );
+  }
+  return (
+    <img
+      src={url}
+      alt=""
+      className="h-12 w-8 flex-shrink-0 rounded object-cover"
+      loading="lazy"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Panel „Szukaj po tytule" / re-identyfikacja (S-33) — ta sama funkcja co w
 // propozycjach, ale dla zatwierdzonej książki. Szuka w GB/OL/BN, user wybiera
@@ -504,11 +533,7 @@ function IdentifyPanel({
               key={`${c.source}-${c.externalId}-${i}`}
               className="flex items-center gap-2 rounded border border-gray-200 bg-white p-2 dark:border-gray-700 dark:bg-gray-800"
             >
-              {c.coverUrl ? (
-                <img src={c.coverUrl} alt="" className="h-12 w-8 flex-shrink-0 rounded object-cover" loading="lazy" />
-              ) : (
-                <span className="h-12 w-8 flex-shrink-0 rounded bg-gray-100 dark:bg-gray-700" aria-hidden="true" />
-              )}
+              <CoverThumb url={c.coverUrl} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-xs font-medium text-gray-800 dark:text-gray-100">{c.title}</p>
                 <p className="truncate text-[11px] text-gray-500">
