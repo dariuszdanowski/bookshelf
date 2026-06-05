@@ -63,7 +63,7 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | S-30  | vision-cost-preservation      | zachowanie historii kosztów vision przy DELETE zdjęć: dodanie `user_id` do `vision_runs` i `refine_calls`, zmiana FK `photo_id` z CASCADE na SET NULL; endpoint `GET /api/account/stats` zwracający łączny koszt i liczbę wywołań per user | S-03 | NFR (integrity kosztów) | done |
 | S-31  | user-account-page             | strona `/account`: edycja display_name (PATCH /api/account/profile), zmiana emaila i hasła (Supabase Auth updateUser), sekcja statystyk kosztów vision (z S-30), lista podłączonych kluczy API (z S-32) | S-01 | UX (profil użytkownika) | proposed |
 | S-32  | byok-api-keys                 | własne klucze API do modeli vision (BYOK): tabela `user_api_keys` z szyfrowaniem at rest (pgcrypto/Vault), UI zarządzania kluczami na `/account` (add/delete/test), providerzy: Anthropic / OpenAI / OpenRouter / OpenAI-compatible (base_url+model) | S-31 | FR (multi-provider vision) | done |
-| S-33  | byok-pipeline                 | pipeline vision wymaga klucza usera: `/api/photos/[id]/process` sprawdza `user_api_keys`, brak klucza → 403 z linkiem do `/account`; abstrakcja `VisionProvider` w `src/lib/vision/` zastępuje hardkodowany Anthropic SDK; globalny klucz z env wyłączony dla zwykłych userów | S-32 | FR (BYOK enforcement) | proposed |
+| S-33  | byok-pipeline                 | pipeline vision wymaga klucza usera: `/api/photos/[id]/process` sprawdza `user_api_keys`, brak klucza → 403 z linkiem do `/account`; abstrakcja `VisionProvider` w `src/lib/vision/` zastępuje hardkodowany Anthropic SDK; globalny klucz z env wyłączony dla zwykłych userów | S-32 | FR (BYOK enforcement) | done |
 | S-34  | shelf-book-view-modes         | tryby widoku książek na `/shelves/[id]`: lista kompaktowa (1 linia), kafelki (okładka+tytuł), szczegółowe panele (obecny); przełącznik z `localStorage` + responsywny default; analogia do S-25 `detection-list-views` | S-29 | UX polish | proposed |
 | S-35  | refine-ux-cost-info           | UX fix przycisków refine: jeden spójny label „Doprecyzuj odczyt" (zamiast mylących dwóch nazw); ⚠ ikona + tooltip przy słabym cropie; widoczna informacja „Dodatkowa analiza AI (płatna)" przy każdym wariancie; opcjonalny dialog potwierdzenia dla `uncertain_localization` | — | UX polish | done |
 | S-36  | photo-upload-skip-process     | upload zdjęcia bez uruchamiania vision: checkbox „Analizuj od razu" (domyślnie zaznaczony) w `PhotoUploader`; zdjęcie w stanie `uploaded` widoczne w zakładce Zdjęcia (S-29) z przyciskiem „Analizuj teraz" | S-29 | UX (kontrola kosztu) | proposed |
@@ -381,7 +381,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **Blockers:** —
 - **Unknowns:** co z flagą `ai_enabled` z S-26 — czy zastąpiona przez „ma aktywny klucz" czy zostaje jako osobna bramka admina. Rekomendacja: `ai_enabled` pozostaje jako admin-gate (można blokować per user nawet gdy ma klucz); „ma klucz" to osobny warunek.
 - **Risk:** WYSOKI — zmiana breaking dla wszystkich userów bez klucza; wymaga komunikacji w UI + onboardingu. Wdrożyć po przetestowaniu S-32 na prod.
-- **Status:** proposed
+- **Status:** done
 
 ### S-34: Tryby widoku książek na półce
 
@@ -566,5 +566,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **S-15: przycisk „Źródłowe zdjęcie" na karcie książki → `/photos/[photo_id]` z aktywnego shelf_entry (is_current=true); graceful ukrycie gdy photo_id=NULL (ręczny wpis lub zdjęcie usunięte); pokrywa /shelves/[id] i /library** — Archived 2026-06-04 → `context/archive/2026-06-04-review-page-nav-entry/`. Lesson: —.
 
 - **S-32: użytkownik może na `/account` dodać klucz API do jednego z providerów (Anthropic / OpenAI / OpenRouter / OpenAI-compatible z custom base_url+model); klucze szyfrowane at rest; lista kluczy pokazuje label, provider, model, datę dodania — NIGDY plaintext; przycisk „Testuj" weryfikuje klucz próbnym żądaniem; przycisk „Usuń" kasuje fizycznie zaszyfrowany rekord.** — Archived 2026-06-05 → `context/archive/2026-06-04-byok-api-keys/`. Lesson: —.
+
+- **S-33: pipeline vision wymaga aktywnego klucza usera (BYOK enforcement) — `/api/photos/[id]/process` i `/api/detections/[id]/refine` → 403 `NO_API_KEY` bez klucza; abstrakcja `VisionProvider` (Anthropic + OpenAI-compatible); `PhotoUploader` CTA do `/account`.** — Archived 2026-06-05 → `context/archive/2026-06-05-byok-pipeline/`. Lesson: PR #43 rozrósł się o sąsiednie usprawnienia katalogu (Biblioteka Narodowa jako 3. źródło matchingu, override okładki 3-slot+flaga, identyfikacja/edycja/ręczne dodawanie książek bez zdjęcia); migracje 0017/0018 ręcznie na prod (hotfix, lokalny stack AV-blocked). Manual smoke (2.6/2.7/3.3/3.4/4.5/4.6) user-only deferred.
 
 (Pusta przy pierwszej generacji. `/10x-archive` dopisuje tu wpis — i przerzuca Status pozycji na `done` — gdy archiwizowana zmiana ma `Change ID` zgodny z pozycją roadmapy. NIE wypełniać ręcznie.)

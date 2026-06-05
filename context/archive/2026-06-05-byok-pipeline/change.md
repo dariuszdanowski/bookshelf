@@ -1,9 +1,10 @@
 ---
 change_id: byok-pipeline
 roadmap_slice: S-33
-status: implemented
+status: archived
 created: 2026-06-05
 updated: 2026-06-05
+archived_at: 2026-06-05T23:24:27Z
 ---
 
 # S-33 — BYOK Pipeline Enforcement
