@@ -560,12 +560,128 @@ function IdentifyPanel({
   );
 }
 
+// ---------------------------------------------------------------------------
+// Ręczna edycja danych książki (S-33) — user jest ostateczną instancją; automaty
+// to tylko propozycje. Edytuje tytuł/autorów/wydawcę/rok/ISBN. Po zapisie reload.
+// ---------------------------------------------------------------------------
+function MetadataEditor({
+  bookId,
+  initial,
+  onApplied,
+}: {
+  bookId: string;
+  initial: { title: string; authors: string; publisher: string; year: string; isbn13: string; isbn10: string };
+  onApplied: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState(initial.title);
+  const [authors, setAuthors] = useState(initial.authors);
+  const [publisher, setPublisher] = useState(initial.publisher);
+  const [year, setYear] = useState(initial.year);
+  const [isbn13, setIsbn13] = useState(initial.isbn13);
+  const [isbn10, setIsbn10] = useState(initial.isbn10);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault();
+    if (!title.trim()) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await fetch(`/api/books/${bookId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: title.trim(),
+          authors: authors.split(',').map((a) => a.trim()).filter(Boolean),
+          publisher: publisher.trim() || null,
+          published_year: year.trim() ? parseInt(year, 10) : null,
+          isbn_13: isbn13.trim() || null,
+          isbn_10: isbn10.trim() || null,
+        }),
+      });
+      const json = (await res.json()) as { error?: { message?: string } };
+      if (!res.ok) {
+        setErr(json.error?.message ?? `Błąd zapisu (${res.status})`);
+        return;
+      }
+      onApplied();
+    } catch {
+      setErr('Błąd sieci.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        data-testid="metadata-edit-toggle"
+        onClick={() => setOpen(true)}
+        className="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
+      >
+        Edytuj dane
+      </button>
+    );
+  }
+
+  const inputCls =
+    'mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100';
+  return (
+    <form data-testid="metadata-editor" onSubmit={save} className="mt-3 w-full space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/40">
+      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+        Tytuł <span className="text-red-500">*</span>
+        <input data-testid="meta-title" value={title} onChange={(e) => setTitle(e.target.value)} required className={inputCls} />
+      </label>
+      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+        Autor(zy) <span className="text-gray-400">(przecinki)</span>
+        <input data-testid="meta-authors" value={authors} onChange={(e) => setAuthors(e.target.value)} className={inputCls} />
+      </label>
+      <div className="flex gap-2">
+        <label className="flex-1 text-xs font-medium text-gray-700 dark:text-gray-300">
+          Wydawca
+          <input data-testid="meta-publisher" value={publisher} onChange={(e) => setPublisher(e.target.value)} className={inputCls} />
+        </label>
+        <label className="w-20 text-xs font-medium text-gray-700 dark:text-gray-300">
+          Rok
+          <input data-testid="meta-year" type="number" min="1000" max="2100" value={year} onChange={(e) => setYear(e.target.value)} className={inputCls} />
+        </label>
+      </div>
+      <div className="flex gap-2">
+        <label className="flex-1 text-xs font-medium text-gray-700 dark:text-gray-300">
+          ISBN-13
+          <input data-testid="meta-isbn13" value={isbn13} onChange={(e) => setIsbn13(e.target.value)} placeholder="9788300000000" className={inputCls} />
+        </label>
+        <label className="flex-1 text-xs font-medium text-gray-700 dark:text-gray-300">
+          ISBN-10
+          <input data-testid="meta-isbn10" value={isbn10} onChange={(e) => setIsbn10(e.target.value)} className={inputCls} />
+        </label>
+      </div>
+      {err && (
+        <p data-testid="metadata-error" className="text-xs text-red-600 dark:text-red-400" role="alert">
+          {err}
+        </p>
+      )}
+      <div className="flex gap-2">
+        <button type="submit" data-testid="metadata-save" disabled={busy || !title.trim()} className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+          {busy ? 'Zapisuję...' : 'Zapisz'}
+        </button>
+        <button type="button" data-testid="metadata-cancel" onClick={() => setOpen(false)} className="rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-700">
+          Anuluj
+        </button>
+      </div>
+    </form>
+  );
+}
+
 /**
  * Modal ze szczegółami książki — duża okładka + tytuł, autorzy, ISBN, rok,
  * wydawca, źródło. Wspólny dla propozycji i książek zatwierdzonych (jednolity
  * dostęp przez klik w okładkę). Dla zatwierdzonych (editableBookId) dochodzi
- * panel edycji okładki (URL / upload / auto), „Szukaj po tytule" (identyfikacja)
- * i link do źródłowego zdjęcia. Zamknięcie: Esc lub klik w tło.
+ * ręczna edycja danych, panel okładki (URL / upload / auto), „Szukaj po tytule"
+ * (identyfikacja) i link do źródłowego zdjęcia. Zamknięcie: Esc lub klik w tło.
  */
 export default function BookDetailModal({
   book,
@@ -680,6 +796,20 @@ export default function BookDetailModal({
                 >
                   Źródłowe zdjęcie
                 </a>
+              )}
+              {editableBookId && (
+                <MetadataEditor
+                  bookId={editableBookId}
+                  initial={{
+                    title: book.title,
+                    authors: authorsStr,
+                    publisher: book.publisher ?? '',
+                    year: book.publishedYear != null ? String(book.publishedYear) : '',
+                    isbn13: book.isbn13 ?? '',
+                    isbn10: book.isbn10 ?? '',
+                  }}
+                  onApplied={() => window.location.reload()}
+                />
               )}
               {editableBookId && (
                 <IdentifyPanel

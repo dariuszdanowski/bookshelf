@@ -47,26 +47,44 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
     });
   }
 
-  // Tylko obecne pola (undefined pominięte; null = wyczyść slot).
+  // Tylko obecne pola (undefined pominięte; null = wyczyść). search_text jest
+  // GENERATED z (title, authors, publisher) — nie ustawiamy go ręcznie.
   const update: {
     is_read?: boolean;
     user_cover_url?: string | null;
     cover_photo_url?: string | null;
     cover_source?: 'auto' | 'url' | 'photo';
+    title?: string;
+    authors?: string[];
+    publisher?: string | null;
+    published_year?: number | null;
+    isbn_13?: string | null;
+    isbn_10?: string | null;
   } = {};
-  if (parsed.data.is_read !== undefined) update.is_read = parsed.data.is_read;
-  if (parsed.data.user_cover_url !== undefined) update.user_cover_url = parsed.data.user_cover_url;
-  if (parsed.data.cover_photo_url !== undefined) update.cover_photo_url = parsed.data.cover_photo_url;
-  if (parsed.data.cover_source !== undefined) update.cover_source = parsed.data.cover_source;
+  const d = parsed.data;
+  if (d.is_read !== undefined) update.is_read = d.is_read;
+  if (d.user_cover_url !== undefined) update.user_cover_url = d.user_cover_url;
+  if (d.cover_photo_url !== undefined) update.cover_photo_url = d.cover_photo_url;
+  if (d.cover_source !== undefined) update.cover_source = d.cover_source;
+  if (d.title !== undefined) update.title = d.title;
+  if (d.authors !== undefined) update.authors = d.authors;
+  if (d.publisher !== undefined) update.publisher = d.publisher;
+  if (d.published_year !== undefined) update.published_year = d.published_year;
+  if (d.isbn_13 !== undefined) update.isbn_13 = d.isbn_13;
+  if (d.isbn_10 !== undefined) update.isbn_10 = d.isbn_10;
 
   const { data, error } = await locals.supabase
     .from('books')
     .update(update)
     .eq('id', id)
-    .select('id, is_read, cover_url, user_cover_url, cover_photo_url, cover_source')
+    .select('id, is_read, title, authors, publisher, published_year, isbn_13, isbn_10, cover_url, user_cover_url, cover_photo_url, cover_source')
     .single();
 
   if (error) {
+    // 23505 = unique (user_id, isbn_13) — inna książka z tym ISBN już w katalogu.
+    if (error.code === '23505') {
+      return apiError({ code: 'VALIDATION_ERROR', status: 400, message: 'Masz już książkę z tym ISBN w katalogu.' });
+    }
     if (error.code === 'PGRST116') {
       return apiError({ code: 'NOT_FOUND', status: 404, message: 'Książka nie istnieje.' });
     }
@@ -82,6 +100,12 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
     data: {
       id: data.id,
       is_read: data.is_read,
+      title: data.title,
+      authors: data.authors,
+      publisher: data.publisher,
+      published_year: data.published_year,
+      isbn_13: data.isbn_13,
+      isbn_10: data.isbn_10,
       cover_url: data.cover_url,
       user_cover_url: data.user_cover_url,
       cover_photo_url: data.cover_photo_url,

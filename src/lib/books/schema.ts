@@ -157,14 +157,22 @@ export const UpdateBookReadSchema = z
   .strict(); // odrzuca dodatkowe pola (inne pola books nie są edytowalne przez ten endpoint)
 export type UpdateBookReadInput = z.infer<typeof UpdateBookReadSchema>;
 
-// PATCH /api/books/[id] — pełny update edytowalnych pól (S-33): is_read + override okładki.
-// Każde pole opcjonalne; `null` w slocie okładki = wyczyść. Wymaga ≥1 pola.
+// PATCH /api/books/[id] — pełny update edytowalnych pól (S-33): is_read, override
+// okładki ORAZ ręczna edycja metadanych (user jest ostateczną instancją — automaty
+// to tylko propozycje). Każde pole opcjonalne; `null` = wyczyść; wymaga ≥1 pola.
+// search_text jest GENERATED z (title, authors, publisher) → auto-aktualizacja.
 export const UpdateBookSchema = z
   .object({
     is_read: z.boolean().optional(),
     user_cover_url: z.string().url('Nieprawidłowy URL').max(1000).nullable().optional(),
     cover_photo_url: z.string().url('Nieprawidłowy URL').max(1000).nullable().optional(),
     cover_source: z.enum(['auto', 'url', 'photo']).optional(),
+    title: z.string().min(1, 'Tytuł nie może być pusty').max(300).optional(),
+    authors: z.array(z.string().min(1).max(200)).optional(),
+    publisher: z.string().max(300).nullable().optional(),
+    published_year: z.number().int().min(1000, 'Rok po 1000').max(2100, 'Rok przed 2100').nullable().optional(),
+    isbn_13: z.string().regex(/^\d{13}$/, 'ISBN-13 = 13 cyfr').nullable().optional(),
+    isbn_10: z.string().regex(/^\d{9}[\dX]$/, 'ISBN-10 = 10 znaków').nullable().optional(),
   })
   .strict()
   .refine((v) => Object.keys(v).length > 0, { message: 'Podaj co najmniej jedno pole.' });

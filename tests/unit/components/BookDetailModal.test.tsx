@@ -173,4 +173,32 @@ describe('BookDetailModal — akcje (szukaj w sieci / zdjęcie półki / identyf
     render(<BookDetailModal book={fullBook} onClose={vi.fn()} />);
     expect(screen.queryByTestId('identify-toggle')).not.toBeInTheDocument();
   });
+
+  it('„Edytuj dane" — ręczna edycja metadanych → PATCH (tylko zatwierdzona książka)', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ data: {} }), { status: 200 })
+    );
+    render(<BookDetailModal book={fullBook} onClose={vi.fn()} editableBookId="b1" />);
+    fireEvent.click(screen.getByTestId('metadata-edit-toggle'));
+    // prefill z danych książki
+    expect((screen.getByTestId('meta-title') as HTMLInputElement).value).toBe('Solaris');
+    fireEvent.change(screen.getByTestId('meta-title'), { target: { value: 'Solaris (poprawiony)' } });
+    fireEvent.change(screen.getByTestId('meta-authors'), { target: { value: 'Stanisław Lem, Inny Autor' } });
+    fireEvent.click(screen.getByTestId('metadata-save'));
+
+    await waitFor(() => {
+      const call = fetchMock.mock.calls.find(
+        ([url, opt]) => typeof url === 'string' && url.includes('/api/books/b1') && (opt as RequestInit)?.method === 'PATCH'
+      );
+      expect(call).toBeDefined();
+      const body = JSON.parse((call![1] as RequestInit).body as string) as Record<string, unknown>;
+      expect(body.title).toBe('Solaris (poprawiony)');
+      expect(body.authors).toEqual(['Stanisław Lem', 'Inny Autor']);
+    });
+  });
+
+  it('„Edytuj dane" NIEwidoczne bez editableBookId (propozycja)', () => {
+    render(<BookDetailModal book={fullBook} onClose={vi.fn()} />);
+    expect(screen.queryByTestId('metadata-edit-toggle')).not.toBeInTheDocument();
+  });
 });

@@ -77,8 +77,8 @@ describe('PATCH /api/books/[id]', () => {
     expect(res.status).toBe(400);
   });
 
-  it('400 gdy dodatkowe pola (.strict)', async () => {
-    const ctx = makeContext({ body: { is_read: true, title: 'hack' } });
+  it('400 gdy nieznane pole (.strict)', async () => {
+    const ctx = makeContext({ body: { is_read: true, evil_field: 'hack' } });
     const res = await PATCH(ctx);
     expect(res.status).toBe(400);
   });
@@ -158,6 +158,56 @@ describe('PATCH /api/books/[id]', () => {
     const ctx = makeContext({ body: {} });
     const res = await PATCH(ctx);
     expect(res.status).toBe(400);
+  });
+
+  it('200 PATCH metadanych (title, authors, publisher, year, isbn)', async () => {
+    const ctx = makeContext({
+      body: {
+        title: 'Nowy Tytuł',
+        authors: ['Jan Kowalski', 'Anna Nowak'],
+        publisher: 'Wydawnictwo X',
+        published_year: 2020,
+        isbn_13: '9788300000000',
+      },
+    });
+    const res = await PATCH(ctx);
+    expect(res.status).toBe(200);
+    expect(capturedUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Nowy Tytuł', authors: ['Jan Kowalski', 'Anna Nowak'], publisher: 'Wydawnictwo X', published_year: 2020, isbn_13: '9788300000000' })
+    );
+  });
+
+  it('200 clear publisher/isbn (null)', async () => {
+    const ctx = makeContext({ body: { publisher: null, isbn_13: null } });
+    const res = await PATCH(ctx);
+    expect(res.status).toBe(200);
+    expect(capturedUpdate.mock.calls[0][0]).toMatchObject({ publisher: null, isbn_13: null });
+  });
+
+  it('400 gdy isbn_13 nie ma 13 cyfr', async () => {
+    const res = await PATCH(makeContext({ body: { isbn_13: '123' } }));
+    expect(res.status).toBe(400);
+  });
+
+  it('400 gdy pusty title', async () => {
+    const res = await PATCH(makeContext({ body: { title: '' } }));
+    expect(res.status).toBe(400);
+  });
+
+  it('400 gdy rok poza zakresem', async () => {
+    const res = await PATCH(makeContext({ body: { published_year: 3000 } }));
+    expect(res.status).toBe(400);
+  });
+
+  it('400 przy duplikacie ISBN (23505)', async () => {
+    const ctx = makeContext({
+      body: { isbn_13: '9788300000000' },
+      updateResult: { data: null, error: { code: '23505', name: 'PostgrestError', message: 'duplicate' } },
+    });
+    const res = await PATCH(ctx);
+    expect(res.status).toBe(400);
+    const json = (await res.json()) as ApiJson;
+    expect(json.error!.code).toBe('VALIDATION_ERROR');
   });
 
   it('404 gdy PGRST116 (brak rekordu / cudza książka)', async () => {
