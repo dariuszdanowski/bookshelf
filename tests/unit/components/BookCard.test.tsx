@@ -14,6 +14,9 @@ const baseBook: ShelfBookDTO = {
   position_index: 1,
   is_read: false,
   photo_id: null,
+  isbn_13: '9788373191723',
+  isbn_10: null,
+  publisher: 'Wydawnictwo Literackie',
 };
 
 describe('BookCard', () => {
@@ -61,6 +64,15 @@ describe('BookCard', () => {
     render(<BookCard book={baseBook} onToggleRead={onToggle} />);
     fireEvent.click(screen.getByTestId(`toggle-read-${BOOK_ID}`));
     expect(onToggle).toHaveBeenCalledWith(BOOK_ID, false);
+  });
+
+  it('klik w okładkę otwiera podgląd szczegółów (ISBN, wydawca)', () => {
+    render(<BookCard book={baseBook} onToggleRead={vi.fn()} />);
+    expect(screen.queryByTestId('book-detail-modal')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId(`book-cover-button-${BOOK_ID}`));
+    expect(screen.getByTestId('book-detail-modal')).toBeInTheDocument();
+    expect(screen.getByText('9788373191723')).toBeInTheDocument();
+    expect(screen.getByText('Wydawnictwo Literackie')).toBeInTheDocument();
   });
 
   it('brak autora — alt tylko tytuł', () => {

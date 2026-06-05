@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import type { BookCandidateDTO } from '../lib/books/schema';
 import type { PhotoDTO, DetectionWithCandidatesDTO, BboxEditSet } from '../lib/photos/schema';
 import { classifyCropQuality } from '../lib/matching/fallbackPolicy';
+import BookDetailModal, { type BookDetailData } from './BookDetailModal';
 import ConfirmDialog from './ConfirmDialog';
 import CostPanel from './CostPanel';
 import PhotoDetectionOverlay from './PhotoDetectionOverlay';
@@ -155,6 +156,22 @@ function CoverImage({ url, title }: { url: string | null; title: string }) {
       onError={() => setFailed(true)}
     />
   );
+}
+
+// Mapuje kandydata (propozycję) na wspólny kształt podglądu — ten sam modal
+// co dla książek zatwierdzonych (jednolity dostęp przez klik w okładkę).
+function candidateToDetail(c: BookCandidateDTO): BookDetailData {
+  return {
+    title: c.title,
+    authors: c.authors,
+    coverUrl: c.coverUrl,
+    isbn13: c.isbn13,
+    isbn10: c.isbn10,
+    publisher: c.publisher,
+    publishedYear: c.publishedYear,
+    source: c.source,
+    matchScore: c.matchScore,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -678,6 +695,7 @@ function DetectionCard({ detection, onDecided, onRefined, onUndecided, onSelect,
   const [showCorrectForm, setShowCorrectForm] = useState(false);
   const [showRematchForm, setShowRematchForm] = useState(false);
   const [rematchNoResults, setRematchNoResults] = useState(false);
+  const [showCandidateDetail, setShowCandidateDetail] = useState(false);
   const {
     setSelectedCandidateId,
     state,
@@ -866,7 +884,15 @@ function DetectionCard({ detection, onDecided, onRefined, onUndecided, onSelect,
           {/* Active candidate card */}
           {activeCandidate && (
             <div className={`flex gap-3 rounded-lg border-2 p-3 ${TIER_STYLES[getMatchTier(activeCandidate.matchScore)].border}`}>
-              <CoverImage url={activeCandidate.coverUrl} title={activeCandidate.title} />
+              <button
+                type="button"
+                data-testid="candidate-cover-button"
+                onClick={(e) => { e.stopPropagation(); setShowCandidateDetail(true); }}
+                title="Pokaż szczegóły książki"
+                className="cursor-zoom-in rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+              >
+                <CoverImage url={activeCandidate.coverUrl} title={activeCandidate.title} />
+              </button>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-start gap-2">
                   <p data-testid="candidate-title" className="font-semibold text-gray-900 leading-tight">
@@ -1010,6 +1036,10 @@ function DetectionCard({ detection, onDecided, onRefined, onUndecided, onSelect,
         <p className="mt-1 text-center text-xs text-amber-600" data-testid="rematch-no-results">
           Nie znaleziono wyników dla podanego tytułu
         </p>
+      )}
+
+      {showCandidateDetail && activeCandidate && (
+        <BookDetailModal book={candidateToDetail(activeCandidate)} onClose={() => setShowCandidateDetail(false)} />
       )}
     </div>
   );
@@ -1313,6 +1343,7 @@ type DetectionTileProps = {
 export function DetectionTile({ detection, onDecided, onRefined, onUndecided, onSelect, isSelected = false, onNavigateToMarker }: DetectionTileProps) {
   const [showModal, setShowModal] = useState(false);
   const [showRematchForm, setShowRematchForm] = useState(false);
+  const [showCandidateDetail, setShowCandidateDetail] = useState(false);
   const {
     state,
     decidedKind,
@@ -1362,8 +1393,24 @@ export function DetectionTile({ detection, onDecided, onRefined, onUndecided, on
       onClick={() => onSelect?.(detection.id)}
     >
       <div className="flex justify-center">
-        <CoverImage url={activeCandidate?.coverUrl ?? null} title={displayTitle} />
+        {activeCandidate ? (
+          <button
+            type="button"
+            data-testid="candidate-cover-button"
+            onClick={(e) => { e.stopPropagation(); setShowCandidateDetail(true); }}
+            title="Pokaż szczegóły książki"
+            className="cursor-zoom-in rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+          >
+            <CoverImage url={activeCandidate.coverUrl} title={displayTitle} />
+          </button>
+        ) : (
+          <CoverImage url={null} title={displayTitle} />
+        )}
       </div>
+
+      {showCandidateDetail && activeCandidate && (
+        <BookDetailModal book={candidateToDetail(activeCandidate)} onClose={() => setShowCandidateDetail(false)} />
+      )}
 
       <div className="mt-2 flex items-center gap-1">
         <span className="text-xs font-medium text-gray-400">#{detection.position_index}</span>

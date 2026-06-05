@@ -304,6 +304,20 @@ test.describe('S-05 — proposal-accept-to-catalog golden path (mock)', () => {
     await expect(page.getByTestId('detection-card-4').getByTestId('reject-button')).toBeVisible();
   });
 
+  test('podgląd szczegówów — klik w okładkę propozycji otwiera modal z danymi', async ({ page }) => {
+    await page.goto(`/photos/${PHOTO_ID}`);
+    const coverBtn = page.getByTestId('detection-card-1').getByTestId('candidate-cover-button');
+    await expect(coverBtn).toBeVisible();
+    await coverBtn.click();
+    const modal = page.getByTestId('book-detail-modal');
+    await expect(modal).toBeVisible();
+    await expect(modal).toContainText('Solaris');
+    await expect(modal).toContainText('9780156027601'); // ISBN kandydata
+    // zamknięcie przez X
+    await modal.getByTestId('book-detail-close').click();
+    await expect(modal).not.toBeVisible();
+  });
+
   test('web search — „Szukaj w sieci" linkuje do Google w nowej karcie', async ({ page }) => {
     await page.goto(`/photos/${PHOTO_ID}`);
     const link = page.getByTestId('detection-card-1').getByTestId('web-search-button');

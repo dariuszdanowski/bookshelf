@@ -361,6 +361,25 @@ describe('DetectionReview — reject', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Podgląd szczegółów kandydata (klik w okładkę)
+// ---------------------------------------------------------------------------
+
+describe('DetectionReview — podgląd szczegółów kandydata', () => {
+  it('klik w okładkę propozycji otwiera ten sam modal szczegółów', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 })
+    );
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    const coverBtn = await waitFor(() => screen.getByTestId('candidate-cover-button'));
+    expect(screen.queryByTestId('book-detail-modal')).not.toBeInTheDocument();
+    fireEvent.click(coverBtn);
+    expect(screen.getByTestId('book-detail-modal')).toBeInTheDocument();
+    // dane kandydata (candHigh): ISBN + rok widoczne w podglądzie
+    expect(screen.getByText('9780156027601')).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Akcja: Szukaj w sieci
 // ---------------------------------------------------------------------------
 

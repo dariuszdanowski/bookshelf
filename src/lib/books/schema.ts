@@ -57,6 +57,11 @@ export type ShelfBookDTO = {
   position_index: number | null;
   is_read: boolean;
   photo_id: string | null;
+  // Pola do podglądu szczegółów książki (S-33). Nullable — starsze wpisy lub
+  // ręczne dodania mogą ich nie mieć.
+  isbn_13: string | null;
+  isbn_10: string | null;
+  publisher: string | null;
 };
 
 // DTO dla wyników wyszukiwarki katalogu (S-08) — ShelfBookDTO + nazwa półki + kolor
