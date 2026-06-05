@@ -54,6 +54,15 @@ describe('searchNationalLibrary', () => {
     expect(decodeURIComponent(url)).not.toContain('ż');
   });
 
+  it('normalizuje cyrylicki homoglif w tytule (deCyrillic) — „Przytulajkа"→„Przytulajka"', async () => {
+    const spy = mockFetch({ bibs: [] });
+    // „Przytulajk" + cyrylickie „а" (U+0430) — realny case z vision-OCR.
+    await searchNationalLibrary({ title: 'Przytulajkа', author: 'Agnieszka Krawczyk' });
+    const url = spy.mock.calls[0][0] as string;
+    expect(decodeURIComponent(url)).toContain('title=Przytulajka'); // łacińskie a
+    expect(url).not.toContain('%D0%B0'); // brak cyrylickiego а w zapytaniu
+  });
+
   it('pomija zapytanie tytułowe gdy tytuł w całości diakrytykowy (np. „Wiedźmin")', async () => {
     const spy = mockFetch({ bibs: [] });
     const result = await searchNationalLibrary({ title: 'Wiedźmin', author: null });

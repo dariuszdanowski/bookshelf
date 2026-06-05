@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import type { BookCandidate, BookSearchResult } from './schema';
+import { cleanSearchTitle, deCyrillic } from '../matching/normalizeQuery';
 
 // Biblioteka Narodowa — otwarte API bibliograficzne (data.bn.org.pl).
 // Darmowe, bez klucza, bez limitu. Natywne pokrycie polskich edycji — recall,
@@ -170,11 +171,15 @@ export async function searchNationalLibrary(query: {
     return fetchBN(`${BN_BASE}?${params.toString()}`);
   }
 
-  const safeTitle = diacriticSafeQuery(query.title);
+  // cleanSearchTitle zawiera deCyrillic — krytyczne dla BN: cyrylicki homoglif
+  // (np. „Przytulajkа" z cyrylickim а U+0430) daje w BN 0 wyników, mimo że
+  // książka jest pod łacińską pisownią („Przytulajka" → 2 wyniki). GB robi to
+  // przez titleQueryVariants; BN/OL wcześniej tego nie robiły (luka).
+  const safeTitle = diacriticSafeQuery(cleanSearchTitle(query.title));
   if (!safeTitle) return { ok: false, reason: 'empty' }; // tytuł w całości diakrytykowy — pomiń
 
   const params = new URLSearchParams({ title: safeTitle, limit: String(BN_LIMIT) });
-  const safeAuthor = query.author ? diacriticSafeQuery(query.author) : '';
+  const safeAuthor = query.author ? diacriticSafeQuery(deCyrillic(query.author)) : '';
   if (safeAuthor) params.set('author', safeAuthor);
   return fetchBN(`${BN_BASE}?${params.toString()}`);
 }

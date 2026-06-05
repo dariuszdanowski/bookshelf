@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import type { BookCandidate, BookSearchResult } from './schema';
+import { cleanSearchTitle, deCyrillic } from '../matching/normalizeQuery';
 
 const OL_BASE = 'https://openlibrary.org/search.json';
 const USER_AGENT = 'BookshelfCatalog/1.0 (https://github.com/dariuszdanowski/bookshelf)';
@@ -81,12 +82,15 @@ async function fetchOL(url: string): Promise<BookSearchResult> {
  * Parallel source alongside Google Books — OL has broader Polish edition coverage.
  */
 export async function searchOpenLibraryByTitle(query: { title: string; author?: string | null }): Promise<BookSearchResult> {
+  // cleanSearchTitle/deCyrillic — normalizuje homoglify cyrylicy (OCR), tak jak
+  // robi to Google Books przez titleQueryVariants. Bez tego cyrylickie „а" w
+  // tytule daje 0 wyników mimo że edycja istnieje pod łacińską pisownią.
   const params = new URLSearchParams({
-    title: query.title,
+    title: cleanSearchTitle(query.title),
     fields: 'key,title,author_name,first_publish_year,isbn,cover_i,publisher',
     limit: '5',
   });
-  if (query.author) params.set('author', query.author);
+  if (query.author) params.set('author', deCyrillic(query.author));
   return fetchOL(`${OL_BASE}?${params.toString()}`);
 }
 
