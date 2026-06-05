@@ -60,6 +60,7 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
   const [testingId, setTestingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [activatingId, setActivatingId] = useState<string | null>(null);
+  const [deactivatingId, setDeactivatingId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{ label: string; provider: CreateKeyInput['provider']; model: string; base_url: string; key_value: string }>({ label: '', provider: 'anthropic', model: '', base_url: '', key_value: '' });
   const [editLoading, setEditLoading] = useState(false);
@@ -268,6 +269,24 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
       // silent
     } finally {
       setActivatingId(null);
+    }
+  }
+
+  async function handleDeactivateKey(id: string) {
+    setDeactivatingId(id);
+    try {
+      const res = await fetch(`/api/account/keys/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: false }),
+      });
+      if (res.ok) {
+        setKeys((prev) => prev.map((k) => (k.id === id ? { ...k, is_active: false } : k)));
+      }
+    } catch {
+      // silent
+    } finally {
+      setDeactivatingId(null);
     }
   }
 
@@ -834,6 +853,16 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
                         data-testid={`account-key-activate-btn-${key.id}`}
                       >
                         {activatingId === key.id ? '...' : 'Aktywuj'}
+                      </button>
+                    )}
+                    {key.is_active && (
+                      <button
+                        onClick={() => handleDeactivateKey(key.id)}
+                        disabled={deactivatingId === key.id}
+                        className="rounded border border-orange-300 px-3 py-1 text-xs text-orange-600 disabled:opacity-50 dark:border-orange-600 dark:text-orange-400"
+                        data-testid={`account-key-deactivate-btn-${key.id}`}
+                      >
+                        {deactivatingId === key.id ? '...' : 'Deaktywuj'}
                       </button>
                     )}
                     <button

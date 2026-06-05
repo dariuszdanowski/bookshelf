@@ -457,24 +457,24 @@ przez empty state + CTA.
 
 #### Automated
 
-- [x] 3.1 `npm run typecheck` — pass
-- [x] 3.2 `npm run lint` — pass
+- [x] 3.1 `npm run typecheck` — pass — f71958b
+- [x] 3.2 `npm run lint` — pass — f71958b
 
 #### Manual
 
-- [ ] 3.3 bez aktywnego klucza → `/upload` → empty state z linkiem `/account`
-- [ ] 3.4 z aktywnym kluczem → normalny upload UI
+- [ ] 3.3 bez klucza → upload zdjęcia → error area z linkiem `/account` (NIE blokuje uploadu — adaptacja literalna: empty state zastąpiony NO_API_KEY po process)
+- [ ] 3.4 z aktywnym kluczem → normalny upload UI + vision działa
 
 ### Phase 4: Tests + AGENTS.md
 
 #### Automated
 
-- [ ] 4.1 `npm run test` — pass (nowe unit testy + zaktualizowane)
-- [ ] 4.2 `npm run test:e2e` — pass (nowy test empty state)
-- [ ] 4.3 `npm run typecheck` — pass
-- [ ] 4.4 `npm run lint` — pass
+- [x] 4.1 `npm run test` — pass (nowe unit testy + zaktualizowane)
+- [x] 4.2 `npm run test:e2e` — pass (byok-enforcement: upload zawsze widoczny + NO_API_KEY error)
+- [x] 4.3 `npm run typecheck` — pass
+- [x] 4.4 `npm run lint` — pass
 
 #### Manual
 
 - [ ] 4.5 full smoke: upload z kluczem Anthropic → detekcje → review → refine działa
-- [ ] 4.6 flow: brak klucza → empty state → dodaj klucz → upload działa
+- [ ] 4.6 flow: brak klucza → upload → error area z linkiem /account → dodaj klucz → upload działa

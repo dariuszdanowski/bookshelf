@@ -205,7 +205,7 @@ function CorrectForm({
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           required
-          className="mt-0.5 w-full rounded border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
         />
       </div>
       <div>
@@ -216,7 +216,7 @@ function CorrectForm({
           data-testid="correct-authors"
           value={authors}
           onChange={(e) => setAuthors(e.target.value)}
-          className="mt-0.5 w-full rounded border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
         />
       </div>
       <div className="flex gap-2">
@@ -226,7 +226,7 @@ function CorrectForm({
             data-testid="correct-publisher"
             value={publisher}
             onChange={(e) => setPublisher(e.target.value)}
-            className="mt-0.5 w-full rounded border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
           />
         </div>
         <div className="w-24">
@@ -238,7 +238,7 @@ function CorrectForm({
             max="2100"
             value={year}
             onChange={(e) => setYear(e.target.value)}
-            className="mt-0.5 w-full rounded border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
           />
         </div>
       </div>
@@ -476,11 +476,16 @@ function useDetectionDecision(
           candidates?: BookCandidateDTO[];
           duplicate?: DetectionWithCandidatesDTO['duplicate'];
         };
-        error?: { message?: string };
+        error?: { code?: string; message?: string };
       };
 
       if (res.status === 429) {
         setErrorMsg('Rate limit, spróbuj za chwilę.');
+        return;
+      }
+
+      if (res.status === 403 && json.error?.code === 'NO_API_KEY') {
+        setErrorMsg('Brak klucza API. Dodaj klucz w ustawieniach konta.');
         return;
       }
 
@@ -1533,13 +1538,17 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
     setActionMsg(null);
     try {
       const res = await fetch(`/api/photos/${photoId}/process`, { method: 'POST' });
-      const json = (await res.json()) as { data?: unknown; error?: { message?: string } };
+      const json = (await res.json()) as { data?: unknown; error?: { code?: string; message?: string } };
       if (res.status === 409) {
         setActionMsg('Vision run w toku, poczekaj 1 minutę.');
         return;
       }
       if (res.status === 429) {
         setActionMsg('Rate limit, spróbuj za chwilę.');
+        return;
+      }
+      if (res.status === 403 && json.error?.code === 'NO_API_KEY') {
+        setActionMsg('Brak klucza API. Dodaj klucz w ustawieniach konta.');
         return;
       }
       if (!res.ok) {

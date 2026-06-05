@@ -13,3 +13,10 @@ Konwencje domenowe dla `src/lib/vision/` (detekcja grzbietów książek). Reguł
 - **Wersjonowanie vision**: każde wywołanie `/process` tworzy nowy wiersz `vision_runs` (status: running → succeeded/failed); detekcje są zapisywane z `vision_run_id` FK. Nigdy nie kasujemy historycznych detekcji z poprzednich runów — `DELETE FROM detections WHERE photo_id` jest zakazane. UI default pokazuje detekcje z najnowszego succeeded run.
 - **Trigger concurrency**: `vision_runs_prevent_concurrent` blokuje INSERT `vision_runs(status=running)` gdy istnieje running run < 5 min dla tego samego `photo_id`; endpoint mapuje errcode `P0001` → 409 CONFLICT z wiadomością z trigger'a verbatim.
 - **Testy**: unit (Vitest) z mockowanym SDK — happy / retry / parse_failure. Real vision tylko manual smoke (drogi + flaky, nie w CI).
+
+## Provider abstraction (S-33)
+
+- **Sygnatury wymagają `VisionProviderConfig`**: `detectSpines(input, config)` i `detectSingleSpineFromCrop(input, config)` — nigdy nie czytaj `env.ANTHROPIC_API_KEY` bezpośrednio w `client.ts`. Klucz zawsze pochodzi z parametru `config`.
+- **Anthropic path** (`config.provider === 'anthropic'`): Anthropic SDK + retry-once-with-thinking (jak dotychczas); `config.model ?? 'claude-sonnet-4-6'`; klucz z `config.apiKey`.
+- **OpenAI-compatible path** (wszystkie inne providery): `fetch POST {config.baseUrl ?? 'https://api.openai.com'}/v1/chat/completions`; single-attempt, brak retry-z-thinking; `costUsd: 0` (system nie płaci za klucz usera); `config.model ?? 'gpt-4o-mini'`.
+- **Klucz pobierany w endpointach, nie w `client.ts`**: `getActiveProviderConfig(supabase, userId)` (z `src/lib/keys/getActiveProviderConfig.ts`) jest wywoływany w `process.ts` i `refine.ts` przed wywołaniem vision. `client.ts` jest pure — nie sięga do bazy ani do `env`.
