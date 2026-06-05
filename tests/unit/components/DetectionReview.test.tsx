@@ -358,8 +358,48 @@ describe('DetectionReview — web search', () => {
     expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'));
     const href = link.getAttribute('href') ?? '';
     expect(href).toContain('google.com/search');
+    // używa ODCZYTANYCH danych (raw_title/raw_author), nie proponowanego kandydata
     expect(decodeURIComponent(href)).toContain('Solaris');
-    expect(decodeURIComponent(href)).toContain('Stanisław Lem');
+    expect(decodeURIComponent(href)).toContain('Lem');
+  });
+
+  it('używa odczytanych danych (raw), nie danych kandydata przy błędnym matchu', async () => {
+    // raw = „Pocz / Agnieszka LIS", kandydat = błędny „Czy to jest kochanie? / Danuta Bieńkowska"
+    const detWrongMatch: DetectionWithCandidatesDTO = {
+      id: '00000000-0000-4000-8000-000000000099',
+      position_index: 5,
+      raw_title: 'Poczekaj mi kochanie',
+      raw_author: 'Agnieszka Lis',
+      vision_confidence: 0.8,
+      spine_color: null,
+      bbox: null,
+      status: 'matched',
+      candidates: [{
+        id: '00000000-0000-4000-8000-0000000000a0',
+        source: 'google_books',
+        externalId: 'gb-x',
+        title: 'Czy to jest kochanie?',
+        authors: ['Danuta Bieńkowska'],
+        isbn10: null,
+        isbn13: null,
+        publisher: null,
+        publishedYear: null,
+        coverUrl: null,
+        matchScore: 0.36,
+        rank: 1,
+      }],
+      duplicate: null,
+    };
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(makePhotoResponse([detWrongMatch])), { status: 200 })
+    );
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    const link = await waitFor(() => screen.getByTestId('web-search-button'));
+    const decoded = decodeURIComponent(link.getAttribute('href') ?? '');
+    expect(decoded).toContain('Poczekaj mi kochanie');
+    expect(decoded).toContain('Agnieszka Lis');
+    expect(decoded).not.toContain('Danuta Bieńkowska');
+    expect(decoded).not.toContain('Czy to jest kochanie');
   });
 });
 

@@ -982,8 +982,8 @@ function DetectionCard({ detection, onDecided, onRefined, onUndecided, onSelect,
             </button>
           )}
           <WebSearchButton
-            title={activeCandidate?.title ?? detection.raw_title}
-            author={activeCandidate?.authors?.[0] ?? detection.raw_author}
+            title={detection.raw_title}
+            author={detection.raw_author}
             size="lg"
           />
           <RefineButton bbox={detection.bbox} busy={busy} onClick={() => void handleRefine()} size="lg" />
@@ -1257,8 +1257,8 @@ export function DetectionRow({ detection, onDecided, onRefined, onUndecided, onS
           </>
         )}
         <WebSearchButton
-          title={activeCandidate?.title ?? detection.raw_title}
-          author={activeCandidate?.authors?.[0] ?? detection.raw_author}
+          title={detection.raw_title}
+          author={detection.raw_author}
           size="md"
         />
         <RefineButton bbox={detection.bbox} busy={busy} onClick={() => void handleRefine()} size="md" />
@@ -1465,8 +1465,8 @@ export function DetectionTile({ detection, onDecided, onRefined, onUndecided, on
           </>
         )}
         <WebSearchButton
-          title={activeCandidate?.title ?? detection.raw_title}
-          author={activeCandidate?.authors?.[0] ?? detection.raw_author}
+          title={detection.raw_title}
+          author={detection.raw_author}
           size="sm"
         />
         <RefineButton bbox={detection.bbox} busy={busy} onClick={() => void handleRefine()} size="sm" />
