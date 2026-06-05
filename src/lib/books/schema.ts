@@ -150,6 +150,7 @@ export type MoveBookInput = z.infer<typeof MoveBookSchema>;
 export const RematchDetectionSchema = z.object({
   title: z.string().min(1, 'Tytuł nie może być pusty').max(300),
   author: z.string().max(200).nullable().optional(),
+  isbn: z.string().max(20).nullable().optional(),
 });
 export type RematchDetectionInput = z.infer<typeof RematchDetectionSchema>;
 

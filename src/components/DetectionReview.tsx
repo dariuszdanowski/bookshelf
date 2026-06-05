@@ -276,20 +276,22 @@ function CorrectForm({
 type RematchFormProps = {
   initialTitle: string;
   initialAuthor: string;
+  initialIsbn: string;
   busy: boolean;
   errorMsg: string | null;
-  onSubmit: (title: string, author: string | null) => void;
+  onSubmit: (title: string, author: string | null, isbn: string | null) => void;
   onCancel: () => void;
 };
 
-function RematchForm({ initialTitle, initialAuthor, busy, errorMsg, onSubmit, onCancel }: RematchFormProps) {
+function RematchForm({ initialTitle, initialAuthor, initialIsbn, busy, errorMsg, onSubmit, onCancel }: RematchFormProps) {
   const [title, setTitle] = useState(initialTitle);
   const [author, setAuthor] = useState(initialAuthor);
+  const [isbn, setIsbn] = useState(initialIsbn);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
-    onSubmit(title.trim(), author.trim() || null);
+    onSubmit(title.trim(), author.trim() || null, isbn.trim() || null);
   }
 
   return (
@@ -318,6 +320,18 @@ function RematchForm({ initialTitle, initialAuthor, busy, errorMsg, onSubmit, on
             value={author}
             onChange={(e) => setAuthor(e.target.value)}
             className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+          />
+        </label>
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+          ISBN (opcjonalnie — gdy tytuł nie daje wyników)
+          <input
+            data-testid="rematch-isbn"
+            value={isbn}
+            onChange={(e) => setIsbn(e.target.value)}
+            placeholder="np. 9788308073087"
+            className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 placeholder:text-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500"
           />
         </label>
       </div>
@@ -424,14 +438,14 @@ function useDetectionDecision(
     }
   }
 
-  async function handleRematch(title: string, author: string | null): Promise<boolean> {
+  async function handleRematch(title: string, author: string | null, isbn: string | null): Promise<boolean> {
     setBusy(true);
     setErrorMsg(null);
     try {
       const res = await fetch(`/api/detections/${detection.id}/rematch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, author }),
+        body: JSON.stringify({ title, author, isbn }),
       });
       const json = (await res.json()) as {
         data?: {
@@ -676,10 +690,11 @@ function DetectionCard({ detection, onDecided, onRefined, onSelect, isSelected =
         <RematchForm
           initialTitle={detection.raw_title ?? ''}
           initialAuthor={detection.raw_author ?? ''}
+          initialIsbn={''}
           busy={busy}
           errorMsg={errorMsg}
-          onSubmit={async (title, author) => {
-            const found = await handleRematch(title, author);
+          onSubmit={async (title, author, isbn) => {
+            const found = await handleRematch(title, author, isbn);
             if (!found) {
               setRematchNoResults(true);
               setShowRematchForm(false);
@@ -854,10 +869,11 @@ function DetectionCard({ detection, onDecided, onRefined, onSelect, isSelected =
         <RematchForm
           initialTitle={detection.raw_title ?? ''}
           initialAuthor={detection.raw_author ?? ''}
+          initialIsbn={top.isbn13 ?? top.isbn10 ?? ''}
           busy={busy}
           errorMsg={errorMsg}
-          onSubmit={async (title, author) => {
-            const found = await handleRematch(title, author);
+          onSubmit={async (title, author, isbn) => {
+            const found = await handleRematch(title, author, isbn);
             setShowRematchForm(false);
             if (!found) setRematchNoResults(true);
           }}
@@ -1108,10 +1124,11 @@ export function DetectionRow({ detection, onDecided, onRefined, onSelect, isSele
         <RematchForm
           initialTitle={detection.raw_title ?? ''}
           initialAuthor={detection.raw_author ?? ''}
+          initialIsbn={detection.candidates?.[0]?.isbn13 ?? detection.candidates?.[0]?.isbn10 ?? ''}
           busy={busy}
           errorMsg={errorMsg}
-          onSubmit={async (title, author) => {
-            const found = await handleRematch(title, author);
+          onSubmit={async (title, author, isbn) => {
+            const found = await handleRematch(title, author, isbn);
             if (found) setShowRematchForm(false);
           }}
           onCancel={() => setShowRematchForm(false)}
@@ -1297,10 +1314,11 @@ export function DetectionTile({ detection, onDecided, onRefined, onSelect, isSel
         <RematchForm
           initialTitle={detection.raw_title ?? ''}
           initialAuthor={detection.raw_author ?? ''}
+          initialIsbn={detection.candidates?.[0]?.isbn13 ?? detection.candidates?.[0]?.isbn10 ?? ''}
           busy={busy}
           errorMsg={errorMsg}
-          onSubmit={async (title, author) => {
-            const found = await handleRematch(title, author);
+          onSubmit={async (title, author, isbn) => {
+            const found = await handleRematch(title, author, isbn);
             if (found) setShowRematchForm(false);
           }}
           onCancel={() => setShowRematchForm(false)}

@@ -30,11 +30,12 @@ type ExistingBook = {
 async function matchOne(
   rawTitle: string,
   rawAuthor: string | null,
+  rawIsbn: string | null,
   existingBooks: ExistingBook[]
 ): Promise<{ candidates: ScoredCandidate[]; rateLimited: boolean }> {
   // GB i OL title search równolegle — OL może mieć polskie edycje których nie ma GB.
   const [googleResult, olTitleResult] = await Promise.all([
-    searchGoogleBooks({ title: rawTitle, author: rawAuthor }),
+    searchGoogleBooks({ title: rawTitle, author: rawAuthor, isbn: rawIsbn ?? undefined }),
     searchOpenLibraryByTitle({ title: rawTitle, author: rawAuthor }),
   ]);
 
@@ -47,16 +48,17 @@ async function matchOne(
     ...(olTitleResult.ok ? olTitleResult.candidates : []),
   ];
 
-  // OL ISBN enrichment z najlepszego kandydata GB
-  if (googleResult.ok) {
-    const firstIsbn =
-      googleResult.candidates.find((c) => c.isbn13)?.isbn13 ??
-      googleResult.candidates.find((c) => c.isbn10)?.isbn10 ??
-      null;
-    if (firstIsbn) {
-      const olIsbnResult = await searchOpenLibrary({ title: rawTitle, isbn: firstIsbn });
-      if (olIsbnResult.ok) allCandidates.push(...olIsbnResult.candidates);
-    }
+  // OL ISBN lookup: najpierw user-supplied ISBN, potem z najlepszego kandydata GB
+  const isbnForOl =
+    rawIsbn ??
+    (googleResult.ok
+      ? (googleResult.candidates.find((c) => c.isbn13)?.isbn13 ??
+        googleResult.candidates.find((c) => c.isbn10)?.isbn10 ??
+        null)
+      : null);
+  if (isbnForOl) {
+    const olIsbnResult = await searchOpenLibrary({ title: rawTitle, isbn: isbnForOl });
+    if (olIsbnResult.ok) allCandidates.push(...olIsbnResult.candidates);
   }
 
   if (allCandidates.length === 0) {
@@ -122,8 +124,9 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     });
   }
 
-  const { title: rawTitle, author } = parsed.data;
+  const { title: rawTitle, author, isbn: rawIsbn } = parsed.data;
   const rawAuthorFromForm = author ?? null;
+  const rawIsbnFromForm = rawIsbn?.trim() || null;
 
   // Auto-extract autora gdy tytuł zawiera wzorzec "Tytuł — Imię Nazwisko"
   // i pole autora jest puste (np. user wkleił pełny opis z grzbietem).
@@ -177,7 +180,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     isbn_10: b.isbn_10,
   }));
 
-  const match = await matchOne(title, rawAuthor, catalog);
+  const match = await matchOne(title, rawAuthor, rawIsbnFromForm, catalog);
   if (match.rateLimited) {
     return apiError({
       code: 'RATE_LIMITED',
