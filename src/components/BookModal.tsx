@@ -617,7 +617,7 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
         role="dialog"
         aria-modal="true"
         aria-label={MODAL_TITLES[mode]}
-        className="relative max-h-[90vh] w-full max-w-2xl overflow-auto rounded-xl bg-white p-5 shadow-xl dark:bg-gray-800"
+        className="relative max-h-[90vh] w-full max-w-4xl overflow-auto rounded-xl bg-white p-5 shadow-xl dark:bg-gray-800"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Nagłówek */}
@@ -639,8 +639,9 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
 
         <form onSubmit={handleSave} noValidate>
           <div className="flex flex-col gap-4 sm:flex-row">
-            {/* Lewa kolumna — okładka */}
-            <div className="flex flex-col items-center gap-2">
+            {/* Lewa kolumna — okładka. Stała szerokość na desktopie, by sekcja okładki
+                (zwłaszcza bez okładki) nie rozpychała się i nie ściskała pól + wyników po prawej. */}
+            <div className="flex w-full flex-col items-center gap-2 sm:w-72 sm:flex-shrink-0">
               <CoverLarge url={displayCover} alt={authorsDisplay ? `${fields.title} — ${authorsDisplay}` : fields.title} />
 
               {mode === 'add' && (
