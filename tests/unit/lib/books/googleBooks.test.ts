@@ -49,13 +49,18 @@ describe('searchGoogleBooks', () => {
   });
 
   it('cascades isbn → intitle+inauthor → free-text (stops on first non-empty)', async () => {
-    const fetchMock = vi.fn()
+    const fetchMock = vi
+      .fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({}), { status: 200 })) // isbn: empty
       .mockResolvedValueOnce(makeOkResponse()); // intitle+inauthor: hit
 
     vi.stubGlobal('fetch', fetchMock);
 
-    const result = await searchGoogleBooks({ title: 'Solaris', author: 'Lem', isbn: '9780156027601' });
+    const result = await searchGoogleBooks({
+      title: 'Solaris',
+      author: 'Lem',
+      isbn: '9780156027601',
+    });
 
     expect(result.ok).toBe(true);
     // isbn call: 1, intitle+inauthor call: 2; free-text NOT called
@@ -67,14 +72,19 @@ describe('searchGoogleBooks', () => {
   });
 
   it('reaches free-text fallback when isbn and intitle both empty', async () => {
-    const fetchMock = vi.fn()
+    const fetchMock = vi
+      .fn()
       .mockResolvedValueOnce(makeEmptyResponse()) // isbn: empty
       .mockResolvedValueOnce(makeEmptyResponse()) // intitle+inauthor: empty
       .mockResolvedValueOnce(makeOkResponse()); // free-text: hit
 
     vi.stubGlobal('fetch', fetchMock);
 
-    const result = await searchGoogleBooks({ title: 'Solaris', author: 'Lem', isbn: '9780156027601' });
+    const result = await searchGoogleBooks({
+      title: 'Solaris',
+      author: 'Lem',
+      isbn: '9780156027601',
+    });
 
     expect(result.ok).toBe(true);
     expect(fetchMock).toHaveBeenCalledTimes(3);
@@ -94,7 +104,11 @@ describe('searchGoogleBooks', () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(makeRateLimitResponse());
     vi.stubGlobal('fetch', fetchMock);
 
-    const result = await searchGoogleBooks({ title: 'Solaris', author: 'Lem', isbn: '9780156027601' });
+    const result = await searchGoogleBooks({
+      title: 'Solaris',
+      author: 'Lem',
+      isbn: '9780156027601',
+    });
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
@@ -133,7 +147,9 @@ describe('searchGoogleBooks', () => {
   });
 
   it('validates Zod schema — returns network for unexpected shape', async () => {
-    const badResponse = new Response(JSON.stringify({ items: [{ notAnId: 'x' }] }), { status: 200 });
+    const badResponse = new Response(JSON.stringify({ items: [{ notAnId: 'x' }] }), {
+      status: 200,
+    });
     vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(badResponse));
 
     const result = await searchGoogleBooks({ title: 'Solaris' });
@@ -144,10 +160,11 @@ describe('searchGoogleBooks', () => {
   });
 
   it('falls back to inauthor-only when all title queries return empty and author known', async () => {
-    const fetchMock = vi.fn()
+    const fetchMock = vi
+      .fn()
       .mockResolvedValueOnce(makeEmptyResponse()) // intitle+inauthor: empty
       .mockResolvedValueOnce(makeEmptyResponse()) // free-text "Usterka na skraju": empty
-      .mockResolvedValueOnce(makeOkResponse());   // inauthor:"Etgar Keret": hit
+      .mockResolvedValueOnce(makeOkResponse()); // inauthor:"Etgar Keret": hit
 
     vi.stubGlobal('fetch', fetchMock);
 
@@ -181,5 +198,63 @@ describe('searchGoogleBooks', () => {
     expect(url).toContain('intitle:');
     expect(url).not.toContain('isbn:');
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  // S-17: capture description z volumeInfo (FR-032 — opis w full-text search)
+  describe('description capture (S-17)', () => {
+    function volumeWithDescription(description?: string) {
+      return {
+        ...VALID_VOLUME,
+        volumeInfo: {
+          ...VALID_VOLUME.volumeInfo,
+          ...(description !== undefined ? { description } : {}),
+        },
+      };
+    }
+
+    it('maps volumeInfo.description to candidate.description', async () => {
+      const volume = volumeWithDescription('Stacja badawcza nad żywym oceanem; pierwszy kontakt.');
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(makeOkResponse([volume])));
+
+      const result = await searchGoogleBooks({ title: 'Solaris' });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.candidates[0].description).toBe(
+        'Stacja badawcza nad żywym oceanem; pierwszy kontakt.',
+      );
+    });
+
+    it('truncates description longer than 2000 chars to exactly 2000', async () => {
+      const volume = volumeWithDescription('x'.repeat(2500));
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(makeOkResponse([volume])));
+
+      const result = await searchGoogleBooks({ title: 'Solaris' });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.candidates[0].description).toHaveLength(2000);
+    });
+
+    it('returns null when volumeInfo has no description', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(makeOkResponse()));
+
+      const result = await searchGoogleBooks({ title: 'Solaris' });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.candidates[0].description).toBeNull();
+    });
+
+    it('returns null for whitespace-only description', async () => {
+      const volume = volumeWithDescription('   ');
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(makeOkResponse([volume])));
+
+      const result = await searchGoogleBooks({ title: 'Solaris' });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.candidates[0].description).toBeNull();
+    });
   });
 });

@@ -4,6 +4,7 @@ import {
   CorrectDetectionSchema,
   ConfirmBatchSchema,
   UpdateBookReadSchema,
+  UpdateBookSchema,
   AddPurchaseSchema,
   SearchBooksQuerySchema,
 } from '../../../../src/lib/books/schema';
@@ -288,12 +289,47 @@ describe('AddPurchaseSchema', () => {
   });
 
   it('odrzuca user_cover_url który nie jest URL', () => {
-    expect(AddPurchaseSchema.safeParse({ title: 'X', user_cover_url: 'nie-url' }).success).toBe(false);
+    expect(AddPurchaseSchema.safeParse({ title: 'X', user_cover_url: 'nie-url' }).success).toBe(
+      false,
+    );
   });
 
   it('odrzuca dodatkowe pola (.strict)', () => {
     const result = AddPurchaseSchema.safeParse({ title: 'X', user_id: 'hack' });
     expect(result.success).toBe(false);
+  });
+
+  // S-17: opis z kandydata (BookModal add) → books.description → search_text
+  it('akceptuje description (string ≤2000), null i brak pola', () => {
+    expect(AddPurchaseSchema.safeParse({ title: 'X', description: 'Saga rodzinna.' }).success).toBe(
+      true,
+    );
+    expect(AddPurchaseSchema.safeParse({ title: 'X', description: null }).success).toBe(true);
+    expect(AddPurchaseSchema.safeParse({ title: 'X' }).success).toBe(true);
+  });
+
+  it('odrzuca description dłuższy niż 2000 znaków', () => {
+    expect(AddPurchaseSchema.safeParse({ title: 'X', description: 'a'.repeat(2001) }).success).toBe(
+      false,
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// UpdateBookSchema — description (S-17, per-book backfill przez PATCH)
+// ---------------------------------------------------------------------------
+
+describe('UpdateBookSchema — description (S-17)', () => {
+  it('akceptuje samodzielny description (≥1 pole spełnione)', () => {
+    expect(UpdateBookSchema.safeParse({ description: 'Motyw przewodni sagi.' }).success).toBe(true);
+  });
+
+  it('akceptuje description: null (wyczyść)', () => {
+    expect(UpdateBookSchema.safeParse({ description: null }).success).toBe(true);
+  });
+
+  it('odrzuca description dłuższy niż 2000 znaków', () => {
+    expect(UpdateBookSchema.safeParse({ description: 'a'.repeat(2001) }).success).toBe(false);
   });
 });
 

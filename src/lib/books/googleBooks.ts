@@ -11,9 +11,8 @@ const VolumeInfoSchema = z.object({
   authors: z.array(z.string()).optional(),
   publisher: z.string().optional(),
   publishedDate: z.string().optional(),
-  industryIdentifiers: z
-    .array(z.object({ type: z.string(), identifier: z.string() }))
-    .optional(),
+  description: z.string().optional(),
+  industryIdentifiers: z.array(z.object({ type: z.string(), identifier: z.string() })).optional(),
   imageLinks: z
     .object({ thumbnail: z.string().optional(), smallThumbnail: z.string().optional() })
     .optional(),
@@ -29,13 +28,27 @@ function getApiKey(): string | null {
   return env?.GOOGLE_BOOKS_API_KEY ?? import.meta.env.GOOGLE_BOOKS_API_KEY ?? null;
 }
 
+// „Krótki opis" (FR-032/S-17): GB potrafi zwrócić wielotysięczne opisy — przycinamy
+// przy capture do 2000 znaków (search_text jest GENERATED STORED i rośnie per wiersz).
+const DESCRIPTION_MAX = 2000;
+
+function truncateDescription(s: string | undefined): string | null {
+  if (!s) return null;
+  const trimmed = s.trim();
+  if (!trimmed) return null;
+  return trimmed.length > DESCRIPTION_MAX ? trimmed.slice(0, DESCRIPTION_MAX) : trimmed;
+}
+
 function buildUrl(q: string, apiKey: string | null): string {
   const params = new URLSearchParams({ q, printType: 'books', maxResults: '10', country: 'PL' });
   if (apiKey) params.set('key', apiKey);
   return `${GOOGLE_BOOKS_BASE}?${params.toString()}`;
 }
 
-function mapItem(item: { id: string; volumeInfo: z.infer<typeof VolumeInfoSchema> }): BookCandidate {
+function mapItem(item: {
+  id: string;
+  volumeInfo: z.infer<typeof VolumeInfoSchema>;
+}): BookCandidate {
   const info = item.volumeInfo;
   const isbns = info.industryIdentifiers ?? [];
   const isbn13 = isbns.find((i) => i.type === 'ISBN_13')?.identifier ?? null;
@@ -56,6 +69,8 @@ function mapItem(item: { id: string; volumeInfo: z.infer<typeof VolumeInfoSchema
     publisher: info.publisher ?? null,
     publishedYear,
     coverUrl,
+    // S-17: opis z tej samej odpowiedzi search (zero dodatkowych requestów).
+    description: truncateDescription(info.description),
   };
 }
 
@@ -64,7 +79,9 @@ async function fetchBooks(url: string): Promise<BookSearchResult> {
   try {
     response = await fetch(url);
   } catch (e) {
-    console.error('[googleBooks] network error', { err: e instanceof Error ? e.message : String(e) });
+    console.error('[googleBooks] network error', {
+      err: e instanceof Error ? e.message : String(e),
+    });
     return { ok: false, reason: 'network' };
   }
 
@@ -115,7 +132,7 @@ export async function searchGoogleBooks(query: SearchQuery): Promise<BookSearchR
 
   if (cleanAuthor) {
     const result = await fetchBooks(
-      buildUrl(`intitle:"${cleanTitle}"+inauthor:"${cleanAuthor}"`, apiKey)
+      buildUrl(`intitle:"${cleanTitle}"+inauthor:"${cleanAuthor}"`, apiKey),
     );
     if (result.ok || result.reason === 'rate_limited') return result;
   }

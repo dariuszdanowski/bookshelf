@@ -1,7 +1,11 @@
 import type { APIRoute } from 'astro';
 import { z } from 'zod';
 
-import { UpdatePhotoSchema, type PhotoDTO, type DetectionWithCandidatesDTO } from '../../../lib/photos/schema';
+import {
+  UpdatePhotoSchema,
+  type PhotoDTO,
+  type DetectionWithCandidatesDTO,
+} from '../../../lib/photos/schema';
 import type { BookCandidateDTO } from '../../../lib/books/schema';
 import { checkCatalogDuplicate } from '../../../lib/matching/dedupe';
 import { apiError, apiResponse, parseUuidParam } from '../../../lib/http/response';
@@ -38,7 +42,9 @@ export const GET: APIRoute = async ({ params, locals }) => {
 
   const { data, error } = await locals.supabase
     .from('photos')
-    .select('id, shelf_id, storage_path, status, detected_count, error_message, vision_cost_usd, vision_latency_ms, created_at')
+    .select(
+      'id, shelf_id, storage_path, status, detected_count, error_message, vision_cost_usd, vision_latency_ms, created_at',
+    )
     .eq('id', id)
     .single();
 
@@ -51,7 +57,11 @@ export const GET: APIRoute = async ({ params, locals }) => {
       message: error.message,
       code: error.code,
     });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się pobrać zdjęcia.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się pobrać zdjęcia.',
+    });
   }
 
   const photo: PhotoDTO = {
@@ -100,7 +110,11 @@ export const GET: APIRoute = async ({ params, locals }) => {
       message: runError.message,
       code: runError.code,
     });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się pobrać vision run.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się pobrać vision run.',
+    });
   }
 
   if (!latestRun) {
@@ -117,7 +131,9 @@ export const GET: APIRoute = async ({ params, locals }) => {
 
   const { data: detRows, error: detError } = await locals.supabase
     .from('detections')
-    .select('id, position_index, raw_title, raw_author, vision_confidence, spine_color, bbox_x1, bbox_y1, bbox_x2, bbox_y2, status')
+    .select(
+      'id, position_index, raw_title, raw_author, vision_confidence, spine_color, bbox_x1, bbox_y1, bbox_x2, bbox_y2, status',
+    )
     .eq('vision_run_id', latestRun.id)
     .order('position_index', { ascending: true });
 
@@ -127,7 +143,11 @@ export const GET: APIRoute = async ({ params, locals }) => {
       message: detError.message,
       code: detError.code,
     });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się pobrać detekcji.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się pobrać detekcji.',
+    });
   }
 
   const rows = detRows ?? [];
@@ -143,7 +163,9 @@ export const GET: APIRoute = async ({ params, locals }) => {
   const [candidatesResult, booksResult] = await Promise.all([
     locals.supabase
       .from('book_candidates')
-      .select('id, detection_id, source, external_id, title, authors, isbn_10, isbn_13, publisher, published_year, cover_url, match_score, rank')
+      .select(
+        'id, detection_id, source, external_id, title, authors, isbn_10, isbn_13, publisher, published_year, cover_url, match_score, rank',
+      )
       .in('detection_id', detectionIds)
       .order('rank', { ascending: true }),
     locals.supabase
@@ -158,7 +180,11 @@ export const GET: APIRoute = async ({ params, locals }) => {
       message: candidatesResult.error.message,
       code: candidatesResult.error.code,
     });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się pobrać kandydatów.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się pobrać kandydatów.',
+    });
   }
 
   if (booksResult.error) {
@@ -167,12 +193,16 @@ export const GET: APIRoute = async ({ params, locals }) => {
       message: booksResult.error.message,
       code: booksResult.error.code,
     });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się pobrać katalogu.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się pobrać katalogu.',
+    });
   }
 
   // Group candidates by detection_id
   const candidatesByDetId = new Map<string, BookCandidateDTO[]>();
-  for (const row of (candidatesResult.data ?? [])) {
+  for (const row of candidatesResult.data ?? []) {
     if (!candidatesByDetId.has(row.detection_id)) {
       candidatesByDetId.set(row.detection_id, []);
     }
@@ -217,9 +247,11 @@ export const GET: APIRoute = async ({ params, locals }) => {
           publisher: top.publisher,
           publishedYear: top.publishedYear,
           coverUrl: top.coverUrl,
+          // DTO nie niesie opisu (UI go nie pokazuje); checkCatalogDuplicate go nie używa.
+          description: null,
           matchScore: top.matchScore,
         },
-        catalog
+        catalog,
       );
     }
 
@@ -283,13 +315,19 @@ export const PATCH: APIRoute = async ({ request, params, locals }) => {
     .from('photos')
     .update({ shelf_id: parsed.data.shelf_id })
     .eq('id', id)
-    .select('id, shelf_id, status, detected_count, error_message, vision_cost_usd, vision_latency_ms, created_at')
+    .select(
+      'id, shelf_id, status, detected_count, error_message, vision_cost_usd, vision_latency_ms, created_at',
+    )
     .single();
 
   if (error) {
     // 23503 = FK violation — docelowa półka nie istnieje lub należy do innego usera (RLS).
     if (error.code === '23503') {
-      return apiError({ code: 'NOT_FOUND', status: 404, message: 'Półka nie istnieje lub brak dostępu.' });
+      return apiError({
+        code: 'NOT_FOUND',
+        status: 404,
+        message: 'Półka nie istnieje lub brak dostępu.',
+      });
     }
     // PGRST116 = 0 rows (zdjęcie nie istnieje lub RLS scope).
     if (error.code === 'PGRST116') {
@@ -300,7 +338,11 @@ export const PATCH: APIRoute = async ({ request, params, locals }) => {
       message: error.message,
       code: error.code,
     });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się zaktualizować zdjęcia.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się zaktualizować zdjęcia.',
+    });
   }
 
   const photo: PhotoDTO = {
@@ -352,7 +394,11 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
       message: selectError.message,
       code: selectError.code,
     });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się sprawdzić zdjęcia.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się sprawdzić zdjęcia.',
+    });
   }
 
   if (!existing) {
@@ -367,12 +413,18 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
       message: deleteError.message,
       code: deleteError.code,
     });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się usunąć zdjęcia.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się usunąć zdjęcia.',
+    });
   }
 
   // Best-effort Storage cleanup — błąd nie zmienia sukcesu (wiersz DB już usunięty).
   try {
-    const { error: rmError } = await locals.supabase.storage.from('shelf-photos').remove([existing.storage_path]);
+    const { error: rmError } = await locals.supabase.storage
+      .from('shelf-photos')
+      .remove([existing.storage_path]);
     if (rmError) {
       console.error('[api/photos DELETE] storage remove failed (orphan left)', {
         name: rmError.name,

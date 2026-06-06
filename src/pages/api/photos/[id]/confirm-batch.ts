@@ -31,7 +31,11 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   try {
     raw = await request.json();
   } catch {
-    return apiError({ code: 'VALIDATION_ERROR', status: 400, message: 'Nieprawidłowe ciało żądania.' });
+    return apiError({
+      code: 'VALIDATION_ERROR',
+      status: 400,
+      message: 'Nieprawidłowe ciało żądania.',
+    });
   }
 
   const parsed = ConfirmBatchSchema.safeParse(raw);
@@ -89,7 +93,9 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   // Pobierz kandydatów (filtrujemy po detection_id — bezpieczne)
   const { data: candRows, error: candError } = await locals.supabase
     .from('book_candidates')
-    .select('id, detection_id, source, external_id, title, authors, isbn_10, isbn_13, publisher, published_year, cover_url')
+    .select(
+      'id, detection_id, source, external_id, title, authors, isbn_10, isbn_13, publisher, published_year, cover_url, description',
+    )
     .in('id', candidateIds)
     .in('detection_id', detectionIds);
 
@@ -143,6 +149,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
           source: candidate.source,
           source_external_id: candidate.external_id,
           spine_color: detection.spine_color,
+          description: candidate.description,
         },
         correctionType: 'accept',
       });

@@ -11,7 +11,11 @@ import {
   classifyCropQuality,
   type NormalizedBbox,
 } from '../../../../lib/matching/fallbackPolicy';
-import { checkCatalogDuplicate, dedupeCandidates, type CatalogDuplicate } from '../../../../lib/matching/dedupe';
+import {
+  checkCatalogDuplicate,
+  dedupeCandidates,
+  type CatalogDuplicate,
+} from '../../../../lib/matching/dedupe';
 import { MATCH_MID, scoreCandidate } from '../../../../lib/matching/score';
 import { detectSingleSpineFromCrop } from '../../../../lib/vision/client';
 
@@ -39,7 +43,7 @@ function toBase64(bytes: Uint8Array): string {
 async function matchOne(
   rawTitle: string,
   rawAuthor: string | null,
-  existingBooks: ExistingBook[]
+  existingBooks: ExistingBook[],
 ): Promise<{ candidates: ScoredCandidate[]; duplicate: CatalogDuplicate; rateLimited: boolean }> {
   const googleResult = await searchGoogleBooks({ title: rawTitle, author: rawAuthor });
   if (!googleResult.ok) {
@@ -63,7 +67,7 @@ async function matchOne(
     ...c,
     matchScore: scoreCandidate(
       { raw_title: rawTitle, raw_author: rawAuthor },
-      { title: c.title, authors: c.authors, isbn13: c.isbn13, isbn10: c.isbn10 }
+      { title: c.title, authors: c.authors, isbn13: c.isbn13, isbn10: c.isbn10 },
     ),
   }));
 
@@ -74,10 +78,14 @@ async function matchOne(
       if (c.coverUrl) return c;
       const isbn = c.isbn13 ?? c.isbn10;
       if (!isbn) return c;
-      return { ...c, coverUrl: `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg?default=false` };
+      return {
+        ...c,
+        coverUrl: `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg?default=false`,
+      };
     });
 
-  const duplicate = candidates.length > 0 ? checkCatalogDuplicate(candidates[0], existingBooks) : null;
+  const duplicate =
+    candidates.length > 0 ? checkCatalogDuplicate(candidates[0], existingBooks) : null;
   return { candidates, duplicate, rateLimited: false };
 }
 
@@ -114,7 +122,9 @@ export const POST: APIRoute = async ({ params, locals }) => {
 
   const { data: detection, error: detectionError } = await locals.supabase
     .from('detections')
-    .select('id, photo_id, raw_title, raw_author, vision_confidence, spine_color, status, bbox_x1, bbox_y1, bbox_x2, bbox_y2')
+    .select(
+      'id, photo_id, raw_title, raw_author, vision_confidence, spine_color, status, bbox_x1, bbox_y1, bbox_x2, bbox_y2',
+    )
     .eq('id', detectionId)
     .maybeSingle();
 
@@ -183,21 +193,35 @@ export const POST: APIRoute = async ({ params, locals }) => {
     console.error('[api/detections/refine POST] storage download failed', {
       message: downloadError?.message ?? 'empty blob',
     });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się pobrać obrazu ze Storage.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się pobrać obrazu ze Storage.',
+    });
   }
 
   let cropBase64: string;
   try {
     const originalBuffer = await blob.arrayBuffer();
-    const cropResult = await deriveDetectionCrop(originalBuffer, bbox, { paddingPx: 10, maxEdge: 1024 });
+    const cropResult = await deriveDetectionCrop(originalBuffer, bbox, {
+      paddingPx: 10,
+      maxEdge: 1024,
+    });
     cropBase64 = toBase64(cropResult.bytes);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error('[api/detections/refine POST] crop failed', { message });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się przygotować cropa.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się przygotować cropa.',
+    });
   }
 
-  const refined = await detectSingleSpineFromCrop({ base64: cropBase64, mediaType: 'image/jpeg' }, providerConfig);
+  const refined = await detectSingleSpineFromCrop(
+    { base64: cropBase64, mediaType: 'image/jpeg' },
+    providerConfig,
+  );
   if (!refined.ok) {
     await locals.supabase.from('corrections').insert({
       user_id: locals.user.id,
@@ -220,7 +244,9 @@ export const POST: APIRoute = async ({ params, locals }) => {
 
   const { data: existingCandidateRows, error: existingCandidatesError } = await locals.supabase
     .from('book_candidates')
-    .select('source, external_id, title, authors, isbn_10, isbn_13, publisher, published_year, cover_url, match_score, rank')
+    .select(
+      'source, external_id, title, authors, isbn_10, isbn_13, publisher, published_year, cover_url, description, match_score, rank',
+    )
     .eq('detection_id', detection.id);
 
   if (existingCandidatesError) {
@@ -229,7 +255,11 @@ export const POST: APIRoute = async ({ params, locals }) => {
       message: existingCandidatesError.message,
       code: existingCandidatesError.code,
     });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się pobrać istniejących kandydatów.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się pobrać istniejących kandydatów.',
+    });
   }
 
   const { data: existingBooks, error: booksError } = await locals.supabase
@@ -243,7 +273,11 @@ export const POST: APIRoute = async ({ params, locals }) => {
       message: booksError.message,
       code: booksError.code,
     });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się pobrać katalogu.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się pobrać katalogu.',
+    });
   }
 
   const catalog: ExistingBook[] = (existingBooks ?? []).map((b) => ({
@@ -266,7 +300,8 @@ export const POST: APIRoute = async ({ params, locals }) => {
   const numericExistingScores = (existingCandidateRows ?? [])
     .map((row) => row.match_score)
     .filter((value): value is number => value != null);
-  const existingTopScore = numericExistingScores.length > 0 ? Math.max(...numericExistingScores) : null;
+  const existingTopScore =
+    numericExistingScores.length > 0 ? Math.max(...numericExistingScores) : null;
   const newTopScore = match.candidates.length > 0 ? match.candidates[0].matchScore : null;
   const shouldReplaceCandidates =
     existingTopScore == null ||
@@ -286,6 +321,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
       publisher: row.publisher,
       publishedYear: row.published_year,
       coverUrl: row.cover_url,
+      description: row.description,
       matchScore: row.match_score,
     }));
 
@@ -311,7 +347,11 @@ export const POST: APIRoute = async ({ params, locals }) => {
       message: detectionUpdateError.message,
       code: detectionUpdateError.code,
     });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się zaktualizować detekcji.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się zaktualizować detekcji.',
+    });
   }
 
   if (shouldReplaceCandidates) {
@@ -326,7 +366,11 @@ export const POST: APIRoute = async ({ params, locals }) => {
         message: deleteCandidatesError.message,
         code: deleteCandidatesError.code,
       });
-      return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się usunąć starych kandydatów.' });
+      return apiError({
+        code: 'INTERNAL_ERROR',
+        status: 500,
+        message: 'Nie udało się usunąć starych kandydatów.',
+      });
     }
   }
 
@@ -343,9 +387,10 @@ export const POST: APIRoute = async ({ params, locals }) => {
         publisher: c.publisher,
         published_year: c.publishedYear,
         cover_url: c.coverUrl,
+        description: c.description,
         match_score: c.matchScore,
         rank: idx + 1,
-      }))
+      })),
     );
 
     if (insertCandidatesError) {
@@ -354,22 +399,30 @@ export const POST: APIRoute = async ({ params, locals }) => {
         message: insertCandidatesError.message,
         code: insertCandidatesError.code,
       });
-      return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się zapisać kandydatów.' });
+      return apiError({
+        code: 'INTERNAL_ERROR',
+        status: 500,
+        message: 'Nie udało się zapisać kandydatów.',
+      });
     }
   }
 
   // Persist refine call cost — non-blocking (failure doesn't abort response)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (locals.supabase as any).from('refine_calls').insert({
-    user_id: locals.user.id,
-    photo_id: detection.photo_id,
-    detection_id: detection.id,
-    model: refined.model,
-    cost_usd: refined.costUsd,
-    latency_ms: refined.latencyMs,
-  }).then(({ error }: { error: { message: string } | null }) => {
-    if (error) console.error('[api/detections/refine POST] refine_calls insert failed', error.message);
-  });
+  (locals.supabase as any)
+    .from('refine_calls')
+    .insert({
+      user_id: locals.user.id,
+      photo_id: detection.photo_id,
+      detection_id: detection.id,
+      model: refined.model,
+      cost_usd: refined.costUsd,
+      latency_ms: refined.latencyMs,
+    })
+    .then(({ error }: { error: { message: string } | null }) => {
+      if (error)
+        console.error('[api/detections/refine POST] refine_calls insert failed', error.message);
+    });
 
   return apiResponse({
     data: {

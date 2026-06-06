@@ -3,7 +3,7 @@ import { dedupeCandidates, checkCatalogDuplicate } from '../../../../src/lib/mat
 import type { ScoredCandidate } from '../../../../src/lib/books/schema';
 
 function makeCandidate(
-  overrides: Partial<ScoredCandidate> & { matchScore: number; title: string }
+  overrides: Partial<ScoredCandidate> & { matchScore: number; title: string },
 ): ScoredCandidate {
   return {
     source: 'google_books',
@@ -14,6 +14,7 @@ function makeCandidate(
     publisher: null,
     publishedYear: null,
     coverUrl: null,
+    description: null,
     ...overrides,
   };
 }
@@ -82,8 +83,20 @@ describe('dedupeCandidates', () => {
 
 describe('checkCatalogDuplicate', () => {
   const existingBooks = [
-    { id: 'b1', title: 'Solaris', authors: ['Stanisław Lem'], isbn_13: '9780156027601', isbn_10: null },
-    { id: 'b2', title: 'Dune', authors: ['Frank Herbert'], isbn_13: '9780441013593', isbn_10: null },
+    {
+      id: 'b1',
+      title: 'Solaris',
+      authors: ['Stanisław Lem'],
+      isbn_13: '9780156027601',
+      isbn_10: null,
+    },
+    {
+      id: 'b2',
+      title: 'Dune',
+      authors: ['Frank Herbert'],
+      isbn_13: '9780441013593',
+      isbn_10: null,
+    },
   ];
 
   it('returns exact when isbn_13 matches catalog', () => {
@@ -93,7 +106,11 @@ describe('checkCatalogDuplicate', () => {
   });
 
   it('returns null when isbn_13 not in catalog', () => {
-    const candidate = makeCandidate({ title: 'Foundation', isbn13: '9780553293357', matchScore: 0.8 });
+    const candidate = makeCandidate({
+      title: 'Foundation',
+      isbn13: '9780553293357',
+      matchScore: 0.8,
+    });
     const result = checkCatalogDuplicate(candidate, existingBooks);
     expect(result).toBeNull();
   });

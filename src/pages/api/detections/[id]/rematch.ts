@@ -41,7 +41,11 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   try {
     raw = await request.json();
   } catch {
-    return apiError({ code: 'VALIDATION_ERROR', status: 400, message: 'Nieprawidłowe ciało żądania.' });
+    return apiError({
+      code: 'VALIDATION_ERROR',
+      status: 400,
+      message: 'Nieprawidłowe ciało żądania.',
+    });
   }
 
   const parsed = RematchDetectionSchema.safeParse(raw);
@@ -88,8 +92,15 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     .eq('detection_id', detectionId);
 
   if (existingCandErr) {
-    console.error('[api/detections/rematch POST] existing candidates failed', existingCandErr.message);
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Błąd pobierania kandydatów.' });
+    console.error(
+      '[api/detections/rematch POST] existing candidates failed',
+      existingCandErr.message,
+    );
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Błąd pobierania kandydatów.',
+    });
   }
 
   const { data: existingBooks, error: booksError } = await locals.supabase
@@ -138,7 +149,11 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
 
   if (updateError) {
     console.error('[api/detections/rematch POST] detection update failed', updateError.message);
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Błąd aktualizacji detekcji.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Błąd aktualizacji detekcji.',
+    });
   }
 
   if (shouldReplace) {
@@ -149,7 +164,11 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
 
     if (deleteError) {
       console.error('[api/detections/rematch POST] candidate delete failed', deleteError.message);
-      return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Błąd usuwania kandydatów.' });
+      return apiError({
+        code: 'INTERNAL_ERROR',
+        status: 500,
+        message: 'Błąd usuwania kandydatów.',
+      });
     }
 
     if (match.candidates.length > 0) {
@@ -167,15 +186,25 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
             publisher: c.publisher,
             published_year: c.publishedYear,
             cover_url: c.coverUrl,
+            description: c.description,
             match_score: c.matchScore,
             rank: idx + 1,
-          }))
+          })),
         )
-        .select('id, source, external_id, title, authors, isbn_10, isbn_13, publisher, published_year, cover_url, match_score, rank');
+        .select(
+          'id, source, external_id, title, authors, isbn_10, isbn_13, publisher, published_year, cover_url, description, match_score, rank',
+        );
 
       if (insertError || !inserted) {
-        console.error('[api/detections/rematch POST] candidate insert failed', insertError?.message);
-        return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Błąd zapisywania kandydatów.' });
+        console.error(
+          '[api/detections/rematch POST] candidate insert failed',
+          insertError?.message,
+        );
+        return apiError({
+          code: 'INTERNAL_ERROR',
+          status: 500,
+          message: 'Błąd zapisywania kandydatów.',
+        });
       }
 
       const duplicate = checkCatalogDuplicate(match.candidates[0], catalog);
@@ -183,7 +212,12 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       return apiResponse({
         data: {
           applied: true,
-          detection: { id: detectionId, status: finalStatus, raw_title: title, raw_author: rawAuthor },
+          detection: {
+            id: detectionId,
+            status: finalStatus,
+            raw_title: title,
+            raw_author: rawAuthor,
+          },
           candidates: inserted.map((row) => ({
             id: row.id,
             source: row.source,

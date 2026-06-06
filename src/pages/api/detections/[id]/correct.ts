@@ -36,7 +36,11 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   try {
     raw = await request.json();
   } catch {
-    return apiError({ code: 'VALIDATION_ERROR', status: 400, message: 'Nieprawidłowe ciało żądania.' });
+    return apiError({
+      code: 'VALIDATION_ERROR',
+      status: 400,
+      message: 'Nieprawidłowe ciało żądania.',
+    });
   }
 
   const parsed = CorrectDetectionSchema.safeParse(raw);
@@ -97,7 +101,9 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     // Pobierz bazowego kandydata — dane metadanych spoza edytowanych pól
     const { data: candidate, error: candError } = await locals.supabase
       .from('book_candidates')
-      .select('source, external_id, title, authors, isbn_10, isbn_13, publisher, published_year, cover_url')
+      .select(
+        'source, external_id, title, authors, isbn_10, isbn_13, publisher, published_year, cover_url, description',
+      )
       .eq('id', input.candidate_id)
       .eq('detection_id', detectionId)
       .maybeSingle();
@@ -125,6 +131,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       source: candidate.source,
       source_external_id: candidate.external_id,
       spine_color: detection.spine_color,
+      description: candidate.description,
     };
     correctionType = 'field_edit';
     correctedFields = {
@@ -144,6 +151,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       source: 'manual',
       source_external_id: null,
       spine_color: detection.spine_color,
+      description: null,
     };
     correctionType = 'manual_entry';
     correctedFields = { title: input.title, authors: input.authors };
@@ -165,10 +173,18 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
 
   if (!result.ok) {
     if (result.reason === 'already_confirmed') {
-      return apiError({ code: 'CONFLICT', status: 409, message: 'Detekcja została już zaakceptowana.' });
+      return apiError({
+        code: 'CONFLICT',
+        status: 409,
+        message: 'Detekcja została już zaakceptowana.',
+      });
     }
     if (result.reason === 'write_failed') {
-      return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się zapisać książki do katalogu.' });
+      return apiError({
+        code: 'INTERNAL_ERROR',
+        status: 500,
+        message: 'Nie udało się zapisać książki do katalogu.',
+      });
     }
     const msg = result.shelfHint
       ? `Masz już tę książkę w katalogu (półka: ${result.shelfHint}).`

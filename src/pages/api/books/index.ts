@@ -27,7 +27,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
   try {
     raw = await request.json();
   } catch {
-    return apiError({ code: 'VALIDATION_ERROR', status: 400, message: 'Nieprawidłowe ciało żądania.' });
+    return apiError({
+      code: 'VALIDATION_ERROR',
+      status: 400,
+      message: 'Nieprawidłowe ciało żądania.',
+    });
   }
 
   const parsed = AddPurchaseSchema.safeParse(raw);
@@ -52,7 +56,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
       .eq('id', input.shelf_id)
       .maybeSingle();
     if (shelfErr) {
-      console.error('[api/books POST] shelf select failed', { name: shelfErr.name, message: shelfErr.message, code: shelfErr.code });
+      console.error('[api/books POST] shelf select failed', {
+        name: shelfErr.name,
+        message: shelfErr.message,
+        code: shelfErr.code,
+      });
       return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Błąd serwera.' });
     }
     if (!shelf) {
@@ -63,8 +71,14 @@ export const POST: APIRoute = async ({ request, locals }) => {
     // Resolve „Zakupione" (RLS-scoped). Brak = stan nieoczekiwany (signup ją tworzy).
     shelfId = await getPurchasedShelfId(locals.supabase);
     if (!shelfId) {
-      console.error('[api/books POST] Zakupione shelf not found for user', { userId: locals.user.id });
-      return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie znaleziono półki „Zakupione".' });
+      console.error('[api/books POST] Zakupione shelf not found for user', {
+        userId: locals.user.id,
+      });
+      return apiError({
+        code: 'INTERNAL_ERROR',
+        status: 500,
+        message: 'Nie znaleziono półki „Zakupione".',
+      });
     }
   }
 
@@ -82,14 +96,17 @@ export const POST: APIRoute = async ({ request, locals }) => {
       return apiError({
         code: 'CONFLICT',
         status: 409,
-        message: hint ? `Masz już tę książkę w katalogu (półka: ${hint}).` : 'Masz już tę książkę w katalogu.',
+        message: hint
+          ? `Masz już tę książkę w katalogu (półka: ${hint}).`
+          : 'Masz już tę książkę w katalogu.',
       });
     }
   }
 
   // purchase_date: dla „Zakupione" (Flow B) domyślnie dziś; dla ręcznego dodania
   // na inną półkę tylko gdy user poda (zakup to nie to samo co „mam na półce").
-  const purchaseDate = input.purchase_date ?? (input.shelf_id ? null : new Date().toISOString().slice(0, 10));
+  const purchaseDate =
+    input.purchase_date ?? (input.shelf_id ? null : new Date().toISOString().slice(0, 10));
 
   // INSERT books
   const { data: newBook, error: bookError } = await locals.supabase
@@ -109,20 +126,30 @@ export const POST: APIRoute = async ({ request, locals }) => {
       cover_source: input.cover_source ?? 'auto',
       purchase_date: purchaseDate,
       source: 'manual',
+      // S-17: opis z wybranego kandydata (BookModal add) → search_text.
+      description: input.description ?? null,
     })
     .select('id')
     .single();
 
   if (bookError) {
     if (bookError.code === '23505') {
-      return apiError({ code: 'CONFLICT', status: 409, message: 'Masz już tę książkę w katalogu.' });
+      return apiError({
+        code: 'CONFLICT',
+        status: 409,
+        message: 'Masz już tę książkę w katalogu.',
+      });
     }
     console.error('[api/books POST] books insert failed', {
       name: bookError.name,
       message: bookError.message,
       code: bookError.code,
     });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się dodać książki.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się dodać książki.',
+    });
   }
 
   const bookId = newBook.id;
@@ -155,7 +182,11 @@ export const POST: APIRoute = async ({ request, locals }) => {
       code: entryError.code,
     });
     await locals.supabase.from('books').delete().eq('id', bookId);
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się dodać książki na półkę.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się dodać książki na półkę.',
+    });
   }
 
   return apiResponse({ data: { book_id: bookId, shelf_id: shelfId }, status: 201 });

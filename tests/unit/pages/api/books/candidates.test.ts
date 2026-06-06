@@ -9,7 +9,10 @@ vi.mock('../../../../../src/lib/books/nationalLibrary', () => ({ searchNationalL
 
 import { POST } from '../../../../../src/pages/api/books/candidates';
 import { searchGoogleBooks } from '../../../../../src/lib/books/googleBooks';
-import { searchOpenLibrary, searchOpenLibraryByTitle } from '../../../../../src/lib/books/openLibrary';
+import {
+  searchOpenLibrary,
+  searchOpenLibraryByTitle,
+} from '../../../../../src/lib/books/openLibrary';
 import { searchNationalLibrary } from '../../../../../src/lib/books/nationalLibrary';
 
 type ApiJson = { data?: { candidates: unknown[] }; error?: { code: string; message: string } };
@@ -33,6 +36,7 @@ const GB_CANDIDATE = {
   publisher: 'Harvest',
   publishedYear: 1961,
   coverUrl: 'https://gb/cover.jpg',
+  description: null,
 };
 
 beforeEach(() => {
@@ -58,7 +62,9 @@ describe('POST /api/books/candidates', () => {
 
   it('400 gdy nieparsowalne body', async () => {
     const ctx = makeContext({ body: null });
-    (ctx as { request: { json: ReturnType<typeof vi.fn> } }).request.json = vi.fn().mockRejectedValue(new Error('bad json'));
+    (ctx as { request: { json: ReturnType<typeof vi.fn> } }).request.json = vi
+      .fn()
+      .mockRejectedValue(new Error('bad json'));
     const res = await POST(ctx);
     expect(res.status).toBe(400);
   });

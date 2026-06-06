@@ -17,9 +17,9 @@ function makeSupabaseMock(overrides: {
 }) {
   // Defaults: sukces z minimalnym data
   const defaults = {
-    booksSelect: { data: null, error: null },         // brak exact-dup
+    booksSelect: { data: null, error: null }, // brak exact-dup
     booksInsert: { data: { id: 'new-book-id' }, error: null },
-    shelfEntriesSelect: { data: null, error: null },   // brak istniejących → max = 0
+    shelfEntriesSelect: { data: null, error: null }, // brak istniejących → max = 0
     shelfEntriesInsert: { data: null, error: null },
     detectionsUpdate: { data: null, error: null },
     correctionsInsert: { data: null, error: null },
@@ -100,6 +100,7 @@ const BASE_BOOK = {
   source: 'google_books',
   source_external_id: 'gb-123',
   spine_color: 'niebieski',
+  description: null,
 };
 
 beforeEach(() => vi.clearAllMocks());
@@ -168,22 +169,43 @@ describe('confirmDetectionToCatalog — exact-dup', () => {
 
 describe('confirmDetectionToCatalog — sukces', () => {
   it('przekazuje spine_color do books insert (S-08 denormalizacja)', async () => {
-    const insertFn = vi.fn(() => ({ select: vi.fn(() => ({ single: vi.fn().mockResolvedValue({ data: { id: 'b1' }, error: null }) })) }));
+    const insertFn = vi.fn(() => ({
+      select: vi.fn(() => ({
+        single: vi.fn().mockResolvedValue({ data: { id: 'b1' }, error: null }),
+      })),
+    }));
     const supabase = {
       from: vi.fn((table: string) => {
         if (table === 'books') {
           return {
-            select: vi.fn(() => ({ eq: vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }) })) })) })),
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                eq: vi.fn(() => ({
+                  maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+                })),
+              })),
+            })),
             insert: insertFn,
           };
         }
         if (table === 'shelf_entries') {
           return {
-            select: vi.fn(() => ({ eq: vi.fn(() => ({ eq: vi.fn(() => ({ order: vi.fn(() => ({ limit: vi.fn(() => ({ maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }) })) })) })) })) })),
+            select: vi.fn(() => ({
+              eq: vi.fn(() => ({
+                eq: vi.fn(() => ({
+                  order: vi.fn(() => ({
+                    limit: vi.fn(() => ({
+                      maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+                    })),
+                  })),
+                })),
+              })),
+            })),
             insert: vi.fn().mockResolvedValue({ error: null }),
           };
         }
-        if (table === 'detections') return { update: vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ error: null }) })) };
+        if (table === 'detections')
+          return { update: vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ error: null }) })) };
         if (table === 'corrections') return { insert: vi.fn().mockResolvedValue({ error: null }) };
         return {};
       }),
@@ -249,18 +271,26 @@ describe('confirmDetectionToCatalog — write_failed rollback', () => {
           return {
             select: vi.fn(() => ({
               eq: vi.fn(() => ({
-                eq: vi.fn(() => ({ maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }) })),
+                eq: vi.fn(() => ({
+                  maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+                })),
               })),
             })),
             insert: vi.fn(() => ({
-              select: vi.fn(() => ({ single: vi.fn().mockResolvedValue({ data: { id: 'orphan-id' }, error: null }) })),
+              select: vi.fn(() => ({
+                single: vi.fn().mockResolvedValue({ data: { id: 'orphan-id' }, error: null }),
+              })),
             })),
             delete: vi.fn(() => ({ eq: deleteEqFn })),
           };
         }
         if (table === 'shelf_entries') {
           return {
-            insert: vi.fn().mockResolvedValue({ error: { code: '23503', name: 'PostgrestError', message: 'fk fail' } }),
+            insert: vi
+              .fn()
+              .mockResolvedValue({
+                error: { code: '23503', name: 'PostgrestError', message: 'fk fail' },
+              }),
           };
         }
         return {};
@@ -277,5 +307,75 @@ describe('confirmDetectionToCatalog — write_failed rollback', () => {
     expect(result).toEqual({ ok: false, reason: 'write_failed' });
     // Rollback: books.delete().eq('id', 'orphan-id') wywołane
     expect(deleteEqFn).toHaveBeenCalledWith('id', 'orphan-id');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Propagacja description (S-17) — opis kandydata trafia do INSERT books
+// ---------------------------------------------------------------------------
+
+describe('confirmDetectionToCatalog — propagacja description (S-17)', () => {
+  function makeCapturingSupabase(insertPayloads: unknown[]) {
+    const mock = {
+      from: vi.fn((table: string) => {
+        if (table === 'books') {
+          return {
+            insert: vi.fn((payload: unknown) => {
+              insertPayloads.push(payload);
+              return {
+                select: vi.fn(() => ({
+                  single: vi.fn().mockResolvedValue({ data: { id: 'new-book-id' }, error: null }),
+                })),
+              };
+            }),
+          };
+        }
+        if (table === 'shelf_entries') {
+          return { insert: vi.fn().mockResolvedValue({ data: null, error: null }) };
+        }
+        if (table === 'detections') {
+          return {
+            update: vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ data: null, error: null }) })),
+          };
+        }
+        if (table === 'corrections') {
+          return { insert: vi.fn().mockResolvedValue({ data: null, error: null }) };
+        }
+        return {};
+      }),
+    };
+    return mock as unknown as Parameters<typeof confirmDetectionToCatalog>[0];
+  }
+
+  it('przenosi description kandydata do INSERT books', async () => {
+    const insertPayloads: unknown[] = [];
+    const supabase = makeCapturingSupabase(insertPayloads);
+
+    const result = await confirmDetectionToCatalog(supabase, 'user-1', {
+      detection: BASE_DETECTION,
+      shelfId: 'shelf-1',
+      // isbn_13: null → pomija pre-check dup (mock nie obsługuje select)
+      book: { ...BASE_BOOK, isbn_13: null, description: 'Saga o trzech pokoleniach rolników.' },
+      correctionType: 'accept',
+    });
+
+    expect(result).toEqual({ ok: true, bookId: 'new-book-id' });
+    expect(insertPayloads).toHaveLength(1);
+    expect(insertPayloads[0]).toMatchObject({ description: 'Saga o trzech pokoleniach rolników.' });
+  });
+
+  it('manual/bez opisu → description: null w INSERT books', async () => {
+    const insertPayloads: unknown[] = [];
+    const supabase = makeCapturingSupabase(insertPayloads);
+
+    await confirmDetectionToCatalog(supabase, 'user-1', {
+      detection: BASE_DETECTION,
+      shelfId: 'shelf-1',
+      book: { ...BASE_BOOK, isbn_13: null, description: null },
+      correctionType: 'manual_entry',
+    });
+
+    expect(insertPayloads).toHaveLength(1);
+    expect(insertPayloads[0]).toMatchObject({ description: null });
   });
 });

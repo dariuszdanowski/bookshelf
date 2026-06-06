@@ -14,7 +14,10 @@ vi.mock('../../../../../../src/lib/books/nationalLibrary', () => ({
 }));
 
 import { searchGoogleBooks } from '../../../../../../src/lib/books/googleBooks';
-import { searchOpenLibrary, searchOpenLibraryByTitle } from '../../../../../../src/lib/books/openLibrary';
+import {
+  searchOpenLibrary,
+  searchOpenLibraryByTitle,
+} from '../../../../../../src/lib/books/openLibrary';
 import { searchNationalLibrary } from '../../../../../../src/lib/books/nationalLibrary';
 
 const DET_ID = '00000000-0000-4000-8000-000000000020';
@@ -32,17 +35,25 @@ const MOCK_GOOGLE_CANDIDATE = {
   publisher: null,
   publishedYear: 2022,
   coverUrl: null,
+  description: null,
 };
 
 function makeSupabase(opts: {
   detection?: { id: string; status: string } | null;
   existingCandidates?: { match_score: number; rank: number }[];
-  existingBooks?: { id: string; title: string; authors: string[]; isbn_13: string | null; isbn_10: string | null }[];
+  existingBooks?: {
+    id: string;
+    title: string;
+    authors: string[];
+    isbn_13: string | null;
+    isbn_10: string | null;
+  }[];
   updateResult?: { error: null | { name: string; message: string; code?: string } };
   deleteResult?: { error: null | { name: string; message: string } };
   insertResult?: { data: { id: string }[] | null; error: null | { name: string; message: string } };
 }) {
-  const detection = opts.detection !== undefined ? opts.detection : { id: DET_ID, status: 'pending' };
+  const detection =
+    opts.detection !== undefined ? opts.detection : { id: DET_ID, status: 'pending' };
   const existingCandidates = opts.existingCandidates ?? [];
   const existingBooks = opts.existingBooks ?? [];
 
@@ -69,9 +80,29 @@ function makeSupabase(opts: {
             eq: vi.fn().mockResolvedValue(opts.deleteResult ?? { error: null }),
           })),
           insert: vi.fn(() => ({
-            select: vi.fn().mockResolvedValue(
-              opts.insertResult ?? { data: [{ id: CAND_ID, source: 'google_books', external_id: 'gb-1', title: 'Przerwana kołysanka', authors: ['Natasza Socha'], isbn_10: null, isbn_13: '9788383100012', publisher: null, published_year: 2022, cover_url: null, match_score: 0.95, rank: 1 }], error: null }
-            ),
+            select: vi
+              .fn()
+              .mockResolvedValue(
+                opts.insertResult ?? {
+                  data: [
+                    {
+                      id: CAND_ID,
+                      source: 'google_books',
+                      external_id: 'gb-1',
+                      title: 'Przerwana kołysanka',
+                      authors: ['Natasza Socha'],
+                      isbn_10: null,
+                      isbn_13: '9788383100012',
+                      publisher: null,
+                      published_year: 2022,
+                      cover_url: null,
+                      match_score: 0.95,
+                      rank: 1,
+                    },
+                  ],
+                  error: null,
+                },
+              ),
           })),
         };
       }
@@ -96,7 +127,9 @@ function makeContext(opts: {
   return {
     params: { id: opts.id ?? DET_ID },
     request: {
-      json: vi.fn().mockResolvedValue(opts.body ?? { title: 'Przerwana kołysanka', author: 'Natasza Socha' }),
+      json: vi
+        .fn()
+        .mockResolvedValue(opts.body ?? { title: 'Przerwana kołysanka', author: 'Natasza Socha' }),
     },
     locals: {
       user: opts.user !== false ? { id: 'user-1', email: 'test@test.com' } : null,
@@ -142,7 +175,10 @@ describe('POST /api/detections/[id]/rematch', () => {
   });
 
   it('happy path — zwraca kandydatów z DB id gdy Google Books zwraca wyniki', async () => {
-    vi.mocked(searchGoogleBooks).mockResolvedValue({ ok: true, candidates: [MOCK_GOOGLE_CANDIDATE] });
+    vi.mocked(searchGoogleBooks).mockResolvedValue({
+      ok: true,
+      candidates: [MOCK_GOOGLE_CANDIDATE],
+    });
     vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({ ok: false, reason: 'empty' });
     vi.mocked(searchOpenLibrary).mockResolvedValue({ ok: false, reason: 'empty' });
     const ctx = makeContext({});
@@ -178,7 +214,10 @@ describe('POST /api/detections/[id]/rematch', () => {
   });
 
   it('aktualizuje raw_title i raw_author w DB', async () => {
-    vi.mocked(searchGoogleBooks).mockResolvedValue({ ok: true, candidates: [MOCK_GOOGLE_CANDIDATE] });
+    vi.mocked(searchGoogleBooks).mockResolvedValue({
+      ok: true,
+      candidates: [MOCK_GOOGLE_CANDIDATE],
+    });
     vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({ ok: false, reason: 'empty' });
     vi.mocked(searchOpenLibrary).mockResolvedValue({ ok: false, reason: 'empty' });
     const supabase = makeSupabase({});
@@ -191,11 +230,20 @@ describe('POST /api/detections/[id]/rematch', () => {
   it('odfiltrowuje kandydata z zupełnie innym autorem (Agnieszka Lis vs Kazimierz Arendt)', async () => {
     vi.mocked(searchGoogleBooks).mockResolvedValue({
       ok: true,
-      candidates: [{
-        source: 'google_books', externalId: 'gb-x', title: 'Poczta polska',
-        authors: ['Kazimierz Arendt'], isbn10: null, isbn13: null,
-        publisher: null, publishedYear: null, coverUrl: null,
-      }],
+      candidates: [
+        {
+          source: 'google_books',
+          externalId: 'gb-x',
+          title: 'Poczta polska',
+          authors: ['Kazimierz Arendt'],
+          isbn10: null,
+          isbn13: null,
+          publisher: null,
+          publishedYear: null,
+          coverUrl: null,
+          description: null,
+        },
+      ],
     });
     vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({ ok: false, reason: 'empty' });
     vi.mocked(searchOpenLibrary).mockResolvedValue({ ok: false, reason: 'empty' });
@@ -210,16 +258,26 @@ describe('POST /api/detections/[id]/rematch', () => {
   it('zachowuje kandydata cross-języka ze score ≥0.25 (autor pasuje, tytuł nie) — dawne 0.55 by go odrzuciło', async () => {
     vi.mocked(searchGoogleBooks).mockResolvedValue({
       ok: true,
-      candidates: [{
-        source: 'google_books', externalId: 'gb-keret',
-        title: 'The Bus Driver Who Wanted to Be God',
-        authors: ['Etgar Keret'], isbn10: null, isbn13: '9781592640225',
-        publisher: null, publishedYear: 2004, coverUrl: null,
-      }],
+      candidates: [
+        {
+          source: 'google_books',
+          externalId: 'gb-keret',
+          title: 'The Bus Driver Who Wanted to Be God',
+          authors: ['Etgar Keret'],
+          isbn10: null,
+          isbn13: '9781592640225',
+          publisher: null,
+          publishedYear: 2004,
+          coverUrl: null,
+          description: null,
+        },
+      ],
     });
     vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({ ok: false, reason: 'empty' });
     vi.mocked(searchOpenLibrary).mockResolvedValue({ ok: false, reason: 'empty' });
-    const ctx = makeContext({ body: { title: 'Usterka na skraju galaktyki', author: 'Etgar Keret' } });
+    const ctx = makeContext({
+      body: { title: 'Usterka na skraju galaktyki', author: 'Etgar Keret' },
+    });
     const res = await POST(ctx);
     const json = (await res.json()) as ApiJson;
     expect(json.data!['applied']).toBe(true);
@@ -232,14 +290,24 @@ describe('POST /api/detections/[id]/rematch', () => {
     vi.mocked(searchOpenLibrary).mockResolvedValue({ ok: false, reason: 'empty' });
     vi.mocked(searchNationalLibrary).mockResolvedValue({
       ok: true,
-      candidates: [{
-        source: 'national_library', externalId: 'bn-1',
-        title: 'Usterka na skraju galaktyki', authors: ['Keret, Etgar'],
-        isbn10: null, isbn13: '9788308073087', publisher: 'Wydawnictwo Literackie',
-        publishedYear: 2020, coverUrl: null,
-      }],
+      candidates: [
+        {
+          source: 'national_library',
+          externalId: 'bn-1',
+          title: 'Usterka na skraju galaktyki',
+          authors: ['Keret, Etgar'],
+          isbn10: null,
+          isbn13: '9788308073087',
+          publisher: 'Wydawnictwo Literackie',
+          publishedYear: 2020,
+          coverUrl: null,
+          description: null,
+        },
+      ],
     });
-    const ctx = makeContext({ body: { title: 'Usterka na skraju galaktyki', author: 'Etgar Keret' } });
+    const ctx = makeContext({
+      body: { title: 'Usterka na skraju galaktyki', author: 'Etgar Keret' },
+    });
     const res = await POST(ctx);
     const json = (await res.json()) as ApiJson;
     expect(json.data!['applied']).toBe(true);
@@ -253,10 +321,10 @@ describe('POST /api/detections/[id]/rematch', () => {
     const ctx = makeContext({ body: { title: 'Coś', author: null, isbn: '9788308073087' } });
     await POST(ctx);
     expect(vi.mocked(searchGoogleBooks)).toHaveBeenCalledWith(
-      expect.objectContaining({ isbn: '9788308073087' })
+      expect.objectContaining({ isbn: '9788308073087' }),
     );
     expect(vi.mocked(searchOpenLibrary)).toHaveBeenCalledWith(
-      expect.objectContaining({ isbn: '9788308073087' })
+      expect.objectContaining({ isbn: '9788308073087' }),
     );
   });
 
@@ -264,10 +332,12 @@ describe('POST /api/detections/[id]/rematch', () => {
     vi.mocked(searchGoogleBooks).mockResolvedValue({ ok: false, reason: 'empty' });
     vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({ ok: false, reason: 'empty' });
     vi.mocked(searchOpenLibrary).mockResolvedValue({ ok: false, reason: 'empty' });
-    const ctx = makeContext({ body: { title: 'Sto lat samotności — Gabriel García Márquez', author: null } });
+    const ctx = makeContext({
+      body: { title: 'Sto lat samotności — Gabriel García Márquez', author: null },
+    });
     await POST(ctx);
     expect(vi.mocked(searchGoogleBooks)).toHaveBeenCalledWith(
-      expect.objectContaining({ title: 'Sto lat samotności', author: 'Gabriel García Márquez' })
+      expect.objectContaining({ title: 'Sto lat samotności', author: 'Gabriel García Márquez' }),
     );
   });
 });

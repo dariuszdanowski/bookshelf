@@ -15,6 +15,11 @@ export type BookCandidate = {
   publisher: string | null;
   publishedYear: number | null;
   coverUrl: string | null;
+  /** Krótki opis z publicznej bazy (S-17, FR-032) — tylko Google Books; OL (drugi
+   *  request per kandydat) i BN (brak danych w źródle) świadomie zwracają null.
+   *  Pole wymagane w typie (nullable w wartości) — wymusza świadomą decyzję
+   *  w każdym mapperze źródła. */
+  description: string | null;
 };
 
 export type ScoredCandidate = BookCandidate & { matchScore: number };
@@ -108,7 +113,10 @@ export type ConfirmDetectionInput = z.infer<typeof ConfirmDetectionSchema>;
 // POST /api/detections/[id]/correct — edycja pól lub wpis ręczny (brak candidate)
 const CorrectedFieldsShape = {
   title: z.string().min(1, 'Tytuł nie może być pusty').max(300),
-  authors: z.array(z.string().min(1).max(200)).min(1, 'Podaj co najmniej jednego autora').optional(),
+  authors: z
+    .array(z.string().min(1).max(200))
+    .min(1, 'Podaj co najmniej jednego autora')
+    .optional(),
   publisher: z.string().max(200).optional(),
   published_year: z
     .number()
@@ -130,8 +138,14 @@ export const CorrectDetectionSchema = z.discriminatedUnion('mode', [
     mode: z.literal('manual_entry'),
     candidate_id: z.undefined().optional(),
     ...CorrectedFieldsShape,
-    isbn_13: z.string().regex(/^\d{13}$/).optional(),
-    isbn_10: z.string().regex(/^\d{9}[\dX]$/).optional(),
+    isbn_13: z
+      .string()
+      .regex(/^\d{13}$/)
+      .optional(),
+    isbn_10: z
+      .string()
+      .regex(/^\d{9}[\dX]$/)
+      .optional(),
   }),
 ]);
 export type CorrectDetectionInput = z.infer<typeof CorrectDetectionSchema>;
@@ -143,7 +157,7 @@ export const ConfirmBatchSchema = z.object({
       z.object({
         detection_id: z.uuid(),
         candidate_id: z.uuid(),
-      })
+      }),
     )
     .min(1, 'Lista items nie może być pusta'),
 });
@@ -160,7 +174,7 @@ export type UpdateBookReadInput = z.infer<typeof UpdateBookReadSchema>;
 // PATCH /api/books/[id] — pełny update edytowalnych pól (S-33): is_read, override
 // okładki ORAZ ręczna edycja metadanych (user jest ostateczną instancją — automaty
 // to tylko propozycje). Każde pole opcjonalne; `null` = wyczyść; wymaga ≥1 pola.
-// search_text jest GENERATED z (title, authors, publisher) → auto-aktualizacja.
+// search_text jest GENERATED z (title, authors, publisher, description) → auto-aktualizacja.
 export const UpdateBookSchema = z
   .object({
     is_read: z.boolean().optional(),
@@ -173,9 +187,26 @@ export const UpdateBookSchema = z
     title: z.string().min(1, 'Tytuł nie może być pusty').max(300).optional(),
     authors: z.array(z.string().min(1).max(200)).optional(),
     publisher: z.string().max(300).nullable().optional(),
-    published_year: z.number().int().min(1000, 'Rok po 1000').max(2100, 'Rok przed 2100').nullable().optional(),
-    isbn_13: z.string().regex(/^\d{13}$/, 'ISBN-13 = 13 cyfr').nullable().optional(),
-    isbn_10: z.string().regex(/^\d{9}[\dX]$/, 'ISBN-10 = 10 znaków').nullable().optional(),
+    published_year: z
+      .number()
+      .int()
+      .min(1000, 'Rok po 1000')
+      .max(2100, 'Rok przed 2100')
+      .nullable()
+      .optional(),
+    isbn_13: z
+      .string()
+      .regex(/^\d{13}$/, 'ISBN-13 = 13 cyfr')
+      .nullable()
+      .optional(),
+    isbn_10: z
+      .string()
+      .regex(/^\d{9}[\dX]$/, 'ISBN-10 = 10 znaków')
+      .nullable()
+      .optional(),
+    // S-17: opis z wybranego kandydata (BookModal edit = ręczny per-book backfill
+    // starych książek); bez kontrolki UI — payload dołącza go tylko z kandydata.
+    description: z.string().max(2000).nullable().optional(),
   })
   .strict()
   .refine((v) => Object.keys(v).length > 0, { message: 'Podaj co najmniej jedno pole.' });
@@ -202,6 +233,8 @@ const IdentifyCandidateShape = z.object({
   coverUrl: z.string().url().max(1000).nullable().optional(),
   source: z.string().max(50).nullable().optional(),
   externalId: z.string().max(200).nullable().optional(),
+  // S-17: opis z kandydata (GB) — propagowany do books.description → search_text.
+  description: z.string().max(2000).nullable().optional(),
 });
 export const IdentifyBookSchema = z.discriminatedUnion('mode', [
   z.object({
@@ -252,9 +285,18 @@ export const AddPurchaseSchema = z
       .min(1000, 'Rok musi być po 1000')
       .max(2100, 'Rok musi być przed 2100')
       .optional(),
-    isbn_13: z.string().regex(/^\d{13}$/).optional(),
-    isbn_10: z.string().regex(/^\d{9}[\dX]$/).optional(),
-    purchase_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Data w formacie YYYY-MM-DD').optional(),
+    isbn_13: z
+      .string()
+      .regex(/^\d{13}$/)
+      .optional(),
+    isbn_10: z
+      .string()
+      .regex(/^\d{9}[\dX]$/)
+      .optional(),
+    purchase_date: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data w formacie YYYY-MM-DD')
+      .optional(),
     // S-33: dodanie ręczne na DOWOLNĄ półkę (bez zdjęcia). Brak → „Zakupione" (Flow B).
     shelf_id: z.uuid().optional(),
     cover_url: z.string().url().max(1000).optional(),
@@ -263,6 +305,8 @@ export const AddPurchaseSchema = z
     user_cover_url: z.string().url().max(1000).optional(),
     cover_photo_url: z.string().url().max(1000).optional(),
     cover_source: z.enum(['auto', 'url', 'photo']).optional(),
+    // S-17: opis z wybranego kandydata (BookModal add) → books.description → search_text.
+    description: z.string().max(2000).nullable().optional(),
   })
   .strict();
 export type AddPurchaseInput = z.infer<typeof AddPurchaseSchema>;

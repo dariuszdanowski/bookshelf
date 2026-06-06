@@ -15,10 +15,15 @@ function makeContext(opts: {
   book?: { id: string; title: string; isbn_13: string | null; isbn_10: string | null } | null;
   user?: boolean;
 }) {
-  const book = opts.book !== undefined ? opts.book : { id: BOOK_ID, title: 'Solaris', isbn_13: '9788373191723', isbn_10: null };
+  const book =
+    opts.book !== undefined
+      ? opts.book
+      : { id: BOOK_ID, title: 'Solaris', isbn_13: '9788373191723', isbn_10: null };
   const updateEq = vi.fn().mockResolvedValue({ error: null });
   const fromMock = vi.fn(() => ({
-    select: vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle: vi.fn().mockResolvedValue({ data: book, error: null }) })) })),
+    select: vi.fn(() => ({
+      eq: vi.fn(() => ({ maybeSingle: vi.fn().mockResolvedValue({ data: book, error: null }) })),
+    })),
     update: vi.fn(() => ({ eq: updateEq })),
   }));
   return {
@@ -49,7 +54,9 @@ describe('GET /api/books/[id]/cover-suggestion', () => {
   });
 
   it('cover_url null gdy brak ISBN', async () => {
-    const res = await GET(makeContext({ book: { id: BOOK_ID, title: 'X', isbn_13: null, isbn_10: null } }));
+    const res = await GET(
+      makeContext({ book: { id: BOOK_ID, title: 'X', isbn_13: null, isbn_10: null } }),
+    );
     expect(res.status).toBe(200);
     const json = (await res.json()) as ApiJson;
     expect(json.data!.cover_url).toBeNull();
@@ -68,7 +75,20 @@ describe('GET /api/books/[id]/cover-suggestion', () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 404 }));
     vi.mocked(searchGoogleBooks).mockResolvedValue({
       ok: true,
-      candidates: [{ source: 'google_books', externalId: 'gb', title: 'Solaris', authors: ['Lem'], isbn10: null, isbn13: '9788373191723', publisher: null, publishedYear: null, coverUrl: 'https://books.google.com/cover.jpg' }],
+      candidates: [
+        {
+          source: 'google_books',
+          externalId: 'gb',
+          title: 'Solaris',
+          authors: ['Lem'],
+          isbn10: null,
+          isbn13: '9788373191723',
+          publisher: null,
+          publishedYear: null,
+          coverUrl: 'https://books.google.com/cover.jpg',
+          description: null,
+        },
+      ],
     });
     const res = await GET(makeContext({}));
     const json = (await res.json()) as ApiJson;
