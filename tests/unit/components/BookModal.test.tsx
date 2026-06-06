@@ -110,10 +110,10 @@ describe('BookModal — tryb add', () => {
 
     render(<BookModal mode="add" shelfId={SHELF_ID} onClose={vi.fn()} />);
 
-    // Otwórz panel
+    // W trybie add SearchPanel ma hideForm=true — wpisz dane w głównym formularzu,
+    // klik „Wyszukaj po danych" auto-odpala wyszukiwanie po initialTitle/initialIsbn.
+    fireEvent.change(screen.getByTestId('book-field-title'), { target: { value: 'Solaris' } });
     fireEvent.click(screen.getByTestId('search-candidates-toggle'));
-    fireEvent.change(screen.getByTestId('candidates-title'), { target: { value: 'Solaris' } });
-    fireEvent.click(screen.getByTestId('candidates-search'));
 
     await waitFor(() => screen.getByTestId('candidates-use-0'));
     fireEvent.click(screen.getByTestId('candidates-use-0'));

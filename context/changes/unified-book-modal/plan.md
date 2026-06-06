@@ -302,19 +302,19 @@ oraz ISBN-first flaga w `findBookCandidates` (istniejący `[id]/cover-suggestion
 ### Phase 2: Komponent BookModal(mode)
 
 #### Automated
-- [x] 2.1 Unit BookModal (3 tryby: render/pola/walidacja/prefill/zapis/propose)
-- [x] 2.2 Typecheck + lint
-- [x] 2.3 Build
+- [x] 2.1 Unit BookModal (3 tryby: render/pola/walidacja/prefill/zapis/propose) — 02aa3c6
+- [x] 2.2 Typecheck + lint — 02aa3c6
+- [x] 2.3 Build — 02aa3c6
 
 ### Phase 3: Podmiana użyć + sprzątanie + E2E
 
 #### Automated
-- [ ] 3.1 Pełny unit zielony (testy przeniesione)
-- [ ] 3.2 Typecheck + lint + build
-- [ ] 3.3 E2E (add/edit/propose, „Wyszukaj po danych" mock)
+- [x] 3.1 Pełny unit zielony (testy przeniesione) — 804/804
+- [x] 3.2 Typecheck + lint + build — zielone
+- [x] 3.3 E2E (add/edit/propose, „Wyszukaj po danych" mock) — 122 passed / 2 skipped
 
 #### Manual
-- [ ] 3.4 Dodanie książki na półkę z okna (sam ISBN → wyszukaj → wybór → zapis)
-- [ ] 3.5 Edycja istniejącej (pola + okładka + re-identyfikacja)
-- [ ] 3.6 Podgląd kandydata (read-only) + „Szukaj w sieci"
-- [ ] 3.7 Brak regresji: toggle read, przenoszenie, wyszukiwarka katalogu
+- [x] 3.4 Dodanie książki na półkę z okna (sam ISBN → wyszukaj → wybór → zapis) — potwierdzone przez usera
+- [x] 3.5 Edycja istniejącej (pola + okładka + re-identyfikacja) — potwierdzone przez usera
+- [x] 3.6 Podgląd kandydata (read-only) + „Szukaj w sieci" — potwierdzone przez usera
+- [x] 3.7 Brak regresji: toggle read, przenoszenie, wyszukiwarka katalogu — potwierdzone przez usera
