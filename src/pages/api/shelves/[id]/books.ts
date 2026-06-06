@@ -48,7 +48,9 @@ export const GET: APIRoute = async ({ params, locals }) => {
   // Join shelf_entries → books; is_current=true; order position_index ASC nulls last
   const { data: rows, error } = await locals.supabase
     .from('shelf_entries')
-    .select('position_index, photo_id, books(id, title, authors, cover_url, published_year, is_read, isbn_13, isbn_10, publisher, user_cover_url, cover_photo_url, cover_source)')
+    .select(
+      'position_index, photo_id, detection_id, books(id, title, authors, cover_url, published_year, is_read, isbn_13, isbn_10, publisher, user_cover_url, cover_photo_url, cover_source)',
+    )
     .eq('shelf_id', shelfId)
     .eq('is_current', true)
     .order('position_index', { ascending: true, nullsFirst: false });
@@ -59,7 +61,11 @@ export const GET: APIRoute = async ({ params, locals }) => {
       message: error.message,
       code: error.code,
     });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się pobrać książek.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się pobrać książek.',
+    });
   }
 
   const books: ShelfBookDTO[] = (rows ?? [])
@@ -88,6 +94,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
         position_index: row.position_index,
         is_read: b.is_read,
         photo_id: row.photo_id,
+        detection_id: row.detection_id,
         isbn_13: b.isbn_13,
         isbn_10: b.isbn_10,
         publisher: b.publisher,

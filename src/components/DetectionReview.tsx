@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import type { BookCandidateDTO } from '../lib/books/schema';
 import type { PhotoDTO, DetectionWithCandidatesDTO, BboxEditSet } from '../lib/photos/schema';
@@ -105,7 +105,17 @@ function WebSearchButton({
       title={`Wyszukaj „${query}" w Google (nowa karta)`}
       className={`inline-flex items-center gap-1 rounded-md border border-sky-300 bg-sky-50 text-xs font-medium text-sky-700 hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-900/20 dark:text-sky-300 dark:hover:bg-sky-900/40 ${sizeCls}`}
     >
-      <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <svg
+        width="12"
+        height="12"
+        viewBox="0 0 20 20"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
         <circle cx="8.5" cy="8.5" r="5.5" />
         <line x1="13" y1="13" x2="18" y2="18" />
       </svg>
@@ -138,7 +148,7 @@ function CoverImage({ url, title }: { url: string | null; title: string }) {
   if (!url || failed) {
     return (
       <div
-        className="h-20 w-14 flex-shrink-0 rounded bg-gray-100 text-gray-300 flex items-center justify-center"
+        className="flex h-20 w-14 flex-shrink-0 items-center justify-center rounded bg-gray-100 text-gray-300"
         aria-hidden="true"
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
@@ -220,7 +230,11 @@ function CorrectForm({
         title: title.trim(),
       };
       if (candidateId) body.candidate_id = candidateId;
-      if (authors.trim()) body.authors = authors.split(',').map((a) => a.trim()).filter(Boolean);
+      if (authors.trim())
+        body.authors = authors
+          .split(',')
+          .map((a) => a.trim())
+          .filter(Boolean);
       if (publisher.trim()) body.publisher = publisher.trim();
       if (year.trim()) body.published_year = parseInt(year, 10);
 
@@ -261,7 +275,7 @@ function CorrectForm({
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           required
-          className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+          className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:ring-1 focus:ring-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
         />
       </div>
       <div>
@@ -272,7 +286,7 @@ function CorrectForm({
           data-testid="correct-authors"
           value={authors}
           onChange={(e) => setAuthors(e.target.value)}
-          className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+          className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:ring-1 focus:ring-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
         />
       </div>
       <div className="flex gap-2">
@@ -282,7 +296,7 @@ function CorrectForm({
             data-testid="correct-publisher"
             value={publisher}
             onChange={(e) => setPublisher(e.target.value)}
-            className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+            className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:ring-1 focus:ring-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
           />
         </div>
         <div className="w-24">
@@ -294,7 +308,7 @@ function CorrectForm({
             max="2100"
             value={year}
             onChange={(e) => setYear(e.target.value)}
-            className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+            className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:ring-1 focus:ring-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
           />
         </div>
       </div>
@@ -339,7 +353,15 @@ type RematchFormProps = {
   onCancel: () => void;
 };
 
-function RematchForm({ initialTitle, initialAuthor, initialIsbn, busy, errorMsg, onSubmit, onCancel }: RematchFormProps) {
+function RematchForm({
+  initialTitle,
+  initialAuthor,
+  initialIsbn,
+  busy,
+  errorMsg,
+  onSubmit,
+  onCancel,
+}: RematchFormProps) {
   const [title, setTitle] = useState(initialTitle);
   const [author, setAuthor] = useState(initialAuthor);
   const [isbn, setIsbn] = useState(initialIsbn);
@@ -392,7 +414,11 @@ function RematchForm({ initialTitle, initialAuthor, initialIsbn, busy, errorMsg,
         </label>
       </div>
       {errorMsg && (
-        <p data-testid="rematch-error" className="text-xs text-red-600 dark:text-red-400" role="alert">
+        <p
+          data-testid="rematch-error"
+          className="text-xs text-red-600 dark:text-red-400"
+          role="alert"
+        >
           {errorMsg}
         </p>
       )}
@@ -440,10 +466,23 @@ function RejectedDecidedView({
       data-testid={testId}
       className="flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-800/50"
     >
-      <svg className="flex-shrink-0 text-gray-400" width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+      <svg
+        className="flex-shrink-0 text-gray-400"
+        width="16"
+        height="16"
+        viewBox="0 0 20 20"
+        fill="currentColor"
+        aria-hidden="true"
+      >
+        <path
+          fillRule="evenodd"
+          d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+          clipRule="evenodd"
+        />
       </svg>
-      <span className="truncate text-sm text-gray-500 line-through dark:text-gray-400">{title}</span>
+      <span className="truncate text-sm text-gray-500 line-through dark:text-gray-400">
+        {title}
+      </span>
       <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-gray-700 dark:text-gray-300">
         Odrzucono
       </span>
@@ -477,7 +516,7 @@ function useDetectionDecision(
   detection: DetectionWithCandidatesDTO,
   onDecided: (detectionId: string, kind: DecisionKind) => void,
   onRefined?: (next: DetectionWithCandidatesDTO) => void,
-  onUndecided?: (detectionId: string) => void
+  onUndecided?: (detectionId: string) => void,
 ) {
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
   const [state, setState] = useState<DecisionState>('pending');
@@ -561,7 +600,11 @@ function useDetectionDecision(
     }
   }
 
-  async function handleRematch(title: string, author: string | null, isbn: string | null): Promise<boolean> {
+  async function handleRematch(
+    title: string,
+    author: string | null,
+    isbn: string | null,
+  ): Promise<boolean> {
     setBusy(true);
     setErrorMsg(null);
     try {
@@ -579,8 +622,14 @@ function useDetectionDecision(
         };
         error?: { message?: string };
       };
-      if (res.status === 429) { setErrorMsg('Rate limit, spróbuj za chwilę.'); return false; }
-      if (!res.ok) { setErrorMsg(json.error?.message ?? `Błąd wyszukiwania (${res.status})`); return false; }
+      if (res.status === 429) {
+        setErrorMsg('Rate limit, spróbuj za chwilę.');
+        return false;
+      }
+      if (!res.ok) {
+        setErrorMsg(json.error?.message ?? `Błąd wyszukiwania (${res.status})`);
+        return false;
+      }
       const nextDetection = json.data?.detection;
       const candidates = json.data?.candidates ?? [];
       if (nextDetection) {
@@ -691,7 +740,16 @@ type DetectionCardProps = {
   photoId?: string;
 };
 
-function DetectionCard({ detection, onDecided, onRefined, onUndecided, onSelect, isSelected = false, onNavigateToMarker, photoId }: DetectionCardProps) {
+function DetectionCard({
+  detection,
+  onDecided,
+  onRefined,
+  onUndecided,
+  onSelect,
+  isSelected = false,
+  onNavigateToMarker,
+  photoId,
+}: DetectionCardProps) {
   const [showAlts, setShowAlts] = useState(false);
   const [showCorrectForm, setShowCorrectForm] = useState(false);
   const [showRematchForm, setShowRematchForm] = useState(false);
@@ -729,12 +787,22 @@ function DetectionCard({ detection, onDecided, onRefined, onUndecided, onSelect,
     return (
       <div
         data-testid={`detection-card-${detection.position_index}`}
-        className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 flex items-center gap-2"
+        className="flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-3"
       >
-        <svg className="text-green-600 flex-shrink-0" width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
-          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+        <svg
+          className="flex-shrink-0 text-green-600"
+          width="16"
+          height="16"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path
+            fillRule="evenodd"
+            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+            clipRule="evenodd"
+          />
         </svg>
-        <span className="text-sm text-green-700 font-medium">{detection.raw_title}</span>
+        <span className="text-sm font-medium text-green-700">{detection.raw_title}</span>
       </div>
     );
   }
@@ -750,18 +818,29 @@ function DetectionCard({ detection, onDecided, onRefined, onUndecided, onSelect,
       {/* Header */}
       <div className="mb-2 flex items-center gap-2">
         <span className="text-xs font-medium text-gray-400">#{detection.position_index}</span>
-        <span className="text-sm font-medium text-gray-700 truncate">{detection.raw_title}</span>
+        <span className="truncate text-sm font-medium text-gray-700">{detection.raw_title}</span>
         {detection.raw_author && (
-          <span className="text-xs text-gray-500 truncate">&mdash; {detection.raw_author}</span>
+          <span className="truncate text-xs text-gray-500">&mdash; {detection.raw_author}</span>
         )}
         {onNavigateToMarker && (
           <button
             type="button"
             title="Przejdź do ramki na zdjęciu"
             className="ml-auto flex-shrink-0 rounded p-0.5 text-gray-400 hover:bg-blue-50 hover:text-blue-500"
-            onClick={(e) => { e.stopPropagation(); onNavigateToMarker(); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onNavigateToMarker();
+            }}
           >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 14 14"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            >
               <circle cx="7" cy="7" r="3" />
               <line x1="7" y1="1" x2="7" y2="4" />
               <line x1="7" y1="10" x2="7" y2="13" />
@@ -810,7 +889,10 @@ function DetectionCard({ detection, onDecided, onRefined, onUndecided, onSelect,
           )}
           <button
             data-testid="rematch-button"
-            onClick={() => { setShowRematchForm(true); setRematchNoResults(false); }}
+            onClick={() => {
+              setShowRematchForm(true);
+              setRematchNoResults(false);
+            }}
             className="mt-2 w-full rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
           >
             Szukaj po tytule
@@ -860,12 +942,12 @@ function DetectionCard({ detection, onDecided, onRefined, onUndecided, onSelect,
           {/* Candidate selector for alternatives */}
           {alts.length > 0 && (
             <div className="mb-2">
-              <label className="block text-xs text-gray-500 mb-1">Aktywna propozycja:</label>
+              <label className="mb-1 block text-xs text-gray-500">Aktywna propozycja:</label>
               <div className="flex flex-wrap gap-1">
                 <button
                   key={top.id}
                   onClick={() => setSelectedCandidateId(top.id)}
-                  className={`rounded px-2 py-0.5 text-xs border ${activeCandidateId === top.id ? 'bg-blue-100 border-blue-400 text-blue-700' : 'bg-white border-gray-200 text-gray-600'}`}
+                  className={`rounded border px-2 py-0.5 text-xs ${activeCandidateId === top.id ? 'border-blue-400 bg-blue-100 text-blue-700' : 'border-gray-200 bg-white text-gray-600'}`}
                 >
                   {top.title.slice(0, 30)} ({Math.round(top.matchScore * 100)}%)
                 </button>
@@ -873,7 +955,7 @@ function DetectionCard({ detection, onDecided, onRefined, onUndecided, onSelect,
                   <button
                     key={alt.id}
                     onClick={() => setSelectedCandidateId(alt.id)}
-                    className={`rounded px-2 py-0.5 text-xs border ${activeCandidateId === alt.id ? 'bg-blue-100 border-blue-400 text-blue-700' : 'bg-white border-gray-200 text-gray-600'}`}
+                    className={`rounded border px-2 py-0.5 text-xs ${activeCandidateId === alt.id ? 'border-blue-400 bg-blue-100 text-blue-700' : 'border-gray-200 bg-white text-gray-600'}`}
                   >
                     {alt.title.slice(0, 30)} ({Math.round(alt.matchScore * 100)}%)
                   </button>
@@ -884,32 +966,45 @@ function DetectionCard({ detection, onDecided, onRefined, onUndecided, onSelect,
 
           {/* Active candidate card */}
           {activeCandidate && (
-            <div className={`flex gap-3 rounded-lg border-2 p-3 ${TIER_STYLES[getMatchTier(activeCandidate.matchScore)].border}`}>
+            <div
+              className={`flex gap-3 rounded-lg border-2 p-3 ${TIER_STYLES[getMatchTier(activeCandidate.matchScore)].border}`}
+            >
               <button
                 type="button"
                 data-testid="candidate-cover-button"
-                onClick={(e) => { e.stopPropagation(); setShowCandidateDetail(true); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowCandidateDetail(true);
+                }}
                 title="Pokaż szczegóły książki"
-                className="cursor-zoom-in rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className="cursor-zoom-in rounded focus:ring-2 focus:ring-blue-400 focus:outline-none"
               >
                 <CoverImage url={activeCandidate.coverUrl} title={activeCandidate.title} />
               </button>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-start gap-2">
-                  <p data-testid="candidate-title" className="font-semibold text-gray-900 leading-tight">
+                  <p
+                    data-testid="candidate-title"
+                    className="leading-tight font-semibold text-gray-900"
+                  >
                     {activeCandidate.title}
                   </p>
-                  <span className={`rounded px-2 py-0.5 text-xs font-medium ${TIER_STYLES[getMatchTier(activeCandidate.matchScore)].badge}`}>
+                  <span
+                    className={`rounded px-2 py-0.5 text-xs font-medium ${TIER_STYLES[getMatchTier(activeCandidate.matchScore)].badge}`}
+                  >
                     {TIER_STYLES[getMatchTier(activeCandidate.matchScore)].label}
                   </span>
                   {isHigh && <span className="text-xs text-green-600">✓ Pre-zaznaczone</span>}
                 </div>
                 {activeCandidate.authors.length > 0 && (
-                  <p className="mt-0.5 text-sm text-gray-600">{activeCandidate.authors.join(', ')}</p>
+                  <p className="mt-0.5 text-sm text-gray-600">
+                    {activeCandidate.authors.join(', ')}
+                  </p>
                 )}
                 {activeCandidate.publisher && (
                   <p className="mt-0.5 text-xs text-gray-500">
-                    {activeCandidate.publisher}{activeCandidate.publishedYear ? `, ${activeCandidate.publishedYear}` : ''}
+                    {activeCandidate.publisher}
+                    {activeCandidate.publishedYear ? `, ${activeCandidate.publishedYear}` : ''}
                   </p>
                 )}
                 {activeCandidate.isbn13 && (
@@ -926,16 +1021,21 @@ function DetectionCard({ detection, onDecided, onRefined, onUndecided, onSelect,
           {alts.length > 0 && (
             <button
               onClick={() => setShowAlts((v) => !v)}
-              className="mt-2 text-xs text-blue-600 hover:text-blue-800 underline"
+              className="mt-2 text-xs text-blue-600 underline hover:text-blue-800"
               data-testid="toggle-alts"
             >
-              {showAlts ? 'Ukryj alternatywy' : `${alts.length} alternatyw${alts.length === 1 ? 'a' : 'y'}`}
+              {showAlts
+                ? 'Ukryj alternatywy'
+                : `${alts.length} alternatyw${alts.length === 1 ? 'a' : 'y'}`}
             </button>
           )}
           {showAlts && (
             <div className="mt-2 space-y-1">
               {alts.map((alt) => (
-                <div key={alt.id} className="flex gap-2 rounded border border-gray-200 px-2 py-1 text-xs text-gray-600">
+                <div
+                  key={alt.id}
+                  className="flex gap-2 rounded border border-gray-200 px-2 py-1 text-xs text-gray-600"
+                >
                   <span className="font-medium">{alt.title}</span>
                   <span className="text-gray-400">{Math.round(alt.matchScore * 100)}%</span>
                 </div>
@@ -1002,18 +1102,22 @@ function DetectionCard({ detection, onDecided, onRefined, onUndecided, onSelect,
             <button
               data-testid="rematch-button"
               disabled={busy}
-              onClick={() => { setShowRematchForm(true); setRematchNoResults(false); }}
+              onClick={() => {
+                setShowRematchForm(true);
+                setRematchNoResults(false);
+              }}
               className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
             >
               Szukaj po tytule
             </button>
           )}
-          <WebSearchButton
-            title={detection.raw_title}
-            author={detection.raw_author}
+          <WebSearchButton title={detection.raw_title} author={detection.raw_author} size="lg" />
+          <RefineButton
+            bbox={detection.bbox}
+            busy={busy}
+            onClick={() => void handleRefine()}
             size="lg"
           />
-          <RefineButton bbox={detection.bbox} busy={busy} onClick={() => void handleRefine()} size="lg" />
         </div>
       )}
 
@@ -1040,7 +1144,11 @@ function DetectionCard({ detection, onDecided, onRefined, onUndecided, onSelect,
       )}
 
       {showCandidateDetail && activeCandidate && (
-        <BookModal mode="propose" book={candidateToDetail(activeCandidate)} onClose={() => setShowCandidateDetail(false)} />
+        <BookModal
+          mode="propose"
+          book={candidateToDetail(activeCandidate)}
+          onClose={() => setShowCandidateDetail(false)}
+        />
       )}
     </div>
   );
@@ -1132,7 +1240,15 @@ type DetectionRowProps = {
   onNavigateToMarker?: () => void;
 };
 
-export function DetectionRow({ detection, onDecided, onRefined, onUndecided, onSelect, isSelected = false, onNavigateToMarker }: DetectionRowProps) {
+export function DetectionRow({
+  detection,
+  onDecided,
+  onRefined,
+  onUndecided,
+  onSelect,
+  isSelected = false,
+  onNavigateToMarker,
+}: DetectionRowProps) {
   const [showModal, setShowModal] = useState(false);
   const [showRematchForm, setShowRematchForm] = useState(false);
   const {
@@ -1167,8 +1283,18 @@ export function DetectionRow({ detection, onDecided, onRefined, onUndecided, onS
         data-testid={`detection-row-${detection.position_index}`}
         className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2"
       >
-        <svg className="flex-shrink-0 text-green-600" width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
-          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+        <svg
+          className="flex-shrink-0 text-green-600"
+          width="14"
+          height="14"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path
+            fillRule="evenodd"
+            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+            clipRule="evenodd"
+          />
         </svg>
         <span className="truncate text-sm font-medium text-green-700">{detection.raw_title}</span>
       </div>
@@ -1177,7 +1303,8 @@ export function DetectionRow({ detection, onDecided, onRefined, onUndecided, onS
 
   const displayTitle = activeCandidate?.title ?? detection.raw_title;
   const displayAuthor =
-    (activeCandidate?.authors.length ? activeCandidate.authors.join(', ') : detection.raw_author) ?? '';
+    (activeCandidate?.authors.length ? activeCandidate.authors.join(', ') : detection.raw_author) ??
+    '';
 
   return (
     <div
@@ -1191,9 +1318,20 @@ export function DetectionRow({ detection, onDecided, onRefined, onUndecided, onS
           type="button"
           title="Przejdź do ramki na zdjęciu"
           className="flex-shrink-0 rounded p-0.5 text-gray-400 hover:bg-blue-50 hover:text-blue-500"
-          onClick={(e) => { e.stopPropagation(); onNavigateToMarker(); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            onNavigateToMarker();
+          }}
         >
-          <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 14 14"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          >
             <circle cx="7" cy="7" r="3" />
             <line x1="7" y1="1" x2="7" y2="4" />
             <line x1="7" y1="10" x2="7" y2="13" />
@@ -1287,12 +1425,13 @@ export function DetectionRow({ detection, onDecided, onRefined, onUndecided, onS
             </button>
           </>
         )}
-        <WebSearchButton
-          title={detection.raw_title}
-          author={detection.raw_author}
+        <WebSearchButton title={detection.raw_title} author={detection.raw_author} size="md" />
+        <RefineButton
+          bbox={detection.bbox}
+          busy={busy}
+          onClick={() => void handleRefine()}
           size="md"
         />
-        <RefineButton bbox={detection.bbox} busy={busy} onClick={() => void handleRefine()} size="md" />
       </div>
 
       {showRematchForm && (
@@ -1341,7 +1480,15 @@ type DetectionTileProps = {
   onNavigateToMarker?: () => void;
 };
 
-export function DetectionTile({ detection, onDecided, onRefined, onUndecided, onSelect, isSelected = false, onNavigateToMarker }: DetectionTileProps) {
+export function DetectionTile({
+  detection,
+  onDecided,
+  onRefined,
+  onUndecided,
+  onSelect,
+  isSelected = false,
+  onNavigateToMarker,
+}: DetectionTileProps) {
   const [showModal, setShowModal] = useState(false);
   const [showRematchForm, setShowRematchForm] = useState(false);
   const [showCandidateDetail, setShowCandidateDetail] = useState(false);
@@ -1377,10 +1524,22 @@ export function DetectionTile({ detection, onDecided, onRefined, onUndecided, on
         data-testid={`detection-tile-${detection.position_index}`}
         className="flex flex-col items-center justify-center rounded-xl border border-green-200 bg-green-50 p-3 text-center"
       >
-        <svg className="text-green-600" width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+        <svg
+          className="text-green-600"
+          width="20"
+          height="20"
+          viewBox="0 0 20 20"
+          fill="currentColor"
+        >
+          <path
+            fillRule="evenodd"
+            d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+            clipRule="evenodd"
+          />
         </svg>
-        <span className="mt-1 w-full truncate text-xs font-medium text-green-700">{detection.raw_title}</span>
+        <span className="mt-1 w-full truncate text-xs font-medium text-green-700">
+          {detection.raw_title}
+        </span>
       </div>
     );
   }
@@ -1398,9 +1557,12 @@ export function DetectionTile({ detection, onDecided, onRefined, onUndecided, on
           <button
             type="button"
             data-testid="candidate-cover-button"
-            onClick={(e) => { e.stopPropagation(); setShowCandidateDetail(true); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowCandidateDetail(true);
+            }}
             title="Pokaż szczegóły książki"
-            className="cursor-zoom-in rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="cursor-zoom-in rounded focus:ring-2 focus:ring-blue-400 focus:outline-none"
           >
             <CoverImage url={activeCandidate.coverUrl} title={displayTitle} />
           </button>
@@ -1410,7 +1572,11 @@ export function DetectionTile({ detection, onDecided, onRefined, onUndecided, on
       </div>
 
       {showCandidateDetail && activeCandidate && (
-        <BookModal mode="propose" book={candidateToDetail(activeCandidate)} onClose={() => setShowCandidateDetail(false)} />
+        <BookModal
+          mode="propose"
+          book={candidateToDetail(activeCandidate)}
+          onClose={() => setShowCandidateDetail(false)}
+        />
       )}
 
       <div className="mt-2 flex items-center gap-1">
@@ -1420,9 +1586,20 @@ export function DetectionTile({ detection, onDecided, onRefined, onUndecided, on
             type="button"
             title="Przejdź do ramki na zdjęciu"
             className="flex-shrink-0 rounded p-0.5 text-gray-400 hover:bg-blue-50 hover:text-blue-500"
-            onClick={(e) => { e.stopPropagation(); onNavigateToMarker(); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onNavigateToMarker();
+            }}
           >
-            <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 14 14"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            >
               <circle cx="7" cy="7" r="3" />
               <line x1="7" y1="1" x2="7" y2="4" />
               <line x1="7" y1="10" x2="7" y2="13" />
@@ -1432,7 +1609,9 @@ export function DetectionTile({ detection, onDecided, onRefined, onUndecided, on
           </button>
         )}
         {activeCandidate ? (
-          <span className={`rounded px-1.5 py-0.5 text-xs font-medium ${TIER_STYLES[getMatchTier(activeCandidate.matchScore)].badge}`}>
+          <span
+            className={`rounded px-1.5 py-0.5 text-xs font-medium ${TIER_STYLES[getMatchTier(activeCandidate.matchScore)].badge}`}
+          >
             {Math.round(activeCandidate.matchScore * 100)}%
           </span>
         ) : (
@@ -1512,12 +1691,13 @@ export function DetectionTile({ detection, onDecided, onRefined, onUndecided, on
             </button>
           </>
         )}
-        <WebSearchButton
-          title={detection.raw_title}
-          author={detection.raw_author}
+        <WebSearchButton title={detection.raw_title} author={detection.raw_author} size="sm" />
+        <RefineButton
+          bbox={detection.bbox}
+          busy={busy}
+          onClick={() => void handleRefine()}
           size="sm"
         />
-        <RefineButton bbox={detection.bbox} busy={busy} onClick={() => void handleRefine()} size="sm" />
       </div>
 
       {showRematchForm && (
@@ -1617,7 +1797,14 @@ export function useDetectionViewMode(): [DetectionViewMode, (m: DetectionViewMod
 // Główny komponent
 // ---------------------------------------------------------------------------
 
-export default function DetectionReview({ photoId }: { photoId: string }) {
+export default function DetectionReview({
+  photoId,
+  initialFocusedDetectionId = null,
+}: {
+  photoId: string;
+  // S-37: deep-link z karty książki (?detection=) — fokus ramki + scroll listy po załadowaniu.
+  initialFocusedDetectionId?: string | null;
+}) {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [photo, setPhoto] = useState<PhotoDTO | null>(null);
@@ -1651,13 +1838,39 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
         setDetections(loadedDetections);
         setVisionRun(json.data.vision_run ?? null);
       } catch (err) {
-        if (!cancelled) setErrorMsg(err instanceof Error ? err.message : 'Nie udało się załadować propozycji.');
+        if (!cancelled)
+          setErrorMsg(err instanceof Error ? err.message : 'Nie udało się załadować propozycji.');
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [photoId]);
+
+  // S-37: initial focus z deep-linku — jednorazowo po załadowaniu detekcji.
+  // Nieznane id (detekcja skasowana przy re-process) → cichy no-op, pełny widok.
+  const initialFocusApplied = useRef(false);
+  useEffect(() => {
+    if (loading || initialFocusApplied.current || !initialFocusedDetectionId) return;
+    initialFocusApplied.current = true;
+    const det = detections.find((d) => d.id === initialFocusedDetectionId);
+    if (!det) return;
+    setFocusedDetectionId(det.id);
+    const prefix =
+      viewMode === 'list'
+        ? 'detection-row'
+        : viewMode === 'tiles'
+          ? 'detection-tile'
+          : 'detection-card';
+    // rAF: scroll po wyrenderowaniu listy w bieżącym commicie renderu
+    requestAnimationFrame(() => {
+      document
+        .querySelector(`[data-testid="${prefix}-${det.position_index}"]`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  }, [loading, detections, initialFocusedDetectionId, viewMode]);
 
   function handleDecided(detectionId: string, kind: DecisionKind = 'confirmed') {
     setDecidedIds((prev) => new Set([...prev, detectionId]));
@@ -1701,7 +1914,7 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
 
   // Pre-zaznaczone = detekcje z top kandydatem ≥ 0.75, jeszcze nie zdecydowane
   const preSelected = detections.filter(
-    (d) => !decidedIds.has(d.id) && d.candidates[0] && d.candidates[0].matchScore >= MATCH_HIGH
+    (d) => !decidedIds.has(d.id) && d.candidates[0] && d.candidates[0].matchScore >= MATCH_HIGH,
   );
 
   async function handleBulkConfirm() {
@@ -1719,7 +1932,10 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
         body: JSON.stringify({ items }),
       });
       const json = (await res.json()) as {
-        data?: { confirmed: { detection_id: string }[]; skipped: { detection_id: string; reason: string }[] };
+        data?: {
+          confirmed: { detection_id: string }[];
+          skipped: { detection_id: string; reason: string }[];
+        };
         error?: { message?: string };
       };
       if (!res.ok) {
@@ -1747,7 +1963,10 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
     setActionMsg(null);
     try {
       const res = await fetch(`/api/photos/${photoId}/process`, { method: 'POST' });
-      const json = (await res.json()) as { data?: unknown; error?: { code?: string; message?: string } };
+      const json = (await res.json()) as {
+        data?: unknown;
+        error?: { code?: string; message?: string };
+      };
       if (res.status === 409) {
         setActionMsg('Vision run w toku, poczekaj 1 minutę.');
         return;
@@ -1785,11 +2004,12 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
 
   const estimatedCost = visionRun?.cost_usd ?? photo?.vision_cost_usd;
   const estimatedLatencyMs = visionRun?.latency_ms ?? photo?.vision_latency_ms;
-  const estimateSource = visionRun?.cost_usd != null || visionRun?.latency_ms != null
-    ? 'na bazie ostatniego runu'
-    : photo?.vision_cost_usd != null || photo?.vision_latency_ms != null
-      ? 'na bazie cache zdjęcia'
-      : 'wartość orientacyjna';
+  const estimateSource =
+    visionRun?.cost_usd != null || visionRun?.latency_ms != null
+      ? 'na bazie ostatniego runu'
+      : photo?.vision_cost_usd != null || photo?.vision_latency_ms != null
+        ? 'na bazie cache zdjęcia'
+        : 'wartość orientacyjna';
   const rerunConfirmMessage = `Uruchomimy nowy vision run. Poprzednie wyniki zostaną w historii. Szacowany koszt: ${formatCostEstimate(estimatedCost)} i czas: ${formatDurationEstimate(estimatedLatencyMs)} (${estimateSource}).`;
 
   async function handleRerunMatch() {
@@ -1814,7 +2034,10 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
     }
   }
 
-  async function handleSaveSingleBbox(detectionId: string, bbox: BboxEditSet['updated'][number]['bbox']): Promise<void> {
+  async function handleSaveSingleBbox(
+    detectionId: string,
+    bbox: BboxEditSet['updated'][number]['bbox'],
+  ): Promise<void> {
     const res = await fetch(`/api/detections/${detectionId}/bbox`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -1824,13 +2047,18 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
       const json = (await res.json()) as { error?: { message?: string } };
       throw new Error(json.error?.message ?? `Błąd zapisu bbox (${res.status})`);
     }
-    setDetections((prev) => prev.map((d) => d.id === detectionId ? { ...d, bbox } : d));
+    setDetections((prev) => prev.map((d) => (d.id === detectionId ? { ...d, bbox } : d)));
   }
 
   function handleMarkerContextMenu(detectionId: string) {
     const det = detections.find((d) => d.id === detectionId);
     if (!det) return;
-    const prefix = viewMode === 'list' ? 'detection-row' : viewMode === 'tiles' ? 'detection-tile' : 'detection-card';
+    const prefix =
+      viewMode === 'list'
+        ? 'detection-row'
+        : viewMode === 'tiles'
+          ? 'detection-tile'
+          : 'detection-card';
     document
       .querySelector(`[data-testid="${prefix}-${det.position_index}"]`)
       ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -1856,8 +2084,8 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
         }).then((r) => {
           if (!r.ok) throw new Error(`PATCH ${r.status}`);
           return { detectionId, bbox };
-        })
-      )
+        }),
+      ),
     );
 
     const removeResults = await Promise.allSettled(
@@ -1865,8 +2093,8 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
         fetch(`/api/detections/${detectionId}/reject`, { method: 'POST' }).then((r) => {
           if (!r.ok) throw new Error(`reject ${r.status}`);
           return detectionId;
-        })
-      )
+        }),
+      ),
     );
 
     const addResults = await Promise.allSettled(
@@ -1878,12 +2106,12 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
         }).then(async (r) => {
           if (!r.ok) throw new Error(`POST ${r.status}`);
           return ((await r.json()) as { data: DetectionWithCandidatesDTO }).data;
-        })
-      )
+        }),
+      ),
     );
 
     const failCount = [...updateResults, ...removeResults, ...addResults].filter(
-      (r) => r.status === 'rejected'
+      (r) => r.status === 'rejected',
     ).length;
     if (failCount > 0) setActionMsg(`${failCount} operacji nie powiodło się.`);
 
@@ -1897,7 +2125,9 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
       }
 
       const removedIds = new Set(
-        removeResults.filter((r) => r.status === 'fulfilled').map((r) => (r as PromiseFulfilledResult<string>).value)
+        removeResults
+          .filter((r) => r.status === 'fulfilled')
+          .map((r) => (r as PromiseFulfilledResult<string>).value),
       );
       next = next.filter((d) => !removedIds.has(d.id));
 
@@ -1960,9 +2190,7 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
           <p className="text-gray-500">Brak detekcji dla tego zdjęcia.</p>
           <p className="mt-1 text-sm text-gray-400">{subMsg}</p>
           <div className="mt-4">
-            {actionMsg && (
-              <p className="mb-3 text-sm text-red-600">{actionMsg}</p>
-            )}
+            {actionMsg && <p className="mb-3 text-sm text-red-600">{actionMsg}</p>}
             <button
               data-testid="process-now-button"
               onClick={() => void runRerunVision()}
@@ -2006,8 +2234,7 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
           className="mb-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3"
         >
           <p className="text-xs text-gray-500">
-            Vision: {visionRun.model ?? 'model'} &bull;{' '}
-            {relativeTime(visionRun.created_at)}
+            Vision: {visionRun.model ?? 'model'} &bull; {relativeTime(visionRun.created_at)}
             {visionRun.cost_usd != null && ` · $${visionRun.cost_usd.toFixed(4)}`}
           </p>
           <div className="mt-2 flex flex-wrap gap-2">
@@ -2054,11 +2281,15 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
       )}
 
       <p className="mb-4 text-sm text-gray-600">
-        Wykryto <strong>{detections.length}</strong> &bull; dopasowano <strong>{matchedCount}</strong>
-        {pendingCount > 0 && <> &bull; pozostało <strong>{pendingCount}</strong></>}
-        {photo?.vision_cost_usd != null && (
-          <> &bull; koszt: ${photo.vision_cost_usd.toFixed(4)}</>
+        Wykryto <strong>{detections.length}</strong> &bull; dopasowano{' '}
+        <strong>{matchedCount}</strong>
+        {pendingCount > 0 && (
+          <>
+            {' '}
+            &bull; pozostało <strong>{pendingCount}</strong>
+          </>
         )}
+        {photo?.vision_cost_usd != null && <> &bull; koszt: ${photo.vision_cost_usd.toFixed(4)}</>}
       </p>
 
       <ViewModeSwitcher mode={viewMode} onChange={setViewMode} />
@@ -2066,7 +2297,15 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
       {viewMode === 'list' ? (
         <div className="space-y-2">
           {detections.map((det) => (
-            <div key={det.id} onContextMenu={(e) => { if (e.ctrlKey) { e.preventDefault(); handleCardContextMenu(det); } }}>
+            <div
+              key={det.id}
+              onContextMenu={(e) => {
+                if (e.ctrlKey) {
+                  e.preventDefault();
+                  handleCardContextMenu(det);
+                }
+              }}
+            >
               <DetectionRow
                 detection={det}
                 onDecided={handleDecided}
@@ -2082,7 +2321,15 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
       ) : viewMode === 'tiles' ? (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
           {detections.map((det) => (
-            <div key={det.id} onContextMenu={(e) => { if (e.ctrlKey) { e.preventDefault(); handleCardContextMenu(det); } }}>
+            <div
+              key={det.id}
+              onContextMenu={(e) => {
+                if (e.ctrlKey) {
+                  e.preventDefault();
+                  handleCardContextMenu(det);
+                }
+              }}
+            >
               <DetectionTile
                 detection={det}
                 onDecided={handleDecided}
@@ -2098,7 +2345,15 @@ export default function DetectionReview({ photoId }: { photoId: string }) {
       ) : (
         <div className="space-y-4">
           {detections.map((det) => (
-            <div key={det.id} onContextMenu={(e) => { if (e.ctrlKey) { e.preventDefault(); handleCardContextMenu(det); } }}>
+            <div
+              key={det.id}
+              onContextMenu={(e) => {
+                if (e.ctrlKey) {
+                  e.preventDefault();
+                  handleCardContextMenu(det);
+                }
+              }}
+            >
               <DetectionCard
                 detection={det}
                 onDecided={handleDecided}

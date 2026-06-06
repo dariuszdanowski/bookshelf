@@ -73,6 +73,9 @@ export type ShelfBookDTO = {
   position_index: number | null;
   is_read: boolean;
   photo_id: string | null;
+  // Detekcja źródłowa z aktywnego shelf_entry (S-37) — deep-link do review z fokusem.
+  // NULL dla wpisów ręcznych i po skasowaniu detekcji (FK ON DELETE SET NULL).
+  detection_id: string | null;
   // Pola do podglądu szczegółów książki (S-33). Nullable — starsze wpisy lub
   // ręczne dodania mogą ich nie mieć.
   isbn_13: string | null;

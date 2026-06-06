@@ -9,7 +9,7 @@ const PHOTO_URL = 'https://example.com/shelf.jpg';
 
 function makeDetection(
   positionIndex: number,
-  bbox: { x1: number; y1: number; x2: number; y2: number } | null
+  bbox: { x1: number; y1: number; x2: number; y2: number } | null,
 ): DetectionWithCandidatesDTO {
   return {
     id: `det-${positionIndex}`,
@@ -28,22 +28,21 @@ function makeDetection(
 describe('PhotoDetectionOverlay', () => {
   it('renders nothing when photoUrl is null', () => {
     const { container } = render(
-      <PhotoDetectionOverlay photoUrl={null} detections={[makeDetection(1, { x1: 0.1, y1: 0.1, x2: 0.2, y2: 0.9 })]} />
+      <PhotoDetectionOverlay
+        photoUrl={null}
+        detections={[makeDetection(1, { x1: 0.1, y1: 0.1, x2: 0.2, y2: 0.9 })]}
+      />,
     );
     expect(container.firstChild).toBeNull();
   });
 
   it('renders photo-overlay container when photoUrl is set', () => {
-    render(
-      <PhotoDetectionOverlay photoUrl={PHOTO_URL} detections={[]} />
-    );
+    render(<PhotoDetectionOverlay photoUrl={PHOTO_URL} detections={[]} />);
     expect(screen.getByTestId('photo-overlay')).toBeTruthy();
   });
 
   it('renders img with correct src', () => {
-    render(
-      <PhotoDetectionOverlay photoUrl={PHOTO_URL} detections={[]} />
-    );
+    render(<PhotoDetectionOverlay photoUrl={PHOTO_URL} detections={[]} />);
     const img = screen.getByAltText('Zdjęcie półki z wykrytymi książkami') as HTMLImageElement;
     expect(img.getAttribute('src')).toBe(PHOTO_URL);
   });
@@ -53,9 +52,7 @@ describe('PhotoDetectionOverlay', () => {
       makeDetection(1, { x1: 0.1, y1: 0.1, x2: 0.2, y2: 0.9 }),
       makeDetection(2, null),
     ];
-    render(
-      <PhotoDetectionOverlay photoUrl={PHOTO_URL} detections={detections} />
-    );
+    render(<PhotoDetectionOverlay photoUrl={PHOTO_URL} detections={detections} />);
 
     const img = screen.getByAltText('Zdjęcie półki z wykrytymi książkami');
     fireEvent.load(img);
@@ -66,17 +63,13 @@ describe('PhotoDetectionOverlay', () => {
 
   it('renders no markers before image loads', () => {
     const detections = [makeDetection(1, { x1: 0.1, y1: 0.1, x2: 0.2, y2: 0.9 })];
-    render(
-      <PhotoDetectionOverlay photoUrl={PHOTO_URL} detections={detections} />
-    );
+    render(<PhotoDetectionOverlay photoUrl={PHOTO_URL} detections={detections} />);
     expect(screen.queryByTestId('bbox-marker-1')).toBeNull();
   });
 
   it('renders no markers when all detections have null bbox', () => {
     const detections = [makeDetection(1, null), makeDetection(2, null)];
-    render(
-      <PhotoDetectionOverlay photoUrl={PHOTO_URL} detections={detections} />
-    );
+    render(<PhotoDetectionOverlay photoUrl={PHOTO_URL} detections={detections} />);
     const img = screen.getByAltText('Zdjęcie półki z wykrytymi książkami');
     fireEvent.load(img);
 
@@ -86,9 +79,7 @@ describe('PhotoDetectionOverlay', () => {
 
   it('hides markers when image fails to load (onError)', () => {
     const detections = [makeDetection(1, { x1: 0.1, y1: 0.1, x2: 0.2, y2: 0.9 })];
-    render(
-      <PhotoDetectionOverlay photoUrl={PHOTO_URL} detections={detections} />
-    );
+    render(<PhotoDetectionOverlay photoUrl={PHOTO_URL} detections={detections} />);
     const img = screen.getByAltText('Zdjęcie półki z wykrytymi książkami');
     fireEvent.load(img);
     fireEvent.error(img);
@@ -98,9 +89,7 @@ describe('PhotoDetectionOverlay', () => {
 
   it('marker position_index badge matches detection position_index', () => {
     const detections = [makeDetection(3, { x1: 0.1, y1: 0.1, x2: 0.5, y2: 0.5 })];
-    render(
-      <PhotoDetectionOverlay photoUrl={PHOTO_URL} detections={detections} />
-    );
+    render(<PhotoDetectionOverlay photoUrl={PHOTO_URL} detections={detections} />);
     const img = screen.getByAltText('Zdjęcie półki z wykrytymi książkami');
     fireEvent.load(img);
 
@@ -166,7 +155,10 @@ describe('PhotoDetectionOverlay', () => {
           photoUrl={PHOTO_URL}
           detections={dets}
           isEditing={isEditing}
-          onEditingChange={(v) => { setIsEditing(v); onEditingChange?.(v); }}
+          onEditingChange={(v) => {
+            setIsEditing(v);
+            onEditingChange?.(v);
+          }}
           onApplyEdits={onApplyEdits}
         />
       );
@@ -188,7 +180,7 @@ describe('PhotoDetectionOverlay', () => {
           detections={[makeDetection(1, { x1: 0.1, y1: 0.1, x2: 0.5, y2: 0.9 })]}
           isEditing={true}
           onEditingChange={vi.fn()}
-        />
+        />,
       );
       const img = screen.getByAltText('Zdjęcie półki z wykrytymi książkami');
       fireEvent.load(img);
@@ -207,7 +199,7 @@ describe('PhotoDetectionOverlay', () => {
           isEditing={true}
           onApplyEdits={mockApply}
           onEditingChange={vi.fn()}
-        />
+        />,
       );
       const img = screen.getByAltText('Zdjęcie półki z wykrytymi książkami');
       fireEvent.load(img);
@@ -232,7 +224,7 @@ describe('PhotoDetectionOverlay', () => {
           isEditing={true}
           onApplyEdits={mockApply}
           onEditingChange={mockEditingChange}
-        />
+        />,
       );
 
       fireEvent.click(screen.getByTestId('cancel-bbox-edits-button'));
@@ -248,7 +240,7 @@ describe('PhotoDetectionOverlay', () => {
           detections={[]}
           isEditing={true}
           onEditingChange={vi.fn()}
-        />
+        />,
       );
       const img = screen.getByAltText('Zdjęcie półki z wykrytymi książkami');
       fireEvent.load(img);
@@ -266,7 +258,13 @@ describe('PhotoDetectionOverlay', () => {
       makeDetection(1, { x1: 0.1, y1: 0.1, x2: 0.2, y2: 0.5 }),
       makeDetection(2, { x1: 0.3, y1: 0.1, x2: 0.4, y2: 0.5 }),
     ];
-    render(<PhotoDetectionOverlay photoUrl={PHOTO_URL} detections={detections} focusedDetectionId="det-2" />);
+    render(
+      <PhotoDetectionOverlay
+        photoUrl={PHOTO_URL}
+        detections={detections}
+        focusedDetectionId="det-2"
+      />,
+    );
 
     const img = screen.getByAltText('Zdjęcie półki z wykrytymi książkami');
     fireEvent.load(img);
@@ -274,5 +272,85 @@ describe('PhotoDetectionOverlay', () => {
     expect(screen.queryByTestId('bbox-marker-1')).toBeNull();
     expect(screen.getByTestId('bbox-marker-2')).toBeTruthy();
     expect(screen.getByTestId('focused-bbox-diagnostics').textContent).toContain('Fokus: #2');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// S-24: lightbox — klik w obraz otwiera pełnoekranowy podgląd
+// ---------------------------------------------------------------------------
+
+describe('PhotoDetectionOverlay — lightbox (S-24)', () => {
+  it('klik w obraz otwiera lightbox; ✕ zamyka', () => {
+    render(
+      <PhotoDetectionOverlay
+        photoUrl={PHOTO_URL}
+        detections={[makeDetection(1, { x1: 0.1, y1: 0.1, x2: 0.2, y2: 0.9 })]}
+      />,
+    );
+    const img = screen.getByAltText('Zdjęcie półki z wykrytymi książkami');
+    fireEvent.load(img);
+    expect(screen.queryByTestId('photo-lightbox')).toBeNull();
+
+    fireEvent.click(img);
+    expect(screen.getByTestId('photo-lightbox')).toBeTruthy();
+    expect(screen.getByTestId('lightbox-marker-1')).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId('photo-lightbox-close'));
+    expect(screen.queryByTestId('photo-lightbox')).toBeNull();
+  });
+
+  it('w trybie edycji klik NIE otwiera lightboxa', () => {
+    render(
+      <PhotoDetectionOverlay
+        photoUrl={PHOTO_URL}
+        detections={[makeDetection(1, { x1: 0.1, y1: 0.1, x2: 0.2, y2: 0.9 })]}
+        isEditing
+      />,
+    );
+    const img = screen.getByAltText('Zdjęcie półki z wykrytymi książkami');
+    fireEvent.load(img);
+    fireEvent.click(img);
+    expect(screen.queryByTestId('photo-lightbox')).toBeNull();
+  });
+
+  it('pan-drag (przesunięcie > 5 px od pointerdown) NIE otwiera lightboxa', () => {
+    render(
+      <PhotoDetectionOverlay
+        photoUrl={PHOTO_URL}
+        detections={[makeDetection(1, { x1: 0.1, y1: 0.1, x2: 0.2, y2: 0.9 })]}
+      />,
+    );
+    const img = screen.getByAltText('Zdjęcie półki z wykrytymi książkami');
+    fireEvent.load(img);
+
+    const viewport = screen.getByTestId('photo-overlay-viewport');
+    fireEvent.pointerDown(viewport, { clientX: 10, clientY: 10, button: 0 });
+    fireEvent.click(img, { clientX: 60, clientY: 60 });
+    expect(screen.queryByTestId('photo-lightbox')).toBeNull();
+
+    // czysty klik (ta sama pozycja) — otwiera
+    fireEvent.pointerDown(viewport, { clientX: 10, clientY: 10, button: 0 });
+    fireEvent.click(img, { clientX: 11, clientY: 11 });
+    expect(screen.getByTestId('photo-lightbox')).toBeTruthy();
+  });
+
+  it('lightbox przy fokusie pokazuje tylko fokusowaną ramkę (visibleDetections)', () => {
+    render(
+      <PhotoDetectionOverlay
+        photoUrl={PHOTO_URL}
+        detections={[
+          makeDetection(1, { x1: 0.1, y1: 0.1, x2: 0.2, y2: 0.9 }),
+          makeDetection(2, { x1: 0.3, y1: 0.1, x2: 0.4, y2: 0.9 }),
+        ]}
+        focusedDetectionId="det-2"
+        onClearFocus={() => {}}
+      />,
+    );
+    const img = screen.getByAltText('Zdjęcie półki z wykrytymi książkami');
+    fireEvent.load(img);
+    fireEvent.click(img);
+    expect(screen.getByTestId('photo-lightbox')).toBeTruthy();
+    expect(screen.queryByTestId('lightbox-marker-1')).toBeNull();
+    expect(screen.getByTestId('lightbox-marker-2')).toBeTruthy();
   });
 });

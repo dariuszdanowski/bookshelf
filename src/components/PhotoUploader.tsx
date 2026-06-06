@@ -17,6 +17,9 @@ type UploadStage =
 
 const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15 MB cap (photon pamięć Worker 128MB)
 
+// S-36: preferencja „Analizuj od razu" — kontrola kosztu vision per user.
+const AUTO_PROCESS_STORAGE_KEY = 'bookshelf:upload-auto-process';
+
 async function computeSha256(file: File): Promise<string> {
   const buffer = await file.arrayBuffer();
   const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
@@ -46,7 +49,30 @@ export default function PhotoUploader({
   // Duplicate detection state
   const [duplicatePhotoId, setDuplicatePhotoId] = useState<string | null>(null);
   const [duplicateCreatedAt, setDuplicateCreatedAt] = useState<string | null>(null);
+  // S-36: „Analizuj od razu" — odznaczone = upload kończy się na status='uploaded'
+  // (zero wywołań vision/match = zero kosztu); analiza ręcznie z taba Zdjęcia.
+  const [autoProcess, setAutoProcess] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Preferencja persystowana — odczyt po mount (hydration-safe).
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(AUTO_PROCESS_STORAGE_KEY) === 'false') {
+        setAutoProcess(false);
+      }
+    } catch {
+      // localStorage niedostępny — zostaje default true
+    }
+  }, []);
+
+  function handleAutoProcessChange(next: boolean) {
+    setAutoProcess(next);
+    try {
+      window.localStorage.setItem(AUTO_PROCESS_STORAGE_KEY, String(next));
+    } catch {
+      // zapis niemożliwy — preferencja tylko w pamięci sesji
+    }
+  }
 
   useEffect(() => {
     fetch('/api/account/keys')
@@ -55,7 +81,9 @@ export default function PhotoUploader({
         const active = (body.data?.keys ?? []).some((k) => k.is_active);
         setHasActiveKey(active);
       })
-      .catch(() => { /* silent: don't block on key check failure */ });
+      .catch(() => {
+        /* silent: don't block on key check failure */
+      });
   }, []);
 
   useEffect(() => {
@@ -69,7 +97,8 @@ export default function PhotoUploader({
         const json = (await res.json()) as { data: { shelves: ShelfDTO[] } };
         const list = json.data.shelves;
         setShelves(list);
-        const preset = presetShelfId && list.some((s) => s.id === presetShelfId) ? presetShelfId : null;
+        const preset =
+          presetShelfId && list.some((s) => s.id === presetShelfId) ? presetShelfId : null;
         if (preset) setSelectedShelfId(preset);
         else if (list.length > 0) setSelectedShelfId(list[0].id);
       } catch (err) {
@@ -112,7 +141,7 @@ export default function PhotoUploader({
       setCanRetryMatchOnly(true);
       await runMatch(photoId);
     },
-    [runMatch]
+    [runMatch],
   );
 
   // Recovery: resume pipeline for a photo stuck in 'processing' after page reload.
@@ -122,7 +151,10 @@ export default function PhotoUploader({
     (async () => {
       try {
         const res = await fetch(`/api/photos/${resumeId}`);
-        if (!res.ok) { sessionStorage.removeItem('upload_resume_photo_id'); return; }
+        if (!res.ok) {
+          sessionStorage.removeItem('upload_resume_photo_id');
+          return;
+        }
         const json = (await res.json()) as {
           data?: {
             photo: { id: string; status: string };
@@ -131,7 +163,10 @@ export default function PhotoUploader({
         };
         const photo = json.data?.photo;
         const detections = json.data?.detections ?? [];
-        if (!photo) { sessionStorage.removeItem('upload_resume_photo_id'); return; }
+        if (!photo) {
+          sessionStorage.removeItem('upload_resume_photo_id');
+          return;
+        }
 
         setCurrentPhotoId(photo.id);
 
@@ -154,7 +189,9 @@ export default function PhotoUploader({
           sessionStorage.removeItem('upload_resume_photo_id');
         }
       } catch (err) {
-        setErrorMsg(err instanceof Error ? err.message : 'Błąd przy wznawianiu poprzedniego uploadu.');
+        setErrorMsg(
+          err instanceof Error ? err.message : 'Błąd przy wznawianiu poprzedniego uploadu.',
+        );
         setStage('error');
       }
     })();
@@ -176,7 +213,11 @@ export default function PhotoUploader({
       const recRes = await fetch('/api/photos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shelf_id: selectedShelfId, storage_path: storagePath, file_hash_sha256: sha256 }),
+        body: JSON.stringify({
+          shelf_id: selectedShelfId,
+          storage_path: storagePath,
+          file_hash_sha256: sha256,
+        }),
       });
       const recJson = (await recRes.json()) as {
         data?: { photo: PhotoDTO };
@@ -196,12 +237,23 @@ export default function PhotoUploader({
       }
       const photoId = recJson.data.photo.id;
       setCurrentPhotoId(photoId);
+
+      // S-36: skip — zdjęcie zostaje 'uploaded', bez vision/match (zero kosztu).
+      // ŚWIADOMIE bez resume-state: recovery-effect wznowiłby pipeline wbrew
+      // decyzji usera (pitfall z roadmapy). Lądujemy na tabie Zdjęcia, gdzie
+      // czeka akcja „Uruchom vision".
+      if (!autoProcess) {
+        setStage('done');
+        window.location.href = `/shelves/${selectedShelfId}?tab=photos`;
+        return;
+      }
+
       sessionStorage.setItem('upload_resume_photo_id', photoId);
 
       await processPhoto(photoId);
       setStage('done'); // redirect happens inside processPhoto; this line is reached only in tests
     },
-    [selectedShelfId, userId, processPhoto]
+    [selectedShelfId, userId, processPhoto, autoProcess],
   );
 
   const handleFile = useCallback(
@@ -241,7 +293,7 @@ export default function PhotoUploader({
         setStage('error');
       }
     },
-    [selectedShelfId, doUpload]
+    [selectedShelfId, doUpload],
   );
 
   const handleCancelDuplicate = useCallback(() => {
@@ -273,7 +325,7 @@ export default function PhotoUploader({
       const file = e.dataTransfer.files[0];
       if (file) void handleFile(file);
     },
-    [handleFile]
+    [handleFile],
   );
 
   const isProcessing = ['uploading', 'recording', 'processing', 'matching'].includes(stage);
@@ -290,7 +342,11 @@ export default function PhotoUploader({
   };
 
   const formattedDuplicateDate = duplicateCreatedAt
-    ? new Date(duplicateCreatedAt).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' })
+    ? new Date(duplicateCreatedAt).toLocaleDateString('pl-PL', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      })
     : null;
 
   return (
@@ -317,7 +373,7 @@ export default function PhotoUploader({
             value={selectedShelfId}
             onChange={(e) => setSelectedShelfId(e.target.value)}
             disabled={isProcessing}
-            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+            className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
           >
             {shelves.map((s) => (
               <option key={s.id} value={s.id}>
@@ -334,7 +390,8 @@ export default function PhotoUploader({
           data-testid="photo-uploader-no-key-warning"
           className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800"
         >
-          Brak aktywnego klucza API — zdjęcie zostanie wgrane, ale analiza LLM nie zostanie uruchomiona.{' '}
+          Brak aktywnego klucza API — zdjęcie zostanie wgrane, ale analiza LLM nie zostanie
+          uruchomiona.{' '}
           <a href="/account" className="font-medium underline hover:text-amber-900">
             Dodaj klucz w ustawieniach konta
           </a>
@@ -342,11 +399,30 @@ export default function PhotoUploader({
         </div>
       )}
 
+      {/* S-36: kontrola kosztu — odznaczenie pomija vision/match przy uploadzie */}
+      {!isProcessing && stage !== 'done' && stage !== 'duplicate' && (
+        <label className="mb-3 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+          <input
+            type="checkbox"
+            data-testid="auto-process-checkbox"
+            checked={autoProcess}
+            onChange={(e) => handleAutoProcessChange(e.target.checked)}
+            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          />
+          <span>
+            Analizuj od razu <span className="text-gray-500">(vision + match, płatne)</span>
+          </span>
+        </label>
+      )}
+
       {/* Drop zone */}
       {!isProcessing && stage !== 'done' && stage !== 'duplicate' && (
         <div
           data-testid="drop-zone"
-          onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDragOver(true);
+          }}
           onDragLeave={() => setIsDragOver(false)}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
@@ -355,7 +431,9 @@ export default function PhotoUploader({
           <p className="mb-2 text-sm font-medium text-gray-700">
             Przeciągnij zdjęcie półki lub kliknij, by wybrać
           </p>
-          <p className="text-xs text-gray-500">JPEG, PNG, WebP — max 15 MB (serwer przetwarza oryginał)</p>
+          <p className="text-xs text-gray-500">
+            JPEG, PNG, WebP — max 15 MB (serwer przetwarza oryginał)
+          </p>
           <input
             ref={fileInputRef}
             data-testid="file-input"
@@ -451,7 +529,10 @@ export default function PhotoUploader({
           {!currentPhotoId && (
             <button
               data-testid="retry-upload-button"
-              onClick={() => { setStage('idle'); setErrorMsg(null); }}
+              onClick={() => {
+                setStage('idle');
+                setErrorMsg(null);
+              }}
               className="rounded bg-gray-600 px-3 py-1 text-sm text-white hover:bg-gray-700"
             >
               Wróć
@@ -459,7 +540,6 @@ export default function PhotoUploader({
           )}
         </div>
       )}
-
     </div>
   );
 }

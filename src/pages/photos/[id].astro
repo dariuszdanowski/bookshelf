@@ -16,6 +16,10 @@ if (!photoId) {
   return Astro.redirect('/shelves');
 }
 
+// S-37: deep-link z karty książki — ?detection=<uuid> fokusuje ramkę detekcji.
+// Zniekształcony UUID → null (graceful: strona renderuje się bez fokusu).
+const focusedDetectionId = parseUuidParam(Astro.url.searchParams.get('detection') ?? undefined);
+
 // SSR fetch shelf info for breadcrumb and "Dodaj zdjęcie" button.
 // Non-blocking: if photo/shelf missing, breadcrumb degrades gracefully.
 let shelfId: string | null = null;
@@ -50,19 +54,21 @@ const breadcrumbItems = [
 
     <div class="mb-6 flex items-center justify-between">
       <h1 class="text-2xl font-bold">Propozycje książek</h1>
-      {shelfId && (
-        <a
-          href={`/upload?shelf=${shelfId}`}
-          class="inline-flex items-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-        >
-          + Dodaj zdjęcie
-        </a>
-      )}
+      {
+        shelfId && (
+          <a
+            href={`/upload?shelf=${shelfId}`}
+            class="inline-flex items-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            + Dodaj zdjęcie
+          </a>
+        )
+      }
     </div>
 
     <p class="mb-6 text-sm text-gray-600">
       Przejrzyj dopasowania. Zielone — wysoka pewność. Żółte — sprawdź przed akceptacją.
     </p>
-    <DetectionReview client:load photoId={photoId} />
+    <DetectionReview client:load photoId={photoId} initialFocusedDetectionId={focusedDetectionId} />
   </main>
 </Layout>

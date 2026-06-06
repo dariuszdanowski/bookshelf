@@ -51,7 +51,7 @@ describe('ShelfTabs', () => {
     window.localStorage.setItem(SHELF_TAB_STORAGE_KEY, 'photos');
     render(<ShelfTabs shelfId={SHELF_ID} shelfName="Salon" />);
     await waitFor(() =>
-      expect(screen.getByTestId('shelf-tab-photos')).toHaveAttribute('aria-selected', 'true')
+      expect(screen.getByTestId('shelf-tab-photos')).toHaveAttribute('aria-selected', 'true'),
     );
     expect(screen.getByTestId('shelf-tab-panel-photos')).not.toHaveClass('hidden');
   });
@@ -60,7 +60,46 @@ describe('ShelfTabs', () => {
     window.localStorage.setItem(SHELF_TAB_STORAGE_KEY, 'garbage');
     render(<ShelfTabs shelfId={SHELF_ID} shelfName="Salon" />);
     await waitFor(() =>
-      expect(screen.getByTestId('shelf-tab-books')).toHaveAttribute('aria-selected', 'true')
+      expect(screen.getByTestId('shelf-tab-books')).toHaveAttribute('aria-selected', 'true'),
     );
+  });
+
+  // S-36: deep-link `?tab=` (lądowanie po skip-upload)
+  describe('param ?tab= (S-36)', () => {
+    const originalLocation = window.location;
+    afterEach(() => {
+      Object.defineProperty(window, 'location', {
+        configurable: true,
+        writable: true,
+        value: originalLocation,
+      });
+    });
+
+    function setSearch(search: string) {
+      Object.defineProperty(window, 'location', {
+        configurable: true,
+        writable: true,
+        value: { ...originalLocation, search },
+      });
+    }
+
+    it('?tab=photos wygrywa nad localStorage i jest persystowany', async () => {
+      window.localStorage.setItem(SHELF_TAB_STORAGE_KEY, 'books');
+      setSearch('?tab=photos');
+      render(<ShelfTabs shelfId={SHELF_ID} shelfName="Salon" />);
+      await waitFor(() =>
+        expect(screen.getByTestId('shelf-tab-photos')).toHaveAttribute('aria-selected', 'true'),
+      );
+      expect(window.localStorage.getItem(SHELF_TAB_STORAGE_KEY)).toBe('photos');
+    });
+
+    it('śmieciowy ?tab= → fallback do zapisanej preferencji', async () => {
+      window.localStorage.setItem(SHELF_TAB_STORAGE_KEY, 'photos');
+      setSearch('?tab=garbage');
+      render(<ShelfTabs shelfId={SHELF_ID} shelfName="Salon" />);
+      await waitFor(() =>
+        expect(screen.getByTestId('shelf-tab-photos')).toHaveAttribute('aria-selected', 'true'),
+      );
+    });
   });
 });
