@@ -879,12 +879,14 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
                 </dl>
               )}
 
-              {/* Panel wyszukiwania kandydatów (add + edit) */}
+              {/* Panel wyszukiwania kandydatów (add + edit). hideForm w OBU trybach:
+                  główny formularz już ma pola tytuł/ISBN/autor, więc panel szuka po nich
+                  (auto-search po toggle) zamiast renderować zdublowane inputy. */}
               {canEdit && (
                 <SearchPanel
                   initialTitle={fields.title}
                   initialIsbn={fields.isbn13 || fields.isbn10}
-                  hideForm={mode === 'add'}
+                  hideForm={canEdit}
                   onSelect={handleCandidateSelect}
                 />
               )}
