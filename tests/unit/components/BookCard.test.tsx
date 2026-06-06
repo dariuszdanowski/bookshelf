@@ -93,11 +93,11 @@ describe('BookCard', () => {
 
   it('klik w okładkę otwiera podgląd szczegółów (ISBN, wydawca)', () => {
     render(<BookCard book={baseBook} onToggleRead={vi.fn()} />);
-    expect(screen.queryByTestId('book-detail-modal')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('book-modal')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId(`book-cover-button-${BOOK_ID}`));
-    expect(screen.getByTestId('book-detail-modal')).toBeInTheDocument();
-    expect(screen.getByText('9788373191723')).toBeInTheDocument();
-    expect(screen.getByText('Wydawnictwo Literackie')).toBeInTheDocument();
+    expect(screen.getByTestId('book-modal')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('9788373191723')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Wydawnictwo Literackie')).toBeInTheDocument();
   });
 
   it('brak autora — alt tylko tytuł', () => {

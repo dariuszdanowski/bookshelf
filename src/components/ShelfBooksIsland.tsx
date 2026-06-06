@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { ShelfBookDTO, BookCoverPatch } from '../lib/books/schema';
 import type { ShelfDTO } from '../lib/shelves/schema';
 import BookCard from './BookCard';
-import ManualAddBook from './ManualAddBook';
+import BookModal from './BookModal';
 import Skeleton from './Skeleton';
 
 type Props = { shelfId: string };
@@ -21,6 +21,7 @@ export default function ShelfBooksIsland({ shelfId }: Props) {
   const [shelves, setShelves] = useState<ShelfDTO[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [addModalOpen, setAddModalOpen] = useState(false);
 
   const loadBooks = useCallback(async () => {
     try {
@@ -153,14 +154,44 @@ export default function ShelfBooksIsland({ shelfId }: Props) {
             Dodaj książkę ręcznie poniżej albo przetwórz zdjęcie półki i zaakceptuj propozycje.
           </p>
         </div>
-        <ManualAddBook shelfId={shelfId} onAdded={() => void loadBooks()} />
+        <button
+          type="button"
+          data-testid="add-book-button"
+          onClick={() => setAddModalOpen(true)}
+          className="w-full rounded-lg border border-dashed border-blue-300 bg-blue-50 px-4 py-3 text-sm font-medium text-blue-600 hover:border-blue-400 hover:bg-blue-100"
+        >
+          + Dodaj książkę ręcznie
+        </button>
+        {addModalOpen && (
+          <BookModal
+            mode="add"
+            shelfId={shelfId}
+            onSaved={() => void loadBooks()}
+            onClose={() => setAddModalOpen(false)}
+          />
+        )}
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <ManualAddBook shelfId={shelfId} onAdded={() => void loadBooks()} />
+      <button
+        type="button"
+        data-testid="add-book-button"
+        onClick={() => setAddModalOpen(true)}
+        className="rounded-lg border border-dashed border-blue-300 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-600 hover:border-blue-400 hover:bg-blue-100"
+      >
+        + Dodaj książkę ręcznie
+      </button>
+      {addModalOpen && (
+        <BookModal
+          mode="add"
+          shelfId={shelfId}
+          onSaved={() => void loadBooks()}
+          onClose={() => setAddModalOpen(false)}
+        />
+      )}
       <div
         data-testid="shelf-books-grid"
         className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
@@ -174,6 +205,7 @@ export default function ShelfBooksIsland({ shelfId }: Props) {
             currentShelfId={shelfId}
             onMove={handleMove}
             onCoverUpdated={handleCoverUpdated}
+            onBookSaved={() => void loadBooks()}
           />
         ))}
       </div>

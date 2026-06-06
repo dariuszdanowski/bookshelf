@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import type { BookCandidateDTO } from '../lib/books/schema';
 import type { PhotoDTO, DetectionWithCandidatesDTO, BboxEditSet } from '../lib/photos/schema';
 import { classifyCropQuality } from '../lib/matching/fallbackPolicy';
-import BookDetailModal, { type BookDetailData } from './BookDetailModal';
+import BookModal, { type BookModalBook } from './BookModal';
 import ConfirmDialog from './ConfirmDialog';
 import CostPanel from './CostPanel';
 import PhotoDetectionOverlay from './PhotoDetectionOverlay';
@@ -160,7 +160,7 @@ function CoverImage({ url, title }: { url: string | null; title: string }) {
 
 // Mapuje kandydata (propozycję) na wspólny kształt podglądu — ten sam modal
 // co dla książek zatwierdzonych (jednolity dostęp przez klik w okładkę).
-function candidateToDetail(c: BookCandidateDTO): BookDetailData {
+function candidateToDetail(c: BookCandidateDTO): BookModalBook {
   return {
     title: c.title,
     authors: c.authors,
@@ -1039,7 +1039,7 @@ function DetectionCard({ detection, onDecided, onRefined, onUndecided, onSelect,
       )}
 
       {showCandidateDetail && activeCandidate && (
-        <BookDetailModal book={candidateToDetail(activeCandidate)} onClose={() => setShowCandidateDetail(false)} />
+        <BookModal mode="propose" book={candidateToDetail(activeCandidate)} onClose={() => setShowCandidateDetail(false)} />
       )}
     </div>
   );
@@ -1409,7 +1409,7 @@ export function DetectionTile({ detection, onDecided, onRefined, onUndecided, on
       </div>
 
       {showCandidateDetail && activeCandidate && (
-        <BookDetailModal book={candidateToDetail(activeCandidate)} onClose={() => setShowCandidateDetail(false)} />
+        <BookModal mode="propose" book={candidateToDetail(activeCandidate)} onClose={() => setShowCandidateDetail(false)} />
       )}
 
       <div className="mt-2 flex items-center gap-1">

@@ -1,10 +1,12 @@
-import { searchGoogleBooks } from './googleBooks';
-
 /**
  * Szuka okładki po ISBN w darmowych źródłach (OpenLibrary covers + Google Books).
  * Czysta funkcja (bez DB) — read-only; używana przez book-less
  * `GET /api/books/cover-suggestion?isbn=` (add-mode) oraz przez
  * `GET /api/books/:id/cover-suggestion` (edit-mode, po refaktorze).
+ *
+ * UWAGA: dynamic import `./googleBooks` — ten moduł importuje `cloudflare:workers`
+ * (server-only). Lazy import zapobiega bundlowaniu go do browser islands (cover.ts
+ * jest importowane przez BookCard / BookModal).
  */
 export async function findCoverByIsbn(isbn: string, title?: string): Promise<string | null> {
   const normalized = isbn.replace(/[-\s]/g, '');
@@ -17,6 +19,7 @@ export async function findCoverByIsbn(isbn: string, title?: string): Promise<str
     // sieć — pomiń, spróbuj GB
   }
 
+  const { searchGoogleBooks } = await import('./googleBooks');
   const gb = await searchGoogleBooks({ title: title ?? '', isbn: normalized });
   if (gb.ok) {
     return gb.candidates.find((c) => c.coverUrl)?.coverUrl ?? null;

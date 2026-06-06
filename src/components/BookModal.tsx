@@ -211,7 +211,11 @@ function SearchPanel({
       <button
         type="button"
         data-testid="search-candidates-toggle"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setOpen(true);
+          // gdy pola już wypełnione — od razu wyszukaj bez klikania drugi raz
+          if (title.trim() || isbn.trim()) void search();
+        }}
         className="rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300"
       >
         Wyszukaj po danych
@@ -705,10 +709,15 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
       let res: Response;
       if (mode === 'add') {
         if (!shelfId) { setErr('Brak shelf_id.'); return; }
+        // AddPurchaseSchema uses .optional() (not .nullish()) — strip null fields so Zod accepts them
+        const postBody = Object.fromEntries(
+          Object.entries({ ...parsed, shelf_id: shelfId, ...(coverUrl.trim() ? { cover_url: coverUrl.trim() } : {}) })
+            .filter(([, v]) => v !== null)
+        );
         res = await fetch('/api/books', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...parsed, shelf_id: shelfId, ...(coverUrl.trim() ? { cover_url: coverUrl.trim() } : {}) }),
+          body: JSON.stringify(postBody),
         });
       } else {
         if (!book?.id) { setErr('Brak book id.'); return; }

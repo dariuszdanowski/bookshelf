@@ -10,7 +10,7 @@ export type BookFieldValues = {
 };
 
 const inputCls =
-  'mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100';
+  'mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 placeholder:text-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500';
 
 export default function BookFields({
   values,

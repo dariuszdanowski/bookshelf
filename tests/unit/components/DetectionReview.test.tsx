@@ -371,11 +371,11 @@ describe('DetectionReview — podgląd szczegółów kandydata', () => {
     );
     render(<DetectionReview photoId={PHOTO_ID} />);
     const coverBtn = await waitFor(() => screen.getByTestId('candidate-cover-button'));
-    expect(screen.queryByTestId('book-detail-modal')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('book-modal')).not.toBeInTheDocument();
     fireEvent.click(coverBtn);
-    expect(screen.getByTestId('book-detail-modal')).toBeInTheDocument();
-    // dane kandydata (candHigh): ISBN + rok widoczne w podglądzie
-    expect(screen.getByText('9780156027601')).toBeInTheDocument();
+    expect(screen.getByTestId('book-modal')).toBeInTheDocument();
+    // dane kandydata (candHigh): ISBN widoczny w podglądzie (input read-only)
+    expect(screen.getByDisplayValue('9780156027601')).toBeInTheDocument();
   });
 });
 
