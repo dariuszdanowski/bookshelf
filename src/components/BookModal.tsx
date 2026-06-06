@@ -60,9 +60,13 @@ const COVER_SOURCE_LABELS: Record<CoverSource, string> = {
 // ---------------------------------------------------------------------------
 // Helpers
 
-function googleSearchUrl(title: string, authors: string[]): string {
-  const q = [title, ...authors].filter(Boolean).join(' ').trim();
-  return `https://www.google.com/search?q=${encodeURIComponent(q)}`;
+function googleSearchUrl(fields: BookFieldValues): string {
+  const q = [
+    fields.title.trim(),
+    fields.authors.trim(),
+    fields.isbn13.trim() || fields.isbn10.trim(),
+  ].filter(Boolean).join(' ').trim();
+  return q ? `https://www.google.com/search?q=${encodeURIComponent(q)}` : '#';
 }
 
 function bookToFields(b?: BookModalBook): BookFieldValues {
@@ -226,7 +230,7 @@ function SearchPanel({
             void search(initialTitle, initialIsbn);
           }
         }}
-        className="rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300"
+        className="rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
       >
         Wyszukaj po danych
       </button>
@@ -891,10 +895,10 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
                 {(mode !== 'add' || fields.title.trim() || fields.isbn13.trim() || fields.isbn10.trim() || fields.authors.trim()) && (
                   <a
                     data-testid="book-modal-web-search"
-                    href={googleSearchUrl(fields.title, (book?.authors ?? []))}
+                    href={googleSearchUrl(fields)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="rounded-md border border-sky-300 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-900/20 dark:text-sky-300"
+                    className="rounded-md border border-sky-300 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-900/20 dark:text-sky-300 dark:hover:bg-sky-900/40"
                   >
                     Szukaj w sieci
                   </a>
