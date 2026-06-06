@@ -19,7 +19,7 @@ Nowo potwierdzane książki mają opis z Google Books; fraza występująca tylko
 | Decyzja | Wybór | Dlaczego |
 | --- | --- | --- |
 | Źródło opisu | Tylko Google Books | `description` jest w tej samej odpowiedzi search (zero dodatkowych requestów); OL wymaga 2. requestu `/works` per kandydat, BN nie ma opisów |
-| Backfill istniejących książek | **Bez bulk re-fetch**; per-book przez istniejące `identify` | N wywołań GB = rate limit; `book_candidates` nie ma danych do backfillu; identify już nadpisuje metadane — opis dołącza za darmo. ⚠ adaptacja vs literalny Outcome roadmapy („backfill (re-fetch)") |
+| Backfill istniejących książek | **Bez bulk re-fetch**; per-book przez „Wyszukaj po danych" w trybie edit BookModal (PATCH) | N wywołań GB = rate limit; `book_candidates` nie ma danych do backfillu; BookModal edit już nadpisuje metadane z kandydata — opis dołącza po nawleczeniu pola. ⚠ adaptacja vs literalny Outcome roadmapy; uwaga: `identify` endpoint okazał się martwy z UI (plan-review F1) |
 | Długość opisu | Truncate do 2000 znaków przy capture | „Krótki opis" z PRD; STORED search_text rośnie per wiersz; GB potrafi zwrócić wielotysięczne teksty |
 | Zmiana GENERATED | DROP COLUMN → DROP FUNCTION → CREATE 4-arg → ADD COLUMN | GENERATED nie da się ALTER-ować; ADD przelicza wszystkie wiersze (darmowy „backfill" search_text); pattern IMMUTABLE helper z 0011 |
 | Dowód poprawności | Test integracyjny na realnej DB (CI) | Unit mock GENERATED kolumny to tautologia; CI `supabase start` waliduje migrację pre-merge |
