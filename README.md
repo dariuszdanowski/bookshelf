@@ -98,6 +98,15 @@ npm run dev
 | `npm run test:e2e` | Playwright — testy E2E (pierwsze uruchomienie: `npx playwright install --with-deps`) |
 | `npm run generate-types` | Wygeneruj typy z Cloudflare bindings (`wrangler types`) |
 
+### Git hooks (Lefthook)
+
+Hooki instalują się automatycznie przy `npm install` (postinstall). Konfiguracja w [`lefthook.yml`](lefthook.yml):
+
+- **pre-commit** — `eslint --fix` + `prettier --write` na staged files (auto-fixy wracają do stage'a)
+- **pre-push** — `npm run typecheck` (`astro check`, ~20–30 s)
+
+Pominięcie w awaryjnej sytuacji: `LEFTHOOK=0 git commit ...`. Pełne bramki (testy, build, E2E) zostają w CI.
+
 ## Struktura katalogów
 
 ```

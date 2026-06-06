@@ -1,0 +1,26 @@
+# Lefthook — pre-commit quality gates (artefakt M3L3, plan certyfikacyjny P2).
+# Warstwa commit-time komplementarna do PostToolUse hooka (edit-time, advisory)
+# i CI (PR-time, blocking): tu łapiemy lint/format ZANIM commit wyjdzie z maszyny.
+# Lekko dla solo-dev: pełne gates (testy, build, E2E) zostają w CI.
+#
+# {staged_files} = tylko pliki w stage'u; stage_fixed dostage'owuje auto-fixy.
+# eslint --no-warn-ignored: pliki wykluczone w eslint.config.mjs przekazane
+# explicit nie generują warningu. prettier respektuje .prettierignore.
+
+pre-commit:
+  jobs:
+    - name: eslint
+      glob: '*.{ts,tsx,js,mjs,cjs,astro}'
+      run: npx eslint --fix --no-warn-ignored {staged_files}
+      stage_fixed: true
+    - name: prettier
+      glob: '*.{ts,tsx,js,mjs,cjs,astro,css,json,yml,yaml}'
+      run: npx prettier --write --ignore-unknown {staged_files}
+      stage_fixed: true
+
+pre-push:
+  jobs:
+    # astro check (~20-30 s) — wymaga worker-configuration.d.ts (lokalnie
+    # generowany przez dev/build; w razie braku: `npx wrangler types`).
+    - name: typecheck
+      run: npm run typecheck
