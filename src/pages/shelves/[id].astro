@@ -27,10 +27,7 @@ if (shelfError || !shelf) {
 
 // Agregaty półki: zdjęcia + suma wykrytych tytułów + potwierdzone książki
 const [photosAgg, entriesAgg] = await Promise.all([
-  Astro.locals.supabase
-    .from('photos')
-    .select('detected_count')
-    .eq('shelf_id', id),
+  Astro.locals.supabase.from('photos').select('detected_count').eq('shelf_id', id),
   Astro.locals.supabase
     .from('shelf_entries')
     .select('id')
@@ -44,11 +41,8 @@ const catalogedCount = entriesAgg.data?.length ?? 0;
 ---
 
 <Layout title={`${shelf.name} — półka`}>
-  <main class="mx-auto max-w-4xl p-8">
-    <Breadcrumb items={[
-      { label: 'Moje półki', href: '/shelves' },
-      { label: shelf.name },
-    ]} />
+  <main class="mx-auto max-w-4xl p-4 sm:p-8">
+    <Breadcrumb items={[{ label: 'Moje półki', href: '/shelves' }, { label: shelf.name }]} />
 
     <div class="mb-6 flex items-center justify-between">
       <h1 class="text-3xl font-bold">{shelf.name}</h1>
@@ -61,17 +55,24 @@ const catalogedCount = entriesAgg.data?.length ?? 0;
     </div>
 
     <!-- Agregaty półki -->
-    <div class="mb-8 grid grid-cols-3 gap-4 rounded-lg border border-gray-200 bg-gray-50 p-4" data-testid="shelf-stats">
+    <div
+      class="mb-8 grid grid-cols-3 gap-2 rounded-lg border border-gray-200 bg-gray-50 p-4 sm:gap-4"
+      data-testid="shelf-stats"
+    >
       <div class="text-center">
         <p class="text-2xl font-bold text-gray-900" data-testid="shelf-stat-photos">{photoCount}</p>
         <p class="text-xs text-gray-500">zdjęć</p>
       </div>
       <div class="text-center">
-        <p class="text-2xl font-bold text-gray-900" data-testid="shelf-stat-detected">{detectedCount}</p>
+        <p class="text-2xl font-bold text-gray-900" data-testid="shelf-stat-detected">
+          {detectedCount}
+        </p>
         <p class="text-xs text-gray-500">wykrytych tytułów</p>
       </div>
       <div class="text-center">
-        <p class="text-2xl font-bold text-gray-900" data-testid="shelf-stat-cataloged">{catalogedCount}</p>
+        <p class="text-2xl font-bold text-gray-900" data-testid="shelf-stat-cataloged">
+          {catalogedCount}
+        </p>
         <p class="text-xs text-gray-500">skatalogowanych</p>
       </div>
     </div>
