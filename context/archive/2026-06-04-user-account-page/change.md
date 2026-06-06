@@ -1,9 +1,10 @@
 ---
 change_id: user-account-page
 roadmap_slice: S-31
-status: implemented
+status: archived
+archived_at: 2026-06-06T15:46:44Z
 created: 2026-06-04
-updated: 2026-06-04
+updated: 2026-06-06
 ---
 
 # S-31 — Strona /account (profil użytkownika)

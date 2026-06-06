@@ -169,18 +169,21 @@ type SearchCandidate = {
 function SearchPanel({
   initialTitle,
   initialIsbn,
+  initialAuthor = '',
   hideForm = false,
   onSelect,
 }: {
   initialTitle: string;
   initialIsbn: string;
+  /** Autor z głównego formularza — bez niego auto-search szuka tylko po tytule/ISBN i daje słabe wyniki. */
+  initialAuthor?: string;
   /** W trybie add: ukrywa formularz tytułu/isbn/autora — szuka od razu po danych z formularza głównego. */
   hideForm?: boolean;
   onSelect: (c: SearchCandidate) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState(initialTitle);
-  const [author, setAuthor] = useState('');
+  const [author, setAuthor] = useState(initialAuthor);
   const [isbn, setIsbn] = useState(initialIsbn);
   const [results, setResults] = useState<SearchCandidate[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -188,16 +191,17 @@ function SearchPanel({
 
   // overrides pozwalają przekazać świeże wartości z formularza rodzica (useState
   // w SearchPanel inicjalizuje się raz przy mount i nie śledzi zmian props)
-  async function search(overrideTitle?: string, overrideIsbn?: string) {
+  async function search(overrideTitle?: string, overrideIsbn?: string, overrideAuthor?: string) {
     const t = overrideTitle ?? title;
     const i = overrideIsbn ?? isbn;
+    const a = overrideAuthor ?? author;
     if (!t.trim() && !i.trim()) return;
     setBusy(true);
     setErr(null);
     try {
       const body: Record<string, string> = {};
       if (t.trim()) body.title = t.trim();
-      if (author.trim()) body.author = author.trim();
+      if (a.trim()) body.author = a.trim();
       if (i.trim()) body.isbn = i.trim();
       const res = await fetch('/api/books/candidates', {
         method: 'POST',
@@ -215,20 +219,25 @@ function SearchPanel({
     }
   }
 
+  // Wyszukiwanie wymaga tytułu lub ISBN (sam autor nie wystarcza) — bez nich
+  // panel byłby pustą ramką (hideForm nie renderuje własnych inputów).
+  const searchReady = !!(initialTitle.trim() || initialIsbn.trim());
+
   if (!open) {
     return (
       <button
         type="button"
         data-testid="search-candidates-toggle"
+        disabled={!searchReady}
+        title={searchReady ? 'Szukaj w bazach książek po wpisanych danych' : 'Najpierw wpisz tytuł lub ISBN'}
         onClick={() => {
           setTitle(initialTitle);
           setIsbn(initialIsbn);
+          setAuthor(initialAuthor);
           setOpen(true);
-          if (initialTitle.trim() || initialIsbn.trim()) {
-            void search(initialTitle, initialIsbn);
-          }
+          void search(initialTitle, initialIsbn, initialAuthor);
         }}
-        className="rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
+        className="rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
       >
         Wyszukaj po danych
       </button>
@@ -307,7 +316,7 @@ function SearchPanel({
       )}
 
       {results != null && results.length > 0 && (
-        <ul data-testid="candidates-list" className="space-y-1">
+        <ul data-testid="candidates-list" className="max-h-64 space-y-1 overflow-y-auto">
           {results.map((c, i) => (
             <li
               key={`${c.source}-${c.externalId}-${i}`}
@@ -492,16 +501,19 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       onClick={onClose}
     >
+      {/* Trójstrefowy layout dialogu: stały nagłówek + scrollowane TYLKO body +
+          stały footer. Scroll całego kontenera z sticky footerem zasłaniał dół
+          treści (sekcja okładki wyglądała na uciętą zaraz po otwarciu). */}
       <div
         data-testid="book-modal"
         role="dialog"
         aria-modal="true"
         aria-label={MODAL_TITLES[mode]}
-        className="relative max-h-[90vh] w-full max-w-4xl overflow-auto rounded-xl bg-white p-5 shadow-xl dark:bg-gray-800"
+        className="relative flex max-h-[90vh] w-full max-w-4xl flex-col rounded-xl bg-white shadow-xl dark:bg-gray-800"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Nagłówek */}
-        <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center justify-between px-5 pb-4 pt-5">
           <h2 data-testid="book-modal-title" className="text-base font-bold text-gray-900 dark:text-gray-50">
             {MODAL_TITLES[mode]}
           </h2>
@@ -517,8 +529,9 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
           </button>
         </div>
 
-        <form onSubmit={handleSave} noValidate>
-          <div className="flex flex-col gap-4 sm:flex-row">
+        <form onSubmit={handleSave} noValidate className="flex min-h-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">
+            <div className="flex flex-col gap-4 sm:flex-row">
             {/* Lewa kolumna — okładka. Stała szerokość na desktopie, by sekcja okładki
                 (zwłaszcza bez okładki) nie rozpychała się i nie ściskała pól + wyników po prawej. */}
             <div className="flex w-full flex-col items-center gap-2 sm:w-72 sm:flex-shrink-0">
@@ -576,6 +589,7 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
                 <SearchPanel
                   initialTitle={fields.title}
                   initialIsbn={fields.isbn13 || fields.isbn10}
+                  initialAuthor={fields.authors}
                   hideForm={canEdit}
                   onSelect={handleCandidateSelect}
                 />
@@ -607,36 +621,38 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
                 )}
               </div>
 
-              {/* Błąd zapisu */}
+            </div>
+            </div>
+          </div>
+
+          {/* Footer poza obszarem scrolla — primary CTA zawsze widoczny niezależnie
+              od długości treści (lista kandydatów potrafiła wypchnąć zapis poza
+              viewport), a treść nigdy nie wsuwa się pod przyciski. */}
+          {canEdit && (
+            <div className="flex items-center justify-end gap-2 border-t border-gray-200 px-5 py-3 dark:border-gray-700">
               {err && (
-                <p data-testid="book-modal-error" className="text-xs text-red-600 dark:text-red-400" role="alert">
+                <p data-testid="book-modal-error" className="mr-auto text-xs text-red-600 dark:text-red-400" role="alert">
                   {err}
                 </p>
               )}
-
-              {/* Zapisz / Anuluj */}
-              {canEdit && (
-                <div className="flex gap-2 pt-1">
-                  <button
-                    type="submit"
-                    data-testid="book-modal-save"
-                    disabled={busy || !fields.title.trim()}
-                    className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                  >
-                    {busy ? 'Zapisuję...' : mode === 'add' ? 'Dodaj na półkę' : 'Zapisz'}
-                  </button>
-                  <button
-                    type="button"
-                    data-testid="book-modal-cancel"
-                    onClick={onClose}
-                    className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400"
-                  >
-                    Anuluj
-                  </button>
-                </div>
-              )}
+              <button
+                type="button"
+                data-testid="book-modal-cancel"
+                onClick={onClose}
+                className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400"
+              >
+                Anuluj
+              </button>
+              <button
+                type="submit"
+                data-testid="book-modal-save"
+                disabled={busy || !fields.title.trim()}
+                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {busy ? 'Zapisuję...' : mode === 'add' ? 'Dodaj na półkę' : 'Zapisz'}
+              </button>
             </div>
-          </div>
+          )}
         </form>
       </div>
     </div>

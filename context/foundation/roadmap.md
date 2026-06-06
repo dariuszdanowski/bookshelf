@@ -3,7 +3,7 @@ project: "BookShelf Scanner"
 version: 1
 status: draft
 created: 2026-05-25
-updated: 2026-06-05
+updated: 2026-06-06
 prd_version: 1
 main_goal: speed
 top_blocker: time
@@ -61,12 +61,13 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | S-28  | mobile-responsive             | responsywność mobilna dla ścieżek read (library, shelves, book detail) i write (upload, review karty); Tailwind breakpoints `sm:`/`md:` — desktop-first zachowane, telefon bez poziomego scrollowania | S-05 | NFR (UX) | proposed |
 | S-29  | photos-crud                   | pełny CRUD dla zdjęć: lista zdjęć per półka (GET /api/photos?shelf_id=), usunięcie zdjęcia z Storage + cascade detections/book_candidates (DELETE /api/photos/[id]), edycja metadanych (PATCH — zmiana shelf_id / retitle); zakładki „Książki / Zdjęcia" na `/shelves/[id]`; badge dla zdjęć z NULL hash (stare duplikaty) | S-03, S-05, **S-30** | FR (zarządzanie zdjęciami) | done |
 | S-30  | vision-cost-preservation      | zachowanie historii kosztów vision przy DELETE zdjęć: dodanie `user_id` do `vision_runs` i `refine_calls`, zmiana FK `photo_id` z CASCADE na SET NULL; endpoint `GET /api/account/stats` zwracający łączny koszt i liczbę wywołań per user | S-03 | NFR (integrity kosztów) | done |
-| S-31  | user-account-page             | strona `/account`: edycja display_name (PATCH /api/account/profile), zmiana emaila i hasła (Supabase Auth updateUser), sekcja statystyk kosztów vision (z S-30), lista podłączonych kluczy API (z S-32) | S-01 | UX (profil użytkownika) | proposed |
+| S-31  | user-account-page             | strona `/account`: edycja display_name (PATCH /api/account/profile), zmiana emaila i hasła (Supabase Auth updateUser), sekcja statystyk kosztów vision (z S-30), lista podłączonych kluczy API (z S-32) | S-01 | UX (profil użytkownika) | done |
 | S-32  | byok-api-keys                 | własne klucze API do modeli vision (BYOK): tabela `user_api_keys` z szyfrowaniem at rest (pgcrypto/Vault), UI zarządzania kluczami na `/account` (add/delete/test), providerzy: Anthropic / OpenAI / OpenRouter / OpenAI-compatible (base_url+model) | S-31 | FR (multi-provider vision) | done |
 | S-33  | byok-pipeline                 | pipeline vision wymaga klucza usera: `/api/photos/[id]/process` sprawdza `user_api_keys`, brak klucza → 403 z linkiem do `/account`; abstrakcja `VisionProvider` w `src/lib/vision/` zastępuje hardkodowany Anthropic SDK; globalny klucz z env wyłączony dla zwykłych userów | S-32 | FR (BYOK enforcement) | done |
-| S-34  | shelf-book-view-modes         | tryby widoku książek na `/shelves/[id]`: lista kompaktowa (1 linia), kafelki (okładka+tytuł), szczegółowe panele (obecny); przełącznik z `localStorage` + responsywny default; analogia do S-25 `detection-list-views` | S-29 | UX polish | proposed |
+| S-34  | shelf-book-view-modes         | tryby widoku książek na `/shelves/[id]`: lista kompaktowa (1 linia), kafelki (okładka+tytuł), szczegółowe panele (obecny); przełącznik z `localStorage` + responsywny default; analogia do S-25 `detection-list-views` | S-29 | UX polish | done |
 | S-35  | refine-ux-cost-info           | UX fix przycisków refine: jeden spójny label „Doprecyzuj odczyt" (zamiast mylących dwóch nazw); ⚠ ikona + tooltip przy słabym cropie; widoczna informacja „Dodatkowa analiza AI (płatna)" przy każdym wariancie; opcjonalny dialog potwierdzenia dla `uncertain_localization` | — | UX polish | done |
 | S-36  | photo-upload-skip-process     | upload zdjęcia bez uruchamiania vision: checkbox „Analizuj od razu" (domyślnie zaznaczony) w `PhotoUploader`; zdjęcie w stanie `uploaded` widoczne w zakładce Zdjęcia (S-29) z przyciskiem „Analizuj teraz" | S-29 | UX (kontrola kosztu) | proposed |
+| S-37  | book-to-detection-focus       | „Źródłowe zdjęcie" z karty/modala książki otwiera review spozycjonowany na propozycji TEJ książki: `detection_id` dołożony do GET /api/shelves/[id]/books (+ ścieżka /library), link `/photos/[photo_id]?detection=`, `DetectionReview` czyta param → `setFocusedDetectionId` (overlay pokazuje wtedy tylko 1 ramkę — mechanizm fokusa z S-18) + scroll do karty detekcji; fallback bez `detection_id` (NULL po re-analizie/wpis ręczny) = obecne zachowanie | S-15, S-18 | UX (nawigacja książka→źródło) | proposed |
 
 ## Streams
 
@@ -357,7 +358,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **Blockers:** —
 - **Unknowns:** czy sekcja kluczy API w S-31 to placeholder (CTA) czy czeka na S-32 — rekomendacja: placeholder z CTA, S-32 wypełnia.
 - **Risk:** niski — Auth updateUser przez Supabase browser client (bez custom endpointu); jedyna pułapka to email re-confirmation flow (Supabase wysyła maila, user musi potwierdzić).
-- **Status:** proposed
+- **Status:** done
 
 ### S-32: Własne klucze API do modeli vision (BYOK)
 
@@ -393,7 +394,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** niski — refaktor czysto frontendowy; pułapka jak w S-25: `matchMedia` guard dla jsdom/SSR przy odczycie localStorage default.
-- **Status:** proposed
+- **Status:** done
 
 ### S-35: UX przycisków refine — spójny label + info o koszcie
 
@@ -509,6 +510,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 | S-34       | shelf-book-view-modes        | Tryby widoku książek: lista/kafelki/panele (analogia S-25) | no | Czeka na S-29 (stabilne tabs). |
 | S-35       | refine-ux-cost-info          | Ujednolicony label refine + info o koszcie + dialog potwierdzenia | yes | Czysto frontendowy, niezależny. |
 | S-36       | photo-upload-skip-process    | Checkbox „Analizuj od razu" w uploaderze + akcja „Analizuj" na liście zdjęć | no | Czeka na S-29 (tab Zdjęcia). |
+| S-37       | book-to-detection-focus      | Deep-link książka→review z fokusem na jej detekcji (1 ramka + scroll) | yes | Prereqs done (S-15 link, S-18 fokus overlay); czyste wiring — `detection_id` w books API + `?detection=` w DetectionReview; zero migracji. Szacunek S. |
 
 ## Open Roadmap Questions
 
@@ -568,5 +570,9 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **S-32: użytkownik może na `/account` dodać klucz API do jednego z providerów (Anthropic / OpenAI / OpenRouter / OpenAI-compatible z custom base_url+model); klucze szyfrowane at rest; lista kluczy pokazuje label, provider, model, datę dodania — NIGDY plaintext; przycisk „Testuj" weryfikuje klucz próbnym żądaniem; przycisk „Usuń" kasuje fizycznie zaszyfrowany rekord.** — Archived 2026-06-05 → `context/archive/2026-06-04-byok-api-keys/`. Lesson: —.
 
 - **S-33: pipeline vision wymaga aktywnego klucza usera (BYOK enforcement) — `/api/photos/[id]/process` i `/api/detections/[id]/refine` → 403 `NO_API_KEY` bez klucza; abstrakcja `VisionProvider` (Anthropic + OpenAI-compatible); `PhotoUploader` CTA do `/account`.** — Archived 2026-06-05 → `context/archive/2026-06-05-byok-pipeline/`. Lesson: PR #43 rozrósł się o sąsiednie usprawnienia katalogu (Biblioteka Narodowa jako 3. źródło matchingu, override okładki 3-slot+flaga, identyfikacja/edycja/ręczne dodawanie książek bez zdjęcia); migracje 0017/0018 ręcznie na prod (hotfix, lokalny stack AV-blocked). Manual smoke (2.6/2.7/3.3/3.4/4.5/4.6) user-only deferred.
+
+- **S-31: użytkownik widzi i może edytować: display_name (PATCH /api/account/profile, optymistyczny update); email (Supabase Auth updateUser + re-confirmation email); hasło (Supabase Auth updateUser); widzi blok statystyk kosztów vision (łączny koszt, liczba analiz — z S-30); widzi listę podłączonych kluczy API (z S-32, na początku pusta sekcja z CTA „Dodaj klucz").** — Archived 2026-06-06 → `context/archive/2026-06-04-user-account-page/`. Lesson: —.
+
+- **S-34: na `/shelves/[id]` w zakładce Książki pojawia się przełącznik trybu prezentacji: **Karty** (obecny, pełna karta z okładką + akcjami), **Lista** (1 linia: okładka-mini + tytuł + autor + ikony akcji), **Kafelki** (siatka: okładka + tytuł); wybór persystowany w `localStorage`; domyślnie Karty na desktop, Lista na mobile; analogiczny wzorzec do S-25 `detection-list-views`.** — Archived 2026-06-06 → `context/archive/2026-06-06-shelf-book-view-modes/`. Lesson: —.
 
 (Pusta przy pierwszej generacji. `/10x-archive` dopisuje tu wpis — i przerzuca Status pozycji na `done` — gdy archiwizowana zmiana ma `Change ID` zgodny z pozycją roadmapy. NIE wypełniać ręcznie.)
