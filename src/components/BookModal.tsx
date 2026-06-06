@@ -501,16 +501,19 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       onClick={onClose}
     >
+      {/* Trójstrefowy layout dialogu: stały nagłówek + scrollowane TYLKO body +
+          stały footer. Scroll całego kontenera z sticky footerem zasłaniał dół
+          treści (sekcja okładki wyglądała na uciętą zaraz po otwarciu). */}
       <div
         data-testid="book-modal"
         role="dialog"
         aria-modal="true"
         aria-label={MODAL_TITLES[mode]}
-        className="relative max-h-[90vh] w-full max-w-4xl overflow-auto rounded-xl bg-white p-5 shadow-xl dark:bg-gray-800"
+        className="relative flex max-h-[90vh] w-full max-w-4xl flex-col rounded-xl bg-white shadow-xl dark:bg-gray-800"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Nagłówek */}
-        <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center justify-between px-5 pb-4 pt-5">
           <h2 data-testid="book-modal-title" className="text-base font-bold text-gray-900 dark:text-gray-50">
             {MODAL_TITLES[mode]}
           </h2>
@@ -526,8 +529,9 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
           </button>
         </div>
 
-        <form onSubmit={handleSave} noValidate>
-          <div className="flex flex-col gap-4 sm:flex-row">
+        <form onSubmit={handleSave} noValidate className="flex min-h-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">
+            <div className="flex flex-col gap-4 sm:flex-row">
             {/* Lewa kolumna — okładka. Stała szerokość na desktopie, by sekcja okładki
                 (zwłaszcza bez okładki) nie rozpychała się i nie ściskała pól + wyników po prawej. */}
             <div className="flex w-full flex-col items-center gap-2 sm:w-72 sm:flex-shrink-0">
@@ -618,13 +622,14 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
               </div>
 
             </div>
+            </div>
           </div>
 
-          {/* Sticky footer — primary CTA zawsze widoczny niezależnie od długości
-              treści (lista kandydatów potrafiła wypchnąć zapis poza viewport).
-              Negatywne marginesy niwelują p-5 kontenera, by footer sięgał krawędzi. */}
+          {/* Footer poza obszarem scrolla — primary CTA zawsze widoczny niezależnie
+              od długości treści (lista kandydatów potrafiła wypchnąć zapis poza
+              viewport), a treść nigdy nie wsuwa się pod przyciski. */}
           {canEdit && (
-            <div className="sticky bottom-0 -mx-5 -mb-5 mt-4 flex items-center justify-end gap-2 rounded-b-xl border-t border-gray-200 bg-white px-5 py-3 dark:border-gray-700 dark:bg-gray-800">
+            <div className="flex items-center justify-end gap-2 border-t border-gray-200 px-5 py-3 dark:border-gray-700">
               {err && (
                 <p data-testid="book-modal-error" className="mr-auto text-xs text-red-600 dark:text-red-400" role="alert">
                   {err}
