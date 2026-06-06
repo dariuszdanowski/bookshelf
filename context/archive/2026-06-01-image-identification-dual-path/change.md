@@ -1,10 +1,10 @@
 ---
 change_id: image-identification-dual-path
 title: Dwa tory identyfikacji książek: OCR bez LLM i tani fallback LLM
-status: implemented
+status: archived
 created: 2026-06-01
-updated: 2026-06-01
-archived_at: null
+updated: 2026-06-06
+archived_at: 2026-06-06T20:59:23Z
 ---
 
 ## Notes
