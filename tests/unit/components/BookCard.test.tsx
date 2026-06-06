@@ -133,6 +133,20 @@ describe('BookCard', () => {
     expect(screen.queryByTestId(`source-photo-link-${BOOK_ID}`)).not.toBeInTheDocument();
   });
 
+  // S-37: deep-link z fokusem na detekcji źródłowej
+  it('link zawiera ?detection= gdy detection_id present', () => {
+    const book = {
+      ...baseBook,
+      photo_id: '11111111-0000-4000-8000-000000000099',
+      detection_id: '22222222-0000-4000-8000-000000000077',
+    };
+    render(<BookCard book={book} onToggleRead={vi.fn()} />);
+    expect(screen.getByTestId(`source-photo-link-${BOOK_ID}`)).toHaveAttribute(
+      'href',
+      '/photos/11111111-0000-4000-8000-000000000099?detection=22222222-0000-4000-8000-000000000077',
+    );
+  });
+
   // S-08: opcjonalne propsy shelfName/spineColor (wyniki wyszukiwarki)
   it('NIE renderuje badge półki ani swatcha gdy propsy nie podane (regress ShelfBooksIsland)', () => {
     render(<BookCard book={baseBook} onToggleRead={vi.fn()} />);
