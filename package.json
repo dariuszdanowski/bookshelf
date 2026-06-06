@@ -36,7 +36,7 @@
     "test:mutation": "stryker run"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.101.0",
+    "@anthropic-ai/sdk": "^0.102.0",
     "@astrojs/cloudflare": "^13.5.0",
     "@astrojs/react": "^5.0.4",
     "@cf-wasm/photon": "^0.3.5",
