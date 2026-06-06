@@ -237,9 +237,9 @@ Brak migracji — czysty frontend. Reuse istniejących endpointów (CRUD + candi
 ### Phase 2: BookCard na 3 układy + pełny CRUD/ops
 
 #### Automated
-- [ ] 2.1 Unit BookCard × 3 tryby (akcje + zachowane testidy)
-- [ ] 2.2 Typecheck + lint
-- [ ] 2.3 Build
+- [x] 2.1 Unit BookCard × 3 tryby (akcje + zachowane testidy)
+- [x] 2.2 Typecheck + lint
+- [x] 2.3 Build
 
 ### Phase 3: Wpięcie przełącznika w wyspy + E2E
 
