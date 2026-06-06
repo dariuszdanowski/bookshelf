@@ -8,6 +8,7 @@ import ConfirmDialog from './ConfirmDialog';
 import CostPanel from './CostPanel';
 import PhotoDetectionOverlay from './PhotoDetectionOverlay';
 import Skeleton from './Skeleton';
+import { ViewModeSwitcher, useViewMode, type ViewMode } from './ViewModeSwitcher';
 
 const MATCH_HIGH = 0.75;
 const MATCH_MID = 0.55;
@@ -1599,94 +1600,17 @@ function formatDurationEstimate(latencyMs: number | null | undefined): string {
 // Tryb prezentacji listy detekcji (Karty / Lista / Kafelki)
 // ---------------------------------------------------------------------------
 
-export type DetectionViewMode = 'cards' | 'list' | 'tiles';
+// Tryby widoku wyniesione do wspólnego ./ViewModeSwitcher (S-34). Poniżej back-compat
+// shimy: zachowują publiczne API importowane przez istniejące testy (useDetectionViewMode,
+// VIEW_MODE_STORAGE_KEY, ViewModeSwitcher, DetectionViewMode).
+export type DetectionViewMode = ViewMode;
 
 export const VIEW_MODE_STORAGE_KEY = 'bookshelf:detection-view-mode';
-const VIEW_MODES: readonly DetectionViewMode[] = ['cards', 'list', 'tiles'];
-const VIEW_MODE_LABELS: Record<DetectionViewMode, string> = {
-  cards: 'Karty',
-  list: 'Lista',
-  tiles: 'Kafelki',
-};
 
-function isViewMode(v: unknown): v is DetectionViewMode {
-  return typeof v === 'string' && (VIEW_MODES as readonly string[]).includes(v);
-}
-
-// Default zależny od szerokości. W SSR oraz jsdom (brak window.matchMedia)
-// świadomie zwracamy 'cards' — inaczej testy review oczekujące kart by padły.
-// Do 'list' schodzimy WYŁĄCZNIE przy pozytywnym dopasowaniu mobile.
-function defaultViewMode(): DetectionViewMode {
-  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
-    return 'cards';
-  }
-  return window.matchMedia('(min-width: 640px)').matches ? 'cards' : 'list';
-}
-
-function readStoredViewMode(): DetectionViewMode {
-  if (typeof window === 'undefined') return 'cards';
-  try {
-    const stored = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY);
-    if (isViewMode(stored)) return stored; // walidacja: śmieciowa wartość → default
-  } catch {
-    // localStorage niedostępny (tryb prywatny / wyłączony) — fallback do default
-  }
-  return defaultViewMode();
-}
+export { ViewModeSwitcher };
 
 export function useDetectionViewMode(): [DetectionViewMode, (m: DetectionViewMode) => void] {
-  // Start od 'cards' (hydration-safe); preferencję czytamy po mount, gdy window istnieje.
-  const [mode, setModeState] = useState<DetectionViewMode>('cards');
-
-  useEffect(() => {
-    setModeState(readStoredViewMode());
-  }, []);
-
-  const setMode = (m: DetectionViewMode) => {
-    setModeState(m);
-    try {
-      window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, m);
-    } catch {
-      // zapis niemożliwy — preferencja zostaje tylko w pamięci sesji
-    }
-  };
-
-  return [mode, setMode];
-}
-
-export function ViewModeSwitcher({
-  mode,
-  onChange,
-}: {
-  mode: DetectionViewMode;
-  onChange: (m: DetectionViewMode) => void;
-}) {
-  return (
-    <div
-      data-testid="view-mode-switcher"
-      role="group"
-      aria-label="Tryb prezentacji listy"
-      className="mb-4 inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5"
-    >
-      {VIEW_MODES.map((m) => {
-        const active = m === mode;
-        return (
-          <button
-            key={m}
-            type="button"
-            data-testid={`view-mode-${m}`}
-            aria-pressed={active}
-            onClick={() => onChange(m)}
-            className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
-              active ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            {VIEW_MODE_LABELS[m]}
-          </button>
-        );
-      })}
-    </div>
-  );
+  return useViewMode(VIEW_MODE_STORAGE_KEY);
 }
 
 // ---------------------------------------------------------------------------

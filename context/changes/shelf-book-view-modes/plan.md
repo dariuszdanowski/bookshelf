@@ -229,10 +229,10 @@ Brak migracji — czysty frontend. Reuse istniejących endpointów (CRUD + candi
 ### Phase 1: Wspólny primitive widoków
 
 #### Automated
-- [ ] 1.1 Unit wspólnego modułu (default cards w jsdom / walidacja localStorage / switch+zapis)
-- [ ] 1.2 Regresja unit DetectionReview po przepięciu
-- [ ] 1.3 Typecheck
-- [ ] 1.4 Lint
+- [x] 1.1 Unit wspólnego modułu (default cards w jsdom / walidacja localStorage / switch+zapis)
+- [x] 1.2 Regresja unit DetectionReview po przepięciu
+- [x] 1.3 Typecheck
+- [x] 1.4 Lint
 
 ### Phase 2: BookCard na 3 układy + pełny CRUD/ops
 
