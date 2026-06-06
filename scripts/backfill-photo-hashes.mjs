@@ -17,12 +17,10 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { createClient } from '@supabase/supabase-js';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');
-const DRY_RUN = process.argv.includes('--dry-run');
 const BUCKET = 'shelf-photos';
 const PAGE_SIZE = 50;
 
@@ -41,31 +39,29 @@ function loadDevVars() {
   return vars;
 }
 
-const devVars = loadDevVars();
-const SUPABASE_URL = devVars.PUBLIC_SUPABASE_URL ?? process.env.PUBLIC_SUPABASE_URL;
-const SERVICE_KEY = devVars.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!SUPABASE_URL || !SERVICE_KEY) {
-  console.error('BŁĄD: Brak PUBLIC_SUPABASE_URL lub SUPABASE_SERVICE_ROLE_KEY.');
-  console.error('Upewnij się że .dev.vars zawiera dane remote Supabase (nie lokalnej).');
-  process.exit(1);
-}
-
-const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
-  auth: { persistSession: false },
-});
-
 // --- SHA-256 z ArrayBuffer — identyczny wynik jak SubtleCrypto w przeglądarce ---
-function sha256hex(buffer) {
+export function sha256hex(buffer) {
   return createHash('sha256').update(new Uint8Array(buffer)).digest('hex');
 }
 
-async function run() {
-  console.log(`\n${'═'.repeat(60)}`);
-  console.log(`Backfill photo file_hash_sha256${DRY_RUN ? ' [DRY RUN]' : ''}`);
-  console.log(`Supabase: ${SUPABASE_URL}`);
-  console.log(`${'═'.repeat(60)}\n`);
-
+/**
+ * Główna pętla backfillu. Klient Supabase wstrzykiwany — testowalne na fake'u.
+ *
+ * Paginacja: kursor `offset` przesuwa się WYŁĄCZNIE o wiersze, które po tej
+ * stronie nadal mają hash=NULL (pominięte: brak pliku w Storage, duplikat 23505,
+ * błąd UPDATE). Wiersze zaktualizowane wypadają ze zbioru filtra `IS NULL`,
+ * więc zwiększanie offsetu o pełną stronę przeskakiwałoby nieprzetworzone
+ * rekordy (shifting-window). W dry-run nic nie znika ze zbioru — offset
+ * przesuwa się o całą stronę.
+ *
+ * @param {any} supabase — klient Supabase (service-role) lub fake w testach
+ * @param {{ dryRun?: boolean, bucket?: string, pageSize?: number, log?: { log: (msg: string) => void, error: (msg: string) => void } }} [options]
+ * @returns {Promise<{processed: number, skipped: number, errors: number}>}
+ */
+export async function backfillPhotoHashes(
+  supabase,
+  { dryRun = false, bucket = BUCKET, pageSize = PAGE_SIZE, log = console } = {},
+) {
   let totalProcessed = 0;
   let totalSkipped = 0;
   let totalErrors = 0;
@@ -79,11 +75,11 @@ async function run() {
       .select('id, user_id, storage_path')
       .is('file_hash_sha256', null)
       .order('created_at', { ascending: true })
-      .range(offset, offset + PAGE_SIZE - 1);
+      .range(offset, offset + pageSize - 1);
 
     if (fetchErr) {
-      console.error(`BŁĄD pobierania strony (offset=${offset}):`, fetchErr.message);
-      process.exit(1);
+      log.error(`BŁĄD pobierania strony (offset=${offset}): ${fetchErr.message}`);
+      throw new Error(`Fetch failed at offset=${offset}: ${fetchErr.message}`);
     }
 
     if (!photos || photos.length === 0) {
@@ -91,19 +87,24 @@ async function run() {
       break;
     }
 
-    console.log(`Strona offset=${offset}: ${photos.length} zdjęć do przetworzenia`);
+    log.log(`Strona offset=${offset}: ${photos.length} zdjęć do przetworzenia`);
+
+    // Wiersze z tej strony, które po przetworzeniu NADAL mają hash=NULL —
+    // tylko o nie wolno przesunąć kursor (zostają przed nim w zbiorze filtra).
+    let pageStillNull = 0;
 
     for (const photo of photos) {
-      process.stdout.write(`  [${photo.id}] storage_path=${photo.storage_path} … `);
-
       // Pobierz plik ze Storage jako Blob
       const { data: blob, error: dlErr } = await supabase.storage
-        .from(BUCKET)
+        .from(bucket)
         .download(photo.storage_path);
 
       if (dlErr || !blob) {
-        console.log(`POMINIĘTO (Storage: ${dlErr?.message ?? 'brak danych'})`);
+        log.log(
+          `  [${photo.id}] ${photo.storage_path} … POMINIĘTO (Storage: ${dlErr?.message ?? 'brak danych'})`,
+        );
         totalSkipped++;
+        pageStillNull++;
         continue;
       }
 
@@ -111,9 +112,10 @@ async function run() {
       const buffer = await blob.arrayBuffer();
       const hash = sha256hex(buffer);
 
-      if (DRY_RUN) {
-        console.log(`dry-run → ${hash}`);
+      if (dryRun) {
+        log.log(`  [${photo.id}] ${photo.storage_path} … dry-run → ${hash}`);
         totalProcessed++;
+        pageStillNull++; // dry-run nie zmienia DB — wiersz zostaje w zbiorze filtra
         continue;
       }
 
@@ -128,48 +130,87 @@ async function run() {
         // Istniejący rekord (wgrany wcześniej) zachowuje hash; ten (późniejszy duplikat)
         // zostaje z hash=NULL — dedup działałby gdyby oba zostały wgrane po wdrożeniu 0013.
         if (updateErr.code === '23505') {
-          console.log(`DUPLIKAT (hash już istnieje u tego usera — pomijam)`);
+          log.log(
+            `  [${photo.id}] ${photo.storage_path} … DUPLIKAT (hash już istnieje u tego usera — pomijam)`,
+          );
           totalSkipped++;
         } else {
-          console.log(`BŁĄD UPDATE: ${updateErr.message}`);
+          log.log(`  [${photo.id}] ${photo.storage_path} … BŁĄD UPDATE: ${updateErr.message}`);
           totalErrors++;
         }
+        pageStillNull++;
       } else {
-        console.log(`OK → ${hash}`);
+        log.log(`  [${photo.id}] ${photo.storage_path} … OK → ${hash}`);
         totalProcessed++;
       }
     }
 
-    // Jeśli dostaliśmy pełną stronę, sprawdź czy jest kolejna
-    if (photos.length < PAGE_SIZE) {
+    if (photos.length < pageSize) {
       hasMore = false;
     } else {
-      offset += PAGE_SIZE;
+      // Kursor mija tylko wiersze, które zostały w zbiorze `IS NULL`.
+      offset += pageStillNull;
     }
   }
 
+  return { processed: totalProcessed, skipped: totalSkipped, errors: totalErrors };
+}
+
+// --- CLI entrypoint (pomijany przy imporcie w testach) ---
+async function main() {
+  const DRY_RUN = process.argv.includes('--dry-run');
+
+  const devVars = loadDevVars();
+  const SUPABASE_URL = devVars.PUBLIC_SUPABASE_URL ?? process.env.PUBLIC_SUPABASE_URL;
+  const SERVICE_KEY = devVars.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!SUPABASE_URL || !SERVICE_KEY) {
+    console.error('BŁĄD: Brak PUBLIC_SUPABASE_URL lub SUPABASE_SERVICE_ROLE_KEY.');
+    console.error('Upewnij się że .dev.vars zawiera dane remote Supabase (nie lokalnej).');
+    process.exit(1);
+  }
+
+  const { createClient } = await import('@supabase/supabase-js');
+  const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
+    auth: { persistSession: false },
+  });
+
+  console.log(`\n${'═'.repeat(60)}`);
+  console.log(`Backfill photo file_hash_sha256${DRY_RUN ? ' [DRY RUN]' : ''}`);
+  console.log(`Supabase: ${SUPABASE_URL}`);
+  console.log(`${'═'.repeat(60)}\n`);
+
+  const { processed, skipped, errors } = await backfillPhotoHashes(supabase, {
+    dryRun: DRY_RUN,
+  });
+
   console.log(`\n${'─'.repeat(60)}`);
-  console.log(`Przetworzone : ${totalProcessed}`);
-  console.log(`Pominięte   : ${totalSkipped} (błąd Storage lub duplikat hash u tego samego usera)`);
-  console.log(`Błędy UPDATE : ${totalErrors}`);
+  console.log(`Przetworzone : ${processed}`);
+  console.log(`Pominięte   : ${skipped} (błąd Storage lub duplikat hash u tego samego usera)`);
+  console.log(`Błędy UPDATE : ${errors}`);
   console.log(`${'─'.repeat(60)}\n`);
 
-  if (totalErrors > 0) {
+  if (errors > 0) {
     console.error('Zakończono z błędami UPDATE — sprawdź logi powyżej.');
     process.exit(1);
   }
 
-  if (totalSkipped > 0) {
+  if (skipped > 0) {
     console.warn(
-      `UWAGA: ${totalSkipped} zdjęć pominiętych (duplikat hash w obrębie usera lub brak pliku w Storage). ` +
-        `Wiersze photos pozostają z hash=NULL — dedup nie chroni tych rekordów przed ponownym uploadem.`
+      `UWAGA: ${skipped} zdjęć pominiętych (duplikat hash w obrębie usera lub brak pliku w Storage). ` +
+        `Wiersze photos pozostają z hash=NULL — dedup nie chroni tych rekordów przed ponownym uploadem.`,
     );
   }
 
   console.log(DRY_RUN ? 'Dry run zakończony.' : 'Backfill zakończony pomyślnie.');
 }
 
-run().catch((err) => {
-  console.error('Nieoczekiwany błąd:', err);
-  process.exit(1);
-});
+const isDirectRun =
+  process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href;
+
+if (isDirectRun) {
+  main().catch((err) => {
+    console.error('Nieoczekiwany błąd:', err);
+    process.exit(1);
+  });
+}
