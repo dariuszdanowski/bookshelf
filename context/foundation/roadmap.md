@@ -54,7 +54,7 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | S-21  | vision-spine-crop-reocr       | poprawić precyzję detekcji na gęsto ustawionych półkach — każdy grzbiet z niską pewnością (`vision_confidence < 0.7`) re-analizowany przez Claude na wyciętym cropie (bbox z S-04) zamiast całego zdjęcia | S-04, S-18 | FR-010–014, FR-039 | proposed |
 | S-22  | book-edit-cover-url           | w edycji książki w katalogu: pole „Link do okładki" (URL) z podglądem — wklejenie URL od razu pokazuje miniaturę okładki; pole można wyczyścić | S-05 | FR (UX) | done |
 | S-23  | per-detection-rematch         | przycisk „Ponów match" przy pojedynczej detekcji (bez ponownego matchowania całego zdjęcia) — odświeża kandydatów tylko dla tej jednej pozycji | S-04, S-05 | FR-015–018 (UX) | done |
-| S-24  | photo-overlay-ux              | w review: a) przycisk toggle show/hide ramek detekcji na zdjęciu; b) kliknięcie zdjęcia → lightbox (modal) z pełnym obrazem i ramkami | S-18 | FR-010–014 (UX) | proposed |
+| S-24  | photo-overlay-ux              | w review: a) przycisk toggle show/hide ramek detekcji na zdjęciu; b) kliknięcie zdjęcia → lightbox (modal) z pełnym obrazem i ramkami | S-18 | FR-010–014 (UX) | done     |
 | S-25  | detection-list-views          | widok listy detekcji (review) — przełącznik trybu prezentacji: karty rozwinięte (obecne), lista kompaktowana (1 linia/książka), kafelki (okładka + tytuł + badge pewności) | S-04, S-05 | UX polish | done |
 | S-26  | admin-panel                   | panel administracyjny: lista użytkowników, flaga AI-enabled (domyślnie false — admin włącza), impersonacja (zaloguj się jako user), usunięcie konta (półki/książki przechodzą do admina), przeniesienie półki między użytkownikami | S-01 | NFR (admin ops) | proposed |
 | S-27  | dark-light-mode               | przełącznik trybu ciemnego/jasnego w headerze; preferencja persystowana w localStorage; Tailwind `dark:` variant na całym UI | — | UX (standard) | done |
@@ -322,7 +322,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** niski — pure UI, brak API. Pułapka: lightbox na CF Workers nie ma dostępu do `document.body` po stronie serwera — komponent musi być React island (`client:load`).
-- **Status:** proposed — UWAGA (alignment 2026-06-06): intencja częściowo pokryta inną drogą — `PhotoDetectionOverlay` ma zoom/pan 1–4× (E2E `overlay-zoom-pan.spec.ts`) i fokus pojedynczej ramki z S-18; brakuje literalnie toggle show/hide wszystkich ramek i lightboxa. Przed planowaniem zważyć, czy resztkowa wartość uzasadnia slice.
+- **Status:** done
 
 ### S-25: Alternatywne widoki listy detekcji w review
 
@@ -578,5 +578,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **S-17: full-text obejmuje „krótki opis z publicznej bazy" — capture opisu w klientach S-04 + confirm + backfill (re-fetch), rozszerzenie search_text** — Archived 2026-06-06 → `context/archive/2026-06-06-catalog-description-search/`. Lesson: —. Migracja 0019 (description w book_candidates+books, search_text 4-arg IMMUTABLE) ręcznie na prod pre-merge (za zgodą usera; ADD COLUMN STORED = darmowy backfill search_text). Świadoma adaptacja: bulk re-fetch backfill zastąpiony per-book refresh przez edit BookModal („Wyszukaj po danych" → PATCH); capture tylko GB (OL/BN → null). impl-review APPROVED (F1: sentinel undefined w BookModal — kandydat OL/BN czyści stary opis). Manual smoke (1.5/2.5/2.6) user-only deferred.
 
 - **S-37: „Źródłowe zdjęcie" z karty/modala książki otwiera review spozycjonowany na propozycji TEJ książki: `detection_id` dołożony do GET /api/shelves/[id]/books (+ ścieżka /library), link `/photos/[photo_id]?detection=`, `DetectionReview` czyta param → `setFocusedDetectionId` (overlay pokazuje wtedy tylko 1 ramkę — mechanizm fokusa z S-18) + scroll do karty detekcji; fallback bez `detection_id` (NULL po re-analizie/wpis ręczny) = obecne zachowanie** — Archived 2026-06-06 → `context/archive/2026-06-06-book-to-detection-focus/`. Lesson: —. Manual 2.5 (deep-link na realnej kolekcji) user-only deferred.
+
+- **S-24: w widoku review (S-18): a) przycisk „Pokaż/Ukryj ramki" nad zdjęciem przełącza widoczność bbox-ów detekcji (`useState`); b) kliknięcie zdjęcia otwiera lightbox (natywny `<dialog>` lub `modal` div z z-index) z pełnoekranową wersją obrazu i ramkami; zamknięcie przez Esc lub kliknięcie tła.** — Archived 2026-06-07 → `context/archive/2026-06-06-photo-overlay-ux/`. Lesson: —. Scope-reduced: (a) istniało wcześniej (`toggle-bboxes-button` + zoom/pan); dowieziono (b) jako `PhotoLightbox` (modal React zamiast natywnego `<dialog>` — konwencja repo). Manual 1.5 user-only deferred.
 
 (Pusta przy pierwszej generacji. `/10x-archive` dopisuje tu wpis — i przerzuca Status pozycji na `done` — gdy archiwizowana zmiana ma `Change ID` zgodny z pozycją roadmapy. NIE wypełniać ręcznie.)
