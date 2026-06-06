@@ -272,6 +272,25 @@ describe('AddPurchaseSchema', () => {
     expect(AddPurchaseSchema.safeParse({ title: 'X', published_year: 2101 }).success).toBe(false);
   });
 
+  it('akceptuje sloty okładki (unify-add-cover): user_cover_url + cover_photo_url + cover_source', () => {
+    const result = AddPurchaseSchema.safeParse({
+      title: 'X',
+      cover_url: 'https://auto.jpg',
+      user_cover_url: 'https://user.jpg',
+      cover_photo_url: 'https://photo.jpg',
+      cover_source: 'photo',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('odrzuca zły cover_source', () => {
+    expect(AddPurchaseSchema.safeParse({ title: 'X', cover_source: 'xyz' }).success).toBe(false);
+  });
+
+  it('odrzuca user_cover_url który nie jest URL', () => {
+    expect(AddPurchaseSchema.safeParse({ title: 'X', user_cover_url: 'nie-url' }).success).toBe(false);
+  });
+
   it('odrzuca dodatkowe pola (.strict)', () => {
     const result = AddPurchaseSchema.safeParse({ title: 'X', user_id: 'hack' });
     expect(result.success).toBe(false);

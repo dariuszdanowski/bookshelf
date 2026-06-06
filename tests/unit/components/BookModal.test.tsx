@@ -122,6 +122,34 @@ describe('BookModal — tryb add', () => {
     expect((screen.getByTestId('book-field-isbn13') as HTMLInputElement).value).toBe(CANDIDATE.isbn13);
   });
 
+  it('cover parity: renderuje CoverEditor (3 sloty) jak w edit', () => {
+    render(<BookModal mode="add" shelfId={SHELF_ID} onClose={vi.fn()} />);
+    expect(screen.getByTestId('add-cover-section')).toBeTruthy();
+    expect(screen.getByTestId('add-cover-source-auto')).toBeTruthy();
+    expect(screen.getByTestId('add-cover-source-url')).toBeTruthy();
+    expect(screen.getByTestId('add-cover-source-photo')).toBeTruthy();
+    expect(screen.getByTestId('add-cover-url-input')).toBeTruthy();
+    expect(screen.getByTestId('add-cover-autocheck')).toBeTruthy();
+  });
+
+  it('POST zawiera sloty okładki gdy podano URL + źródło url', async () => {
+    const onSaved = vi.fn();
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ data: { id: BOOK_ID } }), { status: 200 })
+    );
+    render(<BookModal mode="add" shelfId={SHELF_ID} onSaved={onSaved} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByTestId('book-field-title'), { target: { value: 'Z okładką' } });
+    fireEvent.change(screen.getByTestId('add-cover-url-input'), { target: { value: 'https://user.jpg' } });
+    fireEvent.click(screen.getByTestId('add-cover-source-url'));
+    fireEvent.click(screen.getByTestId('book-modal-save'));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    const [, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse((opts as { body: string }).body);
+    expect(body.user_cover_url).toBe('https://user.jpg');
+    expect(body.cover_source).toBe('url');
+  });
+
   it('błąd 409 wyświetla komunikat o duplikacie', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({ error: { code: 'CONFLICT', message: 'Masz już tę książkę.' } }), { status: 409 })
