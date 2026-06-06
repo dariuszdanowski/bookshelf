@@ -162,15 +162,19 @@ describe('BookModal — tryb edit', () => {
     expect((opts as { method: string }).method).toBe('PATCH');
   });
 
-  it('prefill z kandydata w edit mode', async () => {
+  it('prefill z kandydata w edit mode — bez zdublowanych pól (hideForm)', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({ data: { candidates: [CANDIDATE] } }), { status: 200 })
     );
 
     render(<BookModal mode="edit" book={BASE_BOOK} onClose={vi.fn()} />);
+    // W edit, tak jak w add, panel ma hideForm — klik toggle auto-szuka po danych
+    // już wpisanych w głównym formularzu (BASE_BOOK ma tytuł + ISBN).
     fireEvent.click(screen.getByTestId('search-candidates-toggle'));
-    fireEvent.change(screen.getByTestId('candidates-title'), { target: { value: 'Nowa' } });
-    fireEvent.click(screen.getByTestId('candidates-search'));
+
+    // REGRESJA: brak zdublowanego formularza tytuł/ISBN/autor w panelu.
+    expect(screen.queryByTestId('candidates-title')).toBeNull();
+    expect(screen.queryByTestId('candidates-search')).toBeNull();
 
     await waitFor(() => screen.getByTestId('candidates-use-0'));
     fireEvent.click(screen.getByTestId('candidates-use-0'));

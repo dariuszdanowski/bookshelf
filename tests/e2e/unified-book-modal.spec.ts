@@ -233,6 +233,59 @@ test.describe('S-36 BookModal — tryb edit', () => {
 
     await expect(page.getByTestId('book-modal')).not.toBeVisible();
   });
+
+  test('Wyszukaj po danych w edit → brak zdublowanych pól, szuka po danych książki', async ({ page }) => {
+    await page.route('**/api/shelves/*/books', (route) => {
+      void route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { books: [MOCK_BOOK] } }),
+      });
+    });
+
+    await page.route('**/api/books/candidates', (route) => {
+      void route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            candidates: [{
+              externalId: 'gb-edit',
+              source: 'google_books',
+              title: 'Solaris',
+              authors: ['Stanisław Lem'],
+              isbn13: '9788308062803',
+              isbn10: null,
+              publisher: 'Wydawnictwo Literackie',
+              publishedYear: 2016,
+              coverUrl: null,
+              matchScore: 0.95,
+            }],
+          },
+        }),
+      });
+    });
+
+    const shelfId = await getRealShelfId(page);
+    await page.goto(`/shelves/${shelfId}`);
+    await expect(page.getByTestId('shelf-books-grid')).toBeVisible({ timeout: 10000 });
+    await page.getByTestId(`book-cover-button-${BOOK_ID}`).click();
+    await expect(page.getByTestId('book-modal')).toBeVisible();
+
+    // Toggle „Wyszukaj po danych" — auto-szuka po danych już wpisanych w głównym formularzu
+    await page.getByTestId('search-candidates-toggle').click();
+
+    // REGRESJA (bug zdublowanych pól): w edit, tak jak w add, NIE renderujemy
+    // formularza tytuł/ISBN/autor w panelu — pola są już w głównym formularzu.
+    await expect(page.getByTestId('candidates-title')).toHaveCount(0);
+
+    // Auto-search po danych książki zwraca kandydata
+    await expect(page.getByTestId('candidates-use-0')).toBeVisible({ timeout: 5000 });
+    await page.getByTestId('candidates-use-0').click();
+
+    // Wybór kandydata nadpisuje pola w głównym formularzu
+    await expect(page.getByTestId('book-field-isbn13')).toHaveValue('9788308062803');
+  });
 });
 
 // ---------------------------------------------------------------------------
