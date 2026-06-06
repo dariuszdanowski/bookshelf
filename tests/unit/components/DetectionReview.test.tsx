@@ -43,7 +43,7 @@ const candHigh = {
   publisher: 'Harvest',
   publishedYear: 1961,
   coverUrl: null,
-  matchScore: 0.90,
+  matchScore: 0.9,
   rank: 1,
 };
 
@@ -80,7 +80,7 @@ const detLow: DetectionWithCandidatesDTO = {
   position_index: 2,
   raw_title: 'Diuna',
   raw_author: null,
-  vision_confidence: 0.80,
+  vision_confidence: 0.8,
   spine_color: null,
   bbox: { x1: 0.25, y1: 0.05, x2: 0.35, y2: 0.95 },
   status: 'matched',
@@ -93,7 +93,7 @@ const detNoMatch: DetectionWithCandidatesDTO = {
   position_index: 3,
   raw_title: 'Nieznana',
   raw_author: null,
-  vision_confidence: 0.70,
+  vision_confidence: 0.7,
   spine_color: null,
   bbox: null,
   status: 'pending',
@@ -147,7 +147,7 @@ describe('DetectionReview — initial render', () => {
 
   it('renderuje karty detekcji po załadowaniu', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify(makePhotoResponse()), { status: 200 })
+      new Response(JSON.stringify(makePhotoResponse()), { status: 200 }),
     );
     render(<DetectionReview photoId={PHOTO_ID} />);
     await waitFor(() => {
@@ -173,7 +173,7 @@ describe('DetectionReview — initial render', () => {
 describe('DetectionReview — bulk confirm', () => {
   it('pokazuje przycisk bulk dla detekcji ≥0.75', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 })
+      new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 }),
     );
     render(<DetectionReview photoId={PHOTO_ID} />);
     await waitFor(() => screen.getByTestId('bulk-confirm-button'));
@@ -182,7 +182,7 @@ describe('DetectionReview — bulk confirm', () => {
 
   it('NIE pokazuje bulk gdy brak kandydatów ≥0.75', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify(makePhotoResponse([detLow])), { status: 200 })
+      new Response(JSON.stringify(makePhotoResponse([detLow])), { status: 200 }),
     );
     render(<DetectionReview photoId={PHOTO_ID} />);
     await waitFor(() => screen.getByTestId('detection-review'));
@@ -190,12 +190,18 @@ describe('DetectionReview — bulk confirm', () => {
   });
 
   it('klik bulk-confirm woła POST /confirm-batch z pre-zaznaczonymi', async () => {
-    const fetchMock = vi.spyOn(globalThis, 'fetch')
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(
-        new Response(JSON.stringify(makePhotoResponse([detHigh, detLow])), { status: 200 })
+        new Response(JSON.stringify(makePhotoResponse([detHigh, detLow])), { status: 200 }),
       )
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ data: { confirmed: [{ detection_id: DET_ID_HIGH, book_id: 'b1' }], skipped: [] } }), { status: 200 })
+        new Response(
+          JSON.stringify({
+            data: { confirmed: [{ detection_id: DET_ID_HIGH, book_id: 'b1' }], skipped: [] },
+          }),
+          { status: 200 },
+        ),
       );
 
     render(<DetectionReview photoId={PHOTO_ID} />);
@@ -203,11 +209,13 @@ describe('DetectionReview — bulk confirm', () => {
     fireEvent.click(bulkBtn);
 
     await waitFor(() => {
-      const batchCall = fetchMock.mock.calls.find(([url]) =>
-        typeof url === 'string' && url.includes('confirm-batch')
+      const batchCall = fetchMock.mock.calls.find(
+        ([url]) => typeof url === 'string' && url.includes('confirm-batch'),
       );
       expect(batchCall).toBeDefined();
-      const body = JSON.parse(batchCall![1]!.body as string) as { items: { detection_id: string; candidate_id: string }[] };
+      const body = JSON.parse(batchCall![1]!.body as string) as {
+        items: { detection_id: string; candidate_id: string }[];
+      };
       expect(body.items).toHaveLength(1); // tylko detHigh ≥0.75
       expect(body.items[0].detection_id).toBe(DET_ID_HIGH);
       expect(body.items[0].candidate_id).toBe(CAND_HIGH);
@@ -221,12 +229,15 @@ describe('DetectionReview — bulk confirm', () => {
 
 describe('DetectionReview — confirm single', () => {
   it('klik Akceptuj woła POST /confirm z candidate_id', async () => {
-    const fetchMock = vi.spyOn(globalThis, 'fetch')
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(
-        new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 })
+        new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 }),
       )
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ data: { book_id: 'b1', shelf_id: SHELF_ID } }), { status: 200 })
+        new Response(JSON.stringify({ data: { book_id: 'b1', shelf_id: SHELF_ID } }), {
+          status: 200,
+        }),
       );
 
     render(<DetectionReview photoId={PHOTO_ID} />);
@@ -234,8 +245,8 @@ describe('DetectionReview — confirm single', () => {
     fireEvent.click(confirmBtn);
 
     await waitFor(() => {
-      const confirmCall = fetchMock.mock.calls.find(([url]) =>
-        typeof url === 'string' && url.includes('/confirm')
+      const confirmCall = fetchMock.mock.calls.find(
+        ([url]) => typeof url === 'string' && url.includes('/confirm'),
       );
       expect(confirmCall).toBeDefined();
       const body = JSON.parse(confirmCall![1]!.body as string) as { candidate_id: string };
@@ -246,10 +257,12 @@ describe('DetectionReview — confirm single', () => {
   it('po zaakceptowaniu wszystkich detekcji przekierowuje na półkę', async () => {
     vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(
-        new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 })
+        new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 }),
       )
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ data: { book_id: 'b1', shelf_id: SHELF_ID } }), { status: 200 })
+        new Response(JSON.stringify({ data: { book_id: 'b1', shelf_id: SHELF_ID } }), {
+          status: 200,
+        }),
       );
 
     render(<DetectionReview photoId={PHOTO_ID} />);
@@ -263,13 +276,15 @@ describe('DetectionReview — confirm single', () => {
   it('409 z /confirm pokazuje komunikat o duplikacie', async () => {
     vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(
-        new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 })
+        new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 }),
       )
       .mockResolvedValueOnce(
         new Response(
-          JSON.stringify({ error: { code: 'CONFLICT', message: 'Masz już tę książkę w katalogu (półka: Salon).' } }),
-          { status: 409 }
-        )
+          JSON.stringify({
+            error: { code: 'CONFLICT', message: 'Masz już tę książkę w katalogu (półka: Salon).' },
+          }),
+          { status: 409 },
+        ),
       );
 
     render(<DetectionReview photoId={PHOTO_ID} />);
@@ -289,12 +304,13 @@ describe('DetectionReview — confirm single', () => {
 
 describe('DetectionReview — reject', () => {
   it('klik Odrzuć woła POST /reject', async () => {
-    const fetchMock = vi.spyOn(globalThis, 'fetch')
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(
-        new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 })
+        new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 }),
       )
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ data: { rejected: true } }), { status: 200 })
+        new Response(JSON.stringify({ data: { rejected: true } }), { status: 200 }),
       );
 
     render(<DetectionReview photoId={PHOTO_ID} />);
@@ -302,8 +318,8 @@ describe('DetectionReview — reject', () => {
     fireEvent.click(rejectBtn);
 
     await waitFor(() => {
-      const rejectCall = fetchMock.mock.calls.find(([url]) =>
-        typeof url === 'string' && url.includes('/reject')
+      const rejectCall = fetchMock.mock.calls.find(
+        ([url]) => typeof url === 'string' && url.includes('/reject'),
       );
       expect(rejectCall).toBeDefined();
     });
@@ -312,10 +328,10 @@ describe('DetectionReview — reject', () => {
   it('po Odrzuć pokazuje stan „Odrzucono" z przyciskiem Cofnij (nie zielony ptaszek)', async () => {
     vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(
-        new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 })
+        new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 }),
       )
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ data: { rejected: true } }), { status: 200 })
+        new Response(JSON.stringify({ data: { rejected: true } }), { status: 200 }),
       );
 
     render(<DetectionReview photoId={PHOTO_ID} />);
@@ -331,15 +347,16 @@ describe('DetectionReview — reject', () => {
   });
 
   it('klik Cofnij woła POST /unreject i przywraca akcje detekcji', async () => {
-    const fetchMock = vi.spyOn(globalThis, 'fetch')
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(
-        new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 })
+        new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 }),
       )
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ data: { rejected: true } }), { status: 200 })
+        new Response(JSON.stringify({ data: { rejected: true } }), { status: 200 }),
       )
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ data: { status: 'matched' } }), { status: 200 })
+        new Response(JSON.stringify({ data: { status: 'matched' } }), { status: 200 }),
       );
 
     render(<DetectionReview photoId={PHOTO_ID} />);
@@ -350,8 +367,8 @@ describe('DetectionReview — reject', () => {
     fireEvent.click(undoBtn);
 
     await waitFor(() => {
-      const unrejectCall = fetchMock.mock.calls.find(([url]) =>
-        typeof url === 'string' && url.includes('/unreject')
+      const unrejectCall = fetchMock.mock.calls.find(
+        ([url]) => typeof url === 'string' && url.includes('/unreject'),
       );
       expect(unrejectCall).toBeDefined();
     });
@@ -367,7 +384,7 @@ describe('DetectionReview — reject', () => {
 describe('DetectionReview — podgląd szczegółów kandydata', () => {
   it('klik w okładkę propozycji otwiera ten sam modal szczegółów', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 })
+      new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 }),
     );
     render(<DetectionReview photoId={PHOTO_ID} />);
     const coverBtn = await waitFor(() => screen.getByTestId('candidate-cover-button'));
@@ -386,7 +403,7 @@ describe('DetectionReview — podgląd szczegółów kandydata', () => {
 describe('DetectionReview — web search', () => {
   it('pokazuje „Szukaj w sieci" z linkiem do Google na tytuł+autor w nowej karcie', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 })
+      new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 }),
     );
     render(<DetectionReview photoId={PHOTO_ID} />);
     const link = await waitFor(() => screen.getByTestId('web-search-button'));
@@ -410,24 +427,26 @@ describe('DetectionReview — web search', () => {
       spine_color: null,
       bbox: null,
       status: 'matched',
-      candidates: [{
-        id: '00000000-0000-4000-8000-0000000000a0',
-        source: 'google_books',
-        externalId: 'gb-x',
-        title: 'Czy to jest kochanie?',
-        authors: ['Danuta Bieńkowska'],
-        isbn10: null,
-        isbn13: null,
-        publisher: null,
-        publishedYear: null,
-        coverUrl: null,
-        matchScore: 0.36,
-        rank: 1,
-      }],
+      candidates: [
+        {
+          id: '00000000-0000-4000-8000-0000000000a0',
+          source: 'google_books',
+          externalId: 'gb-x',
+          title: 'Czy to jest kochanie?',
+          authors: ['Danuta Bieńkowska'],
+          isbn10: null,
+          isbn13: null,
+          publisher: null,
+          publishedYear: null,
+          coverUrl: null,
+          matchScore: 0.36,
+          rank: 1,
+        },
+      ],
       duplicate: null,
     };
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify(makePhotoResponse([detWrongMatch])), { status: 200 })
+      new Response(JSON.stringify(makePhotoResponse([detWrongMatch])), { status: 200 }),
     );
     render(<DetectionReview photoId={PHOTO_ID} />);
     const link = await waitFor(() => screen.getByTestId('web-search-button'));
@@ -446,7 +465,7 @@ describe('DetectionReview — web search', () => {
 describe('DetectionReview — refine', () => {
   it('pokazuje przycisk Doprecyzuj odczyt także bez bbox', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify(makePhotoResponse([detNoMatch])), { status: 200 })
+      new Response(JSON.stringify(makePhotoResponse([detNoMatch])), { status: 200 }),
     );
     render(<DetectionReview photoId={PHOTO_ID} />);
     await waitFor(() => screen.getByTestId('refine-button'));
@@ -458,7 +477,7 @@ describe('DetectionReview — refine', () => {
 
   it('pokazuje przycisk Doprecyzuj odczyt dla detekcji z bbox', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 })
+      new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 }),
     );
     render(<DetectionReview photoId={PHOTO_ID} />);
     await waitFor(() => screen.getByTestId('refine-button'));
@@ -469,12 +488,16 @@ describe('DetectionReview — refine', () => {
     const reloadMock = window.location.reload as unknown as ReturnType<typeof vi.fn>;
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 }),
+      )
       .mockResolvedValueOnce(
         new Response(
-          JSON.stringify({ data: { applied: true, detection: { id: DET_ID_HIGH, raw_title: 'Solaris (refined)' } } }),
-          { status: 200 }
-        )
+          JSON.stringify({
+            data: { applied: true, detection: { id: DET_ID_HIGH, raw_title: 'Solaris (refined)' } },
+          }),
+          { status: 200 },
+        ),
       );
 
     render(<DetectionReview photoId={PHOTO_ID} />);
@@ -483,7 +506,7 @@ describe('DetectionReview — refine', () => {
 
     await waitFor(() => {
       const refineCall = fetchMock.mock.calls.find(
-        ([url]) => typeof url === 'string' && url.includes(`/api/detections/${DET_ID_HIGH}/refine`)
+        ([url]) => typeof url === 'string' && url.includes(`/api/detections/${DET_ID_HIGH}/refine`),
       );
       expect(refineCall).toBeDefined();
       expect(reloadMock).not.toHaveBeenCalled();
@@ -498,8 +521,14 @@ describe('DetectionReview — refine', () => {
 
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(new Response(JSON.stringify(makePhotoResponse([detBadBbox])), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { applied: false, reason: 'parse_failure' } }), { status: 200 }));
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify(makePhotoResponse([detBadBbox])), { status: 200 }),
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { applied: false, reason: 'parse_failure' } }), {
+          status: 200,
+        }),
+      );
 
     render(<DetectionReview photoId={PHOTO_ID} />);
     const refineBtn = await waitFor(() => screen.getByTestId('refine-button'));
@@ -509,7 +538,7 @@ describe('DetectionReview — refine', () => {
 
     await waitFor(() => {
       const refineCall = fetchMock.mock.calls.find(
-        ([url]) => typeof url === 'string' && url.includes(`/api/detections/${DET_ID_HIGH}/refine`)
+        ([url]) => typeof url === 'string' && url.includes(`/api/detections/${DET_ID_HIGH}/refine`),
       );
       expect(refineCall).toBeDefined();
     });
@@ -523,7 +552,7 @@ describe('DetectionReview — refine', () => {
 describe('DetectionReview — correct (field_edit)', () => {
   it('klik Popraw otwiera formularz', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 })
+      new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 }),
     );
     render(<DetectionReview photoId={PHOTO_ID} />);
     const correctBtn = await waitFor(() => screen.getByTestId('correct-button'));
@@ -532,12 +561,15 @@ describe('DetectionReview — correct (field_edit)', () => {
   });
 
   it('submit formularza woła POST /correct z field_edit i polami', async () => {
-    const fetchMock = vi.spyOn(globalThis, 'fetch')
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(
-        new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 })
+        new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 }),
       )
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ data: { book_id: 'b1', shelf_id: SHELF_ID } }), { status: 200 })
+        new Response(JSON.stringify({ data: { book_id: 'b1', shelf_id: SHELF_ID } }), {
+          status: 200,
+        }),
       );
 
     render(<DetectionReview photoId={PHOTO_ID} />);
@@ -549,11 +581,15 @@ describe('DetectionReview — correct (field_edit)', () => {
     fireEvent.click(screen.getByTestId('correct-submit'));
 
     await waitFor(() => {
-      const correctCall = fetchMock.mock.calls.find(([url]) =>
-        typeof url === 'string' && url.includes('/correct')
+      const correctCall = fetchMock.mock.calls.find(
+        ([url]) => typeof url === 'string' && url.includes('/correct'),
       );
       expect(correctCall).toBeDefined();
-      const body = JSON.parse(correctCall![1]!.body as string) as { mode: string; title: string; candidate_id: string };
+      const body = JSON.parse(correctCall![1]!.body as string) as {
+        mode: string;
+        title: string;
+        candidate_id: string;
+      };
       expect(body.mode).toBe('field_edit');
       expect(body.title).toBe('Poprawiony Solaris');
       expect(body.candidate_id).toBe(CAND_HIGH);
@@ -568,7 +604,7 @@ describe('DetectionReview — correct (field_edit)', () => {
 describe('DetectionReview — manual entry (no match)', () => {
   it('pokazuje placeholder brak matchu i przycisk Wpisz ręcznie', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify(makePhotoResponse([detNoMatch])), { status: 200 })
+      new Response(JSON.stringify(makePhotoResponse([detNoMatch])), { status: 200 }),
     );
     render(<DetectionReview photoId={PHOTO_ID} />);
     await waitFor(() => screen.getByTestId('no-match-placeholder'));
@@ -577,7 +613,7 @@ describe('DetectionReview — manual entry (no match)', () => {
 
   it('klik Wpisz ręcznie otwiera formularz', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify(makePhotoResponse([detNoMatch])), { status: 200 })
+      new Response(JSON.stringify(makePhotoResponse([detNoMatch])), { status: 200 }),
     );
     render(<DetectionReview photoId={PHOTO_ID} />);
     await waitFor(() => screen.getByTestId('manual-entry-button'));
@@ -586,27 +622,35 @@ describe('DetectionReview — manual entry (no match)', () => {
   });
 
   it('submit manual woła POST /correct z mode=manual_entry bez candidate_id', async () => {
-    const fetchMock = vi.spyOn(globalThis, 'fetch')
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(
-        new Response(JSON.stringify(makePhotoResponse([detNoMatch])), { status: 200 })
+        new Response(JSON.stringify(makePhotoResponse([detNoMatch])), { status: 200 }),
       )
       .mockResolvedValueOnce(
-        new Response(JSON.stringify({ data: { book_id: 'b1', shelf_id: SHELF_ID } }), { status: 200 })
+        new Response(JSON.stringify({ data: { book_id: 'b1', shelf_id: SHELF_ID } }), {
+          status: 200,
+        }),
       );
 
     render(<DetectionReview photoId={PHOTO_ID} />);
     await waitFor(() => screen.getByTestId('manual-entry-button'));
     fireEvent.click(screen.getByTestId('manual-entry-button'));
 
-    fireEvent.change(screen.getByTestId('correct-title'), { target: { value: 'Moja Nieznana Książka' } });
+    fireEvent.change(screen.getByTestId('correct-title'), {
+      target: { value: 'Moja Nieznana Książka' },
+    });
     fireEvent.click(screen.getByTestId('correct-submit'));
 
     await waitFor(() => {
-      const correctCall = fetchMock.mock.calls.find(([url]) =>
-        typeof url === 'string' && url.includes('/correct')
+      const correctCall = fetchMock.mock.calls.find(
+        ([url]) => typeof url === 'string' && url.includes('/correct'),
       );
       expect(correctCall).toBeDefined();
-      const body = JSON.parse(correctCall![1]!.body as string) as { mode: string; candidate_id?: string };
+      const body = JSON.parse(correctCall![1]!.body as string) as {
+        mode: string;
+        candidate_id?: string;
+      };
       expect(body.mode).toBe('manual_entry');
       expect(body.candidate_id).toBeUndefined();
     });
@@ -631,20 +675,20 @@ describe('DetectionReview — runRerunVision auto-match', () => {
       if (u.includes('/process')) {
         callOrder.push('POST /process');
         return Promise.resolve(
-          new Response(JSON.stringify({ data: { photo: mockPhoto, detections: [] } }), { status: 200 })
+          new Response(JSON.stringify({ data: { photo: mockPhoto, detections: [] } }), {
+            status: 200,
+          }),
         );
       }
       if (u.includes('/match')) {
         callOrder.push('POST /match');
         return Promise.resolve(
-          new Response(JSON.stringify({ data: { matched: 2, detections: [] } }), { status: 200 })
+          new Response(JSON.stringify({ data: { matched: 2, detections: [] } }), { status: 200 }),
         );
       }
       if (u.includes(`/api/photos/${PHOTO_ID}`)) {
         callOrder.push('GET /photos');
-        return Promise.resolve(
-          new Response(JSON.stringify(makePhotoResponse()), { status: 200 })
-        );
+        return Promise.resolve(new Response(JSON.stringify(makePhotoResponse()), { status: 200 }));
       }
       return Promise.resolve(new Response('{}', { status: 200 }));
     });
@@ -661,14 +705,14 @@ describe('DetectionReview — runRerunVision auto-match', () => {
     await waitFor(() => expect(reloadMock).toHaveBeenCalled(), { timeout: 3000 });
 
     // /process must have been called
-    const processCalls = fetchMock.mock.calls.filter(([url]) =>
-      typeof url === 'string' && url.includes('/process')
+    const processCalls = fetchMock.mock.calls.filter(
+      ([url]) => typeof url === 'string' && url.includes('/process'),
     );
     expect(processCalls.length).toBeGreaterThan(0);
 
     // /match must have been called AFTER /process and BEFORE reload
-    const matchCalls = fetchMock.mock.calls.filter(([url]) =>
-      typeof url === 'string' && url.includes('/match')
+    const matchCalls = fetchMock.mock.calls.filter(
+      ([url]) => typeof url === 'string' && url.includes('/match'),
     );
     expect(matchCalls.length).toBeGreaterThan(0);
 
@@ -683,12 +727,19 @@ describe('DetectionReview — runRerunVision auto-match', () => {
 
     vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
       const u = typeof url === 'string' ? url : (url as Request).url;
-      if (u.includes(`/api/photos/${PHOTO_ID}`) && !u.includes('/process') && !u.includes('/match')) {
+      if (
+        u.includes(`/api/photos/${PHOTO_ID}`) &&
+        !u.includes('/process') &&
+        !u.includes('/match')
+      ) {
         return Promise.resolve(new Response(JSON.stringify(makePhotoResponse()), { status: 200 }));
       }
       if (u.includes('/process')) {
         return Promise.resolve(
-          new Response(JSON.stringify({ error: { code: 'INTERNAL_ERROR', message: 'Vision fail' } }), { status: 500 })
+          new Response(
+            JSON.stringify({ error: { code: 'INTERNAL_ERROR', message: 'Vision fail' } }),
+            { status: 500 },
+          ),
         );
       }
       // match should never be called
@@ -706,11 +757,73 @@ describe('DetectionReview — runRerunVision auto-match', () => {
     fireEvent.click(screen.getByTestId('rerun-vision-confirm-confirm'));
 
     // Wait for error message to appear (vision failed → shows error, no reload)
-    await waitFor(() => {
-      const msg = screen.queryByTestId('action-message');
-      return msg && msg.textContent && msg.textContent.length > 0;
-    }, { timeout: 3000 });
+    await waitFor(
+      () => {
+        const msg = screen.queryByTestId('action-message');
+        return msg && msg.textContent && msg.textContent.length > 0;
+      },
+      { timeout: 3000 },
+    );
 
     expect(reloadMock).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// S-37: initial focus z deep-linku (?detection=)
+// ---------------------------------------------------------------------------
+
+describe('DetectionReview — initial focus z deep-linku (S-37)', () => {
+  beforeEach(() => {
+    // jsdom nie implementuje scrollIntoView — stub na prototypie
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+
+  // Overlay (a z nim clear-focus-button) renderuje się tylko gdy photo_url present
+  function makePhotoResponseWithUrl(detections: DetectionWithCandidatesDTO[] = [detHigh, detLow]) {
+    const r = makePhotoResponse(detections);
+    return { data: { ...r.data, photo_url: 'https://example.com/shelf.jpg' } };
+  }
+
+  it('ustawia fokus overlay gdy initialFocusedDetectionId wskazuje istniejącą detekcję', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(makePhotoResponseWithUrl()), { status: 200 }),
+    );
+    render(<DetectionReview photoId={PHOTO_ID} initialFocusedDetectionId={DET_ID_HIGH} />);
+    // clear-focus-button renderuje się wyłącznie w trybie fokus
+    await waitFor(() => expect(screen.getByTestId('clear-focus-button')).toBeInTheDocument());
+  });
+
+  it('scrolluje listę do karty detekcji z fokusem', async () => {
+    const scrollSpy = vi.fn();
+    Element.prototype.scrollIntoView = scrollSpy;
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(makePhotoResponse()), { status: 200 }),
+    );
+    render(<DetectionReview photoId={PHOTO_ID} initialFocusedDetectionId={DET_ID_HIGH} />);
+    await waitFor(() => expect(scrollSpy).toHaveBeenCalled(), { timeout: 3000 });
+  });
+
+  it('nieznane id → cichy no-op, pełny widok bez fokusu', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(makePhotoResponseWithUrl()), { status: 200 }),
+    );
+    render(
+      <DetectionReview
+        photoId={PHOTO_ID}
+        initialFocusedDetectionId="00000000-0000-4000-8000-0000000000ff"
+      />,
+    );
+    await waitFor(() => screen.getByTestId('photo-overlay'));
+    expect(screen.queryByTestId('clear-focus-button')).not.toBeInTheDocument();
+  });
+
+  it('brak propa → zachowanie jak dotąd (bez fokusu)', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(makePhotoResponseWithUrl()), { status: 200 }),
+    );
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => screen.getByTestId('photo-overlay'));
+    expect(screen.queryByTestId('clear-focus-button')).not.toBeInTheDocument();
   });
 });
