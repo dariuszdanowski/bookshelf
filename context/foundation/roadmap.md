@@ -67,6 +67,7 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | S-34  | shelf-book-view-modes         | tryby widoku książek na `/shelves/[id]`: lista kompaktowa (1 linia), kafelki (okładka+tytuł), szczegółowe panele (obecny); przełącznik z `localStorage` + responsywny default; analogia do S-25 `detection-list-views` | S-29 | UX polish | proposed |
 | S-35  | refine-ux-cost-info           | UX fix przycisków refine: jeden spójny label „Doprecyzuj odczyt" (zamiast mylących dwóch nazw); ⚠ ikona + tooltip przy słabym cropie; widoczna informacja „Dodatkowa analiza AI (płatna)" przy każdym wariancie; opcjonalny dialog potwierdzenia dla `uncertain_localization` | — | UX polish | done |
 | S-36  | photo-upload-skip-process     | upload zdjęcia bez uruchamiania vision: checkbox „Analizuj od razu" (domyślnie zaznaczony) w `PhotoUploader`; zdjęcie w stanie `uploaded` widoczne w zakładce Zdjęcia (S-29) z przyciskiem „Analizuj teraz" | S-29 | UX (kontrola kosztu) | proposed |
+| S-37  | book-to-detection-focus       | „Źródłowe zdjęcie" z karty/modala książki otwiera review spozycjonowany na propozycji TEJ książki: `detection_id` dołożony do GET /api/shelves/[id]/books (+ ścieżka /library), link `/photos/[photo_id]?detection=`, `DetectionReview` czyta param → `setFocusedDetectionId` (overlay pokazuje wtedy tylko 1 ramkę — mechanizm fokusa z S-18) + scroll do karty detekcji; fallback bez `detection_id` (NULL po re-analizie/wpis ręczny) = obecne zachowanie | S-15, S-18 | UX (nawigacja książka→źródło) | proposed |
 
 ## Streams
 
@@ -509,6 +510,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 | S-34       | shelf-book-view-modes        | Tryby widoku książek: lista/kafelki/panele (analogia S-25) | no | Czeka na S-29 (stabilne tabs). |
 | S-35       | refine-ux-cost-info          | Ujednolicony label refine + info o koszcie + dialog potwierdzenia | yes | Czysto frontendowy, niezależny. |
 | S-36       | photo-upload-skip-process    | Checkbox „Analizuj od razu" w uploaderze + akcja „Analizuj" na liście zdjęć | no | Czeka na S-29 (tab Zdjęcia). |
+| S-37       | book-to-detection-focus      | Deep-link książka→review z fokusem na jej detekcji (1 ramka + scroll) | yes | Prereqs done (S-15 link, S-18 fokus overlay); czyste wiring — `detection_id` w books API + `?detection=` w DetectionReview; zero migracji. Szacunek S. |
 
 ## Open Roadmap Questions
 
