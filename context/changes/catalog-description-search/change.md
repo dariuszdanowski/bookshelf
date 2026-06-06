@@ -1,7 +1,7 @@
 ---
 change_id: catalog-description-search
 roadmap_slice: S-17
-status: plan_reviewed
+status: implementing
 created: 2026-06-06
 updated: 2026-06-06
 ---
