@@ -1,9 +1,10 @@
 ---
 change_id: unified-book-modal
 roadmap_slice: S-36
-status: planned
+status: archived
 created: 2026-06-06
 updated: 2026-06-06
+archived_at: 2026-06-06T10:08:23Z
 ---
 
 # S-36 — Ujednolicone modalne okno książki (add / edit / propose)

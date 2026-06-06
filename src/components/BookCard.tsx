@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { ShelfBookDTO, BookCoverPatch } from '../lib/books/schema';
 import type { ShelfDTO } from '../lib/shelves/schema';
 import { effectiveCover } from '../lib/books/cover';
-import BookDetailModal from './BookDetailModal';
+import BookModal from './BookModal';
 
 /** Mapa nazwanych kolorów grzbietu (SPINE_COLORS) → swatch CSS dla wyników wyszukiwarki. */
 const SPINE_COLOR_CSS: Record<string, string> = {
@@ -35,6 +35,8 @@ type BookCardProps = {
   onMove?: (bookId: string, targetShelfId: string) => void;
   /** S-33: zmiana okładki z modala (optimistic po stronie rodzica). */
   onCoverUpdated?: (bookId: string, patch: BookCoverPatch) => void;
+  /** S-36: odświeżenie listy po zapisie z BookModal edit. */
+  onBookSaved?: () => void;
 };
 
 /**
@@ -51,7 +53,7 @@ export default function BookCard({
   shelves,
   currentShelfId,
   onMove,
-  onCoverUpdated,
+  onBookSaved,
 }: BookCardProps) {
   const [showDetail, setShowDetail] = useState(false);
   const authorsStr = book.authors.join(', ');
@@ -103,27 +105,25 @@ export default function BookCard({
       </div>
 
       {showDetail && (
-        <BookDetailModal
+        <BookModal
+          mode="edit"
           book={{
+            id: book.id,
             title: book.title,
             authors: book.authors,
             coverUrl: cover,
-            isbn13: book.isbn_13,
-            isbn10: book.isbn_10,
-            publisher: book.publisher,
-            publishedYear: book.published_year,
-            spineColor: spineColor ?? null,
-          }}
-          editableBookId={book.id}
-          coverSlots={{
             cover_url: book.cover_url,
             user_cover_url: book.user_cover_url,
             cover_photo_url: book.cover_photo_url,
             cover_source: book.cover_source,
-            isbn: book.isbn_13 ?? book.isbn_10 ?? null,
+            publisher: book.publisher,
+            publishedYear: book.published_year,
+            isbn13: book.isbn_13,
+            isbn10: book.isbn_10,
+            photoId: book.photo_id,
+            spineColor: spineColor ?? null,
           }}
-          onCoverUpdated={(patch) => onCoverUpdated?.(book.id, patch)}
-          sourcePhotoId={book.photo_id}
+          onSaved={() => onBookSaved?.()}
           onClose={() => setShowDetail(false)}
         />
       )}

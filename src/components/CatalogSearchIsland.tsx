@@ -239,6 +239,7 @@ export default function CatalogSearchIsland() {
                   currentShelfId={b.shelf_id}
                   onMove={handleMove}
                   onCoverUpdated={handleCoverUpdated}
+                  onBookSaved={() => void runSearch()}
                 />
               ))}
             </div>

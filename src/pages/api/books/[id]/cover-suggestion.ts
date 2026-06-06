@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
+import { findCoverByIsbn } from '../../../../lib/books/cover';
 import { apiError, apiResponse, parseUuidParam } from '../../../../lib/http/response';
-import { searchGoogleBooks } from '../../../../lib/books/googleBooks';
 
 export const prerender = false;
 
@@ -49,24 +49,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
     return apiResponse({ data: { cover_url: null } });
   }
 
-  let found: string | null = null;
-
-  // 1. OpenLibrary covers po ISBN — default=false → 404 gdy brak okładki.
-  const olUrl = `https://covers.openlibrary.org/b/isbn/${isbn.replace(/[-\s]/g, '')}-L.jpg?default=false`;
-  try {
-    const head = await fetch(olUrl, { method: 'HEAD' });
-    if (head.ok) found = olUrl;
-  } catch {
-    // sieć — pomiń, spróbuj GB
-  }
-
-  // 2. Google Books po ISBN (gdy OL nie ma) — imageLinks.thumbnail.
-  if (!found) {
-    const gb = await searchGoogleBooks({ title: book.title, isbn });
-    if (gb.ok) {
-      found = gb.candidates.find((c) => c.coverUrl)?.coverUrl ?? null;
-    }
-  }
+  const found = await findCoverByIsbn(isbn, book.title);
 
   if (!found) {
     return apiResponse({ data: { cover_url: null } });
