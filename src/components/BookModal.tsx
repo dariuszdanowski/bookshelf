@@ -181,15 +181,19 @@ function SearchPanel({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  async function search() {
-    if (!title.trim() && !isbn.trim()) return;
+  // overrides pozwalają przekazać świeże wartości z formularza rodzica (useState
+  // w SearchPanel inicjalizuje się raz przy mount i nie śledzi zmian props)
+  async function search(overrideTitle?: string, overrideIsbn?: string) {
+    const t = overrideTitle ?? title;
+    const i = overrideIsbn ?? isbn;
+    if (!t.trim() && !i.trim()) return;
     setBusy(true);
     setErr(null);
     try {
       const body: Record<string, string> = {};
-      if (title.trim()) body.title = title.trim();
+      if (t.trim()) body.title = t.trim();
       if (author.trim()) body.author = author.trim();
-      if (isbn.trim()) body.isbn = isbn.trim();
+      if (i.trim()) body.isbn = i.trim();
       const res = await fetch('/api/books/candidates', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -212,9 +216,14 @@ function SearchPanel({
         type="button"
         data-testid="search-candidates-toggle"
         onClick={() => {
+          // sync local state z aktualnym stanem formularza rodzica,
+          // następnie od razu wyszukaj gdy pola wypełnione
+          setTitle(initialTitle);
+          setIsbn(initialIsbn);
           setOpen(true);
-          // gdy pola już wypełnione — od razu wyszukaj bez klikania drugi raz
-          if (title.trim() || isbn.trim()) void search();
+          if (initialTitle.trim() || initialIsbn.trim()) {
+            void search(initialTitle, initialIsbn);
+          }
         }}
         className="rounded-md border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300"
       >
@@ -382,27 +391,30 @@ function AddCoverSection({
   }
 
   return (
-    <div className="space-y-1.5">
-      <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
-        URL okładki
+    <div className="mt-2 w-full space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-700 dark:bg-gray-900/40">
+      <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">Okładka</p>
+
+      <label className="block text-xs text-gray-600 dark:text-gray-400">
+        Wklej URL
         <input
           data-testid="add-cover-url"
           value={coverUrl}
           onChange={(e) => onCoverUrl(e.target.value)}
           placeholder="https://..."
-          className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs placeholder:text-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+          className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs placeholder:text-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500"
         />
       </label>
+
       <div className="flex flex-wrap gap-1.5">
         <button
           type="button"
           data-testid="add-cover-autocheck"
           disabled={checking || !isbn.trim()}
           onClick={() => void handleAutoCheck()}
-          title={isbn.trim() ? 'Szukaj okładki po ISBN' : 'Wpisz ISBN'}
+          title={isbn.trim() ? 'Szukaj okładki po ISBN' : 'Najpierw wpisz ISBN'}
           className="rounded-md border border-indigo-300 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50 dark:border-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300"
         >
-          {checking ? 'Sprawdzam...' : 'Wyszukaj okładkę'}
+          {checking ? 'Sprawdzam...' : 'Znajdź po ISBN'}
         </button>
         <label className="cursor-pointer rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200">
           {uploading ? 'Wgrywam...' : 'Wgraj zdjęcie'}
@@ -416,6 +428,7 @@ function AddCoverSection({
           />
         </label>
       </div>
+
       {err && <p data-testid="add-cover-error" className="text-xs text-red-600 dark:text-red-400" role="alert">{err}</p>}
     </div>
   );
