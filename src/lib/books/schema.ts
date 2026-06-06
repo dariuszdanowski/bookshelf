@@ -164,6 +164,9 @@ export type UpdateBookReadInput = z.infer<typeof UpdateBookReadSchema>;
 export const UpdateBookSchema = z
   .object({
     is_read: z.boolean().optional(),
+    // unify-book-save: cover_url (slot „auto") edytowalny przez ujednolicony zapis —
+    // „Sprawdź okładkę automatycznie" ustawia go w stanie, główny „Zapisz" persystuje.
+    cover_url: z.string().url('Nieprawidłowy URL').max(1000).nullable().optional(),
     user_cover_url: z.string().url('Nieprawidłowy URL').max(1000).nullable().optional(),
     cover_photo_url: z.string().url('Nieprawidłowy URL').max(1000).nullable().optional(),
     cover_source: z.enum(['auto', 'url', 'photo']).optional(),

@@ -379,7 +379,7 @@ test.describe('S-05 — proposal-accept-to-catalog golden path (mock)', () => {
     await expect(toggleBtn).toHaveAttribute('aria-pressed', 'true');
   });
 
-  test('edycja okładki — wklej URL + flaga „URL" → PATCH user_cover_url', async ({ page }) => {
+  test('edycja okładki — wklej URL + flaga „URL" → jeden „Zapisz" → PATCH user_cover_url', async ({ page }) => {
     await page.goto('/shelves');
     const shelfHref = await page.locator('a[href^="/shelves/"]').first().getAttribute('href');
     const realShelfId = shelfHref?.split('/shelves/')[1] ?? '';
@@ -398,13 +398,14 @@ test.describe('S-05 — proposal-accept-to-catalog golden path (mock)', () => {
     await page.goto(`/shelves/${realShelfId}`);
     await expect(page.getByTestId(`book-card-${BOOK_HIGH}`)).toBeVisible({ timeout: 10000 });
 
-    // Klik okładki → modal → panel edycji
+    // Klik okładki → modal. Sekcja okładki jest zawsze rozwinięta (bez toggle),
+    // a zapis idzie jednym głównym „Zapisz" (unify-book-save).
     await page.getByTestId(`book-cover-button-${BOOK_HIGH}`).click();
     await expect(page.getByTestId('book-modal')).toBeVisible();
-    await page.getByTestId('edit-cover-toggle').click();
+    await expect(page.getByTestId('edit-cover-section')).toBeVisible();
     await page.getByTestId('edit-cover-url-input').fill('https://example.com/moja-okladka.jpg');
     await page.getByTestId('edit-cover-source-url').click();
-    await page.getByTestId('edit-cover-save').click();
+    await page.getByTestId('book-modal-save').click();
 
     const readPatch = () => patchBody as Record<string, unknown> | null;
     await expect.poll(() => readPatch()?.user_cover_url).toBe('https://example.com/moja-okladka.jpg');

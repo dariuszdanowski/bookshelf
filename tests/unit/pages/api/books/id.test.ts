@@ -124,6 +124,15 @@ describe('PATCH /api/books/[id]', () => {
     expect(capturedUpdate.mock.calls[0][0]).not.toHaveProperty('is_read');
   });
 
+  it('200 PATCH cover_url (slot auto) — unify-book-save', async () => {
+    const ctx = makeContext({ body: { cover_url: 'https://auto.example/c.jpg', cover_source: 'auto' } });
+    const res = await PATCH(ctx);
+    expect(res.status).toBe(200);
+    expect(capturedUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ cover_url: 'https://auto.example/c.jpg', cover_source: 'auto' })
+    );
+  });
+
   it('200 PATCH cover_photo_url + cover_source=photo', async () => {
     const ctx = makeContext({
       body: { cover_photo_url: 'https://x.supabase.co/cover.png', cover_source: 'photo' },

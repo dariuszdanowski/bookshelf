@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { effectiveCover, largeCoverUrl } from '../lib/books/cover';
-import type { BookCoverPatch, CoverSource } from '../lib/books/schema';
+import type { CoverSource } from '../lib/books/schema';
 import BookFields from './book/BookFields';
 import type { BookFieldValues } from './book/BookFields';
 import CoverEditor, { type CoverEditorPatch } from './book/CoverEditor';
@@ -351,125 +351,6 @@ function SearchPanel({
 }
 
 // ---------------------------------------------------------------------------
-// Panel edycji okładki dla trybu edit — wrapper (toggle / Zapisz okładkę / Anuluj)
-// wokół wspólnego CoverEditor; własny PATCH do /api/books/:id (osobno od metadanych).
-
-type CoverSlots = {
-  cover_url: string | null;
-  user_cover_url: string | null;
-  cover_photo_url: string | null;
-  cover_source: CoverSource;
-  isbn: string | null;
-};
-
-function EditCoverSection({
-  bookId,
-  slots,
-  onPreview,
-  onApplied,
-}: {
-  bookId: string;
-  slots: CoverSlots;
-  onPreview: (url: string | null) => void;
-  onApplied: (patch: BookCoverPatch) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [source, setSource] = useState<CoverSource>(slots.cover_source);
-  const [autoUrl, setAutoUrl] = useState(slots.cover_url);
-  const [userUrl, setUserUrl] = useState(slots.user_cover_url ?? '');
-  const [photoUrl, setPhotoUrl] = useState(slots.cover_photo_url);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  function handleChange(patch: CoverEditorPatch) {
-    const nextSource = patch.source ?? source;
-    const nextAuto = patch.autoUrl !== undefined ? patch.autoUrl : autoUrl;
-    const nextUser = patch.userUrl !== undefined ? patch.userUrl : userUrl;
-    const nextPhoto = patch.photoUrl !== undefined ? patch.photoUrl : photoUrl;
-    if (patch.source !== undefined) setSource(patch.source);
-    if (patch.autoUrl !== undefined) setAutoUrl(patch.autoUrl);
-    if (patch.userUrl !== undefined) setUserUrl(patch.userUrl);
-    if (patch.photoUrl !== undefined) setPhotoUrl(patch.photoUrl);
-    onPreview(pickCover(nextSource, nextAuto, nextUser, nextPhoto));
-  }
-
-  async function handleSave() {
-    setBusy(true);
-    setErr(null);
-    const newUserUrl = userUrl.trim() || null;
-    const patch: BookCoverPatch = { cover_source: source };
-    if (newUserUrl !== slots.user_cover_url) patch.user_cover_url = newUserUrl;
-    if (photoUrl !== slots.cover_photo_url) patch.cover_photo_url = photoUrl;
-    try {
-      const res = await fetch(`/api/books/${bookId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(patch),
-      });
-      const json = (await res.json()) as { error?: { message?: string } };
-      if (!res.ok) { setErr(json.error?.message ?? `Błąd zapisu (${res.status})`); return; }
-      onApplied({ ...patch, cover_url: autoUrl });
-      setOpen(false);
-    } catch {
-      setErr('Błąd sieci.');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  if (!open) {
-    return (
-      <button
-        type="button"
-        data-testid="edit-cover-toggle"
-        onClick={() => setOpen(true)}
-        className="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
-      >
-        Zmień okładkę
-      </button>
-    );
-  }
-
-  return (
-    <div className="mt-2 w-full space-y-2">
-      <CoverEditor
-        mode="edit"
-        bookId={bookId}
-        isbn={slots.isbn}
-        source={source}
-        autoUrl={autoUrl}
-        userUrl={userUrl}
-        photoUrl={photoUrl}
-        testIdPrefix="edit-cover"
-        onChange={handleChange}
-      />
-
-      {err && <p data-testid="edit-cover-save-error" className="text-xs text-red-600 dark:text-red-400" role="alert">{err}</p>}
-
-      <div className="flex gap-2">
-        <button
-          type="button"
-          data-testid="edit-cover-save"
-          disabled={busy}
-          onClick={() => void handleSave()}
-          className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-        >
-          {busy ? 'Zapisuję...' : 'Zapisz okładkę'}
-        </button>
-        <button
-          type="button"
-          data-testid="edit-cover-cancel"
-          onClick={() => { setOpen(false); onPreview(effectiveCover(slots)); }}
-          className="rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400"
-        >
-          Anuluj
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Główny komponent
 
 /**
@@ -484,11 +365,12 @@ function EditCoverSection({
  */
 export default function BookModal({ mode, shelfId, book, onSaved, onClose }: BookModalProps) {
   const [fields, setFields] = useState<BookFieldValues>(() => bookToFields(book));
-  // Stan okładki dla trybu add (lifted z CoverEditor) — sloty trafiają do POST przy „Dodaj".
-  const [addSource, setAddSource] = useState<CoverSource>(book?.cover_source ?? 'auto');
-  const [addAutoUrl, setAddAutoUrl] = useState<string | null>(book?.cover_url ?? book?.coverUrl ?? null);
-  const [addUserUrl, setAddUserUrl] = useState<string>(book?.user_cover_url ?? '');
-  const [addPhotoUrl, setAddPhotoUrl] = useState<string | null>(book?.cover_photo_url ?? null);
+  // Stan okładki (lifted z CoverEditor) — wspólny dla add i edit. Trafia do
+  // ujednoliconego zapisu: POST (add) / PATCH razem z metadanymi (edit).
+  const [coverSource, setCoverSource] = useState<CoverSource>(book?.cover_source ?? 'auto');
+  const [coverAutoUrl, setCoverAutoUrl] = useState<string | null>(book?.cover_url ?? book?.coverUrl ?? null);
+  const [coverUserUrl, setCoverUserUrl] = useState<string>(book?.user_cover_url ?? '');
+  const [coverPhotoUrl, setCoverPhotoUrl] = useState<string | null>(book?.cover_photo_url ?? null);
   const [displayCover, setDisplayCover] = useState<string | null>(
     book ? (effectiveCover({
       cover_url: book.cover_url ?? book.coverUrl ?? null,
@@ -520,22 +402,22 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
       isbn10: c.isbn10 ?? '',
     });
     if (c.coverUrl) {
-      setAddAutoUrl(c.coverUrl);
-      setAddSource('auto');
+      setCoverAutoUrl(c.coverUrl);
+      setCoverSource('auto');
       setDisplayCover(c.coverUrl);
     }
   }
 
-  // Lift zmian z CoverEditor (tryb add) do stanu + podgląd.
-  function handleAddCoverChange(patch: CoverEditorPatch) {
-    const nextSource = patch.source ?? addSource;
-    const nextAuto = patch.autoUrl !== undefined ? patch.autoUrl : addAutoUrl;
-    const nextUser = patch.userUrl !== undefined ? patch.userUrl : addUserUrl;
-    const nextPhoto = patch.photoUrl !== undefined ? patch.photoUrl : addPhotoUrl;
-    if (patch.source !== undefined) setAddSource(patch.source);
-    if (patch.autoUrl !== undefined) setAddAutoUrl(patch.autoUrl);
-    if (patch.userUrl !== undefined) setAddUserUrl(patch.userUrl);
-    if (patch.photoUrl !== undefined) setAddPhotoUrl(patch.photoUrl);
+  // Lift zmian z CoverEditor (add + edit) do wspólnego stanu + podgląd.
+  function handleCoverChange(patch: CoverEditorPatch) {
+    const nextSource = patch.source ?? coverSource;
+    const nextAuto = patch.autoUrl !== undefined ? patch.autoUrl : coverAutoUrl;
+    const nextUser = patch.userUrl !== undefined ? patch.userUrl : coverUserUrl;
+    const nextPhoto = patch.photoUrl !== undefined ? patch.photoUrl : coverPhotoUrl;
+    if (patch.source !== undefined) setCoverSource(patch.source);
+    if (patch.autoUrl !== undefined) setCoverAutoUrl(patch.autoUrl);
+    if (patch.userUrl !== undefined) setCoverUserUrl(patch.userUrl);
+    if (patch.photoUrl !== undefined) setCoverPhotoUrl(patch.photoUrl);
     setDisplayCover(pickCover(nextSource, nextAuto, nextUser, nextPhoto));
   }
 
@@ -551,11 +433,11 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
       if (mode === 'add') {
         if (!shelfId) { setErr('Brak shelf_id.'); return; }
         // AddPurchaseSchema uses .optional() (not .nullish()) — strip null fields so Zod accepts them.
-        // Sloty okładki: cover_source zawsze; pozostałe tylko gdy mają wartość (unify-add-cover).
-        const coverFields: Record<string, string> = { cover_source: addSource };
-        if (addAutoUrl) coverFields.cover_url = addAutoUrl;
-        if (addUserUrl.trim()) coverFields.user_cover_url = addUserUrl.trim();
-        if (addPhotoUrl) coverFields.cover_photo_url = addPhotoUrl;
+        // Sloty okładki: cover_source zawsze; pozostałe tylko gdy mają wartość.
+        const coverFields: Record<string, string> = { cover_source: coverSource };
+        if (coverAutoUrl) coverFields.cover_url = coverAutoUrl;
+        if (coverUserUrl.trim()) coverFields.user_cover_url = coverUserUrl.trim();
+        if (coverPhotoUrl) coverFields.cover_photo_url = coverPhotoUrl;
         const postBody = Object.fromEntries(
           Object.entries({ ...parsed, shelf_id: shelfId, ...coverFields })
             .filter(([, v]) => v !== null)
@@ -567,10 +449,19 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
         });
       } else {
         if (!book?.id) { setErr('Brak book id.'); return; }
+        // unify-book-save: jeden zapis — metadane + sloty okładki w jednym PATCH
+        // (UpdateBookSchema dopuszcza nullable, więc null = wyczyść slot).
+        const patchBody = {
+          ...parsed,
+          cover_url: coverAutoUrl,
+          user_cover_url: coverUserUrl.trim() || null,
+          cover_photo_url: coverPhotoUrl,
+          cover_source: coverSource,
+        };
         res = await fetch(`/api/books/${book.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(parsed),
+          body: JSON.stringify(patchBody),
         });
       }
 
@@ -585,17 +476,6 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
       setBusy(false);
     }
   }
-
-  const editSlots: CoverSlots | undefined =
-    mode === 'edit' && book?.id
-      ? {
-          cover_url: book.cover_url ?? null,
-          user_cover_url: book.user_cover_url ?? null,
-          cover_photo_url: book.cover_photo_url ?? null,
-          cover_source: book.cover_source ?? 'auto',
-          isbn: book.isbn13 ?? book.isbn10 ?? null,
-        }
-      : undefined;
 
   const authorsDisplay = (book?.authors ?? []).join(', ');
   const sourceLabel = book?.source ? (SOURCE_LABELS[book.source] ?? book.source) : null;
@@ -644,25 +524,17 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
             <div className="flex w-full flex-col items-center gap-2 sm:w-72 sm:flex-shrink-0">
               <CoverLarge url={displayCover} alt={authorsDisplay ? `${fields.title} — ${authorsDisplay}` : fields.title} />
 
-              {mode === 'add' && (
+              {/* Sekcja okładki — zawsze rozwinięta, identyczna w add i edit.
+                  Sloty w stanie BookModal → zapisywane jednym „Zapisz" (unify-book-save). */}
+              {canEdit && (
                 <CoverEditor
-                  mode="add"
                   isbn={fields.isbn13 || fields.isbn10}
-                  source={addSource}
-                  autoUrl={addAutoUrl}
-                  userUrl={addUserUrl}
-                  photoUrl={addPhotoUrl}
-                  testIdPrefix="add-cover"
-                  onChange={handleAddCoverChange}
-                />
-              )}
-
-              {mode === 'edit' && editSlots && book?.id && (
-                <EditCoverSection
-                  bookId={book.id}
-                  slots={editSlots}
-                  onPreview={setDisplayCover}
-                  onApplied={(patch) => { if (patch.cover_url) setDisplayCover(patch.cover_url); }}
+                  source={coverSource}
+                  autoUrl={coverAutoUrl}
+                  userUrl={coverUserUrl}
+                  photoUrl={coverPhotoUrl}
+                  testIdPrefix={mode === 'edit' ? 'edit-cover' : 'add-cover'}
+                  onChange={handleCoverChange}
                 />
               )}
             </div>
