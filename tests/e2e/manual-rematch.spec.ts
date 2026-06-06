@@ -39,13 +39,28 @@ test.describe('manual rematch — szukaj po tytule', () => {
         contentType: 'application/json',
         body: JSON.stringify({
           data: {
-            photo: { id: PHOTO_ID, shelf_id: 'shelf-1', status: 'processed', detected_count: 1, error_message: null, vision_cost_usd: 0.005, vision_latency_ms: 3000, created_at: new Date().toISOString() },
+            photo: {
+              id: PHOTO_ID,
+              shelf_id: 'shelf-1',
+              status: 'processed',
+              detected_count: 1,
+              error_message: null,
+              vision_cost_usd: 0.005,
+              vision_latency_ms: 3000,
+              created_at: new Date().toISOString(),
+            },
             photo_url: 'https://example.com/shelf.jpg',
             detections: [MOCK_DETECTION_NO_CANDIDATES],
-            vision_run: { id: 'vr-1', model: 'claude-sonnet-4-6', created_at: new Date().toISOString(), cost_usd: 0.005, latency_ms: 3000 },
+            vision_run: {
+              id: 'vr-1',
+              model: 'claude-sonnet-4-6',
+              created_at: new Date().toISOString(),
+              cost_usd: 0.005,
+              latency_ms: 3000,
+            },
           },
         }),
-      })
+      }),
     );
     await page.goto(`/photos/${PHOTO_ID}`);
     await page.waitForSelector('[data-testid="no-match-placeholder"]');
@@ -70,12 +85,17 @@ test.describe('manual rematch — szukaj po tytule', () => {
         body: JSON.stringify({
           data: {
             applied: true,
-            detection: { id: DET_ID, status: 'matched', raw_title: 'Przerwana kołysanka', raw_author: 'Natasza Socha' },
+            detection: {
+              id: DET_ID,
+              status: 'matched',
+              raw_title: 'Przerwana kołysanka',
+              raw_author: 'Natasza Socha',
+            },
             candidates: [MOCK_REMATCH_RESULT],
             duplicate: null,
           },
         }),
-      })
+      }),
     );
 
     await page.getByTestId('rematch-button').first().click();
@@ -94,9 +114,19 @@ test.describe('manual rematch — szukaj po tytule', () => {
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          data: { applied: false, detection: { id: DET_ID, status: 'pending', raw_title: 'xyz nieznany', raw_author: null }, candidates: [], duplicate: null },
+          data: {
+            applied: false,
+            detection: {
+              id: DET_ID,
+              status: 'pending',
+              raw_title: 'xyz nieznany',
+              raw_author: null,
+            },
+            candidates: [],
+            duplicate: null,
+          },
         }),
-      })
+      }),
     );
 
     await page.getByTestId('rematch-button').first().click();
@@ -109,12 +139,133 @@ test.describe('manual rematch — szukaj po tytule', () => {
 
   test('Anuluj zamyka formularz bez wywołania API', async ({ page }) => {
     let rematchCalled = false;
-    await page.route(`**/api/detections/${DET_ID}/rematch`, () => { rematchCalled = true; });
+    await page.route(`**/api/detections/${DET_ID}/rematch`, () => {
+      rematchCalled = true;
+    });
 
     await page.getByTestId('rematch-button').first().click();
     await expect(page.getByTestId('rematch-form')).toBeVisible();
     await page.getByTestId('rematch-cancel').click();
     await expect(page.getByTestId('rematch-form')).not.toBeVisible();
     expect(rematchCalled).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// S-19 (manual-cover-match): ręczne wyszukiwanie gdy detekcja MA już kandydata
+// — auto-match pudłuje, user szuka właściwej książki, nowy wynik (z okładką
+// + ISBN + metadanymi) zastępuje dotychczasowych kandydatów.
+// ---------------------------------------------------------------------------
+
+const WRONG_CANDIDATE = {
+  id: '00000000-0000-4000-8000-000000000040',
+  source: 'google_books',
+  externalId: 'gb-wrong',
+  title: 'Zupełnie inna książka',
+  authors: ['Nie Ten Autor'],
+  isbn10: null,
+  isbn13: '9788300000001',
+  publisher: null,
+  publishedYear: 2010,
+  coverUrl: null,
+  matchScore: 0.61,
+  rank: 1,
+};
+
+const RIGHT_CANDIDATE = {
+  id: '00000000-0000-4000-8000-000000000041',
+  source: 'google_books',
+  externalId: 'gb-right',
+  title: 'Solaris',
+  authors: ['Stanisław Lem'],
+  isbn10: null,
+  isbn13: '9780156027601',
+  publisher: 'Harvest',
+  publishedYear: 1961,
+  coverUrl: 'https://example.com/solaris-cover.jpg',
+  matchScore: 0.95,
+  rank: 1,
+};
+
+test.describe('S-19: rematch przy ISTNIEJĄCYM kandydacie (zły auto-match)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route(`**/api/photos/${PHOTO_ID}`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            photo: {
+              id: PHOTO_ID,
+              shelf_id: 'shelf-1',
+              status: 'processed',
+              detected_count: 1,
+              error_message: null,
+              vision_cost_usd: 0.005,
+              vision_latency_ms: 3000,
+              created_at: new Date().toISOString(),
+            },
+            photo_url: 'https://example.com/shelf.jpg',
+            detections: [
+              { ...MOCK_DETECTION_NO_CANDIDATES, status: 'matched', candidates: [WRONG_CANDIDATE] },
+            ],
+            vision_run: {
+              id: 'vr-1',
+              model: 'claude-sonnet-4-6',
+              created_at: new Date().toISOString(),
+              cost_usd: 0.005,
+              latency_ms: 3000,
+            },
+          },
+        }),
+      }),
+    );
+    await page.goto(`/photos/${PHOTO_ID}`);
+    await page.waitForSelector('[data-testid="detection-card-1"]');
+  });
+
+  test('przycisk Szukaj po tytule widoczny mimo istniejącego kandydata; form prefilluje ISBN topa', async ({
+    page,
+  }) => {
+    await expect(page.getByText('Zupełnie inna książka').first()).toBeVisible();
+    await page.getByTestId('rematch-button').first().click();
+    await expect(page.getByTestId('rematch-form')).toBeVisible();
+    await expect(page.getByTestId('rematch-title')).toHaveValue('Poraniona blyskawica');
+    await expect(page.getByTestId('rematch-isbn')).toHaveValue('9788300000001');
+  });
+
+  test('ręczne wyszukiwanie zastępuje złego kandydata właściwym (okładka + ISBN + metadane)', async ({
+    page,
+  }) => {
+    await page.route(`**/api/detections/${DET_ID}/rematch`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            applied: true,
+            detection: {
+              id: DET_ID,
+              status: 'matched',
+              raw_title: 'Solaris',
+              raw_author: 'Stanisław Lem',
+            },
+            candidates: [RIGHT_CANDIDATE],
+            duplicate: null,
+          },
+        }),
+      }),
+    );
+
+    await page.getByTestId('rematch-button').first().click();
+    await page.getByTestId('rematch-title').fill('Solaris');
+    await page.getByTestId('rematch-author').fill('Stanisław Lem');
+    await page.getByTestId('rematch-submit').click();
+
+    // Business outcome: zły kandydat zniknął, właściwy (z metadanymi) jest aktywny
+    await expect(page.getByText('Zupełnie inna książka')).not.toBeVisible();
+    await expect(page.getByText('Solaris').first()).toBeVisible();
+    // Akceptacja nowego kandydata nadal dostępna (aktywny kandydat podmieniony)
+    await expect(page.getByTestId('confirm-button').first()).toBeEnabled();
   });
 });
