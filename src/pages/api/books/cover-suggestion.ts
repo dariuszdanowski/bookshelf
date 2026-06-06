@@ -23,8 +23,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
     return apiError({ code: 'UNAUTHENTICATED', status: 401, message: 'Authentication required.' });
   }
 
-  const isbn = url.searchParams.get('isbn')?.trim() ?? '';
-  if (!isbn || isbn.length < 10 || isbn.length > 20) {
+  // Normalizuj (strip myślników/spacji, uppercase dla 'X' w ISBN-10), potem waliduj
+  // formatem spójnym ze schema.ts (ISBN-13 = 13 cyfr, ISBN-10 = 9 cyfr + cyfra/X) —
+  // length-only check przepuszczał śmieci typu "...//.." do interpolacji w URL.
+  const isbn = (url.searchParams.get('isbn')?.trim() ?? '').replace(/[-\s]/g, '').toUpperCase();
+  if (!/^(\d{13}|\d{9}[\dX])$/.test(isbn)) {
     return apiError({ code: 'VALIDATION_ERROR', status: 400, message: 'Podaj poprawny ISBN (10 lub 13 cyfr).' });
   }
 

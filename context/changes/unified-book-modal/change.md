@@ -1,7 +1,7 @@
 ---
 change_id: unified-book-modal
 roadmap_slice: S-36
-status: planned
+status: impl_reviewed
 created: 2026-06-06
 updated: 2026-06-06
 ---

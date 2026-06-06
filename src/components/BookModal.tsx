@@ -85,7 +85,7 @@ function parseFields(f: BookFieldValues) {
     title: f.title.trim(),
     authors: f.authors.split(',').map((a) => a.trim()).filter(Boolean),
     publisher: f.publisher.trim() || null,
-    published_year: f.year.trim() ? parseInt(f.year, 10) : null,
+    published_year: f.year.trim() && Number.isFinite(parseInt(f.year, 10)) ? parseInt(f.year, 10) : null,
     isbn_13: f.isbn13.trim() || null,
     isbn_10: f.isbn10.trim() || null,
   };
