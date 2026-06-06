@@ -1,7 +1,7 @@
 ---
 change_id: book-to-detection-focus
 title: "S-37: Deep-link książka → review z fokusem na jej detekcji"
-status: plan_reviewed
+status: in_progress
 created: 2026-06-06
 updated: 2026-06-06
 archived_at: null

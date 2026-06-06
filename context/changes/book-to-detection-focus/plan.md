@@ -246,9 +246,9 @@ dostają link bez query — zachowanie sprzed slice'a.
 
 #### Automated
 
-- [ ] 1.1 Typecheck: `npm run typecheck`
-- [ ] 1.2 Lint: `npm run lint`
-- [ ] 1.3 Unit: `npm run test`
+- [x] 1.1 Typecheck: `npm run typecheck` — ce02c06
+- [x] 1.2 Lint: `npm run lint` — ce02c06
+- [x] 1.3 Unit: `npm run test` — ce02c06
 
 ### Phase 2: UI wiring — link, query param, initial focus
 
