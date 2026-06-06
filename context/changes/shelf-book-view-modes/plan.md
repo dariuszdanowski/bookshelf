@@ -244,9 +244,9 @@ Brak migracji — czysty frontend. Reuse istniejących endpointów (CRUD + candi
 ### Phase 3: Wpięcie przełącznika w wyspy + E2E
 
 #### Automated
-- [ ] 3.1 Pełny unit zielony (BookCard + islandy + review)
-- [ ] 3.2 Typecheck + lint + build
-- [ ] 3.3 E2E (switch Karty/Lista/Kafelki na /shelves + /library, persystencja, delete w list/tiles)
+- [x] 3.1 Pełny unit zielony (BookCard + islandy + review) — 831/831
+- [x] 3.2 Typecheck + lint + build — zielone
+- [x] 3.3 E2E (switch Karty/Lista/Kafelki na /shelves + /library, persystencja, delete w list/tiles) — 128 passed
 
 #### Manual
 - [ ] 3.4 Przełącznik + persystencja na obu stronach

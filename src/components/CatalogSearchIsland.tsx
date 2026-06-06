@@ -4,6 +4,9 @@ import type { ShelfDTO } from '../lib/shelves/schema';
 import { SPINE_COLORS } from '../lib/vision/prompt';
 import BookCard from './BookCard';
 import Skeleton from './Skeleton';
+import { ViewModeSwitcher, useViewMode } from './ViewModeSwitcher';
+
+const BOOK_VIEW_MODE_KEY = 'bookshelf:book-view-mode';
 
 type ReadFilter = 'all' | 'read' | 'unread';
 
@@ -29,6 +32,7 @@ export default function CatalogSearchIsland() {
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useViewMode(BOOK_VIEW_MODE_KEY);
 
   // Lista półek do filtra
   useEffect(() => {
@@ -250,8 +254,18 @@ export default function CatalogSearchIsland() {
           </div>
         ) : books.length > 0 ? (
           <>
-            <p className="mb-3 text-xs text-gray-500">{books.length} wynik(ów)</p>
-            <div data-testid="search-results" className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <p className="text-xs text-gray-500">{books.length} wynik(ów)</p>
+              <ViewModeSwitcher mode={viewMode} onChange={setViewMode} />
+            </div>
+            <div
+              data-testid="search-results"
+              className={
+                viewMode === 'list'
+                  ? 'flex flex-col gap-2'
+                  : 'grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'
+              }
+            >
               {books.map((b) => (
                 <BookCard
                   key={b.id}
@@ -265,6 +279,7 @@ export default function CatalogSearchIsland() {
                   onCoverUpdated={handleCoverUpdated}
                   onBookSaved={() => void runSearch()}
                   onDelete={handleDelete}
+                  viewMode={viewMode}
                 />
               ))}
             </div>
