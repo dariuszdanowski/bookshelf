@@ -1,9 +1,10 @@
 ---
 change_id: catalog-description-search
 roadmap_slice: S-17
-status: impl_reviewed
+status: archived
 created: 2026-06-06
 updated: 2026-06-06
+archived_at: 2026-06-06T20:26:58Z
 ---
 
 # S-17 — Opis z bazy publicznej w full-text search
