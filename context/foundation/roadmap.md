@@ -66,7 +66,7 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | S-33  | byok-pipeline                 | pipeline vision wymaga klucza usera: `/api/photos/[id]/process` sprawdza `user_api_keys`, brak klucza → 403 z linkiem do `/account`; abstrakcja `VisionProvider` w `src/lib/vision/` zastępuje hardkodowany Anthropic SDK; globalny klucz z env wyłączony dla zwykłych userów | S-32 | FR (BYOK enforcement) | done |
 | S-34  | shelf-book-view-modes         | tryby widoku książek na `/shelves/[id]`: lista kompaktowa (1 linia), kafelki (okładka+tytuł), szczegółowe panele (obecny); przełącznik z `localStorage` + responsywny default; analogia do S-25 `detection-list-views` | S-29 | UX polish | done |
 | S-35  | refine-ux-cost-info           | UX fix przycisków refine: jeden spójny label „Doprecyzuj odczyt" (zamiast mylących dwóch nazw); ⚠ ikona + tooltip przy słabym cropie; widoczna informacja „Dodatkowa analiza AI (płatna)" przy każdym wariancie; opcjonalny dialog potwierdzenia dla `uncertain_localization` | — | UX polish | done |
-| S-36  | photo-upload-skip-process     | upload zdjęcia bez uruchamiania vision: checkbox „Analizuj od razu" (domyślnie zaznaczony) w `PhotoUploader`; zdjęcie w stanie `uploaded` widoczne w zakładce Zdjęcia (S-29) z przyciskiem „Analizuj teraz" | S-29 | UX (kontrola kosztu) | proposed |
+| S-36  | photo-upload-skip-process     | upload zdjęcia bez uruchamiania vision: checkbox „Analizuj od razu" (domyślnie zaznaczony) w `PhotoUploader`; zdjęcie w stanie `uploaded` widoczne w zakładce Zdjęcia (S-29) z przyciskiem „Analizuj teraz" | S-29 | UX (kontrola kosztu) | done     |
 | S-37  | book-to-detection-focus       | „Źródłowe zdjęcie" z karty/modala książki otwiera review spozycjonowany na propozycji TEJ książki: `detection_id` dołożony do GET /api/shelves/[id]/books (+ ścieżka /library), link `/photos/[photo_id]?detection=`, `DetectionReview` czyta param → `setFocusedDetectionId` (overlay pokazuje wtedy tylko 1 ramkę — mechanizm fokusa z S-18) + scroll do karty detekcji; fallback bez `detection_id` (NULL po re-analizie/wpis ręczny) = obecne zachowanie | S-15, S-18 | UX (nawigacja książka→źródło) | proposed |
 
 ## Streams
@@ -418,7 +418,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** niski; pułapka: `sessionStorage.setItem('upload_resume_photo_id')` w obecnym kodzie zakłada że po wgraniu następuje process — trzeba obsłużyć ścieżkę bez process (nie zapisywać resume state lub zapisywać z flagą skip).
-- **Status:** proposed
+- **Status:** done
 
 ### S-29: CRUD zdjęć + zakładki Książki/Zdjęcia + NULL hash badge
 
@@ -576,5 +576,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **S-34: na `/shelves/[id]` w zakładce Książki pojawia się przełącznik trybu prezentacji: **Karty** (obecny, pełna karta z okładką + akcjami), **Lista** (1 linia: okładka-mini + tytuł + autor + ikony akcji), **Kafelki** (siatka: okładka + tytuł); wybór persystowany w `localStorage`; domyślnie Karty na desktop, Lista na mobile; analogiczny wzorzec do S-25 `detection-list-views`.** — Archived 2026-06-06 → `context/archive/2026-06-06-shelf-book-view-modes/`. Lesson: —.
 
 - **S-17: full-text obejmuje „krótki opis z publicznej bazy" — capture opisu w klientach S-04 + confirm + backfill (re-fetch), rozszerzenie search_text** — Archived 2026-06-06 → `context/archive/2026-06-06-catalog-description-search/`. Lesson: —. Migracja 0019 (description w book_candidates+books, search_text 4-arg IMMUTABLE) ręcznie na prod pre-merge (za zgodą usera; ADD COLUMN STORED = darmowy backfill search_text). Świadoma adaptacja: bulk re-fetch backfill zastąpiony per-book refresh przez edit BookModal („Wyszukaj po danych" → PATCH); capture tylko GB (OL/BN → null). impl-review APPROVED (F1: sentinel undefined w BookModal — kandydat OL/BN czyści stary opis). Manual smoke (1.5/2.5/2.6) user-only deferred.
+
+- **S-36: w `PhotoUploader` pojawia się checkbox „Analizuj od razu" (domyślnie zaznaczony, persystowany w localStorage); gdy odznaczony — zdjęcie wgrane do Storage i zapisane w DB jako `status='uploaded'`, bez wywołania `/process`; takie zdjęcie widoczne w zakładce Zdjęcia (`/shelves/[id]`) z przyciskiem „Analizuj" który ręcznie uruchamia pipeline; użytkownik ma pełną kontrolę nad tym kiedy i co analizuje (i płaci).** — Archived 2026-06-07 → `context/archive/2026-06-07-photo-upload-skip-process/`. Lesson: —. Adaptacja: przycisk w tabie zostaje „Uruchom vision" (granularny pipeline S-29); dodatkowo `useShelfTab` honoruje `?tab=` (lądowanie po skip-uploadzie). Manual 1.5 user-only deferred.
 
 (Pusta przy pierwszej generacji. `/10x-archive` dopisuje tu wpis — i przerzuca Status pozycji na `done` — gdy archiwizowana zmiana ma `Change ID` zgodny z pozycją roadmapy. NIE wypełniać ręcznie.)

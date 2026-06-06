@@ -1,10 +1,10 @@
 ---
 change_id: photo-upload-skip-process
 title: "S-36: Upload zdjęcia bez uruchamiania vision"
-status: planned
+status: archived
 created: 2026-06-07
 updated: 2026-06-07
-archived_at: null
+archived_at: 2026-06-07T00:40:00Z
 ---
 
 ## Notes
