@@ -1,9 +1,9 @@
 ---
 change_id: photo-hash-backfill
 title: Backfill SHA-256 dla istniejących zdjęć
-status: in_progress
+status: implemented
 created: 2026-06-03
-updated: 2026-06-03
+updated: 2026-06-06
 archived_at: null
 ---
 
@@ -23,3 +23,8 @@ Jednorazowy skrypt Node.js `scripts/backfill-photo-hashes.mjs`:
   jakikolwiek UPDATE się nie powiódł
 
 Brak nowych migracji SQL — kolumna i index już istnieją (0013).
+
+**Status po impl-review (2026-06-06):** skrypt dostarczony (`9feaa22`, `8a63650`),
+review wykrył i naprawił shifting-window bug paginacji (F1) + dodał 8 testów unit (F2)
+— zob. `reviews/impl-review.md`. Uruchomienie na prod pozostaje user-only
+(`--dry-run` najpierw).
