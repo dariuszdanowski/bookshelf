@@ -47,6 +47,16 @@ describe('BookCard', () => {
     expect(img).toHaveAttribute('src', 'https://example.com/cover.jpg');
   });
 
+  it('zepsuta okładka (onError) → fallback do placeholdera, nie pokazuje połamanego <img>', () => {
+    const book = { ...baseBook, cover_url: 'https://broken.example/x.jpg' };
+    const { container } = render(<BookCard book={book} onToggleRead={vi.fn()} />);
+    const img = container.querySelector('img');
+    expect(img).toBeTruthy();
+    fireEvent.error(img!);
+    expect(container.querySelector('img')).toBeNull();
+    expect(screen.getByRole('img', { name: /Solaris/ })).toBeInTheDocument(); // placeholder
+  });
+
   it('cover_source=url → pokazuje user_cover_url (override)', () => {
     const book = {
       ...baseBook,
@@ -170,5 +180,60 @@ describe('BookCard', () => {
     fireEvent.click(screen.getByTestId(`delete-book-dialog-${BOOK_ID}-cancel`));
     expect(onDelete).not.toHaveBeenCalled();
     expect(screen.queryByTestId(`delete-book-dialog-${BOOK_ID}`)).not.toBeInTheDocument();
+  });
+
+  // S-34: tryby widoku — pełny CRUD w każdym układzie
+  const shelves = [
+    { id: 'sh-1', name: 'Salon', location: null, position_index: 0, book_count: 0 },
+    { id: 'sh-2', name: 'Sypialnia', location: null, position_index: 1, book_count: 0 },
+  ] as never;
+
+  it('tryb list: renderuje book-row + komplet akcji (read/move/delete/edit-cover)', () => {
+    render(
+      <BookCard book={baseBook} onToggleRead={vi.fn()} onMove={vi.fn()} onDelete={vi.fn()} viewMode="list" currentShelfId="sh-1" shelves={shelves} />
+    );
+    expect(screen.getByTestId(`book-card-${BOOK_ID}`)).toBeInTheDocument();
+    expect(screen.getByTestId(`book-row-${BOOK_ID}`)).toBeInTheDocument();
+    expect(screen.getByTestId(`toggle-read-${BOOK_ID}`)).toBeInTheDocument();
+    expect(screen.getByTestId(`move-book-${BOOK_ID}`)).toBeInTheDocument();
+    expect(screen.getByTestId(`delete-book-${BOOK_ID}`)).toBeInTheDocument();
+    expect(screen.getByTestId(`book-cover-button-${BOOK_ID}`)).toBeInTheDocument();
+  });
+
+  it('tryb list: delete → dialog → confirm wywołuje onDelete', () => {
+    const onDelete = vi.fn();
+    render(<BookCard book={baseBook} onToggleRead={vi.fn()} onDelete={onDelete} viewMode="list" />);
+    fireEvent.click(screen.getByTestId(`delete-book-${BOOK_ID}`));
+    fireEvent.click(screen.getByTestId(`delete-book-dialog-${BOOK_ID}-confirm`));
+    expect(onDelete).toHaveBeenCalledWith(BOOK_ID);
+  });
+
+  it('tryb list: klik okładki otwiera modal edycji', () => {
+    render(<BookCard book={baseBook} onToggleRead={vi.fn()} viewMode="list" />);
+    expect(screen.queryByTestId('book-modal')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId(`book-cover-button-${BOOK_ID}`));
+    expect(screen.getByTestId('book-modal')).toBeInTheDocument();
+  });
+
+  it('tryb tiles: renderuje book-tile + read/delete + edit-cover', () => {
+    render(<BookCard book={baseBook} onToggleRead={vi.fn()} onDelete={vi.fn()} viewMode="tiles" />);
+    expect(screen.getByTestId(`book-card-${BOOK_ID}`)).toBeInTheDocument();
+    expect(screen.getByTestId(`book-tile-${BOOK_ID}`)).toBeInTheDocument();
+    expect(screen.getByTestId(`toggle-read-${BOOK_ID}`)).toBeInTheDocument();
+    expect(screen.getByTestId(`delete-book-${BOOK_ID}`)).toBeInTheDocument();
+    expect(screen.getByTestId(`book-cover-button-${BOOK_ID}`)).toBeInTheDocument();
+  });
+
+  it('tryb tiles: toggle read wywołuje onToggleRead', () => {
+    const onToggle = vi.fn();
+    render(<BookCard book={baseBook} onToggleRead={onToggle} viewMode="tiles" />);
+    fireEvent.click(screen.getByTestId(`toggle-read-${BOOK_ID}`));
+    expect(onToggle).toHaveBeenCalledWith(BOOK_ID, false);
+  });
+
+  it('domyślny tryb (bez viewMode) = cards: brak book-row i book-tile', () => {
+    render(<BookCard book={baseBook} onToggleRead={vi.fn()} />);
+    expect(screen.queryByTestId(`book-row-${BOOK_ID}`)).not.toBeInTheDocument();
+    expect(screen.queryByTestId(`book-tile-${BOOK_ID}`)).not.toBeInTheDocument();
   });
 });

@@ -4,6 +4,9 @@ import type { ShelfDTO } from '../lib/shelves/schema';
 import BookCard from './BookCard';
 import BookModal from './BookModal';
 import Skeleton from './Skeleton';
+import { ViewModeSwitcher, useViewMode } from './ViewModeSwitcher';
+
+const BOOK_VIEW_MODE_KEY = 'bookshelf:book-view-mode';
 
 type Props = { shelfId: string };
 
@@ -22,6 +25,7 @@ export default function ShelfBooksIsland({ shelfId }: Props) {
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [viewMode, setViewMode] = useViewMode(BOOK_VIEW_MODE_KEY);
 
   const loadBooks = useCallback(async () => {
     try {
@@ -217,9 +221,14 @@ export default function ShelfBooksIsland({ shelfId }: Props) {
           onClose={() => setAddModalOpen(false)}
         />
       )}
+      <ViewModeSwitcher mode={viewMode} onChange={setViewMode} />
       <div
         data-testid="shelf-books-grid"
-        className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
+        className={
+          viewMode === 'list'
+            ? 'flex flex-col gap-2'
+            : 'grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5'
+        }
       >
         {books.map((book) => (
           <BookCard
@@ -232,6 +241,7 @@ export default function ShelfBooksIsland({ shelfId }: Props) {
             onCoverUpdated={handleCoverUpdated}
             onBookSaved={() => void loadBooks()}
             onDelete={handleDelete}
+            viewMode={viewMode}
           />
         ))}
       </div>
