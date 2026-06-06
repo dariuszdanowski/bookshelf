@@ -122,6 +122,31 @@ describe('BookModal — tryb add', () => {
     expect((screen.getByTestId('book-field-isbn13') as HTMLInputElement).value).toBe(CANDIDATE.isbn13);
   });
 
+  it('„Wyszukaj po danych" disabled przy pustych polach, enabled po wpisaniu tytułu', () => {
+    render(<BookModal mode="add" shelfId={SHELF_ID} onClose={vi.fn()} />);
+    const toggle = screen.getByTestId('search-candidates-toggle') as HTMLButtonElement;
+    expect(toggle.disabled).toBe(true);
+    fireEvent.change(screen.getByTestId('book-field-title'), { target: { value: 'Solaris' } });
+    expect(toggle.disabled).toBe(false);
+  });
+
+  it('auto-search przekazuje autora z głównego formularza do /api/books/candidates', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ data: { candidates: [CANDIDATE] } }), { status: 200 })
+    );
+    render(<BookModal mode="add" shelfId={SHELF_ID} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByTestId('book-field-title'), { target: { value: 'Ostatnie życzenie' } });
+    fireEvent.change(screen.getByTestId('book-field-authors'), { target: { value: 'Andrzej Sapkowski' } });
+    fireEvent.click(screen.getByTestId('search-candidates-toggle'));
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalled());
+    const [url, opts] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('/api/books/candidates');
+    const body = JSON.parse((opts as { body: string }).body);
+    expect(body.title).toBe('Ostatnie życzenie');
+    expect(body.author).toBe('Andrzej Sapkowski');
+  });
+
   it('cover parity: renderuje CoverEditor (3 sloty) jak w edit', () => {
     render(<BookModal mode="add" shelfId={SHELF_ID} onClose={vi.fn()} />);
     expect(screen.getByTestId('add-cover-section')).toBeTruthy();
@@ -235,6 +260,19 @@ describe('BookModal — tryb edit', () => {
     fireEvent.click(screen.getByTestId('candidates-use-0'));
 
     expect((screen.getByTestId('book-field-title') as HTMLInputElement).value).toBe(CANDIDATE.title);
+  });
+
+  it('auto-search w edit szuka też po autorze książki', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ data: { candidates: [CANDIDATE] } }), { status: 200 })
+    );
+    render(<BookModal mode="edit" book={BASE_BOOK} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByTestId('search-candidates-toggle'));
+
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalled());
+    const [, opts] = fetchSpy.mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse((opts as { body: string }).body);
+    expect(body.author).toBe('Stanisław Lem');
   });
 
   it('pokazuje przycisk „Źródłowe zdjęcie" gdy photoId ustawione', () => {

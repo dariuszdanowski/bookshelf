@@ -163,6 +163,66 @@ test.describe('S-36 BookModal — tryb add', () => {
     await expect(page.getByTestId('book-field-title')).toHaveValue('Solaris');
     await expect(page.getByTestId('book-field-isbn13')).toHaveValue('9780156027601');
   });
+
+  test('UX: toggle disabled bez danych, autor w query, zapis widoczny przy otwartych wynikach', async ({ page }) => {
+    await page.route('**/api/shelves/*/books', (route) => {
+      void route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { books: [] } }),
+      });
+    });
+
+    // Długa lista kandydatów — wymusza scroll, weryfikuje sticky footer.
+    await page.route('**/api/books/candidates', (route) => {
+      void route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            candidates: Array.from({ length: 10 }, (_, i) => ({
+              externalId: `gb-ux-${i}`,
+              source: 'google_books',
+              title: `Wynik ${i + 1}`,
+              authors: ['Andrzej Sapkowski'],
+              isbn13: null,
+              isbn10: null,
+              publisher: null,
+              publishedYear: 1993 + i,
+              coverUrl: null,
+              matchScore: 0.9 - i * 0.05,
+            })),
+          },
+        }),
+      });
+    });
+
+    const shelfId = await getRealShelfId(page);
+    await page.goto(`/shelves/${shelfId}`);
+    await expect(page.getByTestId('add-book-button')).toBeVisible({ timeout: 10000 });
+    await page.getByTestId('add-book-button').click();
+    await expect(page.getByTestId('book-modal')).toBeVisible();
+
+    // 1. Toggle disabled przy pustym formularzu (klik dawał pustą ramkę bez akcji)
+    await expect(page.getByTestId('search-candidates-toggle')).toBeDisabled();
+
+    await page.getByTestId('book-field-title').fill('Ostatnie życzenie');
+    await page.getByTestId('book-field-authors').fill('Andrzej Sapkowski');
+    await expect(page.getByTestId('search-candidates-toggle')).toBeEnabled();
+    const candidatesRequest = page.waitForRequest('**/api/books/candidates');
+    await page.getByTestId('search-candidates-toggle').click();
+
+    // 2. Auto-search wysyła autora z głównego formularza (wcześniej ignorowany → słabe wyniki)
+    const candidatesBody = (await candidatesRequest).postDataJSON() as { author?: string; title?: string };
+    expect(candidatesBody.author).toBe('Andrzej Sapkowski');
+    expect(candidatesBody.title).toBe('Ostatnie życzenie');
+    await expect(page.getByTestId('candidates-list')).toBeVisible({ timeout: 5000 });
+
+    // 3. Sticky footer: primary CTA w viewport mimo długiej listy wyników
+    //    (wcześniej lista wypychała przyciski zapisu poza widoczny obszar)
+    await expect(page.getByTestId('book-modal-save')).toBeInViewport();
+    await expect(page.getByTestId('book-modal-cancel')).toBeInViewport();
+  });
 });
 
 // ---------------------------------------------------------------------------
