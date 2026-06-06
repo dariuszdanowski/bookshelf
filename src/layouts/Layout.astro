@@ -1,6 +1,7 @@
 ---
 import '../styles/global.css';
 import LogoutButton from '../components/LogoutButton.tsx';
+import MobileNav from '../components/MobileNav.tsx';
 import ThemeToggle from '../components/ThemeToggle.tsx';
 import EnvBadge from '../components/EnvBadge.astro';
 import { detectDbEnvironment, ENV_LABEL } from '../lib/db/environment';
@@ -47,47 +48,51 @@ const titleWithEnv = `[${ENV_LABEL[dbEnv]}] ${title}`;
     {
       user && (
         <header
-          class="flex items-center justify-end gap-4 p-4 text-sm"
+          class="relative flex items-center justify-between gap-4 p-3 text-sm sm:p-4 md:justify-end"
           data-testid="auth-header"
         >
-          <a
-            href="/library"
-            class="font-medium text-gray-700 hover:text-gray-900"
-            data-testid="nav-library"
-          >
-            Biblioteka
-          </a>
-          <a
-            href="/shelves"
-            class="font-medium text-gray-700 hover:text-gray-900"
-            data-testid="nav-shelves"
-          >
-            Moje półki
-          </a>
-          <a
-            href="/upload"
-            class="font-medium text-gray-700 hover:text-gray-900"
-            data-testid="nav-upload"
-          >
-            Skanuj półkę
-          </a>
-          <a
-            href="/purchase"
-            class="font-medium text-gray-700 hover:text-gray-900"
-            data-testid="nav-add-purchase"
-          >
-            Dodaj zakup
-          </a>
-          <a
-            href="/account"
-            class="font-medium text-gray-700 hover:text-gray-900"
-            data-testid="nav-account"
-          >
-            Moje konto
-          </a>
+          {/* S-28: hamburger < md; desktopowy nav z dotychczasowymi testidami zostaje */}
+          <MobileNav client:load email={user.email ?? ''} />
+          <nav class="hidden items-center gap-4 md:flex" aria-label="Nawigacja główna">
+            <a
+              href="/library"
+              class="font-medium text-gray-700 hover:text-gray-900"
+              data-testid="nav-library"
+            >
+              Biblioteka
+            </a>
+            <a
+              href="/shelves"
+              class="font-medium text-gray-700 hover:text-gray-900"
+              data-testid="nav-shelves"
+            >
+              Moje półki
+            </a>
+            <a
+              href="/upload"
+              class="font-medium text-gray-700 hover:text-gray-900"
+              data-testid="nav-upload"
+            >
+              Skanuj półkę
+            </a>
+            <a
+              href="/purchase"
+              class="font-medium text-gray-700 hover:text-gray-900"
+              data-testid="nav-add-purchase"
+            >
+              Dodaj zakup
+            </a>
+            <a
+              href="/account"
+              class="font-medium text-gray-700 hover:text-gray-900"
+              data-testid="nav-account"
+            >
+              Moje konto
+            </a>
+            <span data-testid="user-email">{user.email}</span>
+            <LogoutButton client:load />
+          </nav>
           <ThemeToggle client:only="react" />
-          <span data-testid="user-email">{user.email}</span>
-          <LogoutButton client:load />
         </header>
       )
     }
