@@ -20,6 +20,9 @@ function makeContext(opts: {
   const dupResult = opts.dupResult ?? { data: null, error: null };
   const bookInsert = opts.bookInsert ?? { data: { id: BOOK_ID }, error: null };
   const deleteEqFn = vi.fn().mockResolvedValue({ data: null, error: null });
+  const booksInsertSpy = vi.fn(() => ({
+    select: vi.fn(() => ({ single: vi.fn().mockResolvedValue(bookInsert) })),
+  }));
 
   const fromMock = vi.fn((table: string) => {
     if (table === 'shelves') {
@@ -38,9 +41,7 @@ function makeContext(opts: {
           })),
         })),
         // insert: insert → select → single
-        insert: vi.fn(() => ({
-          select: vi.fn(() => ({ single: vi.fn().mockResolvedValue(bookInsert) })),
-        })),
+        insert: booksInsertSpy,
         // rollback: delete → eq
         delete: vi.fn(() => ({ eq: deleteEqFn })),
       };
@@ -79,6 +80,7 @@ function makeContext(opts: {
     } as never,
     deleteEqFn,
     fromMock,
+    booksInsertSpy,
   };
 }
 
@@ -139,6 +141,35 @@ describe('POST /api/books (Flow B manual)', () => {
     const { ctx } = makeContext({ body: { title: 'X', shelf_id: SHELF_ID }, shelfResult: { data: null, error: null } });
     const res = await POST(ctx);
     expect(res.status).toBe(404);
+  });
+
+  it('persistuje sloty okładki (unify-add-cover): cover_source + user_cover_url + cover_photo_url', async () => {
+    const { ctx, booksInsertSpy } = makeContext({
+      body: {
+        title: 'Z okładką',
+        shelf_id: SHELF_ID,
+        cover_url: 'https://auto.jpg',
+        user_cover_url: 'https://user.jpg',
+        cover_photo_url: 'https://x.supabase.co/photo.jpg',
+        cover_source: 'url',
+      },
+    });
+    const res = await POST(ctx);
+    expect(res.status).toBe(201);
+    expect(booksInsertSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        cover_url: 'https://auto.jpg',
+        user_cover_url: 'https://user.jpg',
+        cover_photo_url: 'https://x.supabase.co/photo.jpg',
+        cover_source: 'url',
+      })
+    );
+  });
+
+  it('cover_source domyślnie auto gdy nie podano', async () => {
+    const { ctx, booksInsertSpy } = makeContext({ body: { title: 'Bez slotów', shelf_id: SHELF_ID } });
+    await POST(ctx);
+    expect(booksInsertSpy).toHaveBeenCalledWith(expect.objectContaining({ cover_source: 'auto' }));
   });
 
   it('400 gdy cover_url nie jest URL', async () => {

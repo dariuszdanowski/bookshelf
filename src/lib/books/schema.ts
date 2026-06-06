@@ -255,6 +255,11 @@ export const AddPurchaseSchema = z
     // S-33: dodanie ręczne na DOWOLNĄ półkę (bez zdjęcia). Brak → „Zakupione" (Flow B).
     shelf_id: z.uuid().optional(),
     cover_url: z.string().url().max(1000).optional(),
+    // unify-add-cover: parzystość z edytorem okładki — 3 sloty + flaga źródła
+    // zapisywane od razu przy tworzeniu (jak w PATCH/UpdateBookSchema).
+    user_cover_url: z.string().url().max(1000).optional(),
+    cover_photo_url: z.string().url().max(1000).optional(),
+    cover_source: z.enum(['auto', 'url', 'photo']).optional(),
   })
   .strict();
 export type AddPurchaseInput = z.infer<typeof AddPurchaseSchema>;

@@ -103,6 +103,10 @@ export const POST: APIRoute = async ({ request, locals }) => {
       isbn_13: input.isbn_13 ?? null,
       isbn_10: input.isbn_10 ?? null,
       cover_url: input.cover_url ?? null,
+      // unify-add-cover: sloty okładki + flaga źródła zapisywane od razu (parzystość z edit)
+      user_cover_url: input.user_cover_url ?? null,
+      cover_photo_url: input.cover_photo_url ?? null,
+      cover_source: input.cover_source ?? 'auto',
       purchase_date: purchaseDate,
       source: 'manual',
     })
