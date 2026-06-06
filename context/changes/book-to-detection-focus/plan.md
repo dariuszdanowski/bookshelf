@@ -254,10 +254,10 @@ dostają link bez query — zachowanie sprzed slice'a.
 
 #### Automated
 
-- [ ] 2.1 Typecheck: `npm run typecheck`
-- [ ] 2.2 Lint: `npm run lint`
-- [ ] 2.3 Unit: `npm run test`
-- [ ] 2.4 E2E: `npm run test:e2e`
+- [x] 2.1 Typecheck: `npm run typecheck` — 05a5737
+- [x] 2.2 Lint: `npm run lint` — 05a5737
+- [x] 2.3 Unit: `npm run test` — 05a5737
+- [x] 2.4 E2E: `npm run test:e2e` — 05a5737 (133 passed; lokalnie na :4322 — stały dev server :4321 w stanie broken-workerd)
 
 #### Manual
 
