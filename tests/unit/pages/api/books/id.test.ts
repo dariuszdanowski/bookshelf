@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { PATCH } from '../../../../../src/pages/api/books/[id]';
+import { PATCH, DELETE } from '../../../../../src/pages/api/books/[id]';
 
 const USER_ID = '00000000-0000-4000-8000-000000000001';
 const BOOK_ID = '00000000-0000-4000-8000-000000000050';
@@ -225,6 +225,99 @@ describe('PATCH /api/books/[id]', () => {
       updateResult: { data: null, error: { code: 'XXXXX', name: 'PostgrestError', message: 'fail' } },
     });
     const res = await PATCH(ctx);
+    expect(res.status).toBe(500);
+  });
+});
+
+
+let removeSpy: any;
+
+let deleteSpy: any;
+
+function makeDeleteContext(opts: {
+  id?: string;
+  selectResult?: { data: Record<string, unknown> | null; error: PgError };
+  deleteError?: PgError;
+  removeError?: PgError;
+  user?: boolean;
+}) {
+  const selectResult = opts.selectResult ?? { data: { id: BOOK_ID, cover_photo_url: null }, error: null };
+  deleteSpy = vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ error: opts.deleteError ?? null }) }));
+  const selectChain = {
+    select: vi.fn(() => ({ eq: vi.fn(() => ({ maybeSingle: vi.fn().mockResolvedValue(selectResult) })) })),
+    delete: deleteSpy,
+  };
+  const fromMock = vi.fn(() => selectChain);
+  removeSpy = vi.fn().mockResolvedValue({ error: opts.removeError ?? null });
+  const storage = { from: vi.fn(() => ({ remove: removeSpy })) };
+
+  return {
+    params: { id: opts.id ?? BOOK_ID },
+    locals: {
+      user: opts.user !== false ? { id: USER_ID, email: 'test@example.com' } : null,
+      supabase: { from: fromMock, storage } as never,
+    },
+  } as never;
+}
+
+describe('DELETE /api/books/[id]', () => {
+  it('401 gdy brak użytkownika', async () => {
+    const res = await DELETE(makeDeleteContext({ user: false }));
+    expect(res.status).toBe(401);
+    const json = (await res.json()) as ApiJson;
+    expect(json.error!.code).toBe('UNAUTHENTICATED');
+  });
+
+  it('404 gdy id nie jest UUID', async () => {
+    const res = await DELETE(makeDeleteContext({ id: 'not-a-uuid' }));
+    expect(res.status).toBe(404);
+  });
+
+  it('404 gdy książka nie istnieje / cudza (maybeSingle → null)', async () => {
+    const res = await DELETE(makeDeleteContext({ selectResult: { data: null, error: null } }));
+    expect(res.status).toBe(404);
+    const json = (await res.json()) as ApiJson;
+    expect(json.error!.code).toBe('NOT_FOUND');
+  });
+
+  it('200 deleted:true bez okładki — delete wywołany, storage.remove NIE', async () => {
+    const res = await DELETE(makeDeleteContext({ selectResult: { data: { id: BOOK_ID, cover_photo_url: null }, error: null } }));
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as ApiJson;
+    expect(json.data!.deleted).toBe(true);
+    expect(deleteSpy).toHaveBeenCalled();
+    expect(removeSpy).not.toHaveBeenCalled();
+    expect(res.headers.get('Cache-Control')).toBe('private, no-store');
+  });
+
+  it('200 z cleanupem okładki — storage.remove dostaje ścieżkę po /book-covers/', async () => {
+    const res = await DELETE(makeDeleteContext({
+      selectResult: {
+        data: { id: BOOK_ID, cover_photo_url: 'https://x.supabase.co/storage/v1/object/public/book-covers/uid-1/abc.jpg' },
+        error: null,
+      },
+    }));
+    expect(res.status).toBe(200);
+    expect(removeSpy).toHaveBeenCalledWith(['uid-1/abc.jpg']);
+  });
+
+  it('200 nawet gdy storage.remove błądzi (best-effort, sierota)', async () => {
+    const res = await DELETE(makeDeleteContext({
+      selectResult: { data: { id: BOOK_ID, cover_photo_url: 'https://x/storage/v1/object/public/book-covers/uid/a.jpg' }, error: null },
+      removeError: { name: 'StorageError', message: 'fail' },
+    }));
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as ApiJson;
+    expect(json.data!.deleted).toBe(true);
+  });
+
+  it('500 gdy delete błądzi', async () => {
+    const res = await DELETE(makeDeleteContext({ deleteError: { code: 'XXXXX', name: 'PostgrestError', message: 'fail' } }));
+    expect(res.status).toBe(500);
+  });
+
+  it('500 gdy pre-check select błądzi', async () => {
+    const res = await DELETE(makeDeleteContext({ selectResult: { data: null, error: { code: 'XXXXX', name: 'PostgrestError', message: 'fail' } } }));
     expect(res.status).toBe(500);
   });
 });

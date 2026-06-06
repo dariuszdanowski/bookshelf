@@ -117,6 +117,31 @@ export default function ShelfBooksIsland({ shelfId }: Props) {
     }
   }
 
+  async function handleDelete(bookId: string) {
+    // Optimistic: książka znika natychmiast. Zapamiętaj do rollbacku.
+    let removed: { book: ShelfBookDTO; index: number } | null = null;
+    setBooks((prev) => {
+      const index = prev.findIndex((b) => b.id === bookId);
+      if (index >= 0) removed = { book: prev[index], index };
+      return prev.filter((b) => b.id !== bookId);
+    });
+    const rollback = () => {
+      if (!removed) return;
+      const { book, index } = removed;
+      setBooks((prev) => {
+        const next = [...prev];
+        next.splice(Math.min(index, next.length), 0, book);
+        return next;
+      });
+    };
+    try {
+      const res = await fetch(`/api/books/${bookId}`, { method: 'DELETE' });
+      if (!res.ok) rollback();
+    } catch {
+      rollback();
+    }
+  }
+
   if (loading) {
     return (
       <div data-testid="shelf-books-loading" className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
@@ -206,6 +231,7 @@ export default function ShelfBooksIsland({ shelfId }: Props) {
             onMove={handleMove}
             onCoverUpdated={handleCoverUpdated}
             onBookSaved={() => void loadBooks()}
+            onDelete={handleDelete}
           />
         ))}
       </div>

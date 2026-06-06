@@ -3,6 +3,7 @@ import type { ShelfBookDTO, BookCoverPatch } from '../lib/books/schema';
 import type { ShelfDTO } from '../lib/shelves/schema';
 import { effectiveCover } from '../lib/books/cover';
 import BookModal from './BookModal';
+import ConfirmDialog from './ConfirmDialog';
 
 /** Mapa nazwanych kolorów grzbietu (SPINE_COLORS) → swatch CSS dla wyników wyszukiwarki. */
 const SPINE_COLOR_CSS: Record<string, string> = {
@@ -37,6 +38,8 @@ type BookCardProps = {
   onCoverUpdated?: (bookId: string, patch: BookCoverPatch) => void;
   /** S-36: odświeżenie listy po zapisie z BookModal edit. */
   onBookSaved?: () => void;
+  /** book-delete: usunięcie książki z katalogu (optimistic po stronie rodzica). Gdy brak — przycisk się nie renderuje. */
+  onDelete?: (bookId: string) => void;
 };
 
 /**
@@ -54,8 +57,10 @@ export default function BookCard({
   currentShelfId,
   onMove,
   onBookSaved,
+  onDelete,
 }: BookCardProps) {
   const [showDetail, setShowDetail] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const authorsStr = book.authors.join(', ');
   const altText = authorsStr ? `${book.title} — ${authorsStr}` : book.title;
   const cover = effectiveCover(book); // wybrany slot wg cover_source (+ fallback)
@@ -206,6 +211,34 @@ export default function BookCard({
             </option>
           ))}
         </select>
+      )}
+
+      {/* Usunięcie książki z katalogu (book-delete) — tylko gdy podano onDelete */}
+      {onDelete && (
+        <button
+          type="button"
+          data-testid={`delete-book-${book.id}`}
+          onClick={() => setConfirmDelete(true)}
+          className="w-full rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950"
+        >
+          Usuń
+        </button>
+      )}
+
+      {onDelete && (
+        <ConfirmDialog
+          open={confirmDelete}
+          title="Usunąć książkę?"
+          message={`„${book.title}" zostanie trwale usunięta z katalogu i z półki. Tej operacji nie można cofnąć.`}
+          confirmLabel="Usuń"
+          confirmTone="danger"
+          testIdPrefix={`delete-book-dialog-${book.id}`}
+          onConfirm={() => {
+            setConfirmDelete(false);
+            onDelete(book.id);
+          }}
+          onCancel={() => setConfirmDelete(false)}
+        />
       )}
     </div>
   );
