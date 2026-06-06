@@ -143,10 +143,12 @@ Pozostałe elementy do **złożenia** pracy (nie wymogi techniczne, lecz checkli
 
 | Element | Stan | Działanie |
 |---|---|---|
-| README z screenshotami + quick-start | ✅ done | 6 screenshotów w `docs/screenshots/`, sekcje Stack/Architektura/Szybki start |
-| Demo content (3 półki, ~30 książek) | ⚠ user-only | przygotować na koncie demo przed oddaniem (manual) |
-| Self-review pod 6 wymogów | ⚠ open | przejść formalnie 6 wierszy tabeli wyżej z linkami do kodu/testów — materiał do zgłoszenia (1. termin: 5.07.2026, bufor 29 dni) |
-| (opcjonalnie) Lefthook / Stryker jako dowód adopcji lekcji M3 | ⚠ open, niski ROI | tylko jeśli forma zgłoszenia wymaga pokazania artefaktów per-lekcja; nie jest twardym wymogiem |
+| README z screenshotami + quick-start | ✅ done | 6 screenshotów w `docs/screenshots/` (odświeżone na UI po PR #50), sekcje Stack/Architektura/Szybki start |
+| Demo content (3 półki, ~30 książek) | ⚠ user-only | przygotować na koncie demo przed oddaniem (manual; checklist w `certification-submission-plan.md` P5) |
+| Self-review pod 6 wymogów | ✅ done (P4) | `docs/self-review.md` — 6 wymogów z klikalnymi dowodami + inwentarz artefaktów + anty-wzorce |
+| Lefthook (artefakt M3L3) | ✅ done (P2) | `lefthook.yml`: pre-commit eslint+prettier, pre-push typecheck |
+| Stryker mutation testing (artefakt M3L2) | ✅ done (P3) | `src/lib/matching/` score 63→**76.87%**, wynik w `test-plan.md` §6.6, `npm run test:mutation` |
+| Dependabot + audit w CI (Category A #3) | ✅ done (P1) | `.github/dependabot.yml` + `npm audit --audit-level=high` w `ci.yml` |
 
 ## Recommended Fixes
 

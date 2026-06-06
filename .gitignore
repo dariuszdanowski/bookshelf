@@ -175,3 +175,6 @@ tests/e2e/.auth/
 
 # Sesyjne zrzuty UX (artefakty robocze agenta, reprodukowalne przez E2E)
 tmp-ux-shots/
+
+# Stryker mutation testing - raporty + incremental cache (lokalne artefakty)
+reports/

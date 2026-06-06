@@ -94,6 +94,99 @@ describe('extractAuthorFromTitle', () => {
   });
 });
 
+// --- Testy graniczne dopisane po pierwszym runie mutation testing (Stryker,
+// P3 planu certyfikacyjnego): zabijają mutanty mapy homoglifów, kwantyfikatorów
+// regex i granic długości, które przeżyły run bazowy (score 56%).
+
+describe('deCyrillic — pełna mapa homoglifów', () => {
+  it('mapuje każdy znak z mapy małych liter', () => {
+    expect(deCyrillic('аеосрхукмтнвіј')).toBe('aeocpxykmthbij');
+  });
+
+  it('mapuje każdy znak z mapy wielkich liter', () => {
+    expect(deCyrillic('АЕОСРХУКМТНВІ')).toBe('AEOCPXYKMTHBI');
+  });
+
+  it('cyrylicki znak spoza mapy zostaje nietknięty', () => {
+    // ж nie ma łacińskiego odpowiednika kształtu — fallback `?? ch`
+    expect(deCyrillic('жук')).toBe('жyk');
+  });
+});
+
+describe('cleanSearchTitle — granice regexów', () => {
+  it('fragment 6+ znaków przed "..." NIE jest stripowany (granica {1,5})', () => {
+    expect(cleanSearchTitle('TYTUŁ ABCDEF...')).toBe('TYTUŁ ABCDEF');
+  });
+
+  it('dwie kropki na końcu nie są wielokropkiem ({3,})', () => {
+    expect(cleanSearchTitle('Inicjały B.B..')).toBe('Inicjały B.B..');
+  });
+
+  it('zakres lat w środku tytułu też znika (global flag)', () => {
+    expect(cleanSearchTitle('Dzienniki 1939-1945 tom drugi')).toBe('Dzienniki tom drugi');
+  });
+
+  it('em-dash w zakresie lat też łapany', () => {
+    expect(cleanSearchTitle('Listy 1900—1910')).toBe('Listy');
+  });
+
+  it('liczby inne niż 4-cyfrowe nie są zakresem lat', () => {
+    expect(cleanSearchTitle('Pokój 101-102')).toBe('Pokój 101-102');
+  });
+});
+
+describe('mainTitleSegment — granice', () => {
+  it('zwraca wejście gdy wszystkie człony krótsze niż 3 znaki', () => {
+    expect(mainTitleSegment('Y: ab')).toBe('Y: ab');
+  });
+
+  it('przy równej długości członów wygrywa pierwszy (stabilny reduce)', () => {
+    expect(mainTitleSegment('ABC: XYZ')).toBe('ABC');
+  });
+
+  it('człon dokładnie 3-znakowy przechodzi filtr (granica >= 3)', () => {
+    expect(mainTitleSegment('Y: Lód')).toBe('Lód');
+  });
+});
+
+describe('extractAuthorFromTitle — granice wzorca', () => {
+  it('tytuł 1-znakowy przed myślnikiem nie matchuje (granica {3,} z dosuniętą spacją)', () => {
+    // 'A ' przed myślnikiem to 2 znaki — poniżej kwantyfikatora {3,}.
+    // Uwaga: 'Ab — X Y' już matchuje, bo `.` w grupie liczy też spację ('Ab ' = 3).
+    const r = extractAuthorFromTitle('A — Etgar Keret');
+    expect(r.title).toBe('A — Etgar Keret');
+    expect(r.author).toBeNull();
+  });
+
+  it('4 słowa po myślniku to nie nazwisko (granica <= 3)', () => {
+    const r = extractAuthorFromTitle('Tytuł — Jan Maria Konstanty Nowak');
+    expect(r.author).toBeNull();
+  });
+
+  it('słowo z małej litery po myślniku odpada', () => {
+    const r = extractAuthorFromTitle('Tytuł — mały Keret');
+    expect(r.author).toBeNull();
+  });
+
+  it('zwykły dywiz (-) nie jest separatorem autora', () => {
+    const r = extractAuthorFromTitle('Niebo - Etgar Keret');
+    expect(r.author).toBeNull();
+  });
+
+  it('polskie diakrytyki na początku słów autora akceptowane', () => {
+    const r = extractAuthorFromTitle('Wiersze — Łukasz Żebrowski');
+    expect(r.author).toBe('Łukasz Żebrowski');
+    expect(r.title).toBe('Wiersze');
+  });
+});
+
+describe('titleQueryVariants — granice', () => {
+  it('pusty string daje pustą listę wariantów (filtr length > 0)', () => {
+    expect(titleQueryVariants('')).toEqual([]);
+    expect(titleQueryVariants('   ')).toEqual([]);
+  });
+});
+
 describe('titleQueryVariants', () => {
   it('zwraca [pełny oczyszczony, główny człon] bez duplikatów', () => {
     const v = titleQueryVariants('Y: OSTATNI Z MĘŻCZYZN – ZARAZA');

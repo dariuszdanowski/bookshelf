@@ -141,6 +141,7 @@ bookshelf/
 |---|---|
 | [docs/prd.md](docs/prd.md) | PRD modułu — wymagania funkcjonalne, schemat danych (8 tabel) |
 | [docs/plan-implementacji.md](docs/plan-implementacji.md) | Kalendarz milestonów, ryzyka, definition of done |
+| [docs/self-review.md](docs/self-review.md) | Self-review pod 6 wymogów certyfikacji 10xDevs 3.0 — z dowodami |
 | [CLAUDE.md](CLAUDE.md) | Kontekst i konwencje pracy z agentem AI |
 
 ### Harmonogram

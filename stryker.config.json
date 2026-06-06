@@ -1,0 +1,22 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "_comment": "Mutation testing (M3L2, plan certyfikacyjny P3). Zakres świadomie zawężony do src/lib/matching/ — czyste funkcje domenowe (score/dedupe/isbn/normalize/fallback) o największej gęstości logiki decyzyjnej. Uruchamiane lokalnie przez `npm run test:mutation` — NIE w CI (runtime kilkanaście minut nie strzeże regresji solo-dev; wynik dokumentowany w test-plan.md §6).",
+  "testRunner": "vitest",
+  "plugins": ["@stryker-mutator/vitest-runner"],
+  "vitest": {
+    "configFile": "vitest.stryker.config.ts"
+  },
+  "mutate": ["src/lib/matching/**/*.ts"],
+  "coverageAnalysis": "perTest",
+  "reporters": ["clear-text", "progress", "html"],
+  "htmlReporter": {
+    "fileName": "reports/mutation/mutation.html"
+  },
+  "incremental": true,
+  "incrementalFile": "reports/mutation/stryker-incremental.json",
+  "thresholds": {
+    "high": 85,
+    "low": 65,
+    "break": null
+  }
+}

@@ -167,7 +167,15 @@ realne testy referencyjne, nie placeholdery.
 - **Wzorzec**: dwóch userów, każdy anon-klientem z własnym JWT; dowód że B nie widzi/nie mutuje danych A; cleanup kasuje userów (cascade czyści domenę). Dla triggerów (niesuwalna „Zakupione", `handle_new_user`) — assert `RAISE EXCEPTION`/P0001.
 - **Test referencyjny**: `tests/integration/shelves-rls-and-triggers.test.ts`, `tests/integration/auth-trigger.test.ts`.
 
-### 6.6 Per-rollout-phase notes
+### 6.6 Mutation testing (Stryker, moduł matching)
+
+- **Typ**: lokalny audyt skuteczności suite'y unit — `npm run test:mutation` (M3L2, plan certyfikacyjny P3, 2026-06-06). **NIE w CI** (runtime nie strzeże regresji solo-dev; CI gates zostają deterministyczne).
+- **Zakres**: `src/lib/matching/**` (czyste funkcje decyzyjne: score/dedupe/isbn/normalize/fallback) — `stryker.config.json` + scoped `vitest.stryker.config.ts` (85→110 testów modułu, run ~25–45 s dzięki wycięciu jsdom i 70 pozostałych plików).
+- **Wynik**: baseline **63.07%** → po dopisaniu 25 testów granicznych **76.87%** (713 mutantów, 577 killed). Per plik: `isbn.ts` 98%, `fallbackPolicy.ts` 34→83% (progi 0.62/0.55, geometria bbox, `looksLikeAuthorName`), `normalizeQuery.ts` 56→66% (mapa homoglifów, kwantyfikatory regex), `dedupe.ts` 78%, `score.ts` 77%.
+- **Świadomie zaakceptowane przeżycia**: `findCandidates.ts` 50% — kod orkiestracyjny (kaskada query → klienci zewnętrzni), pokrywany przez testy endpointów i E2E, mutation testing na orkiestracji daje niski sygnał; resztkowe mutanty regex-literal w `normalizeQuery` (ekwiwalentne lub kosmetyczne). Próg `thresholds.high: 85` celowo aspiracyjny, `break: null` — raport informacyjny, nie gate.
+- **Wzorzec ponownego użycia**: po większej zmianie w `src/lib/matching/` odpal `npm run test:mutation` (incremental cache w `reports/mutation/`); przeżycia wskazujące realną lukę logiki → dopisz test graniczny; przeżycia ekwiwalentne → odnotuj tutaj.
+
+### 6.7 Per-rollout-phase notes
 
 (Uzupełniane po wylądowaniu każdej fazy przez `/10x-implement`.)
 
