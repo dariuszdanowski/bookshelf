@@ -113,3 +113,89 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
     },
   });
 };
+
+/**
+ * DELETE /api/books/:id
+ *
+ * Usuwa książkę z katalogu. DB-first: kasujemy wiersz `books` (kaskada
+ * `shelf_entries.book_id ON DELETE CASCADE` zdejmuje wpis z półki + historię
+ * lokalizacji). Zdjęcie, detekcje, book_candidates i vision_runs zostają
+ * (brak FK z books) — usuwamy wpis katalogowy, nie historię rozpoznania.
+ *
+ * Po usunięciu wiersza best-effort czyścimy wgraną okładkę ze Storage
+ * (`cover_photo_url`, bucket book-covers). `user_cover_url` to hotlink do
+ * zewnętrznego URL — nie nasz obiekt, nie ruszamy. Błąd Storage tylko logujemy
+ * (wiersz DB już zniknął → dla usera sukces; ewentualna sierota do batch-cleanu).
+ *
+ * RLS books_delete_own scope'uje do auth.uid(); pre-check maybeSingle → 404 dla
+ * braku rekordu / cudzej książki. parseUuidParam → 404 na zły UUID (privacy-first).
+ *
+ * 200: { data: { deleted: true } }
+ * 404: nie znaleziono / cudza książka / zły UUID
+ */
+export const DELETE: APIRoute = async ({ params, locals }) => {
+  if (!locals.user) {
+    return apiError({ code: 'UNAUTHENTICATED', status: 401, message: 'Authentication required.' });
+  }
+
+  const id = parseUuidParam(params.id);
+  if (!id) {
+    return apiError({ code: 'NOT_FOUND', status: 404, message: 'Książka nie istnieje.' });
+  }
+
+  // Pre-check existence + RLS scope; zachowujemy cover_photo_url do czyszczenia Storage.
+  const { data: existing, error: selectError } = await locals.supabase
+    .from('books')
+    .select('id, cover_photo_url')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (selectError) {
+    console.error('[api/books DELETE] pre-check select failed', {
+      name: selectError.name,
+      message: selectError.message,
+      code: selectError.code,
+    });
+    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się sprawdzić książki.' });
+  }
+
+  if (!existing) {
+    return apiError({ code: 'NOT_FOUND', status: 404, message: 'Książka nie istnieje.' });
+  }
+
+  const { error: deleteError } = await locals.supabase.from('books').delete().eq('id', id);
+
+  if (deleteError) {
+    console.error('[api/books DELETE] supabase delete failed', {
+      name: deleteError.name,
+      message: deleteError.message,
+      code: deleteError.code,
+    });
+    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się usunąć książki.' });
+  }
+
+  // Best-effort Storage cleanup wgranej okładki — błąd nie zmienia sukcesu.
+  // cover_photo_url to publiczny URL: .../object/public/book-covers/{uid}/{plik}.
+  if (existing.cover_photo_url) {
+    const marker = '/book-covers/';
+    const idx = existing.cover_photo_url.indexOf(marker);
+    if (idx !== -1) {
+      const path = existing.cover_photo_url.slice(idx + marker.length);
+      try {
+        const { error: rmError } = await locals.supabase.storage.from('book-covers').remove([path]);
+        if (rmError) {
+          console.error('[api/books DELETE] storage remove failed (orphan left)', {
+            name: rmError.name,
+            message: rmError.message,
+          });
+        }
+      } catch (err) {
+        console.error('[api/books DELETE] storage remove threw (orphan left)', {
+          message: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+  }
+
+  return apiResponse({ data: { deleted: true } });
+};

@@ -140,4 +140,35 @@ describe('BookCard', () => {
     expect(swatch).toBeInTheDocument();
     expect(swatch).toHaveAttribute('aria-label', 'Kolor grzbietu: czerwony');
   });
+
+  // book-delete: przycisk „Usuń" + ConfirmDialog
+  it('NIE renderuje przycisku „Usuń" gdy onDelete nie podany', () => {
+    render(<BookCard book={baseBook} onToggleRead={vi.fn()} />);
+    expect(screen.queryByTestId(`delete-book-${BOOK_ID}`)).not.toBeInTheDocument();
+  });
+
+  it('renderuje „Usuń" gdy onDelete podany; klik otwiera dialog potwierdzenia', () => {
+    render(<BookCard book={baseBook} onToggleRead={vi.fn()} onDelete={vi.fn()} />);
+    expect(screen.queryByTestId(`delete-book-dialog-${BOOK_ID}`)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId(`delete-book-${BOOK_ID}`));
+    expect(screen.getByTestId(`delete-book-dialog-${BOOK_ID}`)).toBeInTheDocument();
+  });
+
+  it('potwierdzenie wywołuje onDelete z id i zamyka dialog', () => {
+    const onDelete = vi.fn();
+    render(<BookCard book={baseBook} onToggleRead={vi.fn()} onDelete={onDelete} />);
+    fireEvent.click(screen.getByTestId(`delete-book-${BOOK_ID}`));
+    fireEvent.click(screen.getByTestId(`delete-book-dialog-${BOOK_ID}-confirm`));
+    expect(onDelete).toHaveBeenCalledWith(BOOK_ID);
+    expect(screen.queryByTestId(`delete-book-dialog-${BOOK_ID}`)).not.toBeInTheDocument();
+  });
+
+  it('anulowanie NIE wywołuje onDelete i zamyka dialog', () => {
+    const onDelete = vi.fn();
+    render(<BookCard book={baseBook} onToggleRead={vi.fn()} onDelete={onDelete} />);
+    fireEvent.click(screen.getByTestId(`delete-book-${BOOK_ID}`));
+    fireEvent.click(screen.getByTestId(`delete-book-dialog-${BOOK_ID}-cancel`));
+    expect(onDelete).not.toHaveBeenCalled();
+    expect(screen.queryByTestId(`delete-book-dialog-${BOOK_ID}`)).not.toBeInTheDocument();
+  });
 });

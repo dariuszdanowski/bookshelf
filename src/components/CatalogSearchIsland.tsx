@@ -129,6 +129,30 @@ export default function CatalogSearchIsland() {
     }
   }
 
+  async function handleDelete(bookId: string) {
+    let removed: { book: CatalogBookDTO; index: number } | null = null;
+    setBooks((prev) => {
+      const index = prev.findIndex((b) => b.id === bookId);
+      if (index >= 0) removed = { book: prev[index], index };
+      return prev.filter((b) => b.id !== bookId);
+    });
+    const rollback = () => {
+      if (!removed) return;
+      const { book, index } = removed;
+      setBooks((prev) => {
+        const next = [...prev];
+        next.splice(Math.min(index, next.length), 0, book);
+        return next;
+      });
+    };
+    try {
+      const res = await fetch(`/api/books/${bookId}`, { method: 'DELETE' });
+      if (!res.ok) rollback();
+    } catch {
+      rollback();
+    }
+  }
+
   function toggleShelf(id: string) {
     setSelectedShelfIds((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]));
   }
@@ -240,6 +264,7 @@ export default function CatalogSearchIsland() {
                   onMove={handleMove}
                   onCoverUpdated={handleCoverUpdated}
                   onBookSaved={() => void runSearch()}
+                  onDelete={handleDelete}
                 />
               ))}
             </div>
