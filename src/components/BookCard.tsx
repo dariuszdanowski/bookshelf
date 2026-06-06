@@ -67,6 +67,7 @@ export default function BookCard({
 }: BookCardProps) {
   const [showDetail, setShowDetail] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [coverFailed, setCoverFailed] = useState(false);
   const authorsStr = book.authors.join(', ');
   const altText = authorsStr ? `${book.title} — ${authorsStr}` : book.title;
   const cover = effectiveCover(book); // wybrany slot wg cover_source (+ fallback)
@@ -84,8 +85,14 @@ export default function BookCard({
         title="Pokaż szczegóły / edytuj"
         className="cursor-zoom-in rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
       >
-        {cover ? (
-          <img src={cover} alt={altText} className={`${imgClass} rounded object-cover shadow-sm`} loading="lazy" />
+        {cover && !coverFailed ? (
+          <img
+            src={cover}
+            alt={altText}
+            className={`${imgClass} rounded object-cover shadow-sm`}
+            loading="lazy"
+            onError={() => setCoverFailed(true)}
+          />
         ) : (
           <div className={`${imgClass} flex items-center justify-center rounded bg-gray-100 dark:bg-gray-700`} aria-label={altText} role="img">
             <svg className="text-gray-300 dark:text-gray-500" width={placeholderIconSize} height={placeholderIconSize} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

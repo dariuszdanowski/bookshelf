@@ -47,6 +47,16 @@ describe('BookCard', () => {
     expect(img).toHaveAttribute('src', 'https://example.com/cover.jpg');
   });
 
+  it('zepsuta okładka (onError) → fallback do placeholdera, nie pokazuje połamanego <img>', () => {
+    const book = { ...baseBook, cover_url: 'https://broken.example/x.jpg' };
+    const { container } = render(<BookCard book={book} onToggleRead={vi.fn()} />);
+    const img = container.querySelector('img');
+    expect(img).toBeTruthy();
+    fireEvent.error(img!);
+    expect(container.querySelector('img')).toBeNull();
+    expect(screen.getByRole('img', { name: /Solaris/ })).toBeInTheDocument(); // placeholder
+  });
+
   it('cover_source=url → pokazuje user_cover_url (override)', () => {
     const book = {
       ...baseBook,
