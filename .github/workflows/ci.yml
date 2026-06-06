@@ -22,6 +22,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Security audit (fail tylko HIGH+)
+        # Ciągły sygnał o nowych CVE (health-check Category A #3). Próg HIGH:
+        # znane 5 MODERATE (dev-only Astro language-server yaml chain,
+        # wait-on-upstream — zob. context/foundation/health-check.md) nie może
+        # blokować pipeline'u. Dependabot (.github/dependabot.yml) dostarcza
+        # cotygodniowe update PR-y; ten krok łapie CVE między sweepami.
+        run: npm audit --audit-level=high
+
       - name: Generate Cloudflare Worker types
         # `worker-configuration.d.ts` jest .gitignored (auto-generated artifact),
         # ale `astro check` potrzebuje go żeby typecheckować `import { env } from

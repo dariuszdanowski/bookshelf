@@ -172,3 +172,6 @@ tests/e2e/.auth/
 .claude/scheduled_tasks.lock
 .claude/worktrees/
 .claude/settings.local.json
+
+# Sesyjne zrzuty UX (artefakty robocze agenta, reprodukowalne przez E2E)
+tmp-ux-shots/
