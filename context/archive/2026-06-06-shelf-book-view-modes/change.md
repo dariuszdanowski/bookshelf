@@ -1,7 +1,8 @@
 ---
 change_id: shelf-book-view-modes
 roadmap_slice: S-34
-status: impl_reviewed
+status: archived
+archived_at: 2026-06-06T15:46:44Z
 created: 2026-06-06
 updated: 2026-06-06
 ---
