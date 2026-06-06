@@ -293,18 +293,18 @@ oraz ISBN-first flaga w `findBookCandidates` (istniejący `[id]/cover-suggestion
 ### Phase 1: Bezksiążkowy endpoint wyszukiwania kandydatów
 
 #### Automated
-- [x] 1.1 Unit endpointu /candidates (ISBN-only → niepusta lista / title-only / title+author / 400 / 429)
-- [x] 1.2 Unit findBookCandidates ISBN-first (title='' + ISBN → ≥1 kandydat)
-- [x] 1.3 Unit book-less /cover-suggestion?isbn= (cover_url|null, bez write, 400; [id] route nadal pisze)
-- [x] 1.4 Typecheck
-- [x] 1.5 Lint
+- [x] 1.1 Unit endpointu /candidates (ISBN-only → niepusta lista / title-only / title+author / 400 / 429) — 8030f30
+- [x] 1.2 Unit findBookCandidates ISBN-first (title='' + ISBN → ≥1 kandydat) — 8030f30
+- [x] 1.3 Unit book-less /cover-suggestion?isbn= (cover_url|null, bez write, 400; [id] route nadal pisze) — 8030f30
+- [x] 1.4 Typecheck — 8030f30
+- [x] 1.5 Lint — 8030f30
 
 ### Phase 2: Komponent BookModal(mode)
 
 #### Automated
-- [ ] 2.1 Unit BookModal (3 tryby: render/pola/walidacja/prefill/zapis/propose)
-- [ ] 2.2 Typecheck + lint
-- [ ] 2.3 Build
+- [x] 2.1 Unit BookModal (3 tryby: render/pola/walidacja/prefill/zapis/propose)
+- [x] 2.2 Typecheck + lint
+- [x] 2.3 Build
 
 ### Phase 3: Podmiana użyć + sprzątanie + E2E
 
