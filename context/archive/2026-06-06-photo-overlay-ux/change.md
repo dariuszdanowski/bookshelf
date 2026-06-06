@@ -1,10 +1,10 @@
 ---
 change_id: photo-overlay-ux
 title: "S-24: Lightbox zdjęcia w review (scope-reduced)"
-status: planned
+status: archived
 created: 2026-06-06
-updated: 2026-06-06
-archived_at: null
+updated: 2026-06-07
+archived_at: 2026-06-07T00:20:00Z
 ---
 
 ## Notes

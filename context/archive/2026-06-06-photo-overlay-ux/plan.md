@@ -105,10 +105,10 @@ Unit: render + interakcje zamknięcia + guard edit-mode. E2E: golden path + edit
 
 #### Automated
 
-- [ ] 1.1 Typecheck: `npm run typecheck`
-- [ ] 1.2 Lint: `npm run lint`
-- [ ] 1.3 Unit: `npm run test`
-- [ ] 1.4 E2E: `npm run test:e2e`
+- [x] 1.1 Typecheck: `npm run typecheck` — e12ee94
+- [x] 1.2 Lint: `npm run lint` — e12ee94
+- [x] 1.3 Unit: `npm run test` — e12ee94 (894/894)
+- [x] 1.4 E2E: `npm run test:e2e` — e12ee94 (133 passed; lokalnie :4322, zob. S-37)
 
 #### Manual
 
