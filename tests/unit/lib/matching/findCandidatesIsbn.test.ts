@@ -23,6 +23,7 @@ const GB_CANDIDATE = {
   publisher: null,
   publishedYear: null,
   coverUrl: null,
+  description: null,
 };
 
 beforeEach(() => {
@@ -36,7 +37,9 @@ beforeEach(() => {
 describe('findBookCandidates — ISBN-first path', () => {
   it('title puste + ISBN → zwraca kandydatów (ominięcie gate 0.25)', async () => {
     vi.mocked(searchGoogleBooks).mockResolvedValue({ ok: true, candidates: [GB_CANDIDATE] });
-    const { candidates, rateLimited } = await findBookCandidates('', null, ISBN, { isbnOnly: true });
+    const { candidates, rateLimited } = await findBookCandidates('', null, ISBN, {
+      isbnOnly: true,
+    });
     expect(rateLimited).toBe(false);
     expect(candidates.length).toBeGreaterThan(0);
     expect(candidates[0].title).toBe('Solaris');

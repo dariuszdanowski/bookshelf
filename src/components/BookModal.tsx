@@ -6,8 +6,13 @@ import type { BookFieldValues } from './book/BookFields';
 import CoverEditor, { type CoverEditorPatch } from './book/CoverEditor';
 
 /** Efektywna okładka wg wybranego slotu źródła (+ fallback do dowolnego niepustego). */
-function pickCover(source: CoverSource, auto: string | null, user: string, photo: string | null): string | null {
-  const slot = source === 'url' ? (user.trim() || null) : source === 'photo' ? photo : auto;
+function pickCover(
+  source: CoverSource,
+  auto: string | null,
+  user: string,
+  photo: string | null,
+): string | null {
+  const slot = source === 'url' ? user.trim() || null : source === 'photo' ? photo : auto;
   return slot ?? auto ?? (user.trim() || null) ?? photo ?? null;
 }
 
@@ -63,7 +68,10 @@ function googleSearchUrl(fields: BookFieldValues): string {
     fields.title.trim(),
     fields.authors.trim(),
     fields.isbn13.trim() || fields.isbn10.trim(),
-  ].filter(Boolean).join(' ').trim();
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
   return q ? `https://www.google.com/search?q=${encodeURIComponent(q)}` : '#';
 }
 
@@ -81,9 +89,13 @@ function bookToFields(b?: BookModalBook): BookFieldValues {
 function parseFields(f: BookFieldValues) {
   return {
     title: f.title.trim(),
-    authors: f.authors.split(',').map((a) => a.trim()).filter(Boolean),
+    authors: f.authors
+      .split(',')
+      .map((a) => a.trim())
+      .filter(Boolean),
     publisher: f.publisher.trim() || null,
-    published_year: f.year.trim() && Number.isFinite(parseInt(f.year, 10)) ? parseInt(f.year, 10) : null,
+    published_year:
+      f.year.trim() && Number.isFinite(parseInt(f.year, 10)) ? parseInt(f.year, 10) : null,
     isbn_13: f.isbn13.trim() || null,
     isbn_10: f.isbn10.trim() || null,
   };
@@ -161,6 +173,8 @@ type SearchCandidate = {
   publisher: string | null;
   publishedYear: number | null;
   coverUrl: string | null;
+  /** Krótki opis z publicznej bazy (S-17) — ukryty stan, nie kontrolka UI. */
+  description: string | null;
   source: string;
   externalId: string;
   matchScore: number;
@@ -208,9 +222,18 @@ function SearchPanel({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      const json = (await res.json()) as { data?: { candidates: SearchCandidate[] }; error?: { message?: string } };
-      if (res.status === 429) { setErr('Rate limit, spróbuj za chwilę.'); return; }
-      if (!res.ok) { setErr(json.error?.message ?? 'Błąd wyszukiwania.'); return; }
+      const json = (await res.json()) as {
+        data?: { candidates: SearchCandidate[] };
+        error?: { message?: string };
+      };
+      if (res.status === 429) {
+        setErr('Rate limit, spróbuj za chwilę.');
+        return;
+      }
+      if (!res.ok) {
+        setErr(json.error?.message ?? 'Błąd wyszukiwania.');
+        return;
+      }
       setResults(json.data?.candidates ?? []);
     } catch {
       setErr('Błąd sieci.');
@@ -229,7 +252,11 @@ function SearchPanel({
         type="button"
         data-testid="search-candidates-toggle"
         disabled={!searchReady}
-        title={searchReady ? 'Szukaj w bazach książek po wpisanych danych' : 'Najpierw wpisz tytuł lub ISBN'}
+        title={
+          searchReady
+            ? 'Szukaj w bazach książek po wpisanych danych'
+            : 'Najpierw wpisz tytuł lub ISBN'
+        }
         onClick={() => {
           setTitle(initialTitle);
           setIsbn(initialIsbn);
@@ -259,7 +286,12 @@ function SearchPanel({
                 data-testid="candidates-title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void search(); } }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    void search();
+                  }
+                }}
                 className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
               />
             </label>
@@ -269,7 +301,12 @@ function SearchPanel({
                 data-testid="candidates-isbn"
                 value={isbn}
                 onChange={(e) => setIsbn(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void search(); } }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    void search();
+                  }
+                }}
                 className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
               />
             </label>
@@ -296,7 +333,11 @@ function SearchPanel({
             <button
               type="button"
               data-testid="candidates-close"
-              onClick={() => { setOpen(false); setResults(null); setErr(null); }}
+              onClick={() => {
+                setOpen(false);
+                setResults(null);
+                setErr(null);
+              }}
               className="rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400"
             >
               Zamknij
@@ -307,7 +348,15 @@ function SearchPanel({
 
       {busy && <p className="text-xs text-emerald-700 dark:text-emerald-400">Szukam...</p>}
 
-      {err && <p data-testid="candidates-error" className="text-xs text-red-600 dark:text-red-400" role="alert">{err}</p>}
+      {err && (
+        <p
+          data-testid="candidates-error"
+          className="text-xs text-red-600 dark:text-red-400"
+          role="alert"
+        >
+          {err}
+        </p>
+      )}
 
       {results != null && results.length === 0 && (
         <p data-testid="candidates-no-results" className="text-xs text-amber-600">
@@ -324,7 +373,9 @@ function SearchPanel({
             >
               <CoverThumb url={c.coverUrl} />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-medium text-gray-800 dark:text-gray-100">{c.title}</p>
+                <p className="truncate text-xs font-medium text-gray-800 dark:text-gray-100">
+                  {c.title}
+                </p>
                 <p className="truncate text-[11px] text-gray-500">
                   {c.authors.join(', ')}
                   {c.publishedYear ? ` · ${c.publishedYear}` : ''}
@@ -335,7 +386,11 @@ function SearchPanel({
               <button
                 type="button"
                 data-testid={`candidates-use-${i}`}
-                onClick={() => { onSelect(c); setOpen(false); setResults(null); }}
+                onClick={() => {
+                  onSelect(c);
+                  setOpen(false);
+                  setResults(null);
+                }}
                 className="flex-shrink-0 rounded bg-blue-600 px-2 py-1 text-xs font-medium text-white hover:bg-blue-700"
               >
                 Użyj
@@ -349,7 +404,11 @@ function SearchPanel({
         <button
           type="button"
           data-testid="candidates-close"
-          onClick={() => { setOpen(false); setResults(null); setErr(null); }}
+          onClick={() => {
+            setOpen(false);
+            setResults(null);
+            setErr(null);
+          }}
           className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400"
         >
           Zamknij
@@ -377,22 +436,31 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
   // Stan okładki (lifted z CoverEditor) — wspólny dla add i edit. Trafia do
   // ujednoliconego zapisu: POST (add) / PATCH razem z metadanymi (edit).
   const [coverSource, setCoverSource] = useState<CoverSource>(book?.cover_source ?? 'auto');
-  const [coverAutoUrl, setCoverAutoUrl] = useState<string | null>(book?.cover_url ?? book?.coverUrl ?? null);
+  const [coverAutoUrl, setCoverAutoUrl] = useState<string | null>(
+    book?.cover_url ?? book?.coverUrl ?? null,
+  );
   const [coverUserUrl, setCoverUserUrl] = useState<string>(book?.user_cover_url ?? '');
   const [coverPhotoUrl, setCoverPhotoUrl] = useState<string | null>(book?.cover_photo_url ?? null);
   const [displayCover, setDisplayCover] = useState<string | null>(
-    book ? (effectiveCover({
-      cover_url: book.cover_url ?? book.coverUrl ?? null,
-      user_cover_url: book.user_cover_url ?? null,
-      cover_photo_url: book.cover_photo_url ?? null,
-      cover_source: book.cover_source ?? 'auto',
-    })) : null
+    book
+      ? effectiveCover({
+          cover_url: book.cover_url ?? book.coverUrl ?? null,
+          user_cover_url: book.user_cover_url ?? null,
+          cover_photo_url: book.cover_photo_url ?? null,
+          cover_source: book.cover_source ?? 'auto',
+        })
+      : null,
   );
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // S-17: opis z wybranego kandydata — UKRYTY stan (bez kontrolki UI; ekspozycja
+  // opisu = follow-up). Payload POST/PATCH dołącza go tylko gdy pochodzi z kandydata.
+  const [candidateDescription, setCandidateDescription] = useState<string | null>(null);
 
   useEffect(() => {
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose(); }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
@@ -410,6 +478,7 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
       isbn13: c.isbn13 ?? '',
       isbn10: c.isbn10 ?? '',
     });
+    setCandidateDescription(c.description ?? null);
     if (c.coverUrl) {
       setCoverAutoUrl(c.coverUrl);
       setCoverSource('auto');
@@ -440,7 +509,10 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
     try {
       let res: Response;
       if (mode === 'add') {
-        if (!shelfId) { setErr('Brak shelf_id.'); return; }
+        if (!shelfId) {
+          setErr('Brak shelf_id.');
+          return;
+        }
         // AddPurchaseSchema uses .optional() (not .nullish()) — strip null fields so Zod accepts them.
         // Sloty okładki: cover_source zawsze; pozostałe tylko gdy mają wartość.
         const coverFields: Record<string, string> = { cover_source: coverSource };
@@ -448,8 +520,13 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
         if (coverUserUrl.trim()) coverFields.user_cover_url = coverUserUrl.trim();
         if (coverPhotoUrl) coverFields.cover_photo_url = coverPhotoUrl;
         const postBody = Object.fromEntries(
-          Object.entries({ ...parsed, shelf_id: shelfId, ...coverFields })
-            .filter(([, v]) => v !== null)
+          Object.entries({
+            ...parsed,
+            shelf_id: shelfId,
+            ...coverFields,
+            // S-17: opis tylko gdy pochodzi z wybranego kandydata (null odfiltruje się niżej).
+            description: candidateDescription,
+          }).filter(([, v]) => v !== null),
         );
         res = await fetch('/api/books', {
           method: 'POST',
@@ -457,7 +534,10 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
           body: JSON.stringify(postBody),
         });
       } else {
-        if (!book?.id) { setErr('Brak book id.'); return; }
+        if (!book?.id) {
+          setErr('Brak book id.');
+          return;
+        }
         // unify-book-save: jeden zapis — metadane + sloty okładki w jednym PATCH
         // (UpdateBookSchema dopuszcza nullable, więc null = wyczyść slot).
         const patchBody = {
@@ -466,6 +546,9 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
           user_cover_url: coverUserUrl.trim() || null,
           cover_photo_url: coverPhotoUrl,
           cover_source: coverSource,
+          // S-17: opis tylko z wybranego kandydata (per-book backfill starych książek);
+          // bez wyboru kandydata pole pomijamy — PATCH nie nadpisuje istniejącego opisu.
+          ...(candidateDescription != null ? { description: candidateDescription } : {}),
         };
         res = await fetch(`/api/books/${book.id}`, {
           method: 'PATCH',
@@ -475,8 +558,14 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
       }
 
       const json = (await res.json()) as { error?: { message?: string } };
-      if (res.status === 409) { setErr(json.error?.message ?? 'Masz już tę książkę w katalogu.'); return; }
-      if (!res.ok) { setErr(json.error?.message ?? `Błąd zapisu (${res.status})`); return; }
+      if (res.status === 409) {
+        setErr(json.error?.message ?? 'Masz już tę książkę w katalogu.');
+        return;
+      }
+      if (!res.ok) {
+        setErr(json.error?.message ?? `Błąd zapisu (${res.status})`);
+        return;
+      }
       onSaved?.();
       onClose();
     } catch {
@@ -513,8 +602,11 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
         onClick={(e) => e.stopPropagation()}
       >
         {/* Nagłówek */}
-        <div className="flex items-center justify-between px-5 pb-4 pt-5">
-          <h2 data-testid="book-modal-title" className="text-base font-bold text-gray-900 dark:text-gray-50">
+        <div className="flex items-center justify-between px-5 pt-5 pb-4">
+          <h2
+            data-testid="book-modal-title"
+            className="text-base font-bold text-gray-900 dark:text-gray-50"
+          >
             {MODAL_TITLES[mode]}
           </h2>
           <button
@@ -532,96 +624,111 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
         <form onSubmit={handleSave} noValidate className="flex min-h-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">
             <div className="flex flex-col gap-4 sm:flex-row">
-            {/* Lewa kolumna — okładka. Stała szerokość na desktopie, by sekcja okładki
+              {/* Lewa kolumna — okładka. Stała szerokość na desktopie, by sekcja okładki
                 (zwłaszcza bez okładki) nie rozpychała się i nie ściskała pól + wyników po prawej. */}
-            <div className="flex w-full flex-col items-center gap-2 sm:w-72 sm:flex-shrink-0">
-              <CoverLarge url={displayCover} alt={authorsDisplay ? `${fields.title} — ${authorsDisplay}` : fields.title} />
+              <div className="flex w-full flex-col items-center gap-2 sm:w-72 sm:flex-shrink-0">
+                <CoverLarge
+                  url={displayCover}
+                  alt={authorsDisplay ? `${fields.title} — ${authorsDisplay}` : fields.title}
+                />
 
-              {/* Sekcja okładki — zawsze rozwinięta, identyczna w add i edit.
+                {/* Sekcja okładki — zawsze rozwinięta, identyczna w add i edit.
                   Sloty w stanie BookModal → zapisywane jednym „Zapisz" (unify-book-save). */}
-              {canEdit && (
-                <CoverEditor
-                  isbn={fields.isbn13 || fields.isbn10}
-                  source={coverSource}
-                  autoUrl={coverAutoUrl}
-                  userUrl={coverUserUrl}
-                  photoUrl={coverPhotoUrl}
-                  testIdPrefix={mode === 'edit' ? 'edit-cover' : 'add-cover'}
-                  onChange={handleCoverChange}
-                />
-              )}
-            </div>
-
-            {/* Prawa kolumna — pola i akcje */}
-            <div className="min-w-0 flex-1 space-y-3">
-
-              {/* Metadane */}
-              <BookFields values={fields} onChange={canEdit ? handleField : undefined} readOnly={!canEdit} />
-
-              {/* Dodatkowe info w propose mode */}
-              {mode === 'propose' && (
-                <dl className="space-y-1 text-sm">
-                  {book?.spineColor && (
-                    <div className="flex gap-2">
-                      <dt className="w-24 flex-shrink-0 text-gray-400">Kolor grzbietu</dt>
-                      <dd className="font-medium text-gray-800 dark:text-gray-100">{book.spineColor}</dd>
-                    </div>
-                  )}
-                  {sourceLabel && (
-                    <div className="flex gap-2">
-                      <dt className="w-24 flex-shrink-0 text-gray-400">Źródło</dt>
-                      <dd className="font-medium text-gray-800 dark:text-gray-100">{sourceLabel}</dd>
-                    </div>
-                  )}
-                  {book?.matchScore != null && (
-                    <div className="flex gap-2">
-                      <dt className="w-24 flex-shrink-0 text-gray-400">Pewność</dt>
-                      <dd className="font-medium text-gray-800 dark:text-gray-100">{Math.round(book.matchScore * 100)}%</dd>
-                    </div>
-                  )}
-                </dl>
-              )}
-
-              {/* Panel wyszukiwania kandydatów (add + edit). hideForm w OBU trybach:
-                  główny formularz już ma pola tytuł/ISBN/autor, więc panel szuka po nich
-                  (auto-search po toggle) zamiast renderować zdublowane inputy. */}
-              {canEdit && (
-                <SearchPanel
-                  initialTitle={fields.title}
-                  initialIsbn={fields.isbn13 || fields.isbn10}
-                  initialAuthor={fields.authors}
-                  hideForm={canEdit}
-                  onSelect={handleCandidateSelect}
-                />
-              )}
-
-              {/* Przyciski akcji */}
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                {/* W trybie add — tylko gdy cokolwiek wpisano */}
-                {(mode !== 'add' || fields.title.trim() || fields.isbn13.trim() || fields.isbn10.trim() || fields.authors.trim()) && (
-                  <a
-                    data-testid="book-modal-web-search"
-                    href={googleSearchUrl(fields)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="rounded-md border border-sky-300 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-900/20 dark:text-sky-300 dark:hover:bg-sky-900/40"
-                  >
-                    Szukaj w sieci
-                  </a>
-                )}
-
-                {mode === 'edit' && book?.photoId && (
-                  <a
-                    data-testid="book-modal-source-photo"
-                    href={`/photos/${book.photoId}`}
-                    className="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
-                  >
-                    Źródłowe zdjęcie
-                  </a>
+                {canEdit && (
+                  <CoverEditor
+                    isbn={fields.isbn13 || fields.isbn10}
+                    source={coverSource}
+                    autoUrl={coverAutoUrl}
+                    userUrl={coverUserUrl}
+                    photoUrl={coverPhotoUrl}
+                    testIdPrefix={mode === 'edit' ? 'edit-cover' : 'add-cover'}
+                    onChange={handleCoverChange}
+                  />
                 )}
               </div>
 
-            </div>
+              {/* Prawa kolumna — pola i akcje */}
+              <div className="min-w-0 flex-1 space-y-3">
+                {/* Metadane */}
+                <BookFields
+                  values={fields}
+                  onChange={canEdit ? handleField : undefined}
+                  readOnly={!canEdit}
+                />
+
+                {/* Dodatkowe info w propose mode */}
+                {mode === 'propose' && (
+                  <dl className="space-y-1 text-sm">
+                    {book?.spineColor && (
+                      <div className="flex gap-2">
+                        <dt className="w-24 flex-shrink-0 text-gray-400">Kolor grzbietu</dt>
+                        <dd className="font-medium text-gray-800 dark:text-gray-100">
+                          {book.spineColor}
+                        </dd>
+                      </div>
+                    )}
+                    {sourceLabel && (
+                      <div className="flex gap-2">
+                        <dt className="w-24 flex-shrink-0 text-gray-400">Źródło</dt>
+                        <dd className="font-medium text-gray-800 dark:text-gray-100">
+                          {sourceLabel}
+                        </dd>
+                      </div>
+                    )}
+                    {book?.matchScore != null && (
+                      <div className="flex gap-2">
+                        <dt className="w-24 flex-shrink-0 text-gray-400">Pewność</dt>
+                        <dd className="font-medium text-gray-800 dark:text-gray-100">
+                          {Math.round(book.matchScore * 100)}%
+                        </dd>
+                      </div>
+                    )}
+                  </dl>
+                )}
+
+                {/* Panel wyszukiwania kandydatów (add + edit). hideForm w OBU trybach:
+                  główny formularz już ma pola tytuł/ISBN/autor, więc panel szuka po nich
+                  (auto-search po toggle) zamiast renderować zdublowane inputy. */}
+                {canEdit && (
+                  <SearchPanel
+                    initialTitle={fields.title}
+                    initialIsbn={fields.isbn13 || fields.isbn10}
+                    initialAuthor={fields.authors}
+                    hideForm={canEdit}
+                    onSelect={handleCandidateSelect}
+                  />
+                )}
+
+                {/* Przyciski akcji */}
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  {/* W trybie add — tylko gdy cokolwiek wpisano */}
+                  {(mode !== 'add' ||
+                    fields.title.trim() ||
+                    fields.isbn13.trim() ||
+                    fields.isbn10.trim() ||
+                    fields.authors.trim()) && (
+                    <a
+                      data-testid="book-modal-web-search"
+                      href={googleSearchUrl(fields)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="rounded-md border border-sky-300 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-900/20 dark:text-sky-300 dark:hover:bg-sky-900/40"
+                    >
+                      Szukaj w sieci
+                    </a>
+                  )}
+
+                  {mode === 'edit' && book?.photoId && (
+                    <a
+                      data-testid="book-modal-source-photo"
+                      href={`/photos/${book.photoId}`}
+                      className="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
+                    >
+                      Źródłowe zdjęcie
+                    </a>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -631,7 +738,11 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
           {canEdit && (
             <div className="flex items-center justify-end gap-2 border-t border-gray-200 px-5 py-3 dark:border-gray-700">
               {err && (
-                <p data-testid="book-modal-error" className="mr-auto text-xs text-red-600 dark:text-red-400" role="alert">
+                <p
+                  data-testid="book-modal-error"
+                  className="mr-auto text-xs text-red-600 dark:text-red-400"
+                  role="alert"
+                >
                   {err}
                 </p>
               )}

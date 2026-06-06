@@ -100,14 +100,16 @@ function classifyIsbn(candidates: string[]): { isbn13: string | null; isbn10: st
 }
 
 function mapBib(bib: Bib): BookCandidate {
-  const title = trimMarc(marcSubfield(bib, '245', 'a')) ?? (bib.title ? bib.title.split(' / ')[0].trim() : '');
+  const title =
+    trimMarc(marcSubfield(bib, '245', 'a')) ?? (bib.title ? bib.title.split(' / ')[0].trim() : '');
   const author = trimMarc(marcSubfield(bib, '100', 'a')); // 100$a = autor główny (700 = tłumacz — pomijamy)
   const isbnSources = [
     ...marcSubfieldAll(bib, '020', 'a'),
     ...(bib.isbnIssn ? bib.isbnIssn.split(/\s+/) : []),
   ];
   const { isbn13, isbn10 } = classifyIsbn(isbnSources);
-  const publisher = trimMarc(marcSubfield(bib, '260', 'b')) ?? trimMarc(marcSubfield(bib, '264', 'b')) ?? null;
+  const publisher =
+    trimMarc(marcSubfield(bib, '260', 'b')) ?? trimMarc(marcSubfield(bib, '264', 'b')) ?? null;
   const year = bib.publicationYear ? parseInt(bib.publicationYear, 10) : NaN;
   return {
     source: 'national_library',
@@ -120,6 +122,8 @@ function mapBib(bib: Bib): BookCandidate {
     publishedYear: Number.isFinite(year) && year >= 1000 && year <= 2100 ? year : null,
     // BN nie podaje okładek — enrichment przez OL po ISBN robi się downstream.
     coverUrl: null,
+    // S-17: BN nie dostarcza opisów w danych bibliograficznych MARC.
+    description: null,
   };
 }
 
@@ -128,7 +132,9 @@ async function fetchBN(url: string): Promise<BookSearchResult> {
   try {
     response = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
   } catch (e) {
-    console.error('[nationalLibrary] network error', { err: e instanceof Error ? e.message : String(e) });
+    console.error('[nationalLibrary] network error', {
+      err: e instanceof Error ? e.message : String(e),
+    });
     return { ok: false, reason: 'network' };
   }
   if (response.status === 429) return { ok: false, reason: 'rate_limited' };
@@ -167,7 +173,10 @@ export async function searchNationalLibrary(query: {
 }): Promise<BookSearchResult> {
   // ISBN: exact, niezawodne (cyfry — brak ryzyka 400).
   if (query.isbn) {
-    const params = new URLSearchParams({ isbnIssn: query.isbn.replace(/[-\s]/g, ''), limit: String(BN_LIMIT) });
+    const params = new URLSearchParams({
+      isbnIssn: query.isbn.replace(/[-\s]/g, ''),
+      limit: String(BN_LIMIT),
+    });
     return fetchBN(`${BN_BASE}?${params.toString()}`);
   }
 

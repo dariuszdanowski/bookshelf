@@ -205,10 +205,10 @@ Migracja idempotentnie aplikowana przez `deploy.yml` post-merge (migrate-first p
 
 #### Automated
 
-- [x] 1.1 Migracja aplikuje się czysto (`npx supabase db reset` / CI `supabase start`)
-- [x] 1.2 Test integracyjny zielony (`npm run test:integration`)
-- [x] 1.3 Typecheck przechodzi (`npm run typecheck`)
-- [x] 1.4 Pełna suita unit bez regresji (`npm run test`)
+- [x] 1.1 Migracja aplikuje się czysto (`npx supabase db reset` / CI `supabase start`) — 75e6876
+- [x] 1.2 Test integracyjny zielony (`npm run test:integration`) — 75e6876
+- [x] 1.3 Typecheck przechodzi (`npm run typecheck`) — 75e6876
+- [x] 1.4 Pełna suita unit bez regresji (`npm run test`) — 75e6876
 
 #### Manual
 
@@ -218,10 +218,10 @@ Migracja idempotentnie aplikowana przez `deploy.yml` post-merge (migrate-first p
 
 #### Automated
 
-- [ ] 2.1 Lint + typecheck przechodzą (`npm run lint`, `npm run typecheck`)
-- [ ] 2.2 Pełna suita unit zielona z nowymi testami (`npm run test`)
-- [ ] 2.3 Test integracyjny nadal zielony (`npm run test:integration`)
-- [ ] 2.4 Pełne E2E bez regresji (`npx playwright test`)
+- [x] 2.1 Lint + typecheck przechodzą (`npm run lint`, `npm run typecheck`)
+- [x] 2.2 Pełna suita unit zielona z nowymi testami (`npm run test`)
+- [x] 2.3 Test integracyjny nadal zielony (`npm run test:integration`)
+- [x] 2.4 Pełne E2E bez regresji (`npx playwright test`)
 
 #### Manual
 

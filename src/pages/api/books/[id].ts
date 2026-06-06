@@ -34,7 +34,11 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
   try {
     raw = await request.json();
   } catch {
-    return apiError({ code: 'VALIDATION_ERROR', status: 400, message: 'Nieprawidłowe ciało żądania.' });
+    return apiError({
+      code: 'VALIDATION_ERROR',
+      status: 400,
+      message: 'Nieprawidłowe ciało żądania.',
+    });
   }
 
   const parsed = UpdateBookSchema.safeParse(raw);
@@ -61,6 +65,7 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
     published_year?: number | null;
     isbn_13?: string | null;
     isbn_10?: string | null;
+    description?: string | null;
   } = {};
   const d = parsed.data;
   if (d.is_read !== undefined) update.is_read = d.is_read;
@@ -74,18 +79,26 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
   if (d.published_year !== undefined) update.published_year = d.published_year;
   if (d.isbn_13 !== undefined) update.isbn_13 = d.isbn_13;
   if (d.isbn_10 !== undefined) update.isbn_10 = d.isbn_10;
+  // S-17: opis z kandydata (BookModal edit = per-book backfill) → search_text.
+  if (d.description !== undefined) update.description = d.description;
 
   const { data, error } = await locals.supabase
     .from('books')
     .update(update)
     .eq('id', id)
-    .select('id, is_read, title, authors, publisher, published_year, isbn_13, isbn_10, cover_url, user_cover_url, cover_photo_url, cover_source')
+    .select(
+      'id, is_read, title, authors, publisher, published_year, isbn_13, isbn_10, cover_url, user_cover_url, cover_photo_url, cover_source',
+    )
     .single();
 
   if (error) {
     // 23505 = unique (user_id, isbn_13) — inna książka z tym ISBN już w katalogu.
     if (error.code === '23505') {
-      return apiError({ code: 'VALIDATION_ERROR', status: 400, message: 'Masz już książkę z tym ISBN w katalogu.' });
+      return apiError({
+        code: 'VALIDATION_ERROR',
+        status: 400,
+        message: 'Masz już książkę z tym ISBN w katalogu.',
+      });
     }
     if (error.code === 'PGRST116') {
       return apiError({ code: 'NOT_FOUND', status: 404, message: 'Książka nie istnieje.' });
@@ -95,7 +108,11 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
       message: error.message,
       code: error.code,
     });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się zaktualizować książki.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się zaktualizować książki.',
+    });
   }
 
   return apiResponse({
@@ -158,7 +175,11 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
       message: selectError.message,
       code: selectError.code,
     });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się sprawdzić książki.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się sprawdzić książki.',
+    });
   }
 
   if (!existing) {
@@ -173,7 +194,11 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
       message: deleteError.message,
       code: deleteError.code,
     });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się usunąć książki.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się usunąć książki.',
+    });
   }
 
   // Best-effort Storage cleanup wgranej okładki — błąd nie zmienia sukcesu.

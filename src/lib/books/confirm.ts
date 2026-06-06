@@ -15,6 +15,8 @@ export type ConfirmBookInput = {
   source_external_id: string | null;
   /** Dominujący kolor grzbietu z detekcji (S-08 filtr); null dla manual/Flow-B. */
   spine_color: string | null;
+  /** Krótki opis z kandydata (S-17) → books.description → search_text; null dla manual. */
+  description: string | null;
 };
 
 export type ConfirmDetectionArgs = {
@@ -55,7 +57,7 @@ export type ConfirmResult =
 export async function confirmDetectionToCatalog(
   supabase: Supabase,
   userId: string,
-  args: ConfirmDetectionArgs
+  args: ConfirmDetectionArgs,
 ): Promise<ConfirmResult> {
   const { detection, shelfId, book, correctionType, correctedFields } = args;
 
@@ -75,7 +77,9 @@ export async function confirmDetectionToCatalog(
 
     if (existing) {
       // Próbujemy wyciągnąć nazwę półki dla shelfHint
-      const entry = (existing.shelf_entries as { shelf_id: string; shelves: { name: string } | null }[] | null)?.[0];
+      const entry = (
+        existing.shelf_entries as { shelf_id: string; shelves: { name: string } | null }[] | null
+      )?.[0];
       const shelfHint = entry?.shelves?.name ?? undefined;
       return { ok: false, reason: 'duplicate', shelfHint };
     }
@@ -96,6 +100,7 @@ export async function confirmDetectionToCatalog(
       source: book.source,
       source_external_id: book.source_external_id,
       spine_color: book.spine_color,
+      description: book.description,
     })
     .select('id')
     .single();

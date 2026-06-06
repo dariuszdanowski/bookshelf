@@ -65,6 +65,7 @@ describe('GET /api/books/cover-suggestion (book-less)', () => {
           publisher: null,
           publishedYear: null,
           coverUrl: 'https://books.google.com/cover.jpg',
+          description: null,
         },
       ],
     });

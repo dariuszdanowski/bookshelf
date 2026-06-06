@@ -36,7 +36,11 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   try {
     raw = await request.json();
   } catch {
-    return apiError({ code: 'VALIDATION_ERROR', status: 400, message: 'Nieprawidłowe ciało żądania.' });
+    return apiError({
+      code: 'VALIDATION_ERROR',
+      status: 400,
+      message: 'Nieprawidłowe ciało żądania.',
+    });
   }
 
   const parsed = IdentifyBookSchema.safeParse(raw);
@@ -56,7 +60,11 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     .eq('id', id)
     .maybeSingle();
   if (bookErr) {
-    console.error('[api/books identify] book select failed', { name: bookErr.name, message: bookErr.message, code: bookErr.code });
+    console.error('[api/books identify] book select failed', {
+      name: bookErr.name,
+      message: bookErr.message,
+      code: bookErr.code,
+    });
     return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Błąd serwera.' });
   }
   if (!book) {
@@ -73,12 +81,19 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
 
     const result = await findBookCandidates(title, author, parsed.data.isbn?.trim() || null);
     if (result.rateLimited) {
-      return apiError({ code: 'RATE_LIMITED', status: 429, message: 'Rate limit. Spróbuj ponownie za chwilę.' });
+      return apiError({
+        code: 'RATE_LIMITED',
+        status: 429,
+        message: 'Rate limit. Spróbuj ponownie za chwilę.',
+      });
     }
     return apiResponse({ data: { candidates: result.candidates } });
   }
 
   // --------------------------------------------------------------------- APPLY
+  // Uwaga (S-17): endpoint legacy — po refaktorze unified-book-modal żaden komponent
+  // UI go nie woła (realny flow „Wyszukaj po danych" = BookModal → POST /api/books/candidates
+  // → POST/PATCH books). Pole description dodane dla kompletności kontraktu.
   const c = parsed.data.candidate;
   const { data: updated, error: updateError } = await locals.supabase
     .from('books')
@@ -93,21 +108,36 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       cover_source: 'auto', // nowa okładka z identyfikacji → pokaż automatyczną
       source: c.source ?? null,
       source_external_id: c.externalId ?? null,
+      description: c.description ?? null,
     })
     .eq('id', id)
-    .select('id, title, authors, isbn_13, isbn_10, publisher, published_year, cover_url, cover_source, user_cover_url, cover_photo_url')
+    .select(
+      'id, title, authors, isbn_13, isbn_10, publisher, published_year, cover_url, cover_source, user_cover_url, cover_photo_url',
+    )
     .single();
 
   if (updateError) {
     // 23505 = unique (user_id, isbn_13) — książka o tym ISBN już w katalogu.
     if (updateError.code === '23505') {
-      return apiError({ code: 'VALIDATION_ERROR', status: 400, message: 'Masz już książkę z tym ISBN w katalogu.' });
+      return apiError({
+        code: 'VALIDATION_ERROR',
+        status: 400,
+        message: 'Masz już książkę z tym ISBN w katalogu.',
+      });
     }
     if (updateError.code === 'PGRST116') {
       return apiError({ code: 'NOT_FOUND', status: 404, message: 'Książka nie istnieje.' });
     }
-    console.error('[api/books identify] apply update failed', { name: updateError.name, message: updateError.message, code: updateError.code });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się zaktualizować książki.' });
+    console.error('[api/books identify] apply update failed', {
+      name: updateError.name,
+      message: updateError.message,
+      code: updateError.code,
+    });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się zaktualizować książki.',
+    });
   }
 
   return apiResponse({ data: { applied: true, book: updated } });

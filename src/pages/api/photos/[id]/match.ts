@@ -5,7 +5,11 @@ import { searchGoogleBooks } from '../../../../lib/books/googleBooks';
 import { searchOpenLibrary } from '../../../../lib/books/openLibrary';
 import { searchNationalLibrary } from '../../../../lib/books/nationalLibrary';
 import { scoreCandidate, MATCH_MID } from '../../../../lib/matching/score';
-import { dedupeCandidates, checkCatalogDuplicate, type CatalogDuplicate } from '../../../../lib/matching/dedupe';
+import {
+  dedupeCandidates,
+  checkCatalogDuplicate,
+  type CatalogDuplicate,
+} from '../../../../lib/matching/dedupe';
 import type { BookCandidate, ScoredCandidate } from '../../../../lib/books/schema';
 import { CONSERVATIVE_REPLACE_MARGIN } from '../../../../lib/matching/fallbackPolicy';
 
@@ -23,7 +27,7 @@ const MATCH_CONCURRENCY = 5;
  */
 async function settledWithConcurrency<T>(
   tasks: Array<() => Promise<T>>,
-  concurrency: number
+  concurrency: number,
 ): Promise<PromiseSettledResult<T>[]> {
   const results: PromiseSettledResult<T>[] = new Array(tasks.length);
   let next = 0;
@@ -70,6 +74,7 @@ type ExistingCandidateRow = {
   publisher: string | null;
   published_year: number | null;
   cover_url: string | null;
+  description: string | null;
   match_score: number;
   rank: number;
 };
@@ -82,7 +87,7 @@ type MatchResult = {
 
 async function matchDetection(
   detection: DetectionRow,
-  existingBooks: ExistingBook[]
+  existingBooks: ExistingBook[],
 ): Promise<MatchResult> {
   const rawTitle = detection.raw_title ?? '';
   const rawAuthor = detection.raw_author ?? null;
@@ -103,7 +108,11 @@ async function matchDetection(
   // Rate-limited tylko gdy GB rate-limited ORAZ brak kandydatów (BN też pusty) —
   // zachowuje retry. Gdy BN dostarczył kandydatów, idziemy dalej mimo GB 429.
   if (allCandidates.length === 0) {
-    return { candidates: [], duplicate: null, rateLimited: !googleResult.ok && googleResult.reason === 'rate_limited' };
+    return {
+      candidates: [],
+      duplicate: null,
+      rateLimited: !googleResult.ok && googleResult.reason === 'rate_limited',
+    };
   }
 
   // OL ISBN-enrichment: only when ISBN available from gathered candidates (GB or BN)
@@ -144,9 +153,8 @@ async function matchDetection(
     return { ...c, coverUrl: `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg?default=false` };
   });
 
-  const duplicate = topCandidates.length > 0
-    ? checkCatalogDuplicate(topCandidates[0], existingBooks)
-    : null;
+  const duplicate =
+    topCandidates.length > 0 ? checkCatalogDuplicate(topCandidates[0], existingBooks) : null;
 
   return { candidates: topCandidates, duplicate, rateLimited: false };
 }
@@ -178,7 +186,11 @@ export const POST: APIRoute = async ({ params, locals }) => {
     .eq('id', locals.user.id)
     .single();
   if (!profile?.ai_enabled) {
-    return apiError({ code: 'AI_DISABLED', status: 403, message: 'Funkcje AI wyłączone dla tego konta.' });
+    return apiError({
+      code: 'AI_DISABLED',
+      status: 403,
+      message: 'Funkcje AI wyłączone dla tego konta.',
+    });
   }
 
   // Verify photo ownership via RLS (PGRST116 if not found / wrong user)
@@ -197,7 +209,11 @@ export const POST: APIRoute = async ({ params, locals }) => {
       message: photoError.message,
       code: photoError.code,
     });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się pobrać zdjęcia.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się pobrać zdjęcia.',
+    });
   }
 
   // Latest succeeded vision_run for this photo
@@ -216,11 +232,19 @@ export const POST: APIRoute = async ({ params, locals }) => {
       message: runError.message,
       code: runError.code,
     });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się pobrać vision run.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się pobrać vision run.',
+    });
   }
 
   if (!latestRun) {
-    return apiError({ code: 'NOT_FOUND', status: 404, message: 'Brak zakończonego vision run dla tego zdjęcia.' });
+    return apiError({
+      code: 'NOT_FOUND',
+      status: 404,
+      message: 'Brak zakończonego vision run dla tego zdjęcia.',
+    });
   }
 
   // Non-rejected detections from the latest succeeded run only
@@ -236,7 +260,11 @@ export const POST: APIRoute = async ({ params, locals }) => {
       message: detError.message,
       code: detError.code,
     });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się pobrać detekcji.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się pobrać detekcji.',
+    });
   }
 
   if (!detectionRows || detectionRows.length === 0) {
@@ -245,8 +273,13 @@ export const POST: APIRoute = async ({ params, locals }) => {
 
   const { data: existingCandidateRows, error: existingCandidatesError } = await locals.supabase
     .from('book_candidates')
-    .select('detection_id, source, external_id, title, authors, isbn_10, isbn_13, publisher, published_year, cover_url, match_score, rank')
-    .in('detection_id', detectionRows.map((d) => d.id));
+    .select(
+      'detection_id, source, external_id, title, authors, isbn_10, isbn_13, publisher, published_year, cover_url, description, match_score, rank',
+    )
+    .in(
+      'detection_id',
+      detectionRows.map((d) => d.id),
+    );
 
   if (existingCandidatesError) {
     console.error('[api/photos/match POST] existing candidates select failed', {
@@ -254,7 +287,11 @@ export const POST: APIRoute = async ({ params, locals }) => {
       message: existingCandidatesError.message,
       code: existingCandidatesError.code,
     });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się pobrać istniejących kandydatów.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się pobrać istniejących kandydatów.',
+    });
   }
 
   const existingByDetection = new Map<string, ExistingCandidateRow[]>();
@@ -264,7 +301,10 @@ export const POST: APIRoute = async ({ params, locals }) => {
     existingByDetection.set(row.detection_id, current);
   }
   for (const [detectionId, rows] of existingByDetection.entries()) {
-    existingByDetection.set(detectionId, rows.sort((a, b) => a.rank - b.rank));
+    existingByDetection.set(
+      detectionId,
+      rows.sort((a, b) => a.rank - b.rank),
+    );
   }
 
   // One query for all user's books — passed to checkCatalogDuplicate per detection
@@ -279,7 +319,11 @@ export const POST: APIRoute = async ({ params, locals }) => {
       message: booksError.message,
       code: booksError.code,
     });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się pobrać katalogu.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się pobrać katalogu.',
+    });
   }
 
   const catalog: ExistingBook[] = (existingBooks ?? []).map((b) => ({
@@ -294,7 +338,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
   // Promise.allSettled(35 tasks) caused QPS 429s; this serialises excess into a pool.
   const matchResults = await settledWithConcurrency(
     detectionRows.map((det) => () => matchDetection(det, catalog)),
-    MATCH_CONCURRENCY
+    MATCH_CONCURRENCY,
   );
 
   let matchedCount = 0;
@@ -311,6 +355,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
     publisher: string | null;
     published_year: number | null;
     cover_url: string | null;
+    description: string | null;
     match_score: number;
     rank: number;
   };
@@ -342,7 +387,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
   // Collect all candidate rows and matched IDs for 3 batch DB ops instead of 3×N
   const allCandidateRows: CandidateRow[] = [];
   const processedDetectionIds: string[] = []; // processed (non-rate-limited, non-rejected)
-  const matchedDetectionIds: string[] = [];   // will be updated to 'matched'
+  const matchedDetectionIds: string[] = []; // will be updated to 'matched'
 
   for (let i = 0; i < detectionRows.length; i++) {
     const det = detectionRows[i];
@@ -389,7 +434,8 @@ export const POST: APIRoute = async ({ params, locals }) => {
     const shouldKeepExisting =
       existingRowsForDetection.length > 0 &&
       (newTopScore == null ||
-        (existingTopScore != null && existingTopScore - newTopScore >= CONSERVATIVE_REPLACE_MARGIN));
+        (existingTopScore != null &&
+          existingTopScore - newTopScore >= CONSERVATIVE_REPLACE_MARGIN));
 
     if (shouldKeepExisting) {
       const responseCandidates = existingRowsForDetection.map((row) => ({
@@ -418,9 +464,10 @@ export const POST: APIRoute = async ({ params, locals }) => {
           publisher: topExisting.publisher,
           publishedYear: topExisting.published_year,
           coverUrl: topExisting.cover_url,
+          description: topExisting.description,
           matchScore: topExisting.match_score,
         },
-        catalog
+        catalog,
       );
 
       responseDetections.push({
@@ -461,6 +508,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
         publisher: c.publisher,
         published_year: c.publishedYear,
         cover_url: c.coverUrl,
+        description: c.description,
         match_score: c.matchScore,
         rank: idx + 1,
       });
@@ -511,7 +559,11 @@ export const POST: APIRoute = async ({ params, locals }) => {
         code: insertError.code,
         count: allCandidateRows.length,
       });
-      return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się zapisać kandydatów.' });
+      return apiError({
+        code: 'INTERNAL_ERROR',
+        status: 500,
+        message: 'Nie udało się zapisać kandydatów.',
+      });
     }
   }
 

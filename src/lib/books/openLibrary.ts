@@ -45,6 +45,9 @@ function mapDoc(doc: z.infer<typeof OLDocSchema>): BookCandidate {
     publisher: doc.publisher?.[0] ?? null,
     publishedYear: doc.first_publish_year ?? null,
     coverUrl,
+    // S-17: search API OL nie zwraca opisów (wymagałby drugiego requestu
+    // /works/{key} per kandydat) — świadome cięcie, zob. plan S-17.
+    description: null,
   };
 }
 
@@ -53,7 +56,9 @@ async function fetchOL(url: string): Promise<BookSearchResult> {
   try {
     response = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
   } catch (e) {
-    console.error('[openLibrary] network error', { err: e instanceof Error ? e.message : String(e) });
+    console.error('[openLibrary] network error', {
+      err: e instanceof Error ? e.message : String(e),
+    });
     return { ok: false, reason: 'network' };
   }
   if (response.status === 429) return { ok: false, reason: 'rate_limited' };
@@ -81,7 +86,10 @@ async function fetchOL(url: string): Promise<BookSearchResult> {
  * Search OpenLibrary by title + optional author.
  * Parallel source alongside Google Books — OL has broader Polish edition coverage.
  */
-export async function searchOpenLibraryByTitle(query: { title: string; author?: string | null }): Promise<BookSearchResult> {
+export async function searchOpenLibraryByTitle(query: {
+  title: string;
+  author?: string | null;
+}): Promise<BookSearchResult> {
   // cleanSearchTitle/deCyrillic — normalizuje homoglify cyrylicy (OCR), tak jak
   // robi to Google Books przez titleQueryVariants. Bez tego cyrylickie „а" w
   // tytule daje 0 wyników mimo że edycja istnieje pod łacińską pisownią.
