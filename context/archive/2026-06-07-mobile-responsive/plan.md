@@ -162,25 +162,25 @@ nie zmienione).
 
 #### Automated
 
-- [ ] 1.1 Typecheck: `npm run typecheck`
-- [ ] 1.2 Lint: `npm run lint`
-- [ ] 1.3 Unit: `npm run test`
+- [x] 1.1 Typecheck: `npm run typecheck` — c7846fb
+- [x] 1.2 Lint: `npm run lint` — c7846fb
+- [x] 1.3 Unit: `npm run test` — c7846fb (4 nowe MobileNav)
 
 ### Phase 2: CSS drobnica
 
 #### Automated
 
-- [ ] 2.1 Typecheck: `npm run typecheck`
-- [ ] 2.2 Lint: `npm run lint`
-- [ ] 2.3 Unit: `npm run test`
+- [x] 2.1 Typecheck: `npm run typecheck` — d606ce1
+- [x] 2.2 Lint: `npm run lint` — d606ce1
+- [x] 2.3 Unit: `npm run test` — d606ce1
 
 ### Phase 3: E2E mobile
 
 #### Automated
 
-- [ ] 3.1 E2E: `npm run test:e2e`
-- [ ] 3.2 Typecheck: `npm run typecheck`
-- [ ] 3.3 Lint: `npm run lint`
+- [x] 3.1 E2E: `npm run test:e2e` — 70eea6e (147 passed / 0 failed; spec wykrył i naprawił realny overflow trybu Lista)
+- [x] 3.2 Typecheck: `npm run typecheck` — 70eea6e
+- [x] 3.3 Lint: `npm run lint` — 70eea6e
 
 #### Manual
 

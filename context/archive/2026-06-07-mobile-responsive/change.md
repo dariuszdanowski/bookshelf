@@ -1,10 +1,10 @@
 ---
 change_id: mobile-responsive
 title: "S-28: Responsywność mobilna (375px) — hamburger nav + CSS drobnica + E2E"
-status: planned
+status: archived
 created: 2026-06-07
 updated: 2026-06-07
-archived_at: null
+archived_at: 2026-06-07T00:50:00Z
 ---
 
 ## Notes
