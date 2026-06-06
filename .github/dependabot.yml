@@ -1,0 +1,26 @@
+# Automated dependency scanning (health-check Category A #3, plan certyfikacyjny P1).
+# Weekly zbiorczy PR dla npm zamiast szumu per-paczka; security updates idą osobno
+# (Dependabot zawsze wydziela security PR poza grupy). Majory eslint/@eslint/js
+# ignorowane — deliberate pin do czasu eslint-plugin-react@8 (zob. CLAUDE.md § Lint).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: '/'
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      minor-and-patch:
+        update-types:
+          - minor
+          - patch
+    ignore:
+      - dependency-name: eslint
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@eslint/js'
+        update-types: ['version-update:semver-major']
+  - package-ecosystem: github-actions
+    directory: '/'
+    schedule:
+      interval: weekly
+      day: monday
