@@ -218,10 +218,10 @@ Migracja idempotentnie aplikowana przez `deploy.yml` post-merge (migrate-first p
 
 #### Automated
 
-- [x] 2.1 Lint + typecheck przechodzą (`npm run lint`, `npm run typecheck`)
-- [x] 2.2 Pełna suita unit zielona z nowymi testami (`npm run test`)
-- [x] 2.3 Test integracyjny nadal zielony (`npm run test:integration`)
-- [x] 2.4 Pełne E2E bez regresji (`npx playwright test`)
+- [x] 2.1 Lint + typecheck przechodzą (`npm run lint`, `npm run typecheck`) — df8c7e7
+- [x] 2.2 Pełna suita unit zielona z nowymi testami (`npm run test`) — df8c7e7
+- [x] 2.3 Test integracyjny nadal zielony (`npm run test:integration`) — df8c7e7
+- [x] 2.4 Pełne E2E bez regresji (`npx playwright test`) — df8c7e7
 
 #### Manual
 

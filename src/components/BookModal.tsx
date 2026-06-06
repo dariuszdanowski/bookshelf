@@ -454,8 +454,12 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   // S-17: opis z wybranego kandydata — UKRYTY stan (bez kontrolki UI; ekspozycja
-  // opisu = follow-up). Payload POST/PATCH dołącza go tylko gdy pochodzi z kandydata.
-  const [candidateDescription, setCandidateDescription] = useState<string | null>(null);
+  // opisu = follow-up). Sentinel: undefined = kandydata nie wybrano (PATCH pomija
+  // pole, nie nadpisuje opisu); null = wybrano kandydata bez opisu (OL/BN — PATCH
+  // czyści stary opis, żeby search_text nie niósł opisu poprzedniej tożsamości).
+  const [candidateDescription, setCandidateDescription] = useState<string | null | undefined>(
+    undefined,
+  );
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -524,8 +528,8 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
             ...parsed,
             shelf_id: shelfId,
             ...coverFields,
-            // S-17: opis tylko gdy pochodzi z wybranego kandydata (null odfiltruje się niżej).
-            description: candidateDescription,
+            // S-17: opis tylko gdy pochodzi z wybranego kandydata (null/undefined odfiltruje się niżej).
+            description: candidateDescription ?? null,
           }).filter(([, v]) => v !== null),
         );
         res = await fetch('/api/books', {
@@ -546,9 +550,11 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
           user_cover_url: coverUserUrl.trim() || null,
           cover_photo_url: coverPhotoUrl,
           cover_source: coverSource,
-          // S-17: opis tylko z wybranego kandydata (per-book backfill starych książek);
-          // bez wyboru kandydata pole pomijamy — PATCH nie nadpisuje istniejącego opisu.
-          ...(candidateDescription != null ? { description: candidateDescription } : {}),
+          // S-17: opis tylko z wybranego kandydata (per-book backfill starych książek).
+          // Bez wyboru kandydata (undefined) pole pomijamy — PATCH nie nadpisuje opisu;
+          // kandydat bez opisu (null, OL/BN) → wysyłamy null = wyczyść stary opis
+          // (impl-review F1: re-identyfikacja nie może zostawić opisu innej książki).
+          ...(candidateDescription !== undefined ? { description: candidateDescription } : {}),
         };
         res = await fetch(`/api/books/${book.id}`, {
           method: 'PATCH',

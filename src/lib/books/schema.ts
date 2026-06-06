@@ -174,7 +174,7 @@ export type UpdateBookReadInput = z.infer<typeof UpdateBookReadSchema>;
 // PATCH /api/books/[id] — pełny update edytowalnych pól (S-33): is_read, override
 // okładki ORAZ ręczna edycja metadanych (user jest ostateczną instancją — automaty
 // to tylko propozycje). Każde pole opcjonalne; `null` = wyczyść; wymaga ≥1 pola.
-// search_text jest GENERATED z (title, authors, publisher) → auto-aktualizacja.
+// search_text jest GENERATED z (title, authors, publisher, description) → auto-aktualizacja.
 export const UpdateBookSchema = z
   .object({
     is_read: z.boolean().optional(),
