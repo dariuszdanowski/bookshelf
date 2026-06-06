@@ -7,12 +7,25 @@ const SHELF_ID = '00000000-0000-4000-8000-000000000040';
 type PgError = { code?: string; name: string; message: string } | null;
 
 type BookRow = {
-  id: string; title: string; authors: string[];
-  cover_url: string | null; published_year: number | null; is_read: boolean;
-  isbn_13: string | null; isbn_10: string | null; publisher: string | null;
-  user_cover_url: string | null; cover_photo_url: string | null; cover_source: 'auto' | 'url' | 'photo';
+  id: string;
+  title: string;
+  authors: string[];
+  cover_url: string | null;
+  published_year: number | null;
+  is_read: boolean;
+  isbn_13: string | null;
+  isbn_10: string | null;
+  publisher: string | null;
+  user_cover_url: string | null;
+  cover_photo_url: string | null;
+  cover_source: 'auto' | 'url' | 'photo';
 };
-type EntryRow = { position_index: number | null; photo_id: string | null; books: BookRow | null };
+type EntryRow = {
+  position_index: number | null;
+  photo_id: string | null;
+  detection_id?: string | null;
+  books: BookRow | null;
+};
 
 function makeContext(opts: {
   id?: string;
@@ -58,16 +71,32 @@ function makeContext(opts: {
 }
 
 const bookA: BookRow = {
-  id: 'book-a', title: 'Solaris', authors: ['S. Lem'],
-  cover_url: null, published_year: 1961, is_read: false,
-  isbn_13: null, isbn_10: null, publisher: null,
-  user_cover_url: null, cover_photo_url: null, cover_source: 'auto',
+  id: 'book-a',
+  title: 'Solaris',
+  authors: ['S. Lem'],
+  cover_url: null,
+  published_year: 1961,
+  is_read: false,
+  isbn_13: null,
+  isbn_10: null,
+  publisher: null,
+  user_cover_url: null,
+  cover_photo_url: null,
+  cover_source: 'auto',
 };
 const bookB: BookRow = {
-  id: 'book-b', title: 'Diuna', authors: ['F. Herbert'],
-  cover_url: 'https://example.com/cover.jpg', published_year: 1965, is_read: true,
-  isbn_13: '9788373191723', isbn_10: null, publisher: 'Rebis',
-  user_cover_url: 'https://user.jpg', cover_photo_url: null, cover_source: 'url',
+  id: 'book-b',
+  title: 'Diuna',
+  authors: ['F. Herbert'],
+  cover_url: 'https://example.com/cover.jpg',
+  published_year: 1965,
+  is_read: true,
+  isbn_13: '9788373191723',
+  isbn_10: null,
+  publisher: 'Rebis',
+  user_cover_url: 'https://user.jpg',
+  cover_photo_url: null,
+  cover_source: 'url',
 };
 
 beforeEach(() => vi.clearAllMocks());
@@ -102,25 +131,63 @@ describe('GET /api/shelves/[id]/books', () => {
 
   it('200 zwraca książki w kolejności position_index', async () => {
     const entryRows: EntryRow[] = [
-      { position_index: 1, photo_id: null, books: bookA },
-      { position_index: 2, photo_id: 'photo-uuid-1', books: bookB },
+      { position_index: 1, photo_id: null, detection_id: null, books: bookA },
+      {
+        position_index: 2,
+        photo_id: 'photo-uuid-1',
+        detection_id: 'detection-uuid-1',
+        books: bookB,
+      },
     ];
     const ctx = makeContext({ entryRows });
     const res = await GET(ctx);
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
-      data: { books: { id: string; title: string; position_index: number | null; is_read: boolean; photo_id: string | null }[] }
+      data: {
+        books: {
+          id: string;
+          title: string;
+          position_index: number | null;
+          is_read: boolean;
+          photo_id: string | null;
+          detection_id: string | null;
+        }[];
+      };
     };
     expect(json.data.books).toHaveLength(2);
-    expect(json.data.books[0]).toMatchObject({ id: 'book-a', title: 'Solaris', position_index: 1, is_read: false, photo_id: null });
-    expect(json.data.books[1]).toMatchObject({ id: 'book-b', title: 'Diuna', position_index: 2, is_read: true, photo_id: 'photo-uuid-1' });
+    expect(json.data.books[0]).toMatchObject({
+      id: 'book-a',
+      title: 'Solaris',
+      position_index: 1,
+      is_read: false,
+      photo_id: null,
+      detection_id: null,
+    });
+    expect(json.data.books[1]).toMatchObject({
+      id: 'book-b',
+      title: 'Diuna',
+      position_index: 2,
+      is_read: true,
+      photo_id: 'photo-uuid-1',
+      detection_id: 'detection-uuid-1',
+    });
   });
 
   it('mapuje ShelfBookDTO prawidłowo (cover_url, authors, published_year)', async () => {
     const ctx = makeContext({ entryRows: [{ position_index: 1, photo_id: null, books: bookB }] });
     const res = await GET(ctx);
     const json = (await res.json()) as {
-      data: { books: { cover_url: string | null; authors: string[]; published_year: number | null; isbn_13: string | null; publisher: string | null; user_cover_url: string | null; cover_source: string }[] }
+      data: {
+        books: {
+          cover_url: string | null;
+          authors: string[];
+          published_year: number | null;
+          isbn_13: string | null;
+          publisher: string | null;
+          user_cover_url: string | null;
+          cover_source: string;
+        }[];
+      };
     };
     const book = json.data.books[0];
     expect(book.cover_url).toBe('https://example.com/cover.jpg');

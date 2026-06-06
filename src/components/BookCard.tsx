@@ -83,7 +83,7 @@ export default function BookCard({
         data-testid={`book-cover-button-${book.id}`}
         onClick={() => setShowDetail(true)}
         title="Pokaż szczegóły / edytuj"
-        className="cursor-zoom-in rounded focus:outline-none focus:ring-2 focus:ring-blue-400"
+        className="cursor-zoom-in rounded focus:ring-2 focus:ring-blue-400 focus:outline-none"
       >
         {cover && !coverFailed ? (
           <img
@@ -94,8 +94,19 @@ export default function BookCard({
             onError={() => setCoverFailed(true)}
           />
         ) : (
-          <div className={`${imgClass} flex items-center justify-center rounded bg-gray-100 dark:bg-gray-700`} aria-label={altText} role="img">
-            <svg className="text-gray-300 dark:text-gray-500" width={placeholderIconSize} height={placeholderIconSize} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <div
+            className={`${imgClass} flex items-center justify-center rounded bg-gray-100 dark:bg-gray-700`}
+            aria-label={altText}
+            role="img"
+          >
+            <svg
+              className="text-gray-300 dark:text-gray-500"
+              width={placeholderIconSize}
+              height={placeholderIconSize}
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              aria-hidden="true"
+            >
               <path d="M18 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-1 15H7v-2h10v2zm0-4H7v-2h10v2zm0-4H7V7h10v2z" />
             </svg>
           </div>
@@ -142,10 +153,16 @@ export default function BookCard({
       </select>
     ) : null;
 
+  // S-37: deep-link z fokusem na detekcji źródłowej (gdy znana) — review
+  // podświetla jej ramkę i scrolluje listę do pozycji.
+  const sourcePhotoHref = book.detection_id
+    ? `/photos/${book.photo_id}?detection=${book.detection_id}`
+    : `/photos/${book.photo_id}`;
+
   const sourcePhotoLink = book.photo_id ? (
     <a
       data-testid={`source-photo-link-${book.id}`}
-      href={`/photos/${book.photo_id}`}
+      href={sourcePhotoHref}
       className="rounded px-2 py-1 text-xs font-medium text-blue-600 hover:text-blue-800 hover:underline dark:text-blue-400"
     >
       Źródłowe zdjęcie
@@ -208,9 +225,15 @@ export default function BookCard({
 
   const meta = (
     <>
-      <p className="line-clamp-2 text-xs font-semibold leading-tight text-gray-800 dark:text-gray-100">{book.title}</p>
-      {authorsStr && <p className="mt-0.5 line-clamp-1 text-xs text-gray-500 dark:text-gray-400">{authorsStr}</p>}
-      {book.published_year && <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{book.published_year}</p>}
+      <p className="line-clamp-2 text-xs leading-tight font-semibold text-gray-800 dark:text-gray-100">
+        {book.title}
+      </p>
+      {authorsStr && (
+        <p className="mt-0.5 line-clamp-1 text-xs text-gray-500 dark:text-gray-400">{authorsStr}</p>
+      )}
+      {book.published_year && (
+        <p className="mt-0.5 text-xs text-gray-400 dark:text-gray-500">{book.published_year}</p>
+      )}
       {(shelfName || swatch) && (
         <div className="mt-1 flex items-center gap-1.5">
           {swatch && (
