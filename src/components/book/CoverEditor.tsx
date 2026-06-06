@@ -21,15 +21,13 @@ export type CoverEditorPatch = {
  * Wspólny, kontrolowany edytor okładki — identyczny UI w trybie add i edit
  * (3 sloty: Automatyczna / Wklejony URL / Wgrane zdjęcie + flaga źródła, pole URL,
  * upload, „Sprawdź okładkę automatycznie"). Stan trzyma rodzic; CoverEditor zgłasza
- * zmiany przez `onChange`. Różnice trybu sparametryzowane:
- *  - autocheck: edit → GET /api/books/:id/cover-suggestion (zapisuje), add → GET
- *    /api/books/cover-suggestion?isbn= (read-only).
- *  - ścieżka uploadu: edit `{uid}/{bookId}-{uuid}`, add `{uid}/{uuid}` (RLS po uid).
- * Bez przycisku zapisu — zapis robi rodzic (add: POST przy „Dodaj"; edit: osobny PATCH).
+ * zmiany przez `onChange`. W pełni generyczny — bez rozróżnienia trybu:
+ *  - autocheck: zawsze read-only GET /api/books/cover-suggestion?isbn= (rodzic
+ *    persystuje znaleziony cover_url ujednoliconym zapisem).
+ *  - upload: ścieżka `{uid}/{uuid}` (RLS po uid; działa dla add i edit).
+ * Bez przycisku zapisu — zapis robi rodzic jednym „Zapisz" (add: POST, edit: PATCH).
  */
 export default function CoverEditor({
-  mode,
-  bookId,
   isbn,
   source,
   autoUrl,
@@ -38,8 +36,6 @@ export default function CoverEditor({
   testIdPrefix,
   onChange,
 }: {
-  mode: 'add' | 'edit';
-  bookId?: string;
   isbn: string | null;
   source: CoverSource;
   autoUrl: string | null;
@@ -68,9 +64,7 @@ export default function CoverEditor({
       const uid = auth.user?.id;
       if (!uid) { setErr('Brak sesji — zaloguj się ponownie.'); return; }
       const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg';
-      const path = mode === 'edit' && bookId
-        ? `${uid}/${bookId}-${crypto.randomUUID()}.${ext}`
-        : `${uid}/${crypto.randomUUID()}.${ext}`;
+      const path = `${uid}/${crypto.randomUUID()}.${ext}`;
       const { error } = await supabase.storage
         .from('book-covers')
         .upload(path, file, { contentType: file.type || 'image/jpeg', upsert: false });
@@ -86,14 +80,11 @@ export default function CoverEditor({
 
   async function handleAutoCheck() {
     const isbnVal = (isbn ?? '').trim();
-    if (mode === 'add' && !isbnVal) return;
+    if (!isbnVal) return;
     setChecking(true);
     setErr(null);
     try {
-      const url = mode === 'edit' && bookId
-        ? `/api/books/${bookId}/cover-suggestion`
-        : `/api/books/cover-suggestion?isbn=${encodeURIComponent(isbnVal)}`;
-      const res = await fetch(url);
+      const res = await fetch(`/api/books/cover-suggestion?isbn=${encodeURIComponent(isbnVal)}`);
       const json = (await res.json()) as { data?: { cover_url: string | null }; error?: { message?: string } };
       if (!res.ok) { setErr(json.error?.message ?? 'Błąd sprawdzania okładki.'); return; }
       const found = json.data?.cover_url ?? null;

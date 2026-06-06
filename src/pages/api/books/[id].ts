@@ -51,6 +51,7 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
   // GENERATED z (title, authors, publisher) — nie ustawiamy go ręcznie.
   const update: {
     is_read?: boolean;
+    cover_url?: string | null;
     user_cover_url?: string | null;
     cover_photo_url?: string | null;
     cover_source?: 'auto' | 'url' | 'photo';
@@ -63,6 +64,7 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
   } = {};
   const d = parsed.data;
   if (d.is_read !== undefined) update.is_read = d.is_read;
+  if (d.cover_url !== undefined) update.cover_url = d.cover_url;
   if (d.user_cover_url !== undefined) update.user_cover_url = d.user_cover_url;
   if (d.cover_photo_url !== undefined) update.cover_photo_url = d.cover_photo_url;
   if (d.cover_source !== undefined) update.cover_source = d.cover_source;

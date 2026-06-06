@@ -172,6 +172,33 @@ describe('BookModal — tryb edit', () => {
     expect((screen.getByTestId('book-field-isbn13') as HTMLInputElement).value).toBe('9780156027601');
   });
 
+  it('sekcja okładki zawsze rozwinięta — brak toggle „Zmień okładkę" i osobnego „Zapisz okładkę"', () => {
+    render(<BookModal mode="edit" book={BASE_BOOK} onClose={vi.fn()} />);
+    expect(screen.getByTestId('edit-cover-section')).toBeTruthy();
+    expect(screen.queryByTestId('edit-cover-toggle')).toBeNull();
+    expect(screen.queryByTestId('edit-cover-save')).toBeNull();
+  });
+
+  it('unify-book-save: jeden „Zapisz" → PATCH metadane + sloty okładki', async () => {
+    const onSaved = vi.fn();
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ data: { id: BOOK_ID } }), { status: 200 })
+    );
+    render(<BookModal mode="edit" book={BASE_BOOK} onSaved={onSaved} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByTestId('edit-cover-url-input'), { target: { value: 'https://user.jpg' } });
+    fireEvent.click(screen.getByTestId('edit-cover-source-url'));
+    fireEvent.click(screen.getByTestId('book-modal-save'));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    const [url, opts] = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(`/api/books/${BOOK_ID}`);
+    expect((opts as { method: string }).method).toBe('PATCH');
+    const body = JSON.parse((opts as { body: string }).body);
+    expect(body.title).toBe('Solaris'); // metadane w tym samym zapisie
+    expect(body.user_cover_url).toBe('https://user.jpg');
+    expect(body.cover_source).toBe('url');
+  });
+
   it('PATCH /api/books/:id przy zapisie', async () => {
     const onSaved = vi.fn();
     const onClose = vi.fn();
