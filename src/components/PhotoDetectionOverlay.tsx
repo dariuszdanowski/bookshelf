@@ -1,15 +1,27 @@
-import { useEffect, useRef, useState, type PointerEvent } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent,
+} from 'react';
 
 import { classifyCropQuality } from '../lib/matching/fallbackPolicy';
 import type { BboxCoords, BboxEditSet, DetectionWithCandidatesDTO } from '../lib/photos/schema';
 import ConfirmDialog from './ConfirmDialog';
 import CostPanel from './CostPanel';
-
+import PhotoLightbox from './PhotoLightbox';
 
 const TOOLTIP_W = 224; // w-56 = 14rem
 const TOOLTIP_H = 148; // estimated max height
 
-function MarkerTooltip({ det, mousePos }: { det: DetectionWithCandidatesDTO; mousePos: { x: number; y: number } }) {
+function MarkerTooltip({
+  det,
+  mousePos,
+}: {
+  det: DetectionWithCandidatesDTO;
+  mousePos: { x: number; y: number };
+}) {
   const top = det.candidates[0];
 
   // Position above-right of cursor, clamped to viewport
@@ -29,7 +41,7 @@ function MarkerTooltip({ det, mousePos }: { det: DetectionWithCandidatesDTO; mou
     >
       <p className="text-[11px] font-semibold text-gray-500">#{det.position_index} — odczyt</p>
       <p className="mt-0.5 truncate text-sm font-bold text-gray-900">
-        {det.raw_title || <span className="italic text-gray-400">brak tytułu</span>}
+        {det.raw_title || <span className="text-gray-400 italic">brak tytułu</span>}
       </p>
       {top ? (
         <div className="mt-1.5 border-t border-gray-100 pt-1.5">
@@ -43,7 +55,7 @@ function MarkerTooltip({ det, mousePos }: { det: DetectionWithCandidatesDTO; mou
           </p>
         </div>
       ) : (
-        <p className="mt-1 text-[11px] italic text-gray-400">brak propozycji</p>
+        <p className="mt-1 text-[11px] text-gray-400 italic">brak propozycji</p>
       )}
     </div>
   );
@@ -67,9 +79,14 @@ const HANDLE_FIELDS: Record<ResizeHandle, { x1?: true; y1?: true; x2?: true; y2?
 };
 
 const HANDLE_CURSORS: Record<ResizeHandle, string> = {
-  nw: 'nw-resize', n: 'n-resize', ne: 'ne-resize',
-  e: 'e-resize', se: 'se-resize', s: 's-resize',
-  sw: 'sw-resize', w: 'w-resize',
+  nw: 'nw-resize',
+  n: 'n-resize',
+  ne: 'ne-resize',
+  e: 'e-resize',
+  se: 'se-resize',
+  s: 's-resize',
+  sw: 'sw-resize',
+  w: 'w-resize',
 };
 
 const HANDLE_STYLE: Record<ResizeHandle, React.CSSProperties> = {
@@ -96,7 +113,14 @@ type Props = {
   onMarkerContextMenu?: (detectionId: string) => void;
   onSaveSingleBbox?: (detectionId: string, bbox: BboxCoords) => Promise<void>;
   photoId?: string;
-  visionRun?: { id: string; model: string | null; cost_usd: number | null; latency_ms: number | null; status?: string; created_at: string } | null;
+  visionRun?: {
+    id: string;
+    model: string | null;
+    cost_usd: number | null;
+    latency_ms: number | null;
+    status?: string;
+    created_at: string;
+  } | null;
 };
 
 export default function PhotoDetectionOverlay({
@@ -115,6 +139,8 @@ export default function PhotoDetectionOverlay({
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgError, setImgError] = useState(false);
   const [showBoxes, setShowBoxes] = useState(true);
+  // S-24: lightbox — pełnoekranowy podgląd po kliknięciu zdjęcia (poza edycją)
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [hoveredDetId, setHoveredDetId] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -124,7 +150,10 @@ export default function PhotoDetectionOverlay({
   const [updatedBboxes, setUpdatedBboxes] = useState<Record<string, BboxCoords>>({});
   const [removedIds, setRemovedIds] = useState<string[]>([]);
   const [addedBboxes, setAddedBboxes] = useState<BboxCoords[]>([]);
-  const [draft, setDraft] = useState<{ start: { x: number; y: number }; current: { x: number; y: number } } | null>(null);
+  const [draft, setDraft] = useState<{
+    start: { x: number; y: number };
+    current: { x: number; y: number };
+  } | null>(null);
   const [applyBusy, setApplyBusy] = useState(false);
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
 
@@ -156,9 +185,16 @@ export default function PhotoDetectionOverlay({
     startScrollLeft: 0,
     startScrollTop: 0,
   });
+  // S-24: pozycja OSTATNIEGO pointerdown — dragStateRef jest gated na zoom>1,
+  // więc rozróżnienie klik-vs-pan-drag potrzebuje własnego, zawsze świeżego refa.
+  const lastPointerDownRef = useRef<{ x: number; y: number } | null>(null);
 
-  useEffect(() => { zoomRef.current = zoom; }, [zoom]);
-  useEffect(() => { isEditingRef.current = isEditing; }, [isEditing]);
+  useEffect(() => {
+    zoomRef.current = zoom;
+  }, [zoom]);
+  useEffect(() => {
+    isEditingRef.current = isEditing;
+  }, [isEditing]);
 
   // Reset edit state on edit mode entry/exit (zoom preserved intentionally)
   useEffect(() => {
@@ -206,8 +242,12 @@ export default function PhotoDetectionOverlay({
   const resolvedPhotoUrl = photoUrl;
 
   const withBbox = detections.filter((d) => d.bbox !== null);
-  const focused = focusedDetectionId ? detections.find((d) => d.id === focusedDetectionId) ?? null : null;
-  const visibleDetections = focusedDetectionId ? withBbox.filter((d) => d.id === focusedDetectionId) : withBbox;
+  const focused = focusedDetectionId
+    ? (detections.find((d) => d.id === focusedDetectionId) ?? null)
+    : null;
+  const visibleDetections = focusedDetectionId
+    ? withBbox.filter((d) => d.id === focusedDetectionId)
+    : withBbox;
 
   function changeZoom(next: number) {
     setZoom(Math.max(1, Math.min(4, next)));
@@ -267,7 +307,12 @@ export default function PhotoDetectionOverlay({
     e.stopPropagation();
     const bbox = getBboxById(id);
     if (!bbox) return;
-    resizingRef.current = { id, handle, original: { ...bbox }, startNorm: normCoords(e.clientX, e.clientY) };
+    resizingRef.current = {
+      id,
+      handle,
+      original: { ...bbox },
+      startNorm: normCoords(e.clientX, e.clientY),
+    };
     // Capture on viewport so onPointerMove fires on the container
     if (wheelViewportRef.current?.setPointerCapture) {
       wheelViewportRef.current.setPointerCapture(e.pointerId);
@@ -300,6 +345,7 @@ export default function PhotoDetectionOverlay({
   }
 
   function handleContainerPointerDown(e: PointerEvent<HTMLDivElement>) {
+    lastPointerDownRef.current = { x: e.clientX, y: e.clientY }; // S-24: klik-vs-drag
     if (isEditing) {
       if (e.button !== 0) return;
       // Only start drawing if the event wasn't stopped by a marker/handle
@@ -341,8 +387,14 @@ export default function PhotoDetectionOverlay({
       if (fields.y1) y1 = clamp(rs.original.y1 + dy);
       if (fields.x2) x2 = clamp(rs.original.x2 + dx);
       if (fields.y2) y2 = clamp(rs.original.y2 + dy);
-      if (x2 - x1 < MIN) { if (fields.x1) x1 = x2 - MIN; else x2 = x1 + MIN; }
-      if (y2 - y1 < MIN) { if (fields.y1) y1 = y2 - MIN; else y2 = y1 + MIN; }
+      if (x2 - x1 < MIN) {
+        if (fields.x1) x1 = x2 - MIN;
+        else x2 = x1 + MIN;
+      }
+      if (y2 - y1 < MIN) {
+        if (fields.y1) y1 = y2 - MIN;
+        else y2 = y1 + MIN;
+      }
       applyBboxEdit(rs.id, { x1: clamp(x1), y1: clamp(y1), x2: clamp(x2), y2: clamp(y2) });
       return;
     }
@@ -424,11 +476,7 @@ export default function PhotoDetectionOverlay({
   }
 
   function hasUnsavedChanges(): boolean {
-    return (
-      Object.keys(updatedBboxes).length > 0 ||
-      removedIds.length > 0 ||
-      addedBboxes.length > 0
-    );
+    return Object.keys(updatedBboxes).length > 0 || removedIds.length > 0 || addedBboxes.length > 0;
   }
 
   async function handleApply() {
@@ -470,13 +518,25 @@ export default function PhotoDetectionOverlay({
         <div
           key={det.id}
           data-testid={`bbox-marker-${det.position_index}`}
-          style={{ position: 'absolute', left: `${x1 * 100}%`, top: `${y1 * 100}%`, width: `${w * 100}%`, height: `${h * 100}%`, cursor: 'move' }}
+          style={{
+            position: 'absolute',
+            left: `${x1 * 100}%`,
+            top: `${y1 * 100}%`,
+            width: `${w * 100}%`,
+            height: `${h * 100}%`,
+            cursor: 'move',
+          }}
           className={`border-2 ${isUncertain ? 'border-amber-400' : 'border-blue-500'} pointer-events-auto overflow-visible`}
-          onPointerDown={(e) => { if (e.button === 0) startMove(det.id, e); }}
+          onPointerDown={(e) => {
+            if (e.button === 0) startMove(det.id, e);
+          }}
           onPointerEnter={(e) => handleMarkerEnter(det.id, e)}
           onPointerMove={handleMarkerMove}
           onPointerLeave={handleMarkerLeave}
-          onContextMenu={(e) => { e.preventDefault(); if (e.ctrlKey) onMarkerContextMenu?.(det.id); }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            if (e.ctrlKey) onMarkerContextMenu?.(det.id);
+          }}
         >
           {hoveredDetId === det.id && <MarkerTooltip det={det} mousePos={mousePos} />}
           <span className="pointer-events-none absolute -top-5 left-0 rounded bg-blue-500 px-1 py-0.5 text-xs leading-none font-bold text-white">
@@ -492,11 +552,19 @@ export default function PhotoDetectionOverlay({
           <button
             type="button"
             title="Przejdź do propozycji na liście"
-            className="absolute -left-2 -top-2 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-white hover:bg-blue-600"
+            className="absolute -top-2 -left-2 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-white hover:bg-blue-600"
             onPointerDown={(e) => e.stopPropagation()}
             onClick={() => onMarkerContextMenu?.(det.id)}
           >
-            <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+            <svg
+              width="8"
+              height="8"
+              viewBox="0 0 10 10"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+            >
               <line x1="1" y1="3" x2="9" y2="3" />
               <line x1="1" y1="6" x2="9" y2="6" />
               <line x1="1" y1="9" x2="6" y2="9" />
@@ -505,7 +573,7 @@ export default function PhotoDetectionOverlay({
           <button
             type="button"
             data-testid={`bbox-delete-${det.position_index}`}
-            className="absolute -right-2 -top-2 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] leading-none text-white hover:bg-red-600"
+            className="absolute -top-2 -right-2 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] leading-none text-white hover:bg-red-600"
             onPointerDown={(e) => e.stopPropagation()}
             onClick={() => setRemovedIds((prev) => [...prev, det.id])}
           >
@@ -529,7 +597,7 @@ export default function PhotoDetectionOverlay({
               onPointerDown={(e) => startResize(det.id, dir, e)}
             />
           ))}
-        </div>
+        </div>,
       );
     }
 
@@ -546,16 +614,25 @@ export default function PhotoDetectionOverlay({
       elements.push(
         <div
           key={`added-${idx}`}
-          style={{ position: 'absolute', left: `${x1 * 100}%`, top: `${y1 * 100}%`, width: `${w * 100}%`, height: `${h * 100}%`, cursor: 'move' }}
+          style={{
+            position: 'absolute',
+            left: `${x1 * 100}%`,
+            top: `${y1 * 100}%`,
+            width: `${w * 100}%`,
+            height: `${h * 100}%`,
+            cursor: 'move',
+          }}
           className="pointer-events-auto border-2 border-green-500"
-          onPointerDown={(e) => { if (e.button === 0) startMove(`added:${idx}`, e); }}
+          onPointerDown={(e) => {
+            if (e.button === 0) startMove(`added:${idx}`, e);
+          }}
         >
           <span className="pointer-events-none absolute -top-5 left-0 rounded bg-green-500 px-1 py-0.5 text-xs leading-none font-bold text-white">
             +
           </span>
           <button
             type="button"
-            className="absolute -right-2 -top-2 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] leading-none text-white hover:bg-red-600"
+            className="absolute -top-2 -right-2 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] leading-none text-white hover:bg-red-600"
             onPointerDown={(e) => e.stopPropagation()}
             onClick={() => setAddedBboxes((prev) => prev.filter((_, i) => i !== idx))}
           >
@@ -577,7 +654,7 @@ export default function PhotoDetectionOverlay({
               onPointerDown={(e) => startResize(`added:${idx}`, dir, e)}
             />
           ))}
-        </div>
+        </div>,
       );
     });
 
@@ -592,8 +669,13 @@ export default function PhotoDetectionOverlay({
           key="draft"
           data-testid="bbox-draft"
           className="pointer-events-none absolute border-2 border-dashed border-green-400"
-          style={{ left: `${x1 * 100}%`, top: `${y1 * 100}%`, width: `${(x2 - x1) * 100}%`, height: `${(y2 - y1) * 100}%` }}
-        />
+          style={{
+            left: `${x1 * 100}%`,
+            top: `${y1 * 100}%`,
+            width: `${(x2 - x1) * 100}%`,
+            height: `${(y2 - y1) * 100}%`,
+          }}
+        />,
       );
     }
 
@@ -609,7 +691,7 @@ export default function PhotoDetectionOverlay({
 
     return visibleDetections.map((det) => {
       const isInSingleEdit = singleEditId === det.id;
-      const activeBbox = (isInSingleEdit && singleEditBbox) ? singleEditBbox : det.bbox;
+      const activeBbox = isInSingleEdit && singleEditBbox ? singleEditBbox : det.bbox;
       if (!activeBbox) return null;
 
       const x1 = clamp(activeBbox.x1);
@@ -624,15 +706,28 @@ export default function PhotoDetectionOverlay({
         <div
           key={det.id}
           data-testid={`bbox-marker-${det.position_index}`}
-          style={{ position: 'absolute', left: `${x1 * 100}%`, top: `${y1 * 100}%`, width: `${w * 100}%`, height: `${h * 100}%` }}
-          className={`pointer-events-auto overflow-visible border-2 ${isInSingleEdit ? 'border-amber-500 cursor-move' : 'border-blue-500'}`}
+          style={{
+            position: 'absolute',
+            left: `${x1 * 100}%`,
+            top: `${y1 * 100}%`,
+            width: `${w * 100}%`,
+            height: `${h * 100}%`,
+          }}
+          className={`pointer-events-auto overflow-visible border-2 ${isInSingleEdit ? 'cursor-move border-amber-500' : 'border-blue-500'}`}
           onPointerEnter={(e) => handleMarkerEnter(det.id, e)}
           onPointerMove={handleMarkerMove}
           onPointerLeave={handleMarkerLeave}
-          onPointerDown={(e) => { if (isInSingleEdit && e.button === 0) startMove(det.id, e); }}
-          onContextMenu={(e) => { e.preventDefault(); if (e.ctrlKey) onMarkerContextMenu?.(det.id); }}
+          onPointerDown={(e) => {
+            if (isInSingleEdit && e.button === 0) startMove(det.id, e);
+          }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            if (e.ctrlKey) onMarkerContextMenu?.(det.id);
+          }}
         >
-          {hoveredDetId === det.id && !isInSingleEdit && <MarkerTooltip det={det} mousePos={mousePos} />}
+          {hoveredDetId === det.id && !isInSingleEdit && (
+            <MarkerTooltip det={det} mousePos={mousePos} />
+          )}
 
           {/* Tryb edycji pojedynczej ramki */}
           {isInSingleEdit && (
@@ -642,7 +737,7 @@ export default function PhotoDetectionOverlay({
                 data-testid={`single-edit-save-${det.position_index}`}
                 title="Zapisz zmianę ramki"
                 disabled={singleEditBusy}
-                className="absolute -left-2 -top-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-green-500 text-white hover:bg-green-600 disabled:opacity-50"
+                className="absolute -top-2 -left-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-green-500 text-white hover:bg-green-600 disabled:opacity-50"
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={() => void handleSingleEditSave()}
               >
@@ -653,9 +748,13 @@ export default function PhotoDetectionOverlay({
                 data-testid={`single-edit-cancel-${det.position_index}`}
                 title="Anuluj edycję"
                 disabled={singleEditBusy}
-                className="absolute -right-2 -top-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-gray-400 text-[11px] text-white hover:bg-gray-500 disabled:opacity-50"
+                className="absolute -top-2 -right-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-gray-400 text-[11px] text-white hover:bg-gray-500 disabled:opacity-50"
                 onPointerDown={(e) => e.stopPropagation()}
-                onClick={() => { clearSingleEditRefs(); setSingleEditId(null); setSingleEditBbox(null); }}
+                onClick={() => {
+                  clearSingleEditRefs();
+                  setSingleEditId(null);
+                  setSingleEditBbox(null);
+                }}
               >
                 ×
               </button>
@@ -663,7 +762,16 @@ export default function PhotoDetectionOverlay({
                 <div
                   key={dir}
                   data-testid={`bbox-handle-${det.position_index}-${dir}`}
-                  style={{ position: 'absolute', width: '10px', height: '10px', backgroundColor: 'white', border: '2px solid #f59e0b', borderRadius: '2px', cursor: HANDLE_CURSORS[dir], ...HANDLE_STYLE[dir] }}
+                  style={{
+                    position: 'absolute',
+                    width: '10px',
+                    height: '10px',
+                    backgroundColor: 'white',
+                    border: '2px solid #f59e0b',
+                    borderRadius: '2px',
+                    cursor: HANDLE_CURSORS[dir],
+                    ...HANDLE_STYLE[dir],
+                  }}
                   onPointerDown={(e) => startResize(det.id, dir, e)}
                 />
               ))}
@@ -679,11 +787,24 @@ export default function PhotoDetectionOverlay({
                   type="button"
                   data-testid={`single-edit-enter-${det.position_index}`}
                   title="Edytuj tę ramkę"
-                  className="absolute -left-2 -top-2 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-white hover:bg-amber-600"
+                  className="absolute -top-2 -left-2 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-white hover:bg-amber-600"
                   onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => { e.stopPropagation(); setSingleEditId(det.id); setSingleEditBbox(activeBbox); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSingleEditId(det.id);
+                    setSingleEditBbox(activeBbox);
+                  }}
                 >
-                  <svg width="8" height="8" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    width="8"
+                    height="8"
+                    viewBox="0 0 12 12"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <path d="M8.5 1.5l2 2-6.5 6.5H2V7.5l6.5-6z" />
                   </svg>
                 </button>
@@ -692,11 +813,22 @@ export default function PhotoDetectionOverlay({
               <button
                 type="button"
                 title="Przejdź do propozycji na liście"
-                className="absolute -right-2 -top-2 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-white hover:bg-blue-600"
+                className="absolute -top-2 -right-2 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-blue-500 text-white hover:bg-blue-600"
                 onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => { e.stopPropagation(); onMarkerContextMenu?.(det.id); }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMarkerContextMenu?.(det.id);
+                }}
               >
-                <svg width="8" height="8" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                <svg
+                  width="8"
+                  height="8"
+                  viewBox="0 0 10 10"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                >
                   <line x1="1" y1="3" x2="9" y2="3" />
                   <line x1="1" y1="6" x2="9" y2="6" />
                   <line x1="1" y1="9" x2="6" y2="9" />
@@ -705,7 +837,9 @@ export default function PhotoDetectionOverlay({
             </>
           )}
 
-          <span className={`absolute -top-5 left-0 rounded px-1 py-0.5 text-xs leading-none font-bold text-white ${isInSingleEdit ? 'bg-amber-500' : 'bg-blue-500'}`}>
+          <span
+            className={`absolute -top-5 left-0 rounded px-1 py-0.5 text-xs leading-none font-bold text-white ${isInSingleEdit ? 'bg-amber-500' : 'bg-blue-500'}`}
+          >
             #{det.position_index}
           </span>
         </div>
@@ -713,16 +847,44 @@ export default function PhotoDetectionOverlay({
     });
   }
 
+  // S-24: klik w obraz otwiera lightbox — tylko poza trybami edycji i tylko gdy
+  // pointer nie przesunął się od pointerdown (>5 px = pan-drag, nie klik).
+  function handleImageClick(e: ReactMouseEvent<HTMLImageElement>) {
+    if (isEditing || singleEditId) return;
+    const down = lastPointerDownRef.current;
+    if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5) return;
+    setLightboxOpen(true);
+  }
+
   function renderPhotoLayer(withLoadHandlers: boolean) {
     return (
-      <div ref={imgContainerRef} className="relative block" style={{ width: `${zoom * 100}%`, minWidth: '100%' }}>
+      <div
+        ref={imgContainerRef}
+        className="relative block"
+        style={{ width: `${zoom * 100}%`, minWidth: '100%' }}
+      >
         <img
           src={resolvedPhotoUrl}
           alt="Zdjęcie półki z wykrytymi książkami"
           draggable={false}
-          className="block h-auto w-full select-none"
-          onLoad={withLoadHandlers ? () => { setImgLoaded(true); setImgError(false); } : undefined}
-          onError={withLoadHandlers ? () => { setImgError(true); setImgLoaded(false); } : undefined}
+          className={`block h-auto w-full select-none ${isEditing || singleEditId ? '' : 'cursor-zoom-in'}`}
+          onLoad={
+            withLoadHandlers
+              ? () => {
+                  setImgLoaded(true);
+                  setImgError(false);
+                }
+              : undefined
+          }
+          onError={
+            withLoadHandlers
+              ? () => {
+                  setImgError(true);
+                  setImgLoaded(false);
+                }
+              : undefined
+          }
+          onClick={withLoadHandlers ? handleImageClick : undefined}
         />
         <div className={`absolute inset-0 ${isEditing ? '' : 'pointer-events-none'}`}>
           {renderMarkers()}
@@ -774,7 +936,9 @@ export default function PhotoDetectionOverlay({
             {photoId && (
               <CostPanel
                 photoId={photoId}
-                preloadedVisionRun={visionRun ? { ...visionRun, status: visionRun.status ?? 'completed' } : undefined}
+                preloadedVisionRun={
+                  visionRun ? { ...visionRun, status: visionRun.status ?? 'completed' } : undefined
+                }
               />
             )}
             <button
@@ -830,12 +994,16 @@ export default function PhotoDetectionOverlay({
             <p data-testid="focused-bbox-diagnostics">
               Fokus: #{focused.position_index}
               {focused.raw_title ? ` — ${focused.raw_title}` : ''}
-              {focused.candidates[0] ? ` → ${focused.candidates[0].title}` : ''}
-              {' '}| bbox [{focused.bbox.x1.toFixed(3)}, {focused.bbox.y1.toFixed(3)}, {focused.bbox.x2.toFixed(3)}, {focused.bbox.y2.toFixed(3)}] | quality: {classifyCropQuality(focused.bbox)}
+              {focused.candidates[0] ? ` → ${focused.candidates[0].title}` : ''} | bbox [
+              {focused.bbox.x1.toFixed(3)}, {focused.bbox.y1.toFixed(3)},{' '}
+              {focused.bbox.x2.toFixed(3)}, {focused.bbox.y2.toFixed(3)}] | quality:{' '}
+              {classifyCropQuality(focused.bbox)}
             </p>
           )}
           {focused && !focused.bbox && (
-            <p data-testid="focused-bbox-missing">Fokus: #{focused.position_index} | brak bbox dla tej detekcji.</p>
+            <p data-testid="focused-bbox-missing">
+              Fokus: #{focused.position_index} | brak bbox dla tej detekcji.
+            </p>
           )}
         </div>
       )}
@@ -852,6 +1020,15 @@ export default function PhotoDetectionOverlay({
       >
         {renderPhotoLayer(true)}
       </div>
+
+      {lightboxOpen && (
+        <PhotoLightbox
+          photoUrl={resolvedPhotoUrl}
+          detections={visibleDetections}
+          focusedDetectionId={focusedDetectionId}
+          onClose={() => setLightboxOpen(false)}
+        />
+      )}
 
       <ConfirmDialog
         open={confirmCancelOpen}
