@@ -12,12 +12,54 @@ type ApiJson = {
 };
 
 const entryRows = [
-  { book_id: BOOK_1, shelf_id: SHELF_A, position_index: 1, photo_id: 'photo-uuid-1', shelves: { id: SHELF_A, name: 'Salon' } },
-  { book_id: BOOK_2, shelf_id: SHELF_A, position_index: 2, photo_id: null, shelves: { id: SHELF_A, name: 'Salon' } },
+  {
+    book_id: BOOK_1,
+    shelf_id: SHELF_A,
+    position_index: 1,
+    photo_id: 'photo-uuid-1',
+    detection_id: 'detection-uuid-1',
+    shelves: { id: SHELF_A, name: 'Salon' },
+  },
+  {
+    book_id: BOOK_2,
+    shelf_id: SHELF_A,
+    position_index: 2,
+    photo_id: null,
+    detection_id: null,
+    shelves: { id: SHELF_A, name: 'Salon' },
+  },
 ];
 const bookRows = [
-  { id: BOOK_1, title: 'Solaris', authors: ['Lem'], cover_url: null, published_year: 1961, is_read: false, spine_color: 'niebieski', isbn_13: '9788373191723', isbn_10: null, publisher: 'Wydawnictwo Literackie', user_cover_url: 'https://user.jpg', cover_photo_url: null, cover_source: 'url' },
-  { id: BOOK_2, title: 'Diuna', authors: ['Herbert'], cover_url: null, published_year: 1965, is_read: true, spine_color: 'czerwony', isbn_13: null, isbn_10: null, publisher: null, user_cover_url: null, cover_photo_url: null, cover_source: 'auto' },
+  {
+    id: BOOK_1,
+    title: 'Solaris',
+    authors: ['Lem'],
+    cover_url: null,
+    published_year: 1961,
+    is_read: false,
+    spine_color: 'niebieski',
+    isbn_13: '9788373191723',
+    isbn_10: null,
+    publisher: 'Wydawnictwo Literackie',
+    user_cover_url: 'https://user.jpg',
+    cover_photo_url: null,
+    cover_source: 'url',
+  },
+  {
+    id: BOOK_2,
+    title: 'Diuna',
+    authors: ['Herbert'],
+    cover_url: null,
+    published_year: 1965,
+    is_read: true,
+    spine_color: 'czerwony',
+    isbn_13: null,
+    isbn_10: null,
+    publisher: null,
+    user_cover_url: null,
+    cover_photo_url: null,
+    cover_source: 'auto',
+  },
 ];
 
 /**
@@ -78,7 +120,17 @@ describe('GET /api/books/search', () => {
     expect(res.status).toBe(200);
     const json = (await res.json()) as ApiJson;
     expect(json.data!.total).toBe(2);
-    expect(json.data!.books[0]).toMatchObject({ id: BOOK_1, shelf_name: 'Salon', spine_color: 'niebieski', photo_id: 'photo-uuid-1', isbn_13: '9788373191723', publisher: 'Wydawnictwo Literackie', user_cover_url: 'https://user.jpg', cover_source: 'url' });
+    expect(json.data!.books[0]).toMatchObject({
+      id: BOOK_1,
+      shelf_name: 'Salon',
+      spine_color: 'niebieski',
+      photo_id: 'photo-uuid-1',
+      detection_id: 'detection-uuid-1',
+      isbn_13: '9788373191723',
+      publisher: 'Wydawnictwo Literackie',
+      user_cover_url: 'https://user.jpg',
+      cover_source: 'url',
+    });
     expect(res.headers.get('Cache-Control')).toBe('private, no-store');
   });
 
@@ -91,17 +143,23 @@ describe('GET /api/books/search', () => {
   });
 
   it('akceptuje filtr q + color + read + shelf (kombinacja) → 200', async () => {
-    const res = await GET(makeContext({ params: `?q=smok&color=czerwony&read=unread&shelf=${SHELF_A}` }));
+    const res = await GET(
+      makeContext({ params: `?q=smok&color=czerwony&read=unread&shelf=${SHELF_A}` }),
+    );
     expect(res.status).toBe(200);
   });
 
   it('500 gdy shelf_entries error', async () => {
-    const res = await GET(makeContext({ entries: { data: null, error: { name: 'E', message: 'x', code: 'XX' } } }));
+    const res = await GET(
+      makeContext({ entries: { data: null, error: { name: 'E', message: 'x', code: 'XX' } } }),
+    );
     expect(res.status).toBe(500);
   });
 
   it('500 gdy books error', async () => {
-    const res = await GET(makeContext({ books: { data: null, error: { name: 'E', message: 'x', code: 'XX' } } }));
+    const res = await GET(
+      makeContext({ books: { data: null, error: { name: 'E', message: 'x', code: 'XX' } } }),
+    );
     expect(res.status).toBe(500);
   });
 });

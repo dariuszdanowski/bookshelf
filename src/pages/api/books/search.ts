@@ -1,7 +1,11 @@
 import type { APIRoute } from 'astro';
 import { z } from 'zod';
 import { apiError, apiResponse } from '../../../lib/http/response';
-import { SearchBooksQuerySchema, type CatalogBookDTO, type CoverSource } from '../../../lib/books/schema';
+import {
+  SearchBooksQuerySchema,
+  type CatalogBookDTO,
+  type CoverSource,
+} from '../../../lib/books/schema';
 
 export const prerender = false;
 
@@ -49,7 +53,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
   // 1. Aktualne wpisy półkowe (RLS-scoped przez book ownership); opcjonalny filtr półek
   let entriesQuery = locals.supabase
     .from('shelf_entries')
-    .select('book_id, shelf_id, position_index, photo_id, shelves(id, name)')
+    .select('book_id, shelf_id, position_index, photo_id, detection_id, shelves(id, name)')
     .eq('is_current', true);
   if (shelf_ids && shelf_ids.length > 0) {
     entriesQuery = entriesQuery.in('shelf_id', shelf_ids);
@@ -70,15 +74,26 @@ export const GET: APIRoute = async ({ url, locals }) => {
     shelf_id: string;
     position_index: number | null;
     photo_id: string | null;
+    detection_id: string | null;
     shelves: { id: string; name: string } | null;
   };
-  const placement = new Map<string, { shelf_id: string; shelf_name: string; position_index: number | null; photo_id: string | null }>();
+  const placement = new Map<
+    string,
+    {
+      shelf_id: string;
+      shelf_name: string;
+      position_index: number | null;
+      photo_id: string | null;
+      detection_id: string | null;
+    }
+  >();
   for (const e of (entries ?? []) as EntryRow[]) {
     placement.set(e.book_id, {
       shelf_id: e.shelf_id,
       shelf_name: e.shelves?.name ?? '',
       position_index: e.position_index,
       photo_id: e.photo_id,
+      detection_id: e.detection_id,
     });
   }
 
@@ -90,12 +105,17 @@ export const GET: APIRoute = async ({ url, locals }) => {
   // 2. books filtrowane przez book_ids z aktualnych placementów + search/color/read
   let booksQuery = locals.supabase
     .from('books')
-    .select('id, title, authors, cover_url, published_year, is_read, spine_color, isbn_13, isbn_10, publisher, user_cover_url, cover_photo_url, cover_source')
+    .select(
+      'id, title, authors, cover_url, published_year, is_read, spine_color, isbn_13, isbn_10, publisher, user_cover_url, cover_photo_url, cover_source',
+    )
     .in('id', bookIds);
 
   if (q && q.trim()) {
     // Escape ILIKE wildcards żeby user input traktować dosłownie
-    const escaped = q.trim().toLowerCase().replace(/[\\%_]/g, (m) => `\\${m}`);
+    const escaped = q
+      .trim()
+      .toLowerCase()
+      .replace(/[\\%_]/g, (m) => `\\${m}`);
     booksQuery = booksQuery.ilike('search_text', `%${escaped}%`);
   }
   if (color) {
@@ -129,6 +149,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
       shelf_id: p.shelf_id,
       shelf_name: p.shelf_name,
       photo_id: p.photo_id,
+      detection_id: p.detection_id,
       isbn_13: b.isbn_13,
       isbn_10: b.isbn_10,
       publisher: b.publisher,
