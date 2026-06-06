@@ -44,20 +44,20 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | S-11  | health-check-endpoint        | `GET /api/health` zwraca `{data:{status,version,timestamp}}` z F-02 envelope; whitelisted w middleware | F-02 | NFR (monitoring) | done     |
 | S-12  | loading-skeleton-component   | Generic React `<Skeleton />` (gray pulsing div) gotowy dla S-03/S-04/S-08 | — | UI substrate | done     |
 | S-13  | header-nav-when-auth         | header nav „Moje półki" → /shelves dla auth user'a + landing CTA pivot na /shelves (do czasu /library w S-08) | S-02 | UX polish | done     |
-| S-14  | photo-process-reload-recovery | po reloadzie /upload odzyskać stan utkniętego 'processing' (GET /api/photos/[id]) + retry | S-03 | UX recovery | proposed |
+| S-14  | photo-process-reload-recovery | po reloadzie /upload odzyskać stan utkniętego 'processing' (GET /api/photos/[id]) + retry | S-03 | UX recovery | done     |
 | S-15  | review-page-nav-entry         | link do strony review (/photos/[id]) z poziomu list półek / katalogu; breadcrumbs; **+** przycisk „Źródłowe zdjęcie" na karcie książki → `/photos/[photo_id]` z aktywnego shelf_entry (is_current=true); graceful ukrycie gdy photo_id=NULL (ręczny wpis) lub zdjęcie usunięte | S-04, S-05 | UX polish | done     |
 | S-16  | photo-upload-dedup            | przy wgraniu zdjęcia: wykryj identyczne (hash treści SHA-256), ostrzeż i zaproponuj reuse istniejących detekcji zamiast ponownego (płatnego) vision | S-03 | FR-039 (koszt), NFR (no-dup) | done     |
 | S-17  | catalog-description-search    | full-text obejmuje „krótki opis z publicznej bazy" — capture opisu w klientach S-04 + confirm + backfill (re-fetch), rozszerzenie search_text | S-08 | FR-032 (opis, domknięcie) | proposed |
 | S-18  | photo-detection-overlay       | kliknąć zdjęcie w review → zobaczyć pełny obraz z numerowanymi ramkami (bbox) detekcji + skorelowaną numerowaną listą wykrytych pozycji | S-04, S-05 | FR-010–014 (UX domknięcie) | done     |
 | S-19  | manual-cover-match            | w review ręcznie wyszukać Google Books i wybrać trafienie (z okładką + ISBN + metadanymi), gdy auto-match pudłuje lub brak okładki — zastępuje aktywnego kandydata | S-04, S-05 | FR-015–018 (UX domknięcie) | proposed |
-| S-20  | shelf-statistics              | zobaczyć liczbę zdjęć obok liczby książek na liście półek + blok agregatów (zdjęcia / wykryte / skatalogowane) na widoku półki | S-03, S-05 | FR (UX) | proposed |
+| S-20  | shelf-statistics              | zobaczyć liczbę zdjęć obok liczby książek na liście półek + blok agregatów (zdjęcia / wykryte / skatalogowane) na widoku półki | S-03, S-05 | FR (UX) | done |
 | S-21  | vision-spine-crop-reocr       | poprawić precyzję detekcji na gęsto ustawionych półkach — każdy grzbiet z niską pewnością (`vision_confidence < 0.7`) re-analizowany przez Claude na wyciętym cropie (bbox z S-04) zamiast całego zdjęcia | S-04, S-18 | FR-010–014, FR-039 | proposed |
-| S-22  | book-edit-cover-url           | w edycji książki w katalogu: pole „Link do okładki" (URL) z podglądem — wklejenie URL od razu pokazuje miniaturę okładki; pole można wyczyścić | S-05 | FR (UX) | proposed |
-| S-23  | per-detection-rematch         | przycisk „Ponów match" przy pojedynczej detekcji (bez ponownego matchowania całego zdjęcia) — odświeża kandydatów tylko dla tej jednej pozycji | S-04, S-05 | FR-015–018 (UX) | proposed |
+| S-22  | book-edit-cover-url           | w edycji książki w katalogu: pole „Link do okładki" (URL) z podglądem — wklejenie URL od razu pokazuje miniaturę okładki; pole można wyczyścić | S-05 | FR (UX) | done |
+| S-23  | per-detection-rematch         | przycisk „Ponów match" przy pojedynczej detekcji (bez ponownego matchowania całego zdjęcia) — odświeża kandydatów tylko dla tej jednej pozycji | S-04, S-05 | FR-015–018 (UX) | done |
 | S-24  | photo-overlay-ux              | w review: a) przycisk toggle show/hide ramek detekcji na zdjęciu; b) kliknięcie zdjęcia → lightbox (modal) z pełnym obrazem i ramkami | S-18 | FR-010–014 (UX) | proposed |
 | S-25  | detection-list-views          | widok listy detekcji (review) — przełącznik trybu prezentacji: karty rozwinięte (obecne), lista kompaktowana (1 linia/książka), kafelki (okładka + tytuł + badge pewności) | S-04, S-05 | UX polish | done |
 | S-26  | admin-panel                   | panel administracyjny: lista użytkowników, flaga AI-enabled (domyślnie false — admin włącza), impersonacja (zaloguj się jako user), usunięcie konta (półki/książki przechodzą do admina), przeniesienie półki między użytkownikami | S-01 | NFR (admin ops) | proposed |
-| S-27  | dark-light-mode               | przełącznik trybu ciemnego/jasnego w headerze; preferencja persystowana w localStorage; Tailwind `dark:` variant na całym UI | — | UX (standard) | proposed |
+| S-27  | dark-light-mode               | przełącznik trybu ciemnego/jasnego w headerze; preferencja persystowana w localStorage; Tailwind `dark:` variant na całym UI | — | UX (standard) | done |
 | S-28  | mobile-responsive             | responsywność mobilna dla ścieżek read (library, shelves, book detail) i write (upload, review karty); Tailwind breakpoints `sm:`/`md:` — desktop-first zachowane, telefon bez poziomego scrollowania | S-05 | NFR (UX) | proposed |
 | S-29  | photos-crud                   | pełny CRUD dla zdjęć: lista zdjęć per półka (GET /api/photos?shelf_id=), usunięcie zdjęcia z Storage + cascade detections/book_candidates (DELETE /api/photos/[id]), edycja metadanych (PATCH — zmiana shelf_id / retitle); zakładki „Książki / Zdjęcia" na `/shelves/[id]`; badge dla zdjęć z NULL hash (stare duplikaty) | S-03, S-05, **S-30** | FR (zarządzanie zdjęciami) | done |
 | S-30  | vision-cost-preservation      | zachowanie historii kosztów vision przy DELETE zdjęć: dodanie `user_id` do `vision_runs` i `refine_calls`, zmiana FK `photo_id` z CASCADE na SET NULL; endpoint `GET /api/account/stats` zwracający łączny koszt i liczbę wywołań per user | S-03 | NFR (integrity kosztów) | done |
@@ -298,7 +298,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **Blockers:** —
 - **Unknowns:** czy `PATCH /api/books/[id]` już istnieje lub wymaga stworzenia (sprawdzić w `src/pages/api/books/`).
 - **Risk:** niski — czysto frontendowy + jeden endpoint. Jedyna pułapka: nie cachować `cover_url` po stronie klienta (Cloudflare edge cache musi dostać `private, no-store` — już w defaultach F-02).
-- **Status:** proposed
+- **Status:** done — zrealizowane szerzej niż Outcome przy okazji S-33/PR #43 + PR #48 (`unify-add-cover`): `BookModal` + `CoverEditor` z 3-slotowym modelem okładki (`cover_url`/`user_cover_url` + flaga), podgląd, czyszczenie, `cover-suggestion` endpointy. Drift status alignment 2026-06-06 (bez osobnego cyklu change).
 
 ### S-23: Re-match pojedynczej detekcji
 
@@ -310,7 +310,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** niski — `matchDetection()` w `match.ts` jest już izolowaną funkcją; endpoint opakowuje ją per-detekcję. Subrequest limit CF Workers (50) nie jest problemem — to jeden detection, nie batch.
-- **Status:** proposed
+- **Status:** done — endpoint `POST /api/detections/[id]/rematch` + UI w review istnieją, pokryte E2E `tests/e2e/manual-rematch.spec.ts`. Drift status alignment 2026-06-06 (zrealizowane przy iteracjach review, bez osobnego cyklu change).
 
 ### S-24: UX overlay zdjęcia — toggle ramek + lightbox
 
@@ -322,7 +322,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** niski — pure UI, brak API. Pułapka: lightbox na CF Workers nie ma dostępu do `document.body` po stronie serwera — komponent musi być React island (`client:load`).
-- **Status:** proposed
+- **Status:** proposed — UWAGA (alignment 2026-06-06): intencja częściowo pokryta inną drogą — `PhotoDetectionOverlay` ma zoom/pan 1–4× (E2E `overlay-zoom-pan.spec.ts`) i fokus pojedynczej ramki z S-18; brakuje literalnie toggle show/hide wszystkich ramek i lightboxa. Przed planowaniem zważyć, czy resztkowa wartość uzasadnia slice.
 
 ### S-25: Alternatywne widoki listy detekcji w review
 
@@ -457,7 +457,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **Blockers:** —
 - **Unknowns:** Tailwind 4 zmienił konfigurację `darkMode` — sprawdzić składnię w v4 (może być `@variant dark` w CSS zamiast `tailwind.config`).
 - **Risk:** średni — cross-cutting zmiana widoczna w każdym pliku `.astro`/`.tsx`; brak mechanicznego refaktoru (każda klasa koloru wymaga ręcznego `dark:` variant). Zakres: ~20-30 plików UI. Warto zacząć od Layout + najczęściej używanych komponentów.
-- **Status:** proposed
+- **Status:** done — `src/components/ThemeToggle.tsx` w headerze (☀/☾ widoczne na screenshotach README), dark UI w całej aplikacji. Drift status alignment 2026-06-06 (bez osobnego cyklu change).
 
 ### S-28: Responsywność mobilna
 
@@ -492,7 +492,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 | S-14       | photo-process-reload-recovery | Reload-recovery utkniętego 'processing' na /upload (konsumuje GET /api/photos/[id]) | yes | Follow-up z S-03 impl-review (F2); happy-path retry już działa |
 | S-16       | photo-upload-dedup           | Dedup zdjęć przy uploadzie (hash treści + reuse detekcji)         | no                    | Czeka na domknięcie S-05; sframe'uj (`/10x-frame`) — kierunek: SHA-256 treści + reuse istniejących detekcji (oszczędność vision FR-039), user może świadomie kontynuować mimo trafienia. Open: dokładny hash vs perceptual, UX akcji (auto-redirect vs przycisk) |
 | S-18       | photo-detection-overlay      | Pełne zdjęcie z numerowanymi ramkami detekcji w review            | yes                   | Substrat S-04 (`bbox` 0..1 w DB+DTO, `photos.original_path`) gotowy; doda signed URL pełnego zdjęcia do `GET /api/photos/[id]` + overlay renderujący `DetectionDTO.bbox` z numerkami skorelowanymi z `position_index`. Realizowany 1. (B) |
-| S-19       | manual-cover-match           | Ręczne wyszukiwanie Google Books + wybór okładki w review         | yes                   | Pełny picker: nowy endpoint search (reuse `src/lib/books/googleBooks.ts`) + UI w `DetectionReview`; wybór nadpisuje aktywnego kandydata (cover_url + metadane). Realizowany 2. (C) |
+| S-19       | manual-cover-match           | Ręczne wyszukiwanie Google Books + wybór okładki w review         | yes                   | Pełny picker: nowy endpoint search (reuse `src/lib/books/googleBooks.ts`) + UI w `DetectionReview`; wybór nadpisuje aktywnego kandydata (cover_url + metadane). UWAGA (alignment 2026-06-06): intent w dużej mierze pokryty inną drogą — `BookModal` „Wyszukaj po danych" + `identify` w katalogu (PR #43/#48) i per-detection rematch (S-23 done); w review pozostał tylko link Google (nowa karta). Przed planem zważyć resztkową wartość. |
 | S-20       | shelf-statistics             | photo_count na liście półek (obok książek) + agregaty na widoku półki | yes                | #1 obie liczby (rozszerz `ShelfListItemDTO` o `photo_count` z `photos`); #2 blok agregatów na `/shelves/[id]` (suma zdjęć / wykrytych / skatalogowanych). Realizowany 3. (A) |
 | S-21       | vision-spine-crop-reocr      | Re-OCR grzbietów z niską pewnością na wyciętym cropie (bbox z S-04)  | no                 | **Nie planować przed weryfikacją hipotezy** — realizować dopiero gdy telemetria `corrections` pokaże pattern złych detekcji na gęstych półkach. Inspiracja: `suxrobgm/bookshelf-scanner` (crop-first pipeline). Unknowns: skuteczność vs pełne zdjęcie, próg confidence, cap kosztu per photo. |
 | S-22       | book-edit-cover-url          | Edycja okładki książki — pole URL + miniatura podglądu               | yes                | Sprawdzić czy `PATCH /api/books/[id]` istnieje; jeśli nie — stworzyć w ramach slice'a. |
