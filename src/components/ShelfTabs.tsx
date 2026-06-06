@@ -32,6 +32,18 @@ export function useShelfTab(): [ShelfTab, (t: ShelfTab) => void] {
   const [tab, setTabState] = useState<ShelfTab>('books');
 
   useEffect(() => {
+    // S-36: deep-link `?tab=` (np. lądowanie po skip-upload) wygrywa nad
+    // localStorage i jest persystowany; śmieci → fallback do stored.
+    const param = new URLSearchParams(window.location.search).get('tab');
+    if (isShelfTab(param)) {
+      setTabState(param);
+      try {
+        window.localStorage.setItem(SHELF_TAB_STORAGE_KEY, param);
+      } catch {
+        // zapis niemożliwy — preferencja tylko w pamięci sesji
+      }
+      return;
+    }
     setTabState(readStoredTab());
   }, []);
 
@@ -90,11 +102,19 @@ export default function ShelfTabs({ shelfId, shelfName }: Props) {
         })}
       </div>
 
-      <div data-testid="shelf-tab-panel-books" role="tabpanel" className={tab === 'books' ? '' : 'hidden'}>
+      <div
+        data-testid="shelf-tab-panel-books"
+        role="tabpanel"
+        className={tab === 'books' ? '' : 'hidden'}
+      >
         <ShelfBooksIsland shelfId={shelfId} />
       </div>
 
-      <div data-testid="shelf-tab-panel-photos" role="tabpanel" className={tab === 'photos' ? '' : 'hidden'}>
+      <div
+        data-testid="shelf-tab-panel-photos"
+        role="tabpanel"
+        className={tab === 'photos' ? '' : 'hidden'}
+      >
         <PhotoListIsland shelfId={shelfId} shelfName={shelfName} />
       </div>
     </div>

@@ -66,7 +66,7 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | S-33  | byok-pipeline                 | pipeline vision wymaga klucza usera: `/api/photos/[id]/process` sprawdza `user_api_keys`, brak klucza → 403 z linkiem do `/account`; abstrakcja `VisionProvider` w `src/lib/vision/` zastępuje hardkodowany Anthropic SDK; globalny klucz z env wyłączony dla zwykłych userów | S-32 | FR (BYOK enforcement) | done |
 | S-34  | shelf-book-view-modes         | tryby widoku książek na `/shelves/[id]`: lista kompaktowa (1 linia), kafelki (okładka+tytuł), szczegółowe panele (obecny); przełącznik z `localStorage` + responsywny default; analogia do S-25 `detection-list-views` | S-29 | UX polish | done |
 | S-35  | refine-ux-cost-info           | UX fix przycisków refine: jeden spójny label „Doprecyzuj odczyt" (zamiast mylących dwóch nazw); ⚠ ikona + tooltip przy słabym cropie; widoczna informacja „Dodatkowa analiza AI (płatna)" przy każdym wariancie; opcjonalny dialog potwierdzenia dla `uncertain_localization` | — | UX polish | done |
-| S-36  | photo-upload-skip-process     | upload zdjęcia bez uruchamiania vision: checkbox „Analizuj od razu" (domyślnie zaznaczony) w `PhotoUploader`; zdjęcie w stanie `uploaded` widoczne w zakładce Zdjęcia (S-29) z przyciskiem „Analizuj teraz" | S-29 | UX (kontrola kosztu) | proposed |
+| S-36  | photo-upload-skip-process     | upload zdjęcia bez uruchamiania vision: checkbox „Analizuj od razu" (domyślnie zaznaczony) w `PhotoUploader`; zdjęcie w stanie `uploaded` widoczne w zakładce Zdjęcia (S-29) z przyciskiem „Analizuj teraz" | S-29 | UX (kontrola kosztu) | done     |
 | S-37  | book-to-detection-focus       | „Źródłowe zdjęcie" z karty/modala książki otwiera review spozycjonowany na propozycji TEJ książki: `detection_id` dołożony do GET /api/shelves/[id]/books (+ ścieżka /library), link `/photos/[photo_id]?detection=`, `DetectionReview` czyta param → `setFocusedDetectionId` (overlay pokazuje wtedy tylko 1 ramkę — mechanizm fokusa z S-18) + scroll do karty detekcji; fallback bez `detection_id` (NULL po re-analizie/wpis ręczny) = obecne zachowanie | S-15, S-18 | UX (nawigacja książka→źródło) | done     |
 
 ## Streams
@@ -418,7 +418,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **Blockers:** —
 - **Unknowns:** —
 - **Risk:** niski; pułapka: `sessionStorage.setItem('upload_resume_photo_id')` w obecnym kodzie zakłada że po wgraniu następuje process — trzeba obsłużyć ścieżkę bez process (nie zapisywać resume state lub zapisywać z flagą skip).
-- **Status:** proposed
+- **Status:** done
 
 ### S-29: CRUD zdjęć + zakładki Książki/Zdjęcia + NULL hash badge
 
@@ -580,5 +580,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **S-37: „Źródłowe zdjęcie" z karty/modala książki otwiera review spozycjonowany na propozycji TEJ książki: `detection_id` dołożony do GET /api/shelves/[id]/books (+ ścieżka /library), link `/photos/[photo_id]?detection=`, `DetectionReview` czyta param → `setFocusedDetectionId` (overlay pokazuje wtedy tylko 1 ramkę — mechanizm fokusa z S-18) + scroll do karty detekcji; fallback bez `detection_id` (NULL po re-analizie/wpis ręczny) = obecne zachowanie** — Archived 2026-06-06 → `context/archive/2026-06-06-book-to-detection-focus/`. Lesson: —. Manual 2.5 (deep-link na realnej kolekcji) user-only deferred.
 
 - **S-24: w widoku review (S-18): a) przycisk „Pokaż/Ukryj ramki" nad zdjęciem przełącza widoczność bbox-ów detekcji (`useState`); b) kliknięcie zdjęcia otwiera lightbox (natywny `<dialog>` lub `modal` div z z-index) z pełnoekranową wersją obrazu i ramkami; zamknięcie przez Esc lub kliknięcie tła.** — Archived 2026-06-07 → `context/archive/2026-06-06-photo-overlay-ux/`. Lesson: —. Scope-reduced: (a) istniało wcześniej (`toggle-bboxes-button` + zoom/pan); dowieziono (b) jako `PhotoLightbox` (modal React zamiast natywnego `<dialog>` — konwencja repo). Manual 1.5 user-only deferred.
+
+- **S-36: w `PhotoUploader` pojawia się checkbox „Analizuj od razu" (domyślnie zaznaczony, persystowany w localStorage); gdy odznaczony — zdjęcie wgrane do Storage i zapisane w DB jako `status='uploaded'`, bez wywołania `/process`; takie zdjęcie widoczne w zakładce Zdjęcia (`/shelves/[id]`) z przyciskiem „Analizuj" który ręcznie uruchamia pipeline; użytkownik ma pełną kontrolę nad tym kiedy i co analizuje (i płaci).** — Archived 2026-06-07 → `context/archive/2026-06-07-photo-upload-skip-process/`. Lesson: —. Adaptacja: przycisk w tabie zostaje „Uruchom vision" (granularny pipeline S-29); dodatkowo `useShelfTab` honoruje `?tab=` (lądowanie po skip-uploadzie). Manual 1.5 user-only deferred.
 
 (Pusta przy pierwszej generacji. `/10x-archive` dopisuje tu wpis — i przerzuca Status pozycji na `done` — gdy archiwizowana zmiana ma `Change ID` zgodny z pozycją roadmapy. NIE wypełniać ręcznie.)
