@@ -14,6 +14,7 @@ const baseBook: ShelfBookDTO = {
   position_index: 1,
   is_read: false,
   photo_id: null,
+  detection_id: null,
   isbn_13: '9788373191723',
   isbn_10: null,
   publisher: 'Wydawnictwo Literackie',
@@ -190,7 +191,15 @@ describe('BookCard', () => {
 
   it('tryb list: renderuje book-row + komplet akcji (read/move/delete/edit-cover)', () => {
     render(
-      <BookCard book={baseBook} onToggleRead={vi.fn()} onMove={vi.fn()} onDelete={vi.fn()} viewMode="list" currentShelfId="sh-1" shelves={shelves} />
+      <BookCard
+        book={baseBook}
+        onToggleRead={vi.fn()}
+        onMove={vi.fn()}
+        onDelete={vi.fn()}
+        viewMode="list"
+        currentShelfId="sh-1"
+        shelves={shelves}
+      />,
     );
     expect(screen.getByTestId(`book-card-${BOOK_ID}`)).toBeInTheDocument();
     expect(screen.getByTestId(`book-row-${BOOK_ID}`)).toBeInTheDocument();
