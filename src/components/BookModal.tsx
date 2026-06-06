@@ -167,10 +167,13 @@ type SearchCandidate = {
 function SearchPanel({
   initialTitle,
   initialIsbn,
+  hideForm = false,
   onSelect,
 }: {
   initialTitle: string;
   initialIsbn: string;
+  /** W trybie add: ukrywa formularz tytułu/isbn/autora — szuka od razu po danych z formularza głównego. */
+  hideForm?: boolean;
   onSelect: (c: SearchCandidate) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -216,8 +219,6 @@ function SearchPanel({
         type="button"
         data-testid="search-candidates-toggle"
         onClick={() => {
-          // sync local state z aktualnym stanem formularza rodzica,
-          // następnie od razu wyszukaj gdy pola wypełnione
           setTitle(initialTitle);
           setIsbn(initialIsbn);
           setOpen(true);
@@ -237,64 +238,69 @@ function SearchPanel({
       data-testid="search-candidates-panel"
       className="mt-2 space-y-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-emerald-950"
     >
-      <div className="space-y-2">
-        <div className="flex gap-2">
-          <label className="flex-1 text-xs font-medium text-gray-700 dark:text-gray-300">
-            Tytuł
+      {/* Formularz wyszukiwania — ukryty w trybie add (pola już wypełnione w głównym formularzu) */}
+      {!hideForm && (
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <label className="flex-1 text-xs font-medium text-gray-700 dark:text-gray-300">
+              Tytuł
+              <input
+                data-testid="candidates-title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void search(); } }}
+                className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+              />
+            </label>
+            <label className="w-28 text-xs font-medium text-gray-700 dark:text-gray-300">
+              ISBN
+              <input
+                data-testid="candidates-isbn"
+                value={isbn}
+                onChange={(e) => setIsbn(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void search(); } }}
+                className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+              />
+            </label>
+          </div>
+          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+            Autor (opcjonalnie)
             <input
-              data-testid="candidates-title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void search(); } }}
+              data-testid="candidates-author"
+              value={author}
+              onChange={(e) => setAuthor(e.target.value)}
               className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
             />
           </label>
-          <label className="w-28 text-xs font-medium text-gray-700 dark:text-gray-300">
-            ISBN
-            <input
-              data-testid="candidates-isbn"
-              value={isbn}
-              onChange={(e) => setIsbn(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void search(); } }}
-              className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
-            />
-          </label>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              data-testid="candidates-search"
+              disabled={busy || (!title.trim() && !isbn.trim())}
+              onClick={() => void search()}
+              className="flex-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {busy ? 'Szukam...' : 'Szukaj'}
+            </button>
+            <button
+              type="button"
+              data-testid="candidates-close"
+              onClick={() => { setOpen(false); setResults(null); setErr(null); }}
+              className="rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400"
+            >
+              Zamknij
+            </button>
+          </div>
         </div>
-        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
-          Autor (opcjonalnie)
-          <input
-            data-testid="candidates-author"
-            value={author}
-            onChange={(e) => setAuthor(e.target.value)}
-            className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
-          />
-        </label>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            data-testid="candidates-search"
-            disabled={busy || (!title.trim() && !isbn.trim())}
-            onClick={() => void search()}
-            className="flex-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-          >
-            {busy ? 'Szukam...' : 'Szukaj'}
-          </button>
-          <button
-            type="button"
-            data-testid="candidates-close"
-            onClick={() => { setOpen(false); setResults(null); setErr(null); }}
-            className="rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400"
-          >
-            Zamknij
-          </button>
-        </div>
-      </div>
+      )}
+
+      {busy && <p className="text-xs text-emerald-700 dark:text-emerald-400">Szukam...</p>}
 
       {err && <p data-testid="candidates-error" className="text-xs text-red-600 dark:text-red-400" role="alert">{err}</p>}
 
       {results != null && results.length === 0 && (
         <p data-testid="candidates-no-results" className="text-xs text-amber-600">
-          Nie znaleziono wyników. Spróbuj zmienić dane.
+          Nie znaleziono wyników.
         </p>
       )}
 
@@ -326,6 +332,17 @@ function SearchPanel({
             </li>
           ))}
         </ul>
+      )}
+
+      {hideForm && (
+        <button
+          type="button"
+          data-testid="candidates-close"
+          onClick={() => { setOpen(false); setResults(null); setErr(null); }}
+          className="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400"
+        >
+          Zamknij
+        </button>
       )}
     </div>
   );
@@ -863,21 +880,25 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
                 <SearchPanel
                   initialTitle={fields.title}
                   initialIsbn={fields.isbn13 || fields.isbn10}
+                  hideForm={mode === 'add'}
                   onSelect={handleCandidateSelect}
                 />
               )}
 
               {/* Przyciski akcji */}
               <div className="flex flex-wrap items-center gap-2 pt-1">
-                <a
-                  data-testid="book-modal-web-search"
-                  href={googleSearchUrl(fields.title, (book?.authors ?? []))}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="rounded-md border border-sky-300 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-900/20 dark:text-sky-300"
-                >
-                  Szukaj w sieci
-                </a>
+                {/* W trybie add — tylko gdy cokolwiek wpisano */}
+                {(mode !== 'add' || fields.title.trim() || fields.isbn13.trim() || fields.isbn10.trim() || fields.authors.trim()) && (
+                  <a
+                    data-testid="book-modal-web-search"
+                    href={googleSearchUrl(fields.title, (book?.authors ?? []))}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="rounded-md border border-sky-300 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-900/20 dark:text-sky-300"
+                  >
+                    Szukaj w sieci
+                  </a>
+                )}
 
                 {mode === 'edit' && book?.photoId && (
                   <a

@@ -153,9 +153,9 @@ test.describe('S-36 BookModal — tryb add', () => {
     await page.getByTestId('add-book-button').click();
     await expect(page.getByTestId('book-modal')).toBeVisible();
 
+    // W trybie add: wpisz tytuł w głównym formularzu, kliknij toggle — auto-szuka bez dodatkowego formularza
+    await page.getByTestId('book-field-title').fill('Solaris');
     await page.getByTestId('search-candidates-toggle').click();
-    await page.getByTestId('candidates-title').fill('Solaris');
-    await page.getByTestId('candidates-search').click();
 
     await expect(page.getByTestId('candidates-use-0')).toBeVisible({ timeout: 5000 });
     await page.getByTestId('candidates-use-0').click();
