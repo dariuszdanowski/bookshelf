@@ -1,10 +1,10 @@
 ---
 change_id: photo-hash-backfill
 title: Backfill SHA-256 dla istniejących zdjęć
-status: implemented
+status: archived
 created: 2026-06-03
 updated: 2026-06-06
-archived_at: null
+archived_at: 2026-06-06T21:20:00Z
 ---
 
 ## Notes
