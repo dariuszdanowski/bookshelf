@@ -1,25 +1,8 @@
 ---
 project: bookshelf
-checked_at: 2026-05-27T13:40:00Z
+checked_at: 2026-06-06T18:30:00Z
 health_status: healthy
 context_type: brownfield
-language_family: js
-stack_assessment_available: false
-checks_run:
-  - lockfile
-  - dependency_audit
-  - outdated_deps
-  - test_runner
-  - ci_cd
-  - configuration
-audit_findings:
-  critical: 0
-  high: 0
-  moderate: 5
-  low: 0
-test_runner_detected: true
-ci_provider: github_actions
-recommended_fixes: 3
 ---
 
 ## Dependency Health
@@ -39,182 +22,169 @@ Summary: 0 CRITICAL, 0 HIGH, 5 MODERATE, 0 LOW
 Direct vs transitive: 1 direct (MODERATE: @astrojs/check), 4 transitive (MODERATE)
 ```
 
-Zero CRITICAL / HIGH. Wszystkie 5 MODERATE należą do **jednej** dev-time toolingowej chainy (`@astrojs/check` → language-server → yaml). Bez ekspozycji w runtime production bundle.
+Zero CRITICAL / HIGH. Stan **identyczny** z poprzednim raportem (2026-05-27 → 2026-06-06, HEAD `998f9d9`): wszystkie 5 MODERATE to ta sama, jedna dev-time chaina `@astrojs/check` → `@astrojs/language-server` → `volar-service-yaml` → `yaml-language-server` → `yaml` (GHSA-48c2-rrv3-qjmp, CVSS 4.3, Stack Overflow via deeply nested YAML). Dev-only tooling (`astro check` lokalnie + CI typecheck) — **nie ships** do prod bundle.
 
-> **Delta od ostatniego raportu (2026-05-27, commit `52d2e42`)**: audit **9 → 5 MODERATE**. Sweep zależności (`change/dependency-update-pre-s03`, PR #5) bumpnął `wrangler` 4.93 → 4.95, co podciągnęło transitive `ws ≥ 8.20.1` — cała **Cloudflare runtime chain** (`wrangler`/`@cloudflare/vite-plugin` → `miniflare` → `ws`, GHSA-58qx-3vcg-4xpx) zniknęła. Zostaje wyłącznie Astro language-server chain.
-
-#### MODERATE findings — szczegóły
-
-Jedna utrzymująca się chaina (`yaml 2.0.0–2.8.2` GHSA-48c2-rrv3-qjmp, CVSS 4.3, Stack Overflow via deeply nested YAML):
-
-- `@astrojs/check` (direct dev) → `@astrojs/language-server` → `volar-service-yaml` → `yaml-language-server` → `yaml`
-- Dev-only tooling (`astro check` w lokalnym dev + CI typecheck step). **Nie ships** do prod bundle.
-- `fixAvailable: { @astrojs/check@0.9.2, isSemVerMajor: true }` — major downgrade, **nie wykonujemy** (zdegradowałby kompatybilność z Astro 6).
-
-Status: „wait on upstream". Nie podejmować `npm audit fix --force`.
+`fixAvailable: @astrojs/check@0.9.2 (isSemVerMajor)` — major **downgrade**, nie wykonujemy (zdegradowałby kompatybilność z Astro 6). Status: „wait on upstream". Nie podejmować `npm audit fix --force`.
 
 ### Outdated Dependencies
 
 ```
-Packages with available updates: 2 (oba deliberate major pins)
-Major version gaps (deliberate pins): 2 (eslint, @eslint/js)
-Patch/minor updates available: 0
+Packages with available updates: 17
+Major version gaps: 3 (eslint, @eslint/js — deliberate pins; tesseract.js — NOWY gap)
+Patch/minor updates available: 14
 ```
 
-Po sweepie (PR #5) wszystkie patch/minor podciągnięte — `npm outdated` zwraca już **tylko** dwa świadomie zapięte majory:
+Delta od ostatniego sweepu (PR #5, 2026-05-27) — narosła nowa porcja patch/minor (normalny dryf 10 dni):
 
-- `eslint` 9.39.4 → 10.4.0 (major) — pin na v9, bo `eslint-plugin-react@7.x` deklaruje `peer eslint: <=^9`. Czekamy na `eslint-plugin-react@8` (v10 peer) albo migrację na `@eslint-react/eslint-plugin`.
-- `@eslint/js` 9.39.4 → 10.0.1 (major) — ten sam pin co `eslint`.
-
-Zbumpane w tej sesji (PR #5, commit `d91ada2`): `astro` 6.3.5→6.3.8, `wrangler` 4.93→4.95, `@supabase/supabase-js` 2.106.0→2.106.2, `vitest` + `@vitest/coverage-v8` 4.1.6→4.1.7, `typescript-eslint` 8.59.4→8.60.0, `@astrojs/cloudflare` 13.5.2→13.5.5, oraz explicit `@anthropic-ai/sdk` 0.95.2→**0.99.0** (caret na 0.x blokował minor w `npm update`; nie importowany w `src/` → zero ryzyka, prep pod S-03 vision API).
+- **Minor/patch dostępne**: `astro` 6.3.8→6.4.4, `wrangler` 4.95→4.98, `@astrojs/cloudflare` 13.5.5→13.6.1, `@supabase/supabase-js` 2.106.2→2.107.0, `vitest`+`@vitest/coverage-v8` 4.1.7→4.1.8, `react`/`react-dom` 19.2.6→19.2.7, `@astrojs/react` 5.0.5→5.0.7, `typescript-eslint` 8.60.0→8.60.1, `@types/node`, `@types/react`, `@cf-wasm/photon` 0.3.5→0.3.6, `@anthropic-ai/sdk` 0.99→0.101 (0.x caret nie podciągnie przez `npm update` — explicit bump jak poprzednio).
+- **`tesseract.js` 6.0.1 → 7.0.0 (major, NOWY)** — pojawił się w deps od czasu poprzedniego raportu (pipeline refine/OCR). Major bump wymaga przeglądu changeloga przed podjęciem; nieblokujące.
+- **Deliberate pins (bez zmian)**: `eslint` 9.39.4 (latest 10.4.1) + `@eslint/js` 9.39.4 — zapięte do `eslint-plugin-react@8` lub migracji na `@eslint-react/eslint-plugin`.
 
 ## Test Suite
 
 ```
 Test runner: Vitest 4.1.7 + Playwright 1.60.0
-Tests found: 97 (14 unit test files)
-Test execution: passing (97/97 zielone na main HEAD)
+Tests found: 845 unit (76 plików) + 28 plików E2E + 3 integracyjne (RLS isolation)
+Test execution: passing (845/845 zielone lokalnie na main HEAD; CI verify + e2e green)
 ```
+
+> **Delta od ostatniego raportu (2026-05-27, 97 testów / 14 plików)**: suite urosła **~8.7×** — 845 unit testów w 76 plikach. E2E z 5 → **28 spec'ów** (auth, shelves, upload-flow, photos-crud, photo-dedup, bbox-editor/navigation, overlay-zoom-pan, detection-list-views, account, account-keys, byok-enforcement, cost-panel, manual-rematch, force-refine, book-* itd.). Testy integracyjne RLS (`tests/integration/`, 3 pliki) **uruchamiane automatycznie w CI** na efemerycznej lokalnej Supabase — wcześniej `describe.skip` bez env, walidowane tylko ręcznie.
 
 Konfiguracja:
 
 ```
-vitest.config.ts        — jsdom env, setup at tests/unit/setup.ts, v8 coverage
-playwright.config.ts    — chromium project, webServer wires `npm run dev` on :4321
-tests/unit/setup.ts     — imports @testing-library/jest-dom/vitest
+vitest.config.ts               — jsdom env, setup at tests/unit/setup.ts, v8 coverage
+vitest.integration.config.ts   — env z .dev.vars, realny Supabase (CI: 127.0.0.1:54321)
+playwright.config.ts           — chromium + setup/cleanup projects, storageState, webServer :4321
 ```
 
-Kategorie unit testów (bez zmian od ostatniego raportu — sweep depów był non-breaking):
+Lokalne binarki Playwright **zainstalowane** (chromium-1223 + headless shell + firefox/webkit) — Category A #1 z poprzedniego raportu **zamknięte**.
 
-- `tests/unit/lib/shelves/schema.test.ts` (13) — Zod schema F-01/S-02
-- `tests/unit/pages/api/shelves/{index,id}.test.ts` (21) — CRUD endpointy + F-02 envelope + Postgres SQLSTATE mapping
-- `tests/unit/pages/api/auth/{login,signup,logout}.test.ts` — S-01 auth flow
-- `tests/unit/pages/api/health.test.ts` (2) — health probe
-- `tests/unit/components/LogoutButton.test.tsx` (2) — React island
-- pozostałe: middleware, response helpers, auth schema
-
-**E2E w CI** (PR #15, 2026-05-29): job `e2e` w `ci.yml` — efemeryczna lokalna Supabase (`supabase start` = migracje+seed, darmowy gate walidacji migracji) + chromium + `playwright test`; ostatni run **29 passed / 2 skipped** (mock vision browser-side, bez ANTHROPIC, zero kosztu LLM). **Lokalne** binarki Playwright (`npx playwright install --with-deps`) pozostają opcjonalne dla dev loop — CI instaluje własne.
+Formalna mapa ryzyk: `context/foundation/test-plan.md` (Phase 1 complete, PR #39, 2026-06-04) — item #4 z `m3-integration-plan.md` **zamknięty**.
 
 ## CI/CD
 
 ```
 Provider: GitHub Actions
 Configuration: .github/workflows/ci.yml + .github/workflows/deploy.yml
+Ostatnie runy na main: CI ✓ success, Deploy ✓ success (2026-06-06, PR #50)
 ```
 
 ### CI (.github/workflows/ci.yml)
 
-Stages: `npm ci → wrangler types → lint → typecheck → test → build`
+Dwa joby: `verify` (npm ci → wrangler types → lint → typecheck → unit → build) + `e2e` (efemeryczna lokalna Supabase = darmowy gate walidacji migracji → warm-up auth JWT-iat-skew → **testy integracyjne RLS** → Playwright E2E z mock vision → artifact playwright-report).
 
 | Stage | Status | Notes |
 |---|---|---|
 | Lint | ✓ | `npm run lint` (ESLint v9 flat config) |
-| Test | ✓ | `npm run test` (Vitest — match z detected runnerem) |
-| Build | ✓ | `npm run build` (astro build) |
-| Type check | ✓ | `npm run typecheck` (`astro check`), poprzedzony `npx wrangler types` |
-| Security | ✗ | brak kroku scanowania (npm audit / Dependabot / CodeQL) — patrz Category A #3 |
-
-`Generate Cloudflare Worker types` step regeneruje gitignored `worker-configuration.d.ts` przed `astro check` — eliminuje class incydentów „CI sees `import 'cloudflare:workers'` jako missing module".
+| Typecheck | ✓ | `astro check` poprzedzony `npx wrangler types` |
+| Unit tests | ✓ | Vitest, 845 testów |
+| Integration (RLS) | ✓ **NOWE** | `npm run test:integration` na lokalnej Supabase w CI — guardrail prywatności #1 z test-plan.md |
+| E2E | ✓ **NOWE** (vs raport 05-27) | job `e2e`: Playwright + mock vision browser-side, zero kosztu LLM |
+| Build | ✓ | `npm run build` |
+| Security | ✗ | nadal brak kroku scanowania (npm audit / Dependabot) — jedyna otwarta rekomendacja |
 
 ### Deploy (.github/workflows/deploy.yml)
 
-Stages: `npm ci → build (z PUBLIC_* env z GitHub Secrets) → wrangler deploy (cloudflare/wrangler-action@v4) → smoke test`
-
-| Stage | Status | Notes |
-|---|---|---|
-| Build | ✓ | PUBLIC_* z GitHub Secrets (Vite inlining dla browser bundle) |
-| Deploy | ✓ | `cloudflare/wrangler-action@v4`, command `deploy` |
-| **Post-deploy smoke** | ✓ **NOWE** | `curl --fail-with-body $deployment-url/api/health` + walidacja body `"status":"ok"` |
-
-> **Delta**: post-deploy smoke step dodany (D1, PR #4, commit `2991f77`) — **zamyka** wieloraportową lukę Category B „Brak post-deploy smoke step". URL z `wrangler-action` output `deployment-url`. Pojedynczy probe na `/api/health` (świadoma adaptacja vs health+auth-login: login zwraca generic 401 dla creds i dla anon-key drift → nie odróżnia wired/drifted; health ćwiczy konstrukcję klienta Supabase przez middleware, więc łapie brakujące sekrety jako 500). Pełny zielony/czerwony przebieg zweryfikuje się przy najbliższym deploy run.
-
-PUBLIC_* secrets → build-time env; SERVICE_ROLE_KEY + ANTHROPIC_API_KEY server-only runtime (Worker Dashboard Secrets) — zgodne z CLAUDE.md env-wiring matrix.
+Stages: build (PUBLIC_* z GitHub Secrets) → **migrate-first** `supabase db push` (miękki guard na brak sekretów) → `wrangler deploy` (wrangler-action@v4) → **post-deploy smoke** (`/api/health` + walidacja body). Concurrency group na deploy. Ostatni run zielony.
 
 ## Configuration
 
 ### High severity
 
-(none — TypeScript `strict` enforced via `extends: astro/tsconfigs/strict`, `.gitignore` present.)
+(none — TypeScript `strict`, `.gitignore` present.)
 
 ### Medium severity
 
-(none — ESLint configured via `eslint.config.mjs` flat config; Prettier configured via `.prettierrc.json` + `.prettierignore`.)
+(none — ESLint flat config + Prettier present.)
 
 ### Low severity
 
-(none — `.editorconfig` (188 B), `.env.example` (426 B) dokumentuje cztery wymagane sekrety, oba present.)
+- `tmp-ux-shots/` untracked w working tree — artefakt sesyjny do sprzątnięcia lub dopisania do `.gitignore` (kosmetyka, nie wpływa na werdykt).
 
-Wszystkie Category A configuration gaps z poprzednich raportów zamknięte. Pełny inwentarz present: `.editorconfig`, `.prettierrc.json`, `.prettierignore`, `eslint.config.mjs`, `.gitignore`, `.env.example`, `tsconfig.json` (strict), `vitest.config.ts`, `playwright.config.ts`, `.mcp.json`, `CLAUDE.md`, `AGENTS.md`.
+Pełny inwentarz present: `.editorconfig`, `.prettierrc.json`, `.prettierignore`, `eslint.config.mjs`, `.gitignore`, `.env.example`, `tsconfig.json` (strict), `vitest.config.ts`, `vitest.integration.config.ts`, `playwright.config.ts`, `.mcp.json`, `CLAUDE.md`, `AGENTS.md`, `context/foundation/test-plan.md`.
 
 ## Agent infrastructure
 
-Stan komponentów agent-workflow (delta od `52d2e42` zaznaczona):
+- `CLAUDE.md` — rozbudowany (sekcje M3L4 E2E rules dodane); length-watch nadal aktualny, ale reguły domenowe vision wyniesione do per-area pliku.
+- `src/lib/vision/AGENTS.md` — **present** (Category A #2 z poprzedniego raportu **zamknięte**).
+- `.claude/settings.json` — PostToolUse hook (`.claude/hooks/post-edit-lint.cjs` — ESLint --fix na edytowanym pliku, advisory) — item #1 z m3-integration-plan **done**.
+- `context/foundation/lessons.md` — present; `context/archive/` — **33 archived changes** (8 → 33).
+- `context/foundation/roadmap.md` — **26 done / 13 proposed** (poprzednio 7/6); north star S-05 + cały Flow A/B + BYOK pipeline (S-31–S-35) done.
+- `.mcp.json` — 3 MCP servers (cloudflare/exa/context7).
 
-- `CLAUDE.md` — 23.4 KB (~200 non-blank linii). **Delta**: +2 bullety w § Workflow agenta — „Plan-review obligatoryjny" (B4, commit `52e2384`) i „Model per faza" (E2, `1c548af`). Soft length-watch: przy A1 rule-review (2026-05-27) długość była już WARN (198 linii); kolejne reguły domenowe (S-03 vision) lepiej kierować do per-area `AGENTS.md` — patrz Category A #2.
-- `.claude/settings.json` — 40 allow / 17 ask / 17 deny + `enabledMcpjsonServers: [cloudflare, exa, context7]` (commit `cb4fe31`). Hard-blocks destructive ops.
-- `.mcp.json` — **3 MCP servers** (cloudflare/exa/context7), wszystkie `✓ Connected` (`claude mcp list`; Cloudflare po jednorazowym OAuth). **Delta**: poprzedni raport notował „MCP servers: 0 configured (gap)" — **luka zamknięta** (A4/A5/A6, commit `7fa3b21`). Context7 użyty realnie w tej sesji (weryfikacja `wrangler-action` output).
-- `context/foundation/lessons.md` — 12 captured recurring rules.
-- `context/archive/` — 8 archived changes. (D1 + dependency sweep szły jako micro-slice'y bez `/10x-archive`.)
-- `context/foundation/roadmap.md` — 7 done / 6 proposed.
-- `AGENTS.md` — present (3.3 KB).
+## Realizacja zaleceń z poprzedniego raportu
 
-## Stack Assessment Cross-Reference
+| Zalecenie (2026-05-27) | Status |
+|---|---|
+| #1 `npx playwright install --with-deps` | ✅ **DONE** — binarki obecne, 28 E2E spec'ów biega lokalnie i w CI |
+| #2 Per-area `AGENTS.md` dla `src/lib/vision/` przed S-03 | ✅ **DONE** — `src/lib/vision/AGENTS.md` istnieje |
+| #3 (opcjonalne) Automated dependency scanning w CI | ❌ **OPEN** — brak `.github/dependabot.yml` i brak `npm audit` step w ci.yml |
+| Deliberate eslint pins — no action | ✅ utrzymane zgodnie z planem |
 
-No `context/foundation/stack-assessment.md` found. Run `/10x-stack-assess` jeśli potrzeba written quality-gate analysis. Nie blokujące — stack to `10x-astro-starter` recommended-default zaliczający wszystkie 4 quality gates per registry.
+Z `m3-integration-plan.md`: items 1 (PostToolUse hook), 2 (E2E rules w CLAUDE.md), 4 (test-plan.md) **done**; items 5–6 (Lefthook, Stryker) otwarte — oznaczone tam jako „tylko certyfikacja, niski ROI" (nie są twardym wymogiem; zob. niżej).
+
+## Certyfikacja 10xDevs 3.0 — stan wymogów
+
+Sześć twardych wymogów (lekcja 4.2, `analiza-projektu-kursowego.md` §1):
+
+| # | Wymóg | Stan | Dowód |
+|---|---|---|---|
+| 1 | Kontrola dostępu | ✅ | Supabase Auth (S-01) + RLS `user_id = auth.uid()` na każdej tabeli (F-01) + middleware guard (F-02) + **testy integracyjne RLS w CI** (dowód automatyczny izolacji per-user) |
+| 2 | CRUD domenowy | ✅ | Półki (S-02), książki (S-05/S-22/S-34), zdjęcia (S-29 pełny CRUD), klucze BYOK (S-32) — dane wynikają z domeny, nie sztuczne |
+| 3 | Logika biznesowa | ✅ | Jednozdaniowa: zdjęcie → vision-detekcja → matching scoring (0.75/0.55) → dedup (ISBN/fuzzy) → ranking → telemetria korekt. Plus BYOK enforcement (S-33), koszt-preservation (S-30) |
+| 4 | Artefakty M1–M3 | ✅ | `docs/prd.md`, `docs/plan-implementacji.md`, `context/foundation/{roadmap,test-plan,lessons,health-check}.md`, `CLAUDE.md`, `AGENTS.md`, `src/lib/vision/AGENTS.md`, 33 zarchiwizowane change'e (plan→implement→review→archive) |
+| 5 | ≥ 1 test E2E | ✅ | 28 spec'ów Playwright, golden path `upload → detect → confirm → catalog` (`upload-flow`, `proposal-accept-to-catalog`), w CI na każdym PR |
+| 6 | CI/CD | ✅ | GitHub Actions: lint+typecheck+unit+integration+E2E+build (ci.yml) + migrate-first deploy CF Workers + post-deploy smoke (deploy.yml); publiczny deployment działa (smoke green) |
+
+**Werdykt certyfikacyjny: wszystkie 6 twardych wymogów spełnione i udowodnione automatami.**
+
+Pozostałe elementy do **złożenia** pracy (nie wymogi techniczne, lecz checklist oddania — M3 DoD z `docs/plan-implementacji.md`):
+
+| Element | Stan | Działanie |
+|---|---|---|
+| README z screenshotami + quick-start | ✅ done | 6 screenshotów w `docs/screenshots/`, sekcje Stack/Architektura/Szybki start |
+| Demo content (3 półki, ~30 książek) | ⚠ user-only | przygotować na koncie demo przed oddaniem (manual) |
+| Self-review pod 6 wymogów | ⚠ open | przejść formalnie 6 wierszy tabeli wyżej z linkami do kodu/testów — materiał do zgłoszenia (1. termin: 5.07.2026, bufor 29 dni) |
+| (opcjonalnie) Lefthook / Stryker jako dowód adopcji lekcji M3 | ⚠ open, niski ROI | tylko jeśli forma zgłoszenia wymaga pokazania artefaktów per-lekcja; nie jest twardym wymogiem |
 
 ## Recommended Fixes
 
 ### Fix before agent work (Category A)
 
-Brak blockerów. Wszystkie pozycje z poprzednich raportów zamknięte (lockfile present, 0 HIGH/CRITICAL, test runner + 97 tests green, TypeScript strict, ESLint + Prettier configured, CI/CD wired + post-deploy smoke, .editorconfig + .env.example present, MCP servers configured). Pozostałe to nice-to-have:
+Brak blockerów. Nice-to-have:
 
-#### 1. Manual: install Playwright browsers (jednorazowe)
+#### 1. Automated dependency scanning w CI (przeniesione z poprzedniego raportu — jedyne niezrealizowane)
 
-**Impact**: medium — bez binarek golden-path E2E (`tests/e2e/upload-flow.spec.ts`) nie poleci ani lokalnie, ani w CI; agent nie ma end-to-end feedback loop na flow upload→detect→confirm.
-**Severity**: low
-**Effort**: quick (<5 min na połączeniu które przejdzie do `cdn.playwright.dev`, ~600 MB)
-**Fix**:
+**Impact**: low — audit jest manualny (przez ten health-check); Dependabot dałby ciągły sygnał o nowych CVE.
+**Severity**: low · **Effort**: quick (<5 min)
+**Fix**: `.github/dependabot.yml` (weekly npm) lub step `npm audit --audit-level=high` w ci.yml (fail tylko na HIGH+).
 
-```powershell
-npx playwright install --with-deps
-```
+#### 2. Patch/minor sweep + przegląd `tesseract.js` 7
 
-#### 2. Per-area `AGENTS.md` przed S-03 (`src/lib/vision/`)
+**Impact**: low-medium — 14 patch/minor zaległych (10 dni dryfu) + nowy major `tesseract.js` 6→7 w ścieżce refine/OCR.
+**Severity**: low · **Effort**: moderate (sweep ~15 min + changelog tesseract przed majorem)
+**Fix**: osobny branch `change/dependency-sweep`, `npm update` + explicit `@anthropic-ai/sdk@0.101`, tesseract major tylko po przeczytaniu migration notes; pełny CI gate zweryfikuje.
 
-**Impact**: medium — `CLAUDE.md` (~200 linii) jest na progu U-shaped-attention. Reguły domenowe vision (prompt convention, retry-with-thinking policy, cost tracking) lepiej żyją obok kodu niż w rozrastającym się root rules file.
-**Severity**: low
-**Effort**: moderate (15–30 min, naturalnie przy `/10x-plan` S-03)
-**Fix**: wynieść vision-specific reguły do `src/lib/vision/AGENTS.md` (item C3 w `m1m2-lessons-audit-plan.md`). Skill `/10x-plan` może to zarejestrować jako changes required.
+#### 3. Sprzątnięcie `tmp-ux-shots/`
 
-#### 3. (opcjonalne) Automated dependency scanning w CI
-
-**Impact**: low — obecnie audit jest manualny (przez ten health-check). Dependabot / `npm audit` step w CI dałby ciągły sygnał o nowych CVE bez czekania na regen raportu.
-**Severity**: low
-**Effort**: quick (<5 min)
-**Fix**: dodać `.github/dependabot.yml` (weekly npm ecosystem) albo `npm audit --audit-level=high` step w `ci.yml` (non-blocking dla MODERATE, fail na HIGH+).
+**Impact**: kosmetyka. **Effort**: quick. Usunąć lub dopisać do `.gitignore`.
 
 #### Deliberate pins (no action)
 
-- `eslint` / `@eslint/js` v9 → v10 — zapięte do czasu `eslint-plugin-react@8` lub migracji pluginu. Nie odpalać `npm i eslint@latest` bez planu zamiany pluginu.
+- `eslint` / `@eslint/js` v9 → v10 — bez zmian, czekamy na `eslint-plugin-react@8`.
+- 5 MODERATE audit (Astro language-server yaml chain) — wait on upstream.
 
 ### Addressed in upcoming lessons (Category B)
 
-Brak otwartych Category B. Dwie historyczne pozycje zamknięte w tej sesji:
-
-- ~~Post-deploy smoke test~~ → **DONE** (D1, PR #4) — smoke step `curl /api/health` w `deploy.yml`.
-- ~~MCP servers (Cloudflare/Exa/Context7)~~ → **DONE** (A4/A5/A6) — `.mcp.json` z 3 serverami, wszystkie connected.
+Brak otwartych. Wszystkie historyczne pozycje zamknięte (post-deploy smoke, MCP, E2E w CI, test-plan.md, PostToolUse hook, per-area AGENTS.md).
 
 ## Summary
 
 Health status: **healthy**
 
-Wszystkie wskaźniki agent-readiness silnie zielone i poprawione od ostatniego raportu (`52d2e42`): audit **9 → 5 MODERATE** (Cloudflare `ws` chain rozwiązana przez bump wrangler 4.95), dependency tree świeży (tylko 2 deliberate eslint piny zostają), post-deploy smoke test wprowadzony do `deploy.yml`, 3 MCP servers podłączone. Test suite 97/97 zielona, CI pipeline kompletny (lint+typecheck+test+build), deploy z weryfikacją liveness. Pozostałe 5 MODERATE to dev-only Astro language-server chain czekająca na upstream — bez ekspozycji w prod bundle.
+Projekt od poprzedniego raportu (2026-05-27, `52d2e42`) przeszedł z fazy substrate do **funkcjonalnie kompletnego MVP+**: suite testowa 97 → 845 unit + 28 E2E + 3 integracyjne RLS (wszystko w CI), roadmapa 7 → 26 slice'ów done (pełny Flow A/B, BYOK multi-provider, photos CRUD, cost preservation), archiwum 8 → 33 change'ów, CI rozbudowane o job e2e z efemeryczną Supabase i automatyczną walidacją migracji, deploy z migrate-first + smoke. Audit bez zmian (5 MODERATE dev-only, wait-on-upstream), zero CRITICAL/HIGH.
 
-Mocne strony specyficzne dla projektu:
+**Zalecenia z poprzedniego audytu: 2/3 zrealizowane** (Playwright binaria, vision AGENTS.md); otwarte tylko opcjonalne dependency scanning w CI.
 
-1. **Agent feedback loop kompletny + zweryfikowany w prod** — lint+typecheck+test+build zielone, dev cycle <15s, plus post-deploy smoke wykrywa zombie-deploy / secret drift w ~30s.
-2. **Dependency hygiene** — sweep pre-S-03 wyczyścił wszystkie patch/minor; `@anthropic-ai/sdk` na 0.99 gotowy pod vision API; audit zredukowany o połowę.
-3. **MCP research/docs/ops tooling** operacyjne — Context7 (live docs), Exa (research), Cloudflare (Worker logs/secrets) eliminują memory-hallucination i „nie widzę Worker logs" class.
-4. **Defense-in-depth invariants + F-01/F-02 substrate** stabilne — kolejne slice'y konsumują bez friction.
-
-Next step: nic blokującego. Projekt jest agent-ready dla S-03 vision detection. Naturalna ścieżka prep: `npx playwright install` (E2E loop) → B1 `/10x-research shelf-photo-vision-detection` + B2 Context7 fetch `@anthropic-ai/sdk` 0.99 → `/10x-plan` (Opus) → B4 `/10x-plan-review` → `/10x-implement` (Sonnet). Przy S-03 wydzielić `src/lib/vision/AGENTS.md` (Category A #2).
+**Certyfikacja: wszystkie 6 twardych wymogów spełnione.** Do oddania (termin 5.07) zostają wyłącznie czynności submission-level: demo content (user-only), formalny self-review pod 6 wymogów, opcjonalnie artefakty per-lekcja M3 (Lefthook/Stryker — niski ROI). Projekt jest gotowy do zgłoszenia w 1. terminie z dużym buforem.
