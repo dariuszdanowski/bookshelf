@@ -1,6 +1,12 @@
 ---
 import { detectDbEnvironment, getSupabaseUrl, ENV_LABEL } from '../lib/db/environment';
 
+interface Props {
+  /** M9: 'inline' — statycznie w headerze obok ThemeToggle; 'floating' — róg ekranu (strony anon). */
+  variant?: 'floating' | 'inline';
+}
+
+const { variant = 'floating' } = Astro.props;
 const dbEnv = detectDbEnvironment();
 const url = getSupabaseUrl();
 
@@ -9,10 +15,15 @@ const styles: Record<typeof dbEnv, string> = {
   prod: 'bg-red-600 ring-red-300 animate-pulse',
   unknown: 'bg-yellow-500 ring-yellow-300',
 };
+
+const placement =
+  variant === 'inline'
+    ? 'rounded-md px-2 py-1 text-[10px] font-bold text-white ring-2'
+    : 'fixed bottom-2 right-2 z-[9999] rounded-md px-3 py-1.5 text-xs font-bold text-white shadow-lg ring-2';
 ---
 
 <div
-  class={`fixed bottom-2 right-2 z-[9999] rounded-md px-3 py-1.5 text-xs font-bold text-white shadow-lg ring-2 ${styles[dbEnv]}`}
+  class={`${placement} ${styles[dbEnv]}`}
   data-testid="env-badge"
   data-env={dbEnv}
   title={`Supabase: ${url || '(brak URL)'}`}

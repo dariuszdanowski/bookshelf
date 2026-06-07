@@ -827,3 +827,72 @@ describe('DetectionReview — initial focus z deep-linku (S-37)', () => {
     expect(screen.queryByTestId('clear-focus-button')).not.toBeInTheDocument();
   });
 });
+
+// ---------------------------------------------------------------------------
+// M12 (mobile-polish): formularz "Szukaj po tytule" zamyka sie po SUKCESIE
+// — regresja: odwrocony warunek zamykal go tylko przy braku wynikow, a po
+// sukcesie stan przejmowala galaz "z kandydatem" i form wracal na ekran.
+// ---------------------------------------------------------------------------
+
+describe('DetectionReview — rematch form close po sukcesie (M12)', () => {
+  it('po udanym wyszukiwaniu formularz znika, kandydat widoczny', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((url, init) => {
+      const u = typeof url === 'string' ? url : (url as Request).url;
+      if (u.includes('/rematch') && init?.method === 'POST') {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              data: {
+                applied: true,
+                detection: {
+                  id: detNoMatch.id,
+                  status: 'matched',
+                  raw_title: 'Scrum. O zwinnym zarządzaniu projektami',
+                  raw_author: 'Mariusz Chrapko',
+                },
+                candidates: [
+                  {
+                    id: '00000000-0000-4000-8000-000000000077',
+                    source: 'google_books',
+                    externalId: 'gb-scrum',
+                    title: 'Scrum. O zwinnym zarządzaniu projektami',
+                    authors: ['Mariusz Chrapko'],
+                    isbn10: null,
+                    isbn13: '9788324625192',
+                    publisher: 'Helion',
+                    publishedYear: 2014,
+                    coverUrl: null,
+                    matchScore: 1,
+                    rank: 1,
+                  },
+                ],
+                duplicate: null,
+              },
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify(makePhotoResponse([detNoMatch])), { status: 200 }),
+      );
+    });
+
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => screen.getByTestId('no-match-placeholder'));
+
+    fireEvent.click(screen.getByTestId('rematch-button'));
+    await waitFor(() => screen.getByTestId('rematch-form'));
+    fireEvent.change(screen.getByTestId('rematch-title'), {
+      target: { value: 'Scrum. O zwinnym zarządzaniu projektami' },
+    });
+    fireEvent.click(screen.getByTestId('rematch-submit'));
+
+    // Form znika po sukcesie (nie wraca w gałęzi z kandydatem)
+    await waitFor(() => expect(screen.queryByTestId('rematch-form')).not.toBeInTheDocument());
+    expect(screen.getAllByText('Scrum. O zwinnym zarządzaniu projektami').length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.queryByTestId('rematch-no-results')).not.toBeInTheDocument();
+  });
+});

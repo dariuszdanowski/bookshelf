@@ -92,11 +92,16 @@ const titleWithEnv = `[${ENV_LABEL[dbEnv]}] ${title}`;
             <span data-testid="user-email">{user.email}</span>
             <LogoutButton client:load />
           </nav>
-          <ThemeToggle client:only="react" />
+          <div class="flex flex-shrink-0 items-center gap-2">
+            <ThemeToggle client:only="react" />
+            {/* M9: badge środowiska w headerze zamiast pływającego rogu (zasłaniał UI na mobile) */}
+            <EnvBadge variant="inline" />
+          </div>
         </header>
       )
     }
     <slot />
-    <EnvBadge />
+    {/* M9: floating tylko dla niezalogowanych (login/signup — brak headera) */}
+    {!user && <EnvBadge />}
   </body>
 </html>

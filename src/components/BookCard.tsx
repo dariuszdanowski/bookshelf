@@ -263,12 +263,14 @@ export default function BookCard({
     return (
       <div
         data-testid={`book-card-${book.id}`}
-        className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-2 shadow-sm dark:border-gray-700 dark:bg-gray-900"
+        className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-gray-200 bg-white p-2 shadow-sm dark:border-gray-700 dark:bg-gray-900"
       >
         <div data-testid={`book-row-${book.id}`} className="contents">
           {coverButton('h-12 w-8 flex-shrink-0', 14)}
           <div className="min-w-0 flex-1">{meta}</div>
-          <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-1">
+          {/* S-28: na mobile akcje schodzą do pełnowierszowej linii pod tytułem —
+              flex-shrink-0 bez wrap wypychał je poza kartę i zgniatał meta do zera */}
+          <div className="flex w-full flex-wrap items-center gap-1 sm:w-auto sm:flex-shrink-0 sm:justify-end">
             {readToggle()}
             {moveSelect}
             {deleteButton()}

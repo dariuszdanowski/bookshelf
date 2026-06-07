@@ -917,10 +917,11 @@ function DetectionCard({
           errorMsg={errorMsg}
           onSubmit={async (title, author, isbn) => {
             const found = await handleRematch(title, author, isbn);
-            if (!found) {
-              setRematchNoResults(true);
-              setShowRematchForm(false);
-            }
+            // M12: zamykaj ZAWSZE — po sukcesie pojawia się kandydat (top) i stan
+            // showRematchForm=true przejmowała gałąź „z kandydatem", renderując
+            // formularz ponownie pod zaktualizowaną propozycją.
+            setShowRematchForm(false);
+            if (!found) setRematchNoResults(true);
           }}
           onCancel={() => setShowRematchForm(false)}
         />

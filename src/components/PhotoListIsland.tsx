@@ -15,15 +15,12 @@ type RowState = {
   toast: string | null;
 };
 
-const STAGE_BADGE: Record<
-  PhotoListItemDTO['stage'],
-  { bg: string; label: string }
-> = {
-  uploaded:   { bg: 'bg-gray-100 text-gray-600',   label: 'Wgrane' },
-  processing: { bg: 'bg-blue-100 text-blue-700',   label: 'Vision w toku' },
-  vision_done:{ bg: 'bg-amber-100 text-amber-700', label: 'Wykryte' },
-  match_done: { bg: 'bg-blue-100 text-blue-700',   label: 'Dopasowane' },
-  confirmed:  { bg: 'bg-green-100 text-green-700', label: 'Zatwierdzone' },
+const STAGE_BADGE: Record<PhotoListItemDTO['stage'], { bg: string; label: string }> = {
+  uploaded: { bg: 'bg-gray-100 text-gray-600', label: 'Wgrane' },
+  processing: { bg: 'bg-blue-100 text-blue-700', label: 'Vision w toku' },
+  vision_done: { bg: 'bg-amber-100 text-amber-700', label: 'Wykryte' },
+  match_done: { bg: 'bg-blue-100 text-blue-700', label: 'Dopasowane' },
+  confirmed: { bg: 'bg-green-100 text-green-700', label: 'Zatwierdzone' },
 };
 
 function relativeTime(dateStr: string): string {
@@ -63,9 +60,7 @@ export default function PhotoListIsland({ shelfId }: Props) {
       }
       setPhotos(json.data.photos);
     } catch (err) {
-      setGlobalError(
-        err instanceof Error ? err.message : 'Nie udało się pobrać zdjęć.'
-      );
+      setGlobalError(err instanceof Error ? err.message : 'Nie udało się pobrać zdjęć.');
     } finally {
       setLoading(false);
     }
@@ -92,15 +87,12 @@ export default function PhotoListIsland({ shelfId }: Props) {
     };
   }, []);
 
-  const patchRow = useCallback(
-    (photoId: string, patch: Partial<RowState>) => {
-      setRowStates((prev) => ({
-        ...prev,
-        [photoId]: { ...(prev[photoId] ?? { busy: false, toast: null }), ...patch },
-      }));
-    },
-    []
-  );
+  const patchRow = useCallback((photoId: string, patch: Partial<RowState>) => {
+    setRowStates((prev) => ({
+      ...prev,
+      [photoId]: { ...(prev[photoId] ?? { busy: false, toast: null }), ...patch },
+    }));
+  }, []);
 
   const runVision = useCallback(
     async (photoId: string) => {
@@ -140,7 +132,7 @@ export default function PhotoListIsland({ shelfId }: Props) {
         patchRow(photoId, { busy: false });
       }
     },
-    [fetchPhotos, patchRow]
+    [fetchPhotos, patchRow],
   );
 
   const runMatch = useCallback(
@@ -173,7 +165,7 @@ export default function PhotoListIsland({ shelfId }: Props) {
         patchRow(photoId, { busy: false });
       }
     },
-    [fetchPhotos, patchRow]
+    [fetchPhotos, patchRow],
   );
 
   // Usunięcie zdjęcia: optymistyczne (zdejmujemy wiersz od razu), rollback przy błędzie.
@@ -186,14 +178,16 @@ export default function PhotoListIsland({ shelfId }: Props) {
         if (!res.ok) {
           const json = (await res.json()) as { error?: { message?: string } };
           setPhotos(snapshot); // rollback
-          patchRow(photoId, { toast: json.error?.message ?? `Nie udało się usunąć (${res.status}).` });
+          patchRow(photoId, {
+            toast: json.error?.message ?? `Nie udało się usunąć (${res.status}).`,
+          });
         }
       } catch (err) {
         setPhotos(snapshot); // rollback
         patchRow(photoId, { toast: err instanceof Error ? err.message : 'Błąd sieci.' });
       }
     },
-    [photos, patchRow]
+    [photos, patchRow],
   );
 
   // Przeniesienie zdjęcia na inną półkę: optymistyczne zdjęcie z bieżącej listy.
@@ -211,14 +205,16 @@ export default function PhotoListIsland({ shelfId }: Props) {
         if (!res.ok) {
           const json = (await res.json()) as { error?: { message?: string } };
           setPhotos(snapshot); // rollback
-          patchRow(photoId, { toast: json.error?.message ?? `Nie udało się przenieść (${res.status}).` });
+          patchRow(photoId, {
+            toast: json.error?.message ?? `Nie udało się przenieść (${res.status}).`,
+          });
         }
       } catch (err) {
         setPhotos(snapshot); // rollback
         patchRow(photoId, { toast: err instanceof Error ? err.message : 'Błąd sieci.' });
       }
     },
-    [photos, shelfId, patchRow]
+    [photos, shelfId, patchRow],
   );
 
   const handleRunVision = useCallback(
@@ -229,15 +225,15 @@ export default function PhotoListIsland({ shelfId }: Props) {
       }
       void runVision(photoId);
     },
-    [runVision]
+    [runVision],
   );
 
   const pendingRerunPhoto = pendingRerunPhotoId
-    ? photos.find((photo) => photo.id === pendingRerunPhotoId) ?? null
+    ? (photos.find((photo) => photo.id === pendingRerunPhotoId) ?? null)
     : null;
 
   const pendingDeletePhoto = pendingDeletePhotoId
-    ? photos.find((photo) => photo.id === pendingDeletePhotoId) ?? null
+    ? (photos.find((photo) => photo.id === pendingDeletePhotoId) ?? null)
     : null;
 
   function deleteMessage(photo: PhotoListItemDTO | null): string {
@@ -263,7 +259,7 @@ export default function PhotoListIsland({ shelfId }: Props) {
     (photoId: string) => {
       void runMatch(photoId);
     },
-    [runMatch]
+    [runMatch],
   );
 
   if (loading) {
@@ -307,188 +303,191 @@ export default function PhotoListIsland({ shelfId }: Props) {
     <>
       <ul data-testid="photo-list" className="space-y-3">
         {photos.map((photo) => {
-        const rowState = rowStates[photo.id] ?? { busy: false, toast: null };
-        const badge = STAGE_BADGE[photo.stage];
-        const isRerun =
-          photo.stage !== 'uploaded' && photo.stage !== 'processing';
-        // Blokujemy usuwanie/przenoszenie dopóki trwa vision run — współbieżny
-        // process.ts zapisuje detekcje/koszt do tego wiersza.
-        const isLocked = photo.has_running_run || photo.stage === 'processing';
+          const rowState = rowStates[photo.id] ?? { busy: false, toast: null };
+          const badge = STAGE_BADGE[photo.stage];
+          const isRerun = photo.stage !== 'uploaded' && photo.stage !== 'processing';
+          // Blokujemy usuwanie/przenoszenie dopóki trwa vision run — współbieżny
+          // process.ts zapisuje detekcje/koszt do tego wiersza.
+          const isLocked = photo.has_running_run || photo.stage === 'processing';
 
-        return (
-          <li
-            key={photo.id}
-            data-testid={`photo-item-${photo.id}`}
-            className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:flex-row sm:items-start"
-          >
-            {/* Thumbnail */}
-            <div className="flex-shrink-0">
-              {photo.thumbnail_url ? (
-                <img
-                  src={photo.thumbnail_url}
-                  alt="Miniatura zdjęcia półki"
-                  className="h-16 w-16 rounded object-cover"
-                />
-              ) : (
-                <div
-                  className="flex h-16 w-16 items-center justify-center rounded bg-gray-100 text-gray-400"
-                  aria-hidden="true"
-                >
-                  <svg
-                    width="24"
-                    height="24"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
+          return (
+            <li
+              key={photo.id}
+              data-testid={`photo-item-${photo.id}`}
+              className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-4 shadow-sm sm:flex-row sm:items-start"
+            >
+              {/* Thumbnail — S-28: na mobile (układ kolumnowy) pełna szerokość karty,
+                na sm+ wraca kompaktowy kwadrat obok treści.
+                M10: klik w miniaturę otwiera propozycje (nie tylko przycisk). */}
+              <a
+                href={`/photos/${photo.id}`}
+                data-testid={`photo-thumb-link-${photo.id}`}
+                aria-label="Otwórz propozycje dla tego zdjęcia"
+                className="block flex-shrink-0"
+              >
+                {photo.thumbnail_url ? (
+                  <img
+                    src={photo.thumbnail_url}
+                    alt="Miniatura zdjęcia półki"
+                    className="h-40 w-full rounded object-cover sm:h-16 sm:w-16"
+                  />
+                ) : (
+                  <div
+                    className="flex h-40 w-full items-center justify-center rounded bg-gray-100 text-gray-400 sm:h-16 sm:w-16"
+                    aria-hidden="true"
                   >
-                    <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" />
-                  </svg>
-                </div>
-              )}
-            </div>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z" />
+                    </svg>
+                  </div>
+                )}
+              </a>
 
-            {/* Content */}
-            <div className="min-w-0 flex-1">
-              {/* Stage badge + date */}
-              <div className="mb-1 flex flex-wrap items-center gap-2">
-                <span
-                  data-testid={`stage-badge-${photo.id}`}
-                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${badge.bg}`}
-                >
-                  {photo.stage === 'processing' && (
-                    <span className="inline-block h-2 w-2 animate-spin rounded-full border border-blue-700 border-t-transparent" />
-                  )}
-                  {badge.label}
-                </span>
-                {photo.legacy_no_hash && (
+              {/* Content */}
+              <div className="min-w-0 flex-1">
+                {/* Stage badge + date */}
+                <div className="mb-1 flex flex-wrap items-center gap-2">
                   <span
-                    data-testid={`legacy-hash-badge-${photo.id}`}
-                    title="Wgrane przed wdrożeniem deduplikacji — możliwy duplikat"
-                    className="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800"
+                    data-testid={`stage-badge-${photo.id}`}
+                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${badge.bg}`}
                   >
-                    ⚠ Bez hash
+                    {photo.stage === 'processing' && (
+                      <span className="inline-block h-2 w-2 animate-spin rounded-full border border-blue-700 border-t-transparent" />
+                    )}
+                    {badge.label}
                   </span>
-                )}
-                <span className="text-xs text-gray-400">
-                  {formatDate(photo.created_at)}
-                </span>
-              </div>
+                  {photo.legacy_no_hash && (
+                    <span
+                      data-testid={`legacy-hash-badge-${photo.id}`}
+                      title="Wgrane przed wdrożeniem deduplikacji — możliwy duplikat"
+                      className="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800"
+                    >
+                      ⚠ Bez hash
+                    </span>
+                  )}
+                  <span className="text-xs text-gray-400">{formatDate(photo.created_at)}</span>
+                </div>
 
-              {/* Counters */}
-              <p className="text-xs text-gray-500">
-                {photo.detected_count} wykryto · {photo.matched_count} dopasowano ·{' '}
-                {photo.confirmed_count} zatwierdzono
-              </p>
-
-              {/* Vision run metadata */}
-              {photo.latest_vision_run && (
-                <p className="mt-0.5 text-xs text-gray-400">
-                  {photo.latest_vision_run.model ?? 'vision'} ·{' '}
-                  {relativeTime(photo.latest_vision_run.created_at)}
-                  {photo.latest_vision_run.cost_usd != null &&
-                    ` · $${photo.latest_vision_run.cost_usd.toFixed(4)}`}
+                {/* Counters */}
+                <p className="text-xs text-gray-500">
+                  {photo.detected_count} wykryto · {photo.matched_count} dopasowano ·{' '}
+                  {photo.confirmed_count} zatwierdzono
                 </p>
-              )}
 
-              {/* Per-row toast */}
-              {rowState.toast && (
-                <p
-                  data-testid={`row-toast-${photo.id}`}
-                  className="mt-1 text-xs text-amber-700"
-                  role="alert"
-                >
-                  {rowState.toast}
-                </p>
-              )}
-
-              {/* Action buttons */}
-              <div className="mt-2 flex flex-wrap gap-2">
-                {photo.stage === 'uploaded' && (
-                  <button
-                    data-testid={`run-vision-${photo.id}`}
-                    disabled={rowState.busy}
-                    onClick={() => handleRunVision(photo.id, false)}
-                    className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                  >
-                    {rowState.busy ? 'Uruchamiam...' : 'Uruchom vision'}
-                  </button>
+                {/* Vision run metadata */}
+                {photo.latest_vision_run && (
+                  <p className="mt-0.5 text-xs text-gray-400">
+                    {photo.latest_vision_run.model ?? 'vision'} ·{' '}
+                    {relativeTime(photo.latest_vision_run.created_at)}
+                    {photo.latest_vision_run.cost_usd != null &&
+                      ` · $${photo.latest_vision_run.cost_usd.toFixed(4)}`}
+                  </p>
                 )}
 
-                {isRerun && (
-                  <button
-                    data-testid={`rerun-vision-${photo.id}`}
-                    disabled={rowState.busy}
-                    onClick={() => handleRunVision(photo.id, true)}
-                    className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                {/* Per-row toast */}
+                {rowState.toast && (
+                  <p
+                    data-testid={`row-toast-${photo.id}`}
+                    className="mt-1 text-xs text-amber-700"
+                    role="alert"
                   >
-                    Ponów vision (nowy run)
-                  </button>
+                    {rowState.toast}
+                  </p>
                 )}
 
-                {photo.stage === 'vision_done' && (
-                  <button
-                    data-testid={`run-match-${photo.id}`}
-                    disabled={rowState.busy}
-                    onClick={() => handleRunMatch(photo.id)}
-                    className="inline-flex items-center rounded-md border border-blue-300 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
-                  >
-                    {rowState.busy ? 'Dopasowuję...' : 'Uruchom match'}
-                  </button>
-                )}
+                {/* Action buttons */}
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {photo.stage === 'uploaded' && (
+                    <button
+                      data-testid={`run-vision-${photo.id}`}
+                      disabled={rowState.busy}
+                      onClick={() => handleRunVision(photo.id, false)}
+                      className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      {rowState.busy ? 'Uruchamiam...' : 'Uruchom vision'}
+                    </button>
+                  )}
 
-                {(photo.stage === 'match_done' || photo.stage === 'confirmed') && (
-                  <button
-                    data-testid={`rerun-match-${photo.id}`}
-                    disabled={rowState.busy}
-                    onClick={() => handleRunMatch(photo.id)}
-                    className="inline-flex items-center rounded-md border border-blue-300 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
-                  >
-                    {rowState.busy ? 'Dopasowuję...' : 'Ponów match'}
-                  </button>
-                )}
+                  {isRerun && (
+                    <button
+                      data-testid={`rerun-vision-${photo.id}`}
+                      disabled={rowState.busy}
+                      onClick={() => handleRunVision(photo.id, true)}
+                      className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      Ponów vision (nowy run)
+                    </button>
+                  )}
 
-                <a
-                  href={`/photos/${photo.id}`}
-                  data-testid={`open-review-${photo.id}`}
-                  className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                >
-                  {isRerun ? 'Otwórz review' : 'Otwórz'}
-                </a>
+                  {photo.stage === 'vision_done' && (
+                    <button
+                      data-testid={`run-match-${photo.id}`}
+                      disabled={rowState.busy}
+                      onClick={() => handleRunMatch(photo.id)}
+                      className="inline-flex items-center rounded-md border border-blue-300 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+                    >
+                      {rowState.busy ? 'Dopasowuję...' : 'Uruchom match'}
+                    </button>
+                  )}
 
-                {/* Przenieś na inną półkę (PATCH shelf_id) */}
-                {otherShelves.length > 0 && (
-                  <select
-                    data-testid={`move-photo-${photo.id}`}
-                    disabled={isLocked}
-                    value=""
-                    onChange={(e) => void movePhoto(photo.id, e.target.value)}
-                    title={isLocked ? 'Trwa analiza, poczekaj na zakończenie' : 'Przenieś na inną półkę'}
-                    className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-900 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                  {(photo.stage === 'match_done' || photo.stage === 'confirmed') && (
+                    <button
+                      data-testid={`rerun-match-${photo.id}`}
+                      disabled={rowState.busy}
+                      onClick={() => handleRunMatch(photo.id)}
+                      className="inline-flex items-center rounded-md border border-blue-300 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+                    >
+                      {rowState.busy ? 'Dopasowuję...' : 'Ponów match'}
+                    </button>
+                  )}
+
+                  <a
+                    href={`/photos/${photo.id}`}
+                    data-testid={`open-review-${photo.id}`}
+                    className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
                   >
-                    <option value="" disabled>
-                      Przenieś na…
-                    </option>
-                    {otherShelves.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
+                    {isRerun ? 'Otwórz review' : 'Otwórz'}
+                  </a>
+
+                  {/* Przenieś na inną półkę (PATCH shelf_id) */}
+                  {otherShelves.length > 0 && (
+                    <select
+                      data-testid={`move-photo-${photo.id}`}
+                      disabled={isLocked}
+                      value=""
+                      onChange={(e) => void movePhoto(photo.id, e.target.value)}
+                      title={
+                        isLocked
+                          ? 'Trwa analiza, poczekaj na zakończenie'
+                          : 'Przenieś na inną półkę'
+                      }
+                      className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-900 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+                    >
+                      <option value="" disabled>
+                        Przenieś na…
                       </option>
-                    ))}
-                  </select>
-                )}
+                      {otherShelves.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
 
-                {/* Usuń zdjęcie */}
-                <button
-                  data-testid={`delete-photo-${photo.id}`}
-                  disabled={isLocked}
-                  onClick={() => setPendingDeletePhotoId(photo.id)}
-                  title={isLocked ? 'Trwa analiza, poczekaj na zakończenie' : 'Usuń zdjęcie'}
-                  className="inline-flex items-center rounded-md border border-red-300 bg-white px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
-                >
-                  Usuń
-                </button>
+                  {/* Usuń zdjęcie */}
+                  <button
+                    data-testid={`delete-photo-${photo.id}`}
+                    disabled={isLocked}
+                    onClick={() => setPendingDeletePhotoId(photo.id)}
+                    title={isLocked ? 'Trwa analiza, poczekaj na zakończenie' : 'Usuń zdjęcie'}
+                    className="inline-flex items-center rounded-md border border-red-300 bg-white px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+                  >
+                    Usuń
+                  </button>
+                </div>
               </div>
-            </div>
-          </li>
-        );
+            </li>
+          );
         })}
       </ul>
 
