@@ -315,32 +315,32 @@ Patrz Phase 3. Kluczowe edge case'y:
 
 #### Automated
 
-- [x] 1.1 npm run typecheck — brak błędów TypeScript
-- [x] 1.2 npm run lint — brak lint errors
-- [x] 1.3 npm run test — istniejące unit testy zielone
+- [x] 1.1 npm run typecheck — brak błędów TypeScript — 4fdc30f
+- [x] 1.2 npm run lint — brak lint errors — 4fdc30f
+- [x] 1.3 npm run test — istniejące unit testy zielone — 4fdc30f
 
 #### Manual
 
-- [x] 1.4 Widoczne dwa przyciski: „Wybierz plik" i „Zrób zdjęcie"
-- [x] 1.5 Kliknięcie „Zrób zdjęcie" na desktop otwiera file picker
-- [x] 1.6 input[capture="environment"] obecny w DOM
+- [x] 1.4 Widoczne dwa przyciski: „Wybierz plik" i „Zrób zdjęcie" — 4fdc30f
+- [x] 1.5 Kliknięcie „Zrób zdjęcie" na desktop otwiera file picker — 4fdc30f
+- [x] 1.6 input[capture="environment"] obecny w DOM — 4fdc30f
 
 ### Phase 2: Desktop Camera (getUserMedia + CameraPreview)
 
 #### Automated
 
-- [ ] 2.1 npm run typecheck — brak błędów TypeScript
-- [ ] 2.2 npm run lint — brak lint errors
-- [ ] 2.3 npm run test — istniejące unit testy zielone
+- [x] 2.1 npm run typecheck — brak błędów TypeScript
+- [x] 2.2 npm run lint — brak lint errors
+- [x] 2.3 npm run test — istniejące unit testy zielone
 
 #### Manual
 
-- [ ] 2.4 Desktop Chrome: „Zrób zdjęcie" → inline podgląd kamery
-- [ ] 2.5 Po akceptacji uprawnienia: live video widoczny
-- [ ] 2.6 Capture → file pojawia się w pipeline (Wgrywanie...)
-- [ ] 2.7 Odmowa uprawnienia → komunikat błędu inline
-- [ ] 2.8 „Anuluj" zamyka podgląd bez uploadu
-- [ ] 2.9 Wskaźnik kamery gaśnie po zamknięciu
+- [x] 2.4 Desktop Chrome: „Zrób zdjęcie" → inline podgląd kamery
+- [x] 2.5 Po akceptacji uprawnienia: live video widoczny
+- [x] 2.6 Capture → file pojawia się w pipeline (Wgrywanie...)
+- [x] 2.7 Odmowa uprawnienia → komunikat błędu inline
+- [x] 2.8 „Anuluj" zamyka podgląd bez uploadu
+- [x] 2.9 Wskaźnik kamery gaśnie po zamknięciu
 
 ### Phase 3: E2E Tests
 

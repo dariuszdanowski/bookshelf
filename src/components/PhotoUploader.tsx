@@ -5,6 +5,7 @@ import { makeThumbnailBlob } from '../lib/images/browserThumb';
 import type { PhotoDTO } from '../lib/photos/schema';
 import { THUMB_SUFFIX } from '../lib/photos/thumb';
 import type { ShelfDTO } from '../lib/shelves/schema';
+import CameraPreview from './CameraPreview';
 import Skeleton from './Skeleton';
 
 type UploadStage =
@@ -54,8 +55,17 @@ export default function PhotoUploader({
   // S-36: „Analizuj od razu" — odznaczone = upload kończy się na status='uploaded'
   // (zero wywołań vision/match = zero kosztu); analiza ręcznie z taba Zdjęcia.
   const [autoProcess, setAutoProcess] = useState(true);
+  const [supportsDesktopCamera, setSupportsDesktopCamera] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  // Feature detection po hydratacji — navigator.mediaDevices nie istnieje w SSR.
+  useEffect(() => {
+    setSupportsDesktopCamera(
+      typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia,
+    );
+  }, []);
 
   // Preferencja persystowana — odczyt po mount (hydration-safe).
   useEffect(() => {
@@ -325,6 +335,18 @@ export default function PhotoUploader({
     [handleFile],
   );
 
+  const handleCameraCapture = useCallback(
+    (file: File) => {
+      setCameraOpen(false);
+      void handleFile(file);
+    },
+    [handleFile],
+  );
+
+  const handleCameraCancel = useCallback(() => {
+    setCameraOpen(false);
+  }, []);
+
   const handleCancelDuplicate = useCallback(() => {
     setDuplicatePhotoId(null);
     setDuplicateCreatedAt(null);
@@ -477,7 +499,13 @@ export default function PhotoUploader({
             <button
               type="button"
               data-testid="camera-capture-btn"
-              onClick={() => cameraInputRef.current?.click()}
+              onClick={() => {
+                if (supportsDesktopCamera) {
+                  setCameraOpen(true);
+                } else {
+                  cameraInputRef.current?.click();
+                }
+              }}
               className="flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
             >
               Zrób zdjęcie
@@ -492,6 +520,9 @@ export default function PhotoUploader({
             data-testid="camera-input"
             onChange={handleFileInputChange}
           />
+          {cameraOpen && (
+            <CameraPreview onCapture={handleCameraCapture} onCancel={handleCameraCancel} />
+          )}
         </>
       )}
 
