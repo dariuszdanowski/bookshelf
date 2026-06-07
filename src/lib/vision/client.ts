@@ -20,6 +20,8 @@ export type VisionProviderConfig = {
   apiKey: string;
   model?: string | null;
   baseUrl?: string | null;
+  /** M27: id klucza (user_api_keys.id) do atrybucji kosztów per klucz */
+  keyId?: string | null;
 };
 
 async function makeClient(apiKey: string) {
@@ -33,7 +35,7 @@ export type VisionResult =
 
 function buildUserContent(
   base64: string,
-  mediaType: 'image/jpeg' | 'image/png' | 'image/webp'
+  mediaType: 'image/jpeg' | 'image/png' | 'image/webp',
 ): Anthropic.MessageParam['content'] {
   return [
     { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
@@ -43,11 +45,14 @@ function buildUserContent(
 
 function buildRefineUserContent(
   base64: string,
-  mediaType: 'image/jpeg' | 'image/png' | 'image/webp'
+  mediaType: 'image/jpeg' | 'image/png' | 'image/webp',
 ): Anthropic.MessageParam['content'] {
   return [
     { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
-    { type: 'text', text: 'To jest crop pojedynczego grzbietu. Zwróć jedną najlepszą propozycję albo [].' },
+    {
+      type: 'text',
+      text: 'To jest crop pojedynczego grzbietu. Zwróć jedną najlepszą propozycję albo [].',
+    },
   ];
 }
 
@@ -67,12 +72,15 @@ function calcCost(usage: { input_tokens: number; output_tokens: number }): numbe
 
 // Claude wraps JSON in markdown code fences despite prompt instructions — strip before parsing
 export function stripCodeFences(text: string): string {
-  return text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+  return text
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```\s*$/, '')
+    .trim();
 }
 
 function tryParseDetections(
   text: string,
-  attempt: 'first' | 'retry'
+  attempt: 'first' | 'retry',
 ): { ok: true; data: Detection[] } | { ok: false } {
   console.log(`[vision:raw-response:${attempt}]`, text);
   try {
@@ -93,7 +101,7 @@ async function detectSpinesOpenAICompat(
   input: { base64: string; mediaType: 'image/jpeg' | 'image/png' | 'image/webp' },
   config: VisionProviderConfig,
   systemPrompt: string,
-  userText: string
+  userText: string,
 ): Promise<{ ok: true; text: string } | { ok: false }> {
   const baseUrl = config.baseUrl ?? 'https://api.openai.com';
   const model = config.model ?? DEFAULT_OPENAI_COMPAT_MODEL;
@@ -138,7 +146,7 @@ async function detectSpinesOpenAICompat(
 
 export async function detectSpines(
   input: { base64: string; mediaType: 'image/jpeg' | 'image/png' | 'image/webp' },
-  config: VisionProviderConfig
+  config: VisionProviderConfig,
 ): Promise<VisionResult> {
   const start = Date.now();
 
@@ -147,7 +155,7 @@ export async function detectSpines(
       input,
       config,
       VISION_SYSTEM_PROMPT,
-      'Wymień książki na zdjęciu.'
+      'Wymień książki na zdjęciu.',
     );
     const latencyMs = Date.now() - start;
     if (!result.ok) return { ok: false, reason: 'parse_failure', latencyMs };
@@ -238,7 +246,7 @@ export type RefineVisionResult =
 
 export async function detectSingleSpineFromCrop(
   input: { base64: string; mediaType: 'image/jpeg' | 'image/png' | 'image/webp' },
-  config: VisionProviderConfig
+  config: VisionProviderConfig,
 ): Promise<RefineVisionResult> {
   const start = Date.now();
 
@@ -247,12 +255,13 @@ export async function detectSingleSpineFromCrop(
       input,
       config,
       REFINE_VISION_SYSTEM_PROMPT,
-      'To jest crop pojedynczego grzbietu. Zwróć jedną najlepszą propozycję albo [].'
+      'To jest crop pojedynczego grzbietu. Zwróć jedną najlepszą propozycję albo [].',
     );
     const latencyMs = Date.now() - start;
     if (!result.ok) return { ok: false, reason: 'parse_failure', latencyMs };
     const parsed = tryParseDetections(result.text, 'first');
-    if (!parsed.ok || parsed.data.length === 0) return { ok: false, reason: 'parse_failure', latencyMs };
+    if (!parsed.ok || parsed.data.length === 0)
+      return { ok: false, reason: 'parse_failure', latencyMs };
     return {
       ok: true,
       detection: parsed.data[0],

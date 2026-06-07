@@ -22,16 +22,59 @@ async function setupRoutes(page: Page) {
   await page.route(PHOTO_URL, async (route) => {
     if (route.request().method() !== 'GET') return route.fallback();
     await route.fulfill({
-      status: 200, contentType: 'application/json',
+      status: 200,
+      contentType: 'application/json',
       body: JSON.stringify({
         data: {
-          photo: { id: PHOTO_ID, shelf_id: SHELF_ID, status: 'processed', detected_count: 2, error_message: null, vision_cost_usd: 0.015, vision_latency_ms: 3200, created_at: '2026-06-01T10:00:00Z' },
+          photo: {
+            id: PHOTO_ID,
+            shelf_id: SHELF_ID,
+            status: 'processed',
+            detected_count: 2,
+            error_message: null,
+            vision_cost_usd: 0.015,
+            vision_latency_ms: 3200,
+            created_at: '2026-06-01T10:00:00Z',
+          },
           photo_url: TINY_GIF,
           detections: [
-            { id: DET_1_ID, position_index: 1, raw_title: 'Solaris', raw_author: 'Lem', vision_confidence: 0.95, spine_color: null, bbox: { x1: 0.05, y1: 0.02, x2: 0.15, y2: 0.35 }, status: 'matched', candidates: [], duplicate: null },
-            { id: DET_2_ID, position_index: 2, raw_title: 'Lalka', raw_author: 'Prus', vision_confidence: 0.88, spine_color: null, bbox: { x1: 0.25, y1: 0.02, x2: 0.4, y2: 0.35 }, status: 'matched', candidates: [], duplicate: null },
+            // M26: det #1 ma koszt OCR → przycisk $ z etykietą wartości
+            {
+              id: DET_1_ID,
+              position_index: 1,
+              raw_title: 'Solaris',
+              raw_author: 'Lem',
+              vision_confidence: 0.95,
+              spine_color: null,
+              bbox: { x1: 0.05, y1: 0.02, x2: 0.15, y2: 0.35 },
+              status: 'matched',
+              candidates: [],
+              duplicate: null,
+              refine_cost_usd: 0.0031,
+            },
+            {
+              id: DET_2_ID,
+              position_index: 2,
+              raw_title: 'Lalka',
+              raw_author: 'Prus',
+              vision_confidence: 0.88,
+              spine_color: null,
+              bbox: { x1: 0.25, y1: 0.02, x2: 0.4, y2: 0.35 },
+              status: 'matched',
+              candidates: [],
+              duplicate: null,
+              refine_cost_usd: 0,
+            },
           ],
-          vision_run: { id: 'vr-1', model: 'claude-sonnet-4-6', created_at: '2026-06-01T10:00:00Z', cost_usd: 0.015, latency_ms: 3200 },
+          vision_run: {
+            id: 'vr-1',
+            model: 'claude-sonnet-4-6',
+            created_at: '2026-06-01T10:00:00Z',
+            cost_usd: 0.015,
+            latency_ms: 3200,
+          },
+          // M26: pełna suma (vision 0.015 + refine 0.0031) — etykieta przycisku
+          costs_total_usd: 0.0181,
         },
       }),
     });
@@ -40,16 +83,38 @@ async function setupRoutes(page: Page) {
   await page.route(COSTS_URL, async (route) => {
     if (route.request().method() !== 'GET') return route.fallback();
     await route.fulfill({
-      status: 200, contentType: 'application/json',
+      status: 200,
+      contentType: 'application/json',
       body: JSON.stringify({
         data: {
           vision_runs: [
-            { id: 'vr-1', model: 'claude-sonnet-4-6', cost_usd: 0.0150, latency_ms: 3200, status: 'completed', created_at: '2026-06-01T10:00:00Z' },
+            {
+              id: 'vr-1',
+              model: 'claude-sonnet-4-6',
+              cost_usd: 0.015,
+              latency_ms: 3200,
+              status: 'completed',
+              created_at: '2026-06-01T10:00:00Z',
+            },
           ],
           refine_calls: [
-            { id: 'rc-1', detection_id: DET_1_ID, position_index: 1, raw_title: 'Solaris', model: 'claude-sonnet-4-6', cost_usd: 0.0031, latency_ms: 1800, created_at: '2026-06-01T10:05:00Z' },
+            {
+              id: 'rc-1',
+              detection_id: DET_1_ID,
+              position_index: 1,
+              raw_title: 'Solaris',
+              model: 'claude-sonnet-4-6',
+              cost_usd: 0.0031,
+              latency_ms: 1800,
+              created_at: '2026-06-01T10:05:00Z',
+            },
           ],
-          totals: { vision_cost_usd: 0.0150, refine_cost_usd: 0.0031, grand_total_usd: 0.0181, call_count: 2 },
+          totals: {
+            vision_cost_usd: 0.015,
+            refine_cost_usd: 0.0031,
+            grand_total_usd: 0.0181,
+            call_count: 2,
+          },
         },
       }),
     });
@@ -63,17 +128,35 @@ test.describe('cost-panel', () => {
     await expect(page.getByTestId('detection-review')).toBeVisible();
   });
 
-  // ── Ikona $ w toolbarze overlay ───────────────────────────────────────────
+  // ── Przycisk kosztów w panelu vision-run (M26) ───────────────────────────
 
-  test('ikona $ w overlay toolbar jest widoczna', async ({ page }) => {
-    await expect(page.getByTestId('cost-button-photo')).toBeVisible();
+  test('przycisk kosztów jest widoczny i pokazuje PEŁNĄ sumę (vision+OCR) jako etykietę', async ({
+    page,
+  }) => {
+    const btn = page.getByTestId('cost-button-photo');
+    await expect(btn).toBeVisible();
+    // M26: etykieta = costs_total_usd (0.015 vision + 0.0031 refine), NIE koszt
+    // ostatniego runa; spójna z sumą w dropdownie
+    await expect(btn).toHaveText(/\$0\.0181/);
+    // przycisk żyje w panelu vision-run pod zdjęciem, nie w toolbarze overlay
+    await expect(
+      page.getByTestId('vision-run-panel').getByTestId('cost-button-photo'),
+    ).toBeVisible();
+  });
+
+  test('M26: det z kosztem OCR ma wartość na przycisku; bez OCR — sama ikona', async ({ page }) => {
+    await expect(page.getByTestId(`cost-button-det-${DET_1_ID}`)).toHaveText(/\$0\.0031/);
+    await expect(page.getByTestId(`cost-button-det-${DET_2_ID}`)).not.toHaveText(/\$0\./);
   });
 
   test('klik $ w overlay otwiera panel z vision run i sumą', async ({ page }) => {
     await page.getByTestId('cost-button-photo').click();
 
     // Panel widoczny
-    const panel = page.locator('[data-testid="cost-button-photo"]').locator('..').locator('div.absolute');
+    const panel = page
+      .locator('[data-testid="cost-button-photo"]')
+      .locator('..')
+      .locator('div.absolute');
     await expect(panel).toBeVisible();
 
     // Zawiera Vision run
@@ -87,7 +170,10 @@ test.describe('cost-panel', () => {
 
   test('drugi klik $ zamyka panel', async ({ page }) => {
     await page.getByTestId('cost-button-photo').click();
-    const panel = page.locator('[data-testid="cost-button-photo"]').locator('..').locator('div.absolute');
+    const panel = page
+      .locator('[data-testid="cost-button-photo"]')
+      .locator('..')
+      .locator('div.absolute');
     await expect(panel).toBeVisible();
 
     await page.getByTestId('cost-button-photo').click();
@@ -129,7 +215,10 @@ test.describe('cost-panel', () => {
 
   test('klik poza panelem zamyka go', async ({ page }) => {
     await page.getByTestId('cost-button-photo').click();
-    const panel = page.locator('[data-testid="cost-button-photo"]').locator('..').locator('div.absolute');
+    const panel = page
+      .locator('[data-testid="cost-button-photo"]')
+      .locator('..')
+      .locator('div.absolute');
     await expect(panel).toBeVisible();
 
     // Klik poza panelem

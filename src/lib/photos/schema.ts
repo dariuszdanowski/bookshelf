@@ -74,6 +74,9 @@ export type PhotoListItemDTO = {
   // true gdy `file_hash_sha256 IS NULL` — zdjęcie wgrane przed wdrożeniem
   // deduplikacji (S-16). Surowego hash NIE eksponujemy.
   legacy_no_hash: boolean;
+  /** M26: pełny koszt AI zdjęcia (wszystkie vision_runs + refine_calls);
+   *  null gdy suma niedostępna (degrade) — UI fallbackuje do latest runu. */
+  total_cost_usd?: number | null;
 };
 
 export type ShelfPhotosResponse = {
@@ -91,4 +94,6 @@ export type DetectionWithCandidatesDTO = {
   status: string;
   candidates: BookCandidateDTO[];
   duplicate: { type: 'exact' | 'edition'; shelfHint?: string } | null;
+  /** M26: suma kosztów OCR (refine) tej detekcji — etykieta przycisku $ */
+  refine_cost_usd?: number;
 };

@@ -408,20 +408,32 @@ export const POST: APIRoute = async ({ params, locals }) => {
   }
 
   // Persist refine call cost — non-blocking (failure doesn't abort response)
+  // M27: api_key_id = atrybucja per klucz; defensywny retry bez kolumny
+  // (PGRST204) dopóki migracja 0020 nie dotrze na prod (deploy po merge).
+  const baseRefineInsert = {
+    user_id: locals.user.id,
+    photo_id: detection.photo_id,
+    detection_id: detection.id,
+    model: refined.model,
+    cost_usd: refined.costUsd,
+    latency_ms: refined.latencyMs,
+  };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (locals.supabase as any)
+  void (locals.supabase as any)
     .from('refine_calls')
-    .insert({
-      user_id: locals.user.id,
-      photo_id: detection.photo_id,
-      detection_id: detection.id,
-      model: refined.model,
-      cost_usd: refined.costUsd,
-      latency_ms: refined.latencyMs,
-    })
-    .then(({ error }: { error: { message: string } | null }) => {
-      if (error)
+    .insert({ ...baseRefineInsert, api_key_id: providerConfig.keyId ?? null })
+    .then(async ({ error }: { error: { code?: string; message: string } | null }) => {
+      if (error?.code === 'PGRST204') {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const retry = await (locals.supabase as any).from('refine_calls').insert(baseRefineInsert);
+        if (retry.error)
+          console.error(
+            '[api/detections/refine POST] refine_calls insert failed',
+            retry.error.message,
+          );
+      } else if (error) {
         console.error('[api/detections/refine POST] refine_calls insert failed', error.message);
+      }
     });
 
   return apiResponse({

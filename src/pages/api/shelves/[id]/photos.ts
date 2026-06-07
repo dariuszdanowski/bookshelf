@@ -134,6 +134,43 @@ export const GET: APIRoute = async ({ params, locals }) => {
     }
   }
 
+  // M26: pełny koszt per zdjęcie (WSZYSTKIE vision_runs + refine_calls — suma
+  // spójna z dropdownem CostPanel). Best-effort: błąd → null, UI degraduje.
+  const totalCostByPhoto = new Map<string, number>();
+  let costsAvailable = false;
+  try {
+    const [allRunsRes, refineRes] = await Promise.all([
+      locals.supabase.from('vision_runs').select('photo_id, cost_usd').in('photo_id', photoIds),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (locals.supabase as any)
+        .from('refine_calls')
+        .select('photo_id, cost_usd')
+        .in('photo_id', photoIds) as Promise<{
+        data: Array<{ photo_id: string; cost_usd: number | null }> | null;
+        error: { message: string } | null;
+      }>,
+    ]);
+    if (!allRunsRes.error) {
+      costsAvailable = true;
+      for (const r of allRunsRes.data ?? []) {
+        totalCostByPhoto.set(
+          r.photo_id,
+          (totalCostByPhoto.get(r.photo_id) ?? 0) + (r.cost_usd ?? 0),
+        );
+      }
+      for (const rc of refineRes.data ?? []) {
+        totalCostByPhoto.set(
+          rc.photo_id,
+          (totalCostByPhoto.get(rc.photo_id) ?? 0) + (rc.cost_usd ?? 0),
+        );
+      }
+    }
+  } catch (err) {
+    console.warn('[api/shelves/photos GET] costs total unavailable', {
+      message: err instanceof Error ? err.message : String(err),
+    });
+  }
+
   // Batch: running runs younger than 5 min (for 'processing' stage)
   const { data: runningRuns } = await locals.supabase
     .from('vision_runs')
@@ -236,6 +273,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
         : null,
       has_running_run: hasRunning,
       legacy_no_hash: p.file_hash_sha256 == null,
+      total_cost_usd: costsAvailable ? (totalCostByPhoto.get(p.id) ?? 0) : null,
     };
   });
 

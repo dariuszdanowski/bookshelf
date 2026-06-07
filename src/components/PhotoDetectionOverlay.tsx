@@ -1,9 +1,8 @@
-import { useEffect, useRef, useState, type PointerEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react';
 
 import { classifyCropQuality } from '../lib/matching/fallbackPolicy';
 import type { BboxCoords, BboxEditSet, DetectionWithCandidatesDTO } from '../lib/photos/schema';
 import ConfirmDialog from './ConfirmDialog';
-import CostPanel from './CostPanel';
 // M23: trigger lightboxa wyłączony na życzenie usera (2026-06-07) — zoom/pan +
 // pinch na miejscu wystarczają. Komponent PhotoLightbox + jego testy zostają
 // w repo (wyłącz, nie kasuj); przywrócenie = re-import + onClick na <img>.
@@ -108,15 +107,6 @@ type Props = {
   onApplyEdits?: (changes: BboxEditSet) => Promise<void>;
   onMarkerContextMenu?: (detectionId: string) => void;
   onSaveSingleBbox?: (detectionId: string, bbox: BboxCoords) => Promise<void>;
-  photoId?: string;
-  visionRun?: {
-    id: string;
-    model: string | null;
-    cost_usd: number | null;
-    latency_ms: number | null;
-    status?: string;
-    created_at: string;
-  } | null;
 };
 
 export default function PhotoDetectionOverlay({
@@ -129,13 +119,16 @@ export default function PhotoDetectionOverlay({
   onApplyEdits,
   onMarkerContextMenu,
   onSaveSingleBbox,
-  photoId,
-  visionRun,
 }: Props) {
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgError, setImgError] = useState(false);
   const [showBoxes, setShowBoxes] = useState(true);
   const [zoom, setZoom] = useState(1);
+  // M24: bazowa skala "fit-to-container" — zoom=1 to CAŁE zdjęcie w oknie
+  // (contain), nie fit-to-width. Dla poziomych zdjęć półek fitScale=1 (bez
+  // zmiany zachowania); dla pionowych (pojedyncza książka z telefonu) <1,
+  // żeby portret nie renderował się ~3× wyżej niż okno na desktopie.
+  const [fitScale, setFitScale] = useState(1);
   const [hoveredDetId, setHoveredDetId] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -183,6 +176,8 @@ export default function PhotoDetectionOverlay({
   // obsługujemy go sami: mapa aktywnych pointerów + dystans/zoom startowy.
   const pointersRef = useRef(new Map<number, { x: number; y: number }>());
   const pinchRef = useRef<{ startDist: number; startZoom: number } | null>(null);
+  // M24: naturalne wymiary obrazu (z onLoad) do przeliczania fitScale przy resize
+  const naturalDimsRef = useRef<{ w: number; h: number } | null>(null);
 
   useEffect(() => {
     zoomRef.current = zoom;
@@ -232,6 +227,27 @@ export default function PhotoDetectionOverlay({
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
   }, []);
+
+  // M24: fitScale = ułamek szerokości okna, przy którym całe zdjęcie mieści
+  // się w max-height kontenera (contain). 1 dla poziomych zdjęć półek.
+  const recomputeFitScale = useCallback(() => {
+    const viewport = wheelViewportRef.current;
+    const dims = naturalDimsRef.current;
+    if (!viewport || !dims || !dims.w || !dims.h) return;
+    const styles = getComputedStyle(viewport);
+    const padX = parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight);
+    const padY = parseFloat(styles.paddingTop) + parseFloat(styles.paddingBottom);
+    const availW = viewport.clientWidth - padX;
+    const maxH = parseFloat(styles.maxHeight) - padY;
+    if (!availW || !Number.isFinite(maxH) || maxH <= 0) return;
+    const fitW = Math.min(availW, maxH * (dims.w / dims.h));
+    setFitScale(Math.min(1, fitW / availW));
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('resize', recomputeFitScale);
+    return () => window.removeEventListener('resize', recomputeFitScale);
+  }, [recomputeFitScale]);
 
   if (!photoUrl) return null;
   const resolvedPhotoUrl = photoUrl;
@@ -894,8 +910,8 @@ export default function PhotoDetectionOverlay({
     return (
       <div
         ref={imgContainerRef}
-        className="relative block"
-        style={{ width: `${zoom * 100}%`, minWidth: '100%' }}
+        className="relative mx-auto block"
+        style={{ width: `${zoom * fitScale * 100}%` }}
       >
         <img
           src={resolvedPhotoUrl}
@@ -904,7 +920,13 @@ export default function PhotoDetectionOverlay({
           className="block h-auto w-full select-none"
           onLoad={
             withLoadHandlers
-              ? () => {
+              ? (e) => {
+                  // M24: zapamiętaj proporcje i policz bazowy fit (contain)
+                  naturalDimsRef.current = {
+                    w: e.currentTarget.naturalWidth,
+                    h: e.currentTarget.naturalHeight,
+                  };
+                  recomputeFitScale();
                   setImgLoaded(true);
                   setImgError(false);
                 }
@@ -926,100 +948,99 @@ export default function PhotoDetectionOverlay({
     );
   }
 
+  // M25: pasek sterujący pływa NAD zdjęciem (lewy górny róg kontenera) zamiast
+  // nad nim w flow — mniej pionowego miejsca, kontrolki przy treści. Jest
+  // SIBLING-iem viewportu (nie dzieckiem), więc klik nie startuje pan/draw.
+  const toolbar = (
+    <div className="absolute top-2 left-2 z-20 flex max-w-[calc(100%-1rem)] flex-wrap gap-2">
+      {isEditing ? (
+        <>
+          <button
+            type="button"
+            data-testid="apply-bbox-edits-button"
+            disabled={applyBusy}
+            onClick={() => void handleApply()}
+            className="rounded border border-green-600 bg-green-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
+          >
+            {applyBusy ? 'Zapisuję...' : 'Zastosuj zmiany'}
+          </button>
+          <button
+            type="button"
+            data-testid="cancel-bbox-edits-button"
+            disabled={applyBusy}
+            onClick={() => {
+              if (hasUnsavedChanges()) {
+                setConfirmCancelOpen(true);
+              } else {
+                onEditingChange?.(false);
+              }
+            }}
+            className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            Anuluj
+          </button>
+        </>
+      ) : (
+        <>
+          <button
+            type="button"
+            data-testid="edit-bboxes-button"
+            onClick={() => onEditingChange?.(true)}
+            className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Edytuj ramki
+          </button>
+          {/* M26: CostPanel ($) przeniesiony do panelu vision-run pod zdjęciem
+              (DetectionReview) — koszt jest etykietą przycisku, nie ikoną tutaj. */}
+          <button
+            type="button"
+            data-testid="toggle-bboxes-button"
+            onClick={() => setShowBoxes((v) => !v)}
+            className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+          >
+            {showBoxes ? 'Ukryj ramki' : 'Pokaż ramki'}
+          </button>
+          {focusedDetectionId && onClearFocus && (
+            <button
+              type="button"
+              data-testid="clear-focus-button"
+              onClick={onClearFocus}
+              className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Pokaż wszystkie detekcje
+            </button>
+          )}
+          <button
+            type="button"
+            data-testid="zoom-out-button"
+            onClick={() => changeZoom(zoom - 0.25)}
+            className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+          >
+            -
+          </button>
+          <button
+            type="button"
+            data-testid="zoom-reset-button"
+            onClick={() => setZoom(1)}
+            className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+          >
+            {Math.round(zoom * 100)}%
+          </button>
+          <button
+            type="button"
+            data-testid="zoom-in-button"
+            onClick={() => changeZoom(zoom + 0.25)}
+            className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+          >
+            +
+          </button>
+        </>
+      )}
+    </div>
+  );
+
   return (
     <div data-testid="photo-overlay" className="mb-4">
-      <div className="mb-2 flex flex-wrap gap-2">
-        {isEditing ? (
-          <>
-            <button
-              type="button"
-              data-testid="apply-bbox-edits-button"
-              disabled={applyBusy}
-              onClick={() => void handleApply()}
-              className="rounded border border-green-600 bg-green-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
-            >
-              {applyBusy ? 'Zapisuję...' : 'Zastosuj zmiany'}
-            </button>
-            <button
-              type="button"
-              data-testid="cancel-bbox-edits-button"
-              disabled={applyBusy}
-              onClick={() => {
-                if (hasUnsavedChanges()) {
-                  setConfirmCancelOpen(true);
-                } else {
-                  onEditingChange?.(false);
-                }
-              }}
-              className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-            >
-              Anuluj
-            </button>
-          </>
-        ) : (
-          <>
-            <button
-              type="button"
-              data-testid="edit-bboxes-button"
-              onClick={() => onEditingChange?.(true)}
-              className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-            >
-              Edytuj ramki
-            </button>
-            {photoId && (
-              <CostPanel
-                photoId={photoId}
-                preloadedVisionRun={
-                  visionRun ? { ...visionRun, status: visionRun.status ?? 'completed' } : undefined
-                }
-              />
-            )}
-            <button
-              type="button"
-              data-testid="toggle-bboxes-button"
-              onClick={() => setShowBoxes((v) => !v)}
-              className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-            >
-              {showBoxes ? 'Ukryj ramki' : 'Pokaż ramki'}
-            </button>
-            {focusedDetectionId && onClearFocus && (
-              <button
-                type="button"
-                data-testid="clear-focus-button"
-                onClick={onClearFocus}
-                className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Pokaż wszystkie detekcje
-              </button>
-            )}
-            <button
-              type="button"
-              data-testid="zoom-out-button"
-              onClick={() => changeZoom(zoom - 0.25)}
-              className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-            >
-              -
-            </button>
-            <button
-              type="button"
-              data-testid="zoom-reset-button"
-              onClick={() => setZoom(1)}
-              className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-            >
-              {Math.round(zoom * 100)}%
-            </button>
-            <button
-              type="button"
-              data-testid="zoom-in-button"
-              onClick={() => changeZoom(zoom + 0.25)}
-              className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-            >
-              +
-            </button>
-          </>
-        )}
-      </div>
-
       {!isEditing && withBbox.length > 0 && (
         <div className="mb-2 space-y-0.5 text-xs text-gray-400">
           <p>Numery ramek odpowiadają pozycjom (#N) na liście poniżej.</p>
@@ -1041,17 +1062,22 @@ export default function PhotoDetectionOverlay({
         </div>
       )}
 
-      <div
-        ref={wheelViewportRef}
-        data-testid="photo-overlay-viewport"
-        onPointerDown={handleContainerPointerDown}
-        onPointerMove={handleContainerPointerMove}
-        onPointerUp={handleContainerPointerUp}
-        onPointerCancel={handleContainerPointerUp}
-        className={`scrollbar-hidden max-h-[72vh] w-full overflow-auto rounded-lg border border-gray-200 bg-gray-100 p-3 select-none ${isEditing ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'}`}
-        style={{ touchAction: 'none' }}
-      >
-        {renderPhotoLayer(true)}
+      {/* M25: relative wrapper — toolbar pływa nad viewportem (sibling, nie
+          dziecko: klik w przyciski nie odpala pan/draw na viewporcie) */}
+      <div className="relative">
+        <div
+          ref={wheelViewportRef}
+          data-testid="photo-overlay-viewport"
+          onPointerDown={handleContainerPointerDown}
+          onPointerMove={handleContainerPointerMove}
+          onPointerUp={handleContainerPointerUp}
+          onPointerCancel={handleContainerPointerUp}
+          className={`scrollbar-hidden max-h-[72vh] w-full overflow-auto rounded-lg border border-gray-200 bg-gray-100 p-3 select-none ${isEditing ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'}`}
+          style={{ touchAction: 'none' }}
+        >
+          {renderPhotoLayer(true)}
+        </div>
+        {toolbar}
       </div>
 
       <ConfirmDialog

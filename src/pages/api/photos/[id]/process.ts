@@ -23,7 +23,7 @@ function toBase64(buffer: ArrayBuffer): string {
 }
 
 function sanitizeBbox(
-  bbox: [number, number, number, number] | null | undefined
+  bbox: [number, number, number, number] | null | undefined,
 ): [number, number, number, number] | null {
   if (!bbox) return null;
 
@@ -78,7 +78,11 @@ export const POST: APIRoute = async ({ params, locals }) => {
     .eq('id', locals.user.id)
     .single();
   if (!profile?.ai_enabled) {
-    return apiError({ code: 'AI_DISABLED', status: 403, message: 'Funkcje AI wyłączone dla tego konta.' });
+    return apiError({
+      code: 'AI_DISABLED',
+      status: 403,
+      message: 'Funkcje AI wyłączone dla tego konta.',
+    });
   }
 
   // Guard: active API key required (S-33)
@@ -112,11 +116,31 @@ export const POST: APIRoute = async ({ params, locals }) => {
   }
 
   // 2. Create vision_run (trigger blokuje concurrent running < 5 min → P0001)
-  const { data: runData, error: runInsertError } = await locals.supabase
+  // M27: api_key_id = atrybucja kosztu per klucz. Defensywnie: dopóki migracja
+  // 0020 nie dotrze na prod (deploy po merge), PostgREST nie zna kolumny
+  // (PGRST204) → retry bez atrybucji zamiast wywalać pipeline.
+  const baseRunInsert = {
+    photo_id: id,
+    model: VISION_MODEL,
+    prompt_version: PROMPT_VERSION,
+    status: 'running',
+  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let runInsertResult = await (locals.supabase as any)
     .from('vision_runs')
-    .insert({ photo_id: id, model: VISION_MODEL, prompt_version: PROMPT_VERSION, status: 'running' })
+    .insert({ ...baseRunInsert, api_key_id: providerConfig.keyId ?? null })
     .select('id')
     .single();
+  if (runInsertResult.error?.code === 'PGRST204') {
+    runInsertResult = await locals.supabase
+      .from('vision_runs')
+      .insert(baseRunInsert)
+      .select('id')
+      .single();
+  }
+  const { data: runData, error: runInsertError } = runInsertResult as
+    | { data: { id: string }; error: null }
+    | { data: null; error: { code?: string; name?: string; message: string } };
 
   if (runInsertError) {
     if (runInsertError.code === 'P0001') {
@@ -131,7 +155,11 @@ export const POST: APIRoute = async ({ params, locals }) => {
       message: runInsertError.message,
       code: runInsertError.code,
     });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się utworzyć vision run.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się utworzyć vision run.',
+    });
   }
 
   const runId = runData.id;
@@ -144,12 +172,20 @@ export const POST: APIRoute = async ({ params, locals }) => {
   if (dlError || !blob) {
     await locals.supabase
       .from('vision_runs')
-      .update({ status: 'failed', error_message: dlError ? dlError.message : 'Empty Storage response', completed_at: new Date().toISOString() })
+      .update({
+        status: 'failed',
+        error_message: dlError ? dlError.message : 'Empty Storage response',
+        completed_at: new Date().toISOString(),
+      })
       .eq('id', runId);
     console.error('[api/photos/process POST] storage download failed', {
       message: dlError ? dlError.message : 'empty blob',
     });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się pobrać zdjęcia z Storage.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się pobrać zdjęcia z Storage.',
+    });
   }
 
   const originalBuffer = await blob.arrayBuffer();
@@ -170,8 +206,15 @@ export const POST: APIRoute = async ({ params, locals }) => {
       .from('vision_runs')
       .update({ status: 'failed', error_message: msg, completed_at: new Date().toISOString() })
       .eq('id', runId);
-    await locals.supabase.from('photos').update({ status: 'failed', error_message: msg }).eq('id', id);
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się przetworzyć obrazu.' });
+    await locals.supabase
+      .from('photos')
+      .update({ status: 'failed', error_message: msg })
+      .eq('id', id);
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się przetworzyć obrazu.',
+    });
   }
 
   const base64 = toBase64(workingBytes.buffer as ArrayBuffer);
@@ -188,7 +231,11 @@ export const POST: APIRoute = async ({ params, locals }) => {
       .update({ status: 'failed', error_message: msg, completed_at: new Date().toISOString() })
       .eq('id', runId);
     if (status === 429 || status === 529) {
-      return apiError({ code: 'RATE_LIMITED', status: 429, message: 'Vision API rate limit. Spróbuj ponownie za chwilę.' });
+      return apiError({
+        code: 'RATE_LIMITED',
+        status: 429,
+        message: 'Vision API rate limit. Spróbuj ponownie za chwilę.',
+      });
     }
     console.error('[api/photos/process POST] vision client error', {
       name: err instanceof Error ? err.name : 'UnknownError',
@@ -216,12 +263,19 @@ export const POST: APIRoute = async ({ params, locals }) => {
         completed_at: new Date().toISOString(),
       })
       .eq('id', runId);
-    await locals.supabase.from('photos').update({
-      status: 'failed',
-      error_message: 'Vision output validation failed after retry.',
-      vision_latency_ms: visionResult.latencyMs,
-    }).eq('id', id);
-    return apiError({ code: 'VALIDATION_ERROR', status: 400, message: 'Vision output nie przeszedł walidacji schematu.' });
+    await locals.supabase
+      .from('photos')
+      .update({
+        status: 'failed',
+        error_message: 'Vision output validation failed after retry.',
+        vision_latency_ms: visionResult.latencyMs,
+      })
+      .eq('id', id);
+    return apiError({
+      code: 'VALIDATION_ERROR',
+      status: 400,
+      message: 'Vision output nie przeszedł walidacji schematu.',
+    });
   }
 
   // 6. Insert detections with vision_run_id (append-only; no DELETE per photo_id)
@@ -243,43 +297,57 @@ export const POST: APIRoute = async ({ params, locals }) => {
           bbox_x2: bbox?.[2] ?? null,
           bbox_y2: bbox?.[3] ?? null,
         };
-      })
+      }),
     );
 
     if (insertError) {
       await locals.supabase
         .from('vision_runs')
-        .update({ status: 'failed', error_message: insertError.message, completed_at: new Date().toISOString() })
+        .update({
+          status: 'failed',
+          error_message: insertError.message,
+          completed_at: new Date().toISOString(),
+        })
         .eq('id', runId);
       console.error('[api/photos/process POST] detections insert failed', {
         name: insertError.name,
         message: insertError.message,
         code: insertError.code,
       });
-      return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się zapisać detekcji.' });
+      return apiError({
+        code: 'INTERNAL_ERROR',
+        status: 500,
+        message: 'Nie udało się zapisać detekcji.',
+      });
     }
   }
 
   const completedAt = new Date().toISOString();
 
   // 7. Mark vision_run as succeeded
-  await locals.supabase.from('vision_runs').update({
-    status: 'succeeded',
-    cost_usd: visionResult.costUsd,
-    latency_ms: visionResult.latencyMs,
-    completed_at: completedAt,
-  }).eq('id', runId);
+  await locals.supabase
+    .from('vision_runs')
+    .update({
+      status: 'succeeded',
+      cost_usd: visionResult.costUsd,
+      latency_ms: visionResult.latencyMs,
+      completed_at: completedAt,
+    })
+    .eq('id', runId);
 
   // 8. Update photos cache (backward-compat with S-04 DTO consumers)
-  const { error: finalError } = await locals.supabase.from('photos').update({
-    status: 'processed',
-    vision_model: visionResult.model,
-    vision_cost_usd: visionResult.costUsd,
-    vision_latency_ms: visionResult.latencyMs,
-    detected_count: visionResult.detections.length,
-    processed_at: completedAt,
-    error_message: null,
-  }).eq('id', id);
+  const { error: finalError } = await locals.supabase
+    .from('photos')
+    .update({
+      status: 'processed',
+      vision_model: visionResult.model,
+      vision_cost_usd: visionResult.costUsd,
+      vision_latency_ms: visionResult.latencyMs,
+      detected_count: visionResult.detections.length,
+      processed_at: completedAt,
+      error_message: null,
+    })
+    .eq('id', id);
 
   if (finalError) {
     console.error('[api/photos/process POST] final status update failed', {
@@ -287,13 +355,19 @@ export const POST: APIRoute = async ({ params, locals }) => {
       message: finalError.message,
       code: finalError.code,
     });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się zaktualizować statusu zdjęcia.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się zaktualizować statusu zdjęcia.',
+    });
   }
 
   // 9. Re-fetch final state + detections of THIS run
   const { data: updatedPhoto, error: refetchError } = await locals.supabase
     .from('photos')
-    .select('id, shelf_id, status, detected_count, error_message, vision_cost_usd, vision_latency_ms, created_at')
+    .select(
+      'id, shelf_id, status, detected_count, error_message, vision_cost_usd, vision_latency_ms, created_at',
+    )
     .eq('id', id)
     .single();
 
@@ -303,12 +377,18 @@ export const POST: APIRoute = async ({ params, locals }) => {
       message: refetchError?.message,
       code: refetchError?.code,
     });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Przetworzono, ale nie udało się odczytać stanu zdjęcia.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Przetworzono, ale nie udało się odczytać stanu zdjęcia.',
+    });
   }
 
   const { data: detRows } = await locals.supabase
     .from('detections')
-    .select('position_index, raw_title, raw_author, vision_confidence, spine_color, bbox_x1, bbox_y1, bbox_x2, bbox_y2')
+    .select(
+      'position_index, raw_title, raw_author, vision_confidence, spine_color, bbox_x1, bbox_y1, bbox_x2, bbox_y2',
+    )
     .eq('vision_run_id', runId)
     .order('position_index', { ascending: true });
 

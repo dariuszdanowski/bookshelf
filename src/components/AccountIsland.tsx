@@ -10,6 +10,8 @@ type StatsData = {
   total_refine_cost_usd: number;
   vision_run_count: number;
   refine_call_count: number;
+  /** M27: suma kosztów per klucz API (vision + OCR); brak wpisu = $0 */
+  cost_by_key?: Record<string, { cost_usd: number; call_count: number }>;
 };
 
 interface Props {
@@ -475,10 +477,17 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
         </div>
       </section>
 
-      {/* Sekcja: Hasło */}
+      {/* Sekcja: Hasło — <form> (nie div): Chrome loguje warning o polach
+          password poza formularzem i password-managery gubią kontekst */}
       <section data-testid="account-password-section">
         <h2 className="mb-4 text-xl font-semibold">Hasło</h2>
-        <div className={sectionBoxCls}>
+        <form
+          className={sectionBoxCls}
+          onSubmit={(e) => {
+            e.preventDefault();
+            void handleChangePassword();
+          }}
+        >
           <div>
             <label htmlFor="account_new_password" className="block text-sm font-medium">
               Nowe hasło
@@ -533,14 +542,14 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
             </p>
           )}
           <button
-            onClick={handleChangePassword}
+            type="submit"
             disabled={passwordLoading}
             className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-50"
             data-testid="account-password-save"
           >
             {passwordLoading ? 'Zapisuję...' : 'Zmień hasło'}
           </button>
-        </div>
+        </form>
       </section>
 
       {/* Sekcja: Koszty analizy */}
@@ -863,6 +872,28 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
                           ✗ błąd
                         </span>
                       )}
+                      {/* M27: suma kosztów wywołań tym kluczem (vision + OCR) —
+                          spójny styl z przyciskiem kosztów przy zdjęciu */}
+                      <span
+                        data-testid={`account-key-cost-${key.id}`}
+                        title="Suma kosztów wywołań AI wykonanych tym kluczem (analizy vision + doczytywanie OCR). Wywołania sprzed wdrożenia atrybucji (2026-06-07) nie są przypisane do klucza."
+                        className="inline-flex items-center gap-1 rounded border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-xs font-semibold text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300"
+                      >
+                        <svg
+                          width="10"
+                          height="12"
+                          viewBox="0 0 10 14"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                        >
+                          <line x1="5" y1="0" x2="5" y2="14" />
+                          <path d="M8 3H3.5A2.5 2.5 0 001 5.5v0A2.5 2.5 0 003.5 8H6.5A2.5 2.5 0 019 10.5v0A2.5 2.5 0 016.5 13H1" />
+                        </svg>
+                        {/* 4 miejsca jak CostPanel — koszty pojedynczych calli to ułamki centa */}$
+                        {(stats?.cost_by_key?.[key.id]?.cost_usd ?? 0).toFixed(4)}
+                      </span>
                     </div>
                     {key.model && (
                       <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{key.model}</p>
