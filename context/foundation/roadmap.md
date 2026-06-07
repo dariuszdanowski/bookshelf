@@ -519,6 +519,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 | S-39       | match-rate-limit-resilience  | Retry+backoff na 429 GB + komunikat „N wstrzymał limit" w review | done | Zrealizowane 2026-06-07. Weryfikacja prod POTWIERDZIŁA: photo `e9876820…` — 9/14 pending z 0 kandydatów na popularnych tytułach. Adaptacja: toast w tabie Zdjęcia (review robi reload). |
 | S-40       | bbox-quality-validation      | Benchmark ground-truth bboxów → prompt → bezpieczny post-processing | yes | `context/changes/bbox-quality-validation/change.md` — notatki z analizy zewn. + weryfikacja prod + prior art (`scripts/bbox-*.mjs`, `docs/image-analysis/`). Validation-first: NIE wdrażać heurystyk bez benchmarku. Powiązane: S-21 (jakość cropów). |
 | (framed)   | purchase-add-book-merge      | Unifikacja „Dodaj zakup" → BookModal add + data zakupu | frame done | `context/changes/purchase-add-book-merge/frame.md` (M8, Confidence HIGH, wariant A) — czeka na akceptację kierunku (kasuje /purchase + link nav), potem `/10x-plan`. |
+| S-41       | cost-analysis-view           | Ekran/modal analizy kosztów per klucz i działanie (uwagi-round3, 2026-06-07) | yes | Substrat gotowy: atrybucja `api_key_id` w vision_runs/refine_calls (migracja 0020 + zapis przy callach), `cost_by_key` w /api/account/stats, chip sumy przy kluczu. Slice: sekcja „Koszty analizy" na /account klikalna → widok/modal z listą wywołań filtrowaną per klucz/typ (vision/OCR)/okres; rozważyć paginację (historia rośnie) i drill-down do zdjęcia. |
 
 ## Open Roadmap Questions
 
