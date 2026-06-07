@@ -108,7 +108,7 @@ Unit: HelpTip (open/close/Esc/aria) + empty-state CTA. E2E: /help (nav, render,
 
 #### Automated
 
-- [ ] 1.1 Typecheck / Lint / Unit zielone
+- [x] 1.1 Typecheck / Lint / Unit zielone
 
 ### Phase 2: HelpTip — kontekstowe „?"
 

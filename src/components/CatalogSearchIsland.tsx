@@ -94,7 +94,9 @@ export default function CatalogSearchIsland() {
         body: JSON.stringify({ is_read: !currentValue }),
       });
       if (!res.ok) {
-        setBooks((prev) => prev.map((b) => (b.id === bookId ? { ...b, is_read: currentValue } : b)));
+        setBooks((prev) =>
+          prev.map((b) => (b.id === bookId ? { ...b, is_read: currentValue } : b)),
+        );
       }
     } catch {
       setBooks((prev) => prev.map((b) => (b.id === bookId ? { ...b, is_read: currentValue } : b)));
@@ -114,7 +116,7 @@ export default function CatalogSearchIsland() {
         if (b.id !== bookId) return b;
         prevShelf = { shelf_id: b.shelf_id, shelf_name: b.shelf_name };
         return { ...b, shelf_id: targetShelfId, shelf_name: target?.name ?? b.shelf_name };
-      })
+      }),
     );
     const rollback = () => {
       if (!prevShelf) return;
@@ -158,10 +160,13 @@ export default function CatalogSearchIsland() {
   }
 
   function toggleShelf(id: string) {
-    setSelectedShelfIds((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]));
+    setSelectedShelfIds((prev) =>
+      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
+    );
   }
 
-  const hasCriteria = q.trim() !== '' || color !== '' || selectedShelfIds.length > 0 || read !== 'all';
+  const hasCriteria =
+    q.trim() !== '' || color !== '' || selectedShelfIds.length > 0 || read !== 'all';
 
   return (
     <div data-testid="catalog-search">
@@ -172,7 +177,7 @@ export default function CatalogSearchIsland() {
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder="Szukaj po tytule, autorze, wydawnictwie…"
-        className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+        className="w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm text-gray-900 focus:ring-1 focus:ring-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
         aria-label="Szukaj w katalogu"
       />
 
@@ -197,7 +202,12 @@ export default function CatalogSearchIsland() {
         </label>
 
         {/* Status przeczytania */}
-        <div data-testid="filter-read" className="flex items-center gap-1 text-xs text-gray-600" role="radiogroup" aria-label="Status przeczytania">
+        <div
+          data-testid="filter-read"
+          className="flex items-center gap-1 text-xs text-gray-600"
+          role="radiogroup"
+          aria-label="Status przeczytania"
+        >
           {(['all', 'unread', 'read'] as const).map((r) => (
             <button
               key={r}
@@ -233,7 +243,10 @@ export default function CatalogSearchIsland() {
       {/* Wyniki */}
       <div className="mt-6">
         {loading ? (
-          <div data-testid="search-loading" className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+          <div
+            data-testid="search-loading"
+            className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4"
+          >
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="rounded-lg border border-gray-200 p-3">
                 <Skeleton className="mb-2 h-28 w-full" />
@@ -242,15 +255,31 @@ export default function CatalogSearchIsland() {
             ))}
           </div>
         ) : errorMsg ? (
-          <div data-testid="search-error" className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div
+            data-testid="search-error"
+            className="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-700"
+          >
             {errorMsg}
           </div>
         ) : searched && books.length === 0 ? (
-          <div data-testid="search-empty" className="rounded-xl border border-dashed border-gray-300 px-6 py-10 text-center">
+          <div
+            data-testid="search-empty"
+            className="rounded-xl border border-dashed border-gray-300 px-6 py-10 text-center"
+          >
             <p className="font-medium text-gray-600">Nie masz tej książki.</p>
             <p className="mt-1 text-sm text-gray-400">
-              {hasCriteria ? 'Żadna książka w katalogu nie pasuje do kryteriów.' : 'Twój katalog jest pusty.'}
+              {hasCriteria
+                ? 'Żadna książka w katalogu nie pasuje do kryteriów.'
+                : 'Twój katalog jest pusty.'}
             </p>
+            {!hasCriteria && (
+              <a
+                href="/upload"
+                className="mt-4 inline-block rounded-md border border-blue-300 bg-blue-50 px-4 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-100"
+              >
+                Wgraj pierwsze zdjęcie półki →
+              </a>
+            )}
           </div>
         ) : books.length > 0 ? (
           <>

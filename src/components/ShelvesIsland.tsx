@@ -53,7 +53,7 @@ export default function ShelvesIsland() {
       }
       await fetchShelves();
     },
-    [fetchShelves]
+    [fetchShelves],
   );
 
   const handleUpdate = useCallback(
@@ -71,7 +71,7 @@ export default function ShelvesIsland() {
       }
       await fetchShelves();
     },
-    [fetchShelves]
+    [fetchShelves],
   );
 
   const handleDelete = useCallback(
@@ -85,7 +85,7 @@ export default function ShelvesIsland() {
       }
       await fetchShelves();
     },
-    [fetchShelves]
+    [fetchShelves],
   );
 
   if (loading) {
@@ -109,9 +109,21 @@ export default function ShelvesIsland() {
         </p>
       )}
       {shelves.length === 0 ? (
-        <p className="text-sm text-gray-600" data-testid="shelves-empty">
-          Nie masz jeszcze żadnych półek. Stwórz pierwszą powyżej.
-        </p>
+        <div
+          data-testid="shelves-empty"
+          className="rounded-xl border border-dashed border-gray-300 px-6 py-10 text-center"
+        >
+          <p className="font-medium text-gray-600">Nie masz jeszcze żadnych półek.</p>
+          <p className="mt-1 text-sm text-gray-400">
+            Utwórz pierwszą półkę powyżej, a potem wgraj zdjęcia, żeby zacząć katalogować książki.
+          </p>
+          <a
+            href="/upload"
+            className="mt-4 inline-block rounded-md border border-blue-300 bg-blue-50 px-4 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-100"
+          >
+            Wgraj zdjęcie półki →
+          </a>
+        </div>
       ) : (
         <ul className="flex flex-col gap-3" data-testid="shelves-list">
           {shelves.map((shelf) => (
