@@ -51,7 +51,10 @@ function makePatchContext(opts: {
       params: { id: opts.id ?? VALID_ID },
       locals: {
         supabase: { from: fromFn } as never,
-        user: opts.user === undefined ? ({ id: 'user-1', email: 't@test' } as never) : (opts.user as never),
+        user:
+          opts.user === undefined
+            ? ({ id: 'user-1', email: 't@test' } as never)
+            : (opts.user as never),
       },
     },
     updateFn,
@@ -94,7 +97,10 @@ function makeDeleteContext(opts: {
       params: { id: opts.id ?? VALID_ID },
       locals: {
         supabase: { from: fromFn, storage: { from: storageFromFn } } as never,
-        user: opts.user === undefined ? ({ id: 'user-1', email: 't@test' } as never) : (opts.user as never),
+        user:
+          opts.user === undefined
+            ? ({ id: 'user-1', email: 't@test' } as never)
+            : (opts.user as never),
       },
     },
     deleteFn,
@@ -174,7 +180,10 @@ describe('PATCH /api/photos/:id', () => {
   it('returns 404 on PGRST116 (photo not found / RLS scope)', async () => {
     const { context } = makePatchContext({
       body: { shelf_id: VALID_SHELF },
-      updateResult: { data: null, error: { code: 'PGRST116', message: 'no rows', name: 'PostgrestError' } },
+      updateResult: {
+        data: null,
+        error: { code: 'PGRST116', message: 'no rows', name: 'PostgrestError' },
+      },
     });
     const res = await PATCH(context as never);
     expect(res.status).toBe(404);
@@ -183,7 +192,10 @@ describe('PATCH /api/photos/:id', () => {
   it('returns 500 on other supabase errors', async () => {
     const { context } = makePatchContext({
       body: { shelf_id: VALID_SHELF },
-      updateResult: { data: null, error: { code: '99999', message: 'misc', name: 'PostgrestError' } },
+      updateResult: {
+        data: null,
+        error: { code: '99999', message: 'misc', name: 'PostgrestError' },
+      },
     });
     const res = await PATCH(context as never);
     expect(res.status).toBe(500);
@@ -201,7 +213,8 @@ describe('DELETE /api/photos/:id', () => {
     expect(json.data.deleted).toBe(true);
     expect(deleteFn).toHaveBeenCalled();
     expect(storageFromFn).toHaveBeenCalledWith('shelf-photos');
-    expect(removeFn).toHaveBeenCalledWith(['user-1/abc.jpg']);
+    // M15: remove sprząta też miniaturę (best-effort; brak pliku nie jest błędem)
+    expect(removeFn).toHaveBeenCalledWith(['user-1/abc.jpg', 'user-1/abc.jpg.thumb.jpg']);
   });
 
   it('returns 401 when unauthenticated', async () => {

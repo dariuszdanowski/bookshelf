@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 
 import { type PhotoListItemDTO, type ShelfPhotosResponse } from '../../../../lib/photos/schema';
+import { THUMB_SUFFIX } from '../../../../lib/photos/thumb';
 import { apiError, apiResponse, parseUuidParam } from '../../../../lib/http/response';
 
 export const prerender = false;
@@ -67,7 +68,11 @@ export const GET: APIRoute = async ({ params, locals }) => {
       message: shelfError.message,
       code: shelfError.code,
     });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się pobrać półki.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się pobrać półki.',
+    });
   }
 
   // Photos for this shelf (RLS scoped to user)
@@ -83,7 +88,11 @@ export const GET: APIRoute = async ({ params, locals }) => {
       message: photosError.message,
       code: photosError.code,
     });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się pobrać zdjęć.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się pobrać zdjęć.',
+    });
   }
 
   const photoRows: PhotoRow[] = photos ?? [];
@@ -110,12 +119,16 @@ export const GET: APIRoute = async ({ params, locals }) => {
       message: runsError.message,
       code: runsError.code,
     });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się pobrać vision runs.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się pobrać vision runs.',
+    });
   }
 
   // Keep only the latest (first after ORDER BY created_at DESC) per photo_id
   const latestRunByPhoto = new Map<string, VisionRunRow>();
-  for (const run of (succeededRuns ?? [])) {
+  for (const run of succeededRuns ?? []) {
     if (!latestRunByPhoto.has(run.photo_id)) {
       latestRunByPhoto.set(run.photo_id, run);
     }
@@ -149,11 +162,15 @@ export const GET: APIRoute = async ({ params, locals }) => {
         message: detCountError.message,
         code: detCountError.code,
       });
-      return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się pobrać liczników detekcji.' });
+      return apiError({
+        code: 'INTERNAL_ERROR',
+        status: 500,
+        message: 'Nie udało się pobrać liczników detekcji.',
+      });
     }
 
     // Aggregate client-side (≤30 photos × ≤30 detections = manageable)
-    for (const det of (detCounts ?? [])) {
+    for (const det of detCounts ?? []) {
       const runId = det.vision_run_id;
       if (!detCountsByRun.has(runId)) {
         detCountsByRun.set(runId, { vision_run_id: runId, total: 0, matched: 0, confirmed: 0 });
@@ -165,14 +182,18 @@ export const GET: APIRoute = async ({ params, locals }) => {
     }
   }
 
-  // Batch signed thumbnail URLs
+  // Batch signed thumbnail URLs — M15: preferuj miniaturę (<path>.thumb.jpg,
+  // generowana przy uploadzie), fallback do oryginału dla legacy zdjęć bez
+  // miniatury. Jeden batch call na 2N ścieżek; nieistniejące wpisy wracają
+  // z error + signedUrl=null i wypadają z mapy.
   const storagePaths = photoRows.map((p) => p.storage_path);
+  const thumbPaths = photoRows.map((p) => `${p.storage_path}${THUMB_SUFFIX}`);
   const { data: signedUrls } = await locals.supabase.storage
     .from('shelf-photos')
-    .createSignedUrls(storagePaths, 3600);
+    .createSignedUrls([...thumbPaths, ...storagePaths], 3600);
 
   const urlByPath = new Map<string, string>();
-  for (const entry of (signedUrls ?? [])) {
+  for (const entry of signedUrls ?? []) {
     if (entry.signedUrl && entry.path) urlByPath.set(entry.path, entry.signedUrl);
   }
 
@@ -180,7 +201,9 @@ export const GET: APIRoute = async ({ params, locals }) => {
   const resultPhotos: PhotoListItemDTO[] = photoRows.map((p) => {
     const latestRun = latestRunByPhoto.get(p.id) ?? null;
     const hasRunning = runningPhotoIds.has(p.id);
-    const counts = latestRun ? (detCountsByRun.get(latestRun.id) ?? { total: 0, matched: 0, confirmed: 0 }) : { total: 0, matched: 0, confirmed: 0 };
+    const counts = latestRun
+      ? (detCountsByRun.get(latestRun.id) ?? { total: 0, matched: 0, confirmed: 0 })
+      : { total: 0, matched: 0, confirmed: 0 };
 
     let stage: PhotoListItemDTO['stage'];
     if (!latestRun) {
@@ -198,12 +221,18 @@ export const GET: APIRoute = async ({ params, locals }) => {
       status: p.status,
       stage,
       created_at: p.created_at,
-      thumbnail_url: urlByPath.get(p.storage_path) ?? null,
+      thumbnail_url:
+        urlByPath.get(`${p.storage_path}${THUMB_SUFFIX}`) ?? urlByPath.get(p.storage_path) ?? null,
       detected_count: counts.total,
       matched_count: counts.matched,
       confirmed_count: counts.confirmed,
       latest_vision_run: latestRun
-        ? { id: latestRun.id, model: latestRun.model, created_at: latestRun.created_at, cost_usd: latestRun.cost_usd }
+        ? {
+            id: latestRun.id,
+            model: latestRun.model,
+            created_at: latestRun.created_at,
+            cost_usd: latestRun.cost_usd,
+          }
         : null,
       has_running_run: hasRunning,
       legacy_no_hash: p.file_hash_sha256 == null,

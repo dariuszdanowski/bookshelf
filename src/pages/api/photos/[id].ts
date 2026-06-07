@@ -6,6 +6,7 @@ import {
   type PhotoDTO,
   type DetectionWithCandidatesDTO,
 } from '../../../lib/photos/schema';
+import { THUMB_SUFFIX } from '../../../lib/photos/thumb';
 import type { BookCandidateDTO } from '../../../lib/books/schema';
 import { checkCatalogDuplicate } from '../../../lib/matching/dedupe';
 import { apiError, apiResponse, parseUuidParam } from '../../../lib/http/response';
@@ -421,10 +422,11 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
   }
 
   // Best-effort Storage cleanup — błąd nie zmienia sukcesu (wiersz DB już usunięty).
+  // M15: usuwamy też miniaturę (<path>.thumb.jpg); brak pliku nie jest błędem remove.
   try {
     const { error: rmError } = await locals.supabase.storage
       .from('shelf-photos')
-      .remove([existing.storage_path]);
+      .remove([existing.storage_path, `${existing.storage_path}${THUMB_SUFFIX}`]);
     if (rmError) {
       console.error('[api/photos DELETE] storage remove failed (orphan left)', {
         name: rmError.name,
