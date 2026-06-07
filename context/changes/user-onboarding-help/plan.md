@@ -41,8 +41,17 @@ zamykany Esc/klik poza — konwencja modali repo) jako wspólny klocek fazy 2.
 (np. pusta półka → „+ Dodaj zdjęcie" / „+ Dodaj książkę ręcznie"; pusty katalog →
 link do /upload).
 
+**Stan zastany (plan-review F2)**: 3/5 widoków JUŻ ma CTA — `photo-list-empty`
+(link /upload), `shelf-books-empty` („+ Dodaj książkę ręcznie"),
+`detection-review-empty` („Przetwórz zdjęcie"). Realny zakres: nowe CTA dla
+`shelves-empty` (ShelvesIsland.tsx:112) i `search-empty`
+(CatalogSearchIsland.tsx:249) + szlif copy istniejących.
+
 **Contract**: czysty JSX/treść; testidy `*-empty` zostają (rozszerzenie treści,
-nie wymiana). Unit: asercje na CTA w empty state.
+nie wymiana). Fraza „Nie masz tej książki" jest asertowana w
+`CatalogSearchIsland.test.tsx:72` + `catalog-search.spec.ts:82` — zachować ją
+(celowy komunikat US-04) lub zaktualizować oba testy w tym samym commicie.
+Unit: asercje na CTA w empty state.
 
 ## Phase 2: HelpTip — kontekstowe „?"
 
@@ -54,7 +63,10 @@ checkbox „Analizuj od razu" (S-36), dedup-warning uploadu, przełączniki tryb
 
 **Contract**: `<HelpTip label="...">treść</HelpTip>` — przycisk `?` (aria-label,
 aria-expanded), popover absolute, Esc/klik-poza zamyka, `useBodyScrollLock` NIE
-(popover, nie modal). Testid `help-tip-{slug}`. Unit testy komponentu + 1 wpięcia.
+(popover, nie modal). Klik-poza przez przezroczysty backdrop `fixed inset-0`
+(wzorzec ConfirmDialog.tsx:30-57 bez `bg-black/50` + stopPropagation na
+popoverze), NIE document-level listener (plan-review F3). Testid
+`help-tip-{slug}`. Unit testy komponentu + 1 wpięcia.
 
 ## Phase 3: Strona /help
 
@@ -62,12 +74,21 @@ aria-expanded), popover absolute, Esc/klik-poza zamyka, `useBodyScrollLock` NIE
 sekcja w `/account`? (nie — tylko nav)
 
 **Intent**: przewodnik golden path (upload → review → akceptacja → katalog)
-z 6 screenshotami z `docs/screenshots/`, sekcja kosztów (vision/BYOK/refine), FAQ
+z 6 screenshotami, sekcja kosztów (vision/BYOK/refine), FAQ
 (dedup, tryby widoku, „dlaczego match nie znalazł" → odsyłacz do ręcznego szukania).
 
-**Contract**: czysta strona Astro (`prerender = false` jak reszta protected? —
-help może być publiczny: whitelist w middleware jak `/login`; decyzja: publiczny,
-bez danych usera). E2E: nav → /help renderuje sekcje; mobile bez h-scrolla.
+**Contract** (doprecyzowane w plan-review F1): strona publiczna i w 100%
+statyczna → `export const prerender = true` + whitelist `/help` w `PUBLIC_EXACT`
+(`src/lib/middleware/handler.ts:39` — potrzebny w dev, gdzie middleware biegnie
+dla wszystkich route'ów). Screenshoty: **jednorazowa kopia** 6 PNG z
+`docs/screenshots/` → `src/assets/help/` + zwykłe importy — NIE importować z
+`docs/screenshots/` bezpośrednio, bo (a) `screenshots.spec.ts` nadpisuje te pliki
+przy każdym pełnym runie E2E (bundle by się zmieniał od artefaktu testowego),
+(b) default `imageService: 'compile'` adaptera CF nie obsłużyłby `<Image>` na
+on-demand route. Odświeżenie screenów przy zmianie UI = świadomy re-copy.
+Link w nav = 2 miejsca: `Layout.astro:65-112` (desktop, hardcoded) +
+`MobileNav.tsx:4-10` (stała `LINKS`) — celowa duplikacja, zob. komentarz
+MobileNav.tsx:13. E2E: nav → /help renderuje sekcje; mobile bez h-scrolla.
 
 ## Testing Strategy
 
