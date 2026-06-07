@@ -22,36 +22,59 @@ export const GET: APIRoute = async ({ locals }) => {
     return apiError({ code: 'UNAUTHENTICATED', status: 401, message: 'Authentication required.' });
   }
 
-  type CostRow = { cost_usd: number | null };
-  type Result = { data: CostRow[] | null; error: { message: string } | null };
+  type CostRow = { cost_usd: number | null; api_key_id?: string | null };
+  type Result = { data: CostRow[] | null; error: { code?: string; message: string } | null };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const sb = locals.supabase as any;
+  const userId = locals.user.id;
+
+  // M27: select z api_key_id (atrybucja per klucz); defensywny retry bez
+  // kolumny (42703 undefined_column) dopóki migracja 0020 nie dotrze na prod.
+  async function selectCosts(table: string, succeededOnly: boolean): Promise<Result> {
+    const build = (cols: string) => {
+      let q = sb.from(table).select(cols).eq('user_id', userId);
+      if (succeededOnly) q = q.eq('status', 'succeeded');
+      return q;
+    };
+    const withKey = (await build('cost_usd, api_key_id')) as Result;
+    if (withKey.error?.code === '42703') return (await build('cost_usd')) as Result;
+    return withKey;
+  }
 
   // vision_runs: tylko 'succeeded' (running/failed mają cost_usd NULL → zawyżają count)
-  const visionResult = (await sb
-    .from('vision_runs')
-    .select('cost_usd')
-    .eq('user_id', locals.user.id)
-    .eq('status', 'succeeded')) as Result;
+  const visionResult = await selectCosts('vision_runs', true);
 
   if (visionResult.error) {
-    console.error('[api/account/stats GET] vision_runs failed', { message: visionResult.error.message });
+    console.error('[api/account/stats GET] vision_runs failed', {
+      message: visionResult.error.message,
+    });
     return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Błąd pobierania statystyk.' });
   }
 
-  const refineResult = (await sb
-    .from('refine_calls')
-    .select('cost_usd')
-    .eq('user_id', locals.user.id)) as Result;
+  const refineResult = await selectCosts('refine_calls', false);
 
   if (refineResult.error) {
-    console.error('[api/account/stats GET] refine_calls failed', { message: refineResult.error.message });
+    console.error('[api/account/stats GET] refine_calls failed', {
+      message: refineResult.error.message,
+    });
     return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Błąd pobierania statystyk.' });
   }
 
   const visionRuns = visionResult.data ?? [];
   const refineCalls = refineResult.data ?? [];
+
+  // M27: suma kosztów per klucz (vision + refine razem) — /account pokazuje
+  // wartość przy każdym kluczu. Wywołania bez atrybucji (sprzed migracji
+  // 0020 / klucz env) nie wliczają się do żadnego klucza.
+  const costByKey = new Map<string, { cost_usd: number; call_count: number }>();
+  for (const row of [...visionRuns, ...refineCalls]) {
+    if (!row.api_key_id) continue;
+    const agg = costByKey.get(row.api_key_id) ?? { cost_usd: 0, call_count: 0 };
+    agg.cost_usd += row.cost_usd ?? 0;
+    agg.call_count += 1;
+    costByKey.set(row.api_key_id, agg);
+  }
 
   return apiResponse({
     data: {
@@ -59,6 +82,7 @@ export const GET: APIRoute = async ({ locals }) => {
       total_refine_cost_usd: refineCalls.reduce((s, r) => s + (r.cost_usd ?? 0), 0),
       vision_run_count: visionRuns.length,
       refine_call_count: refineCalls.length,
+      cost_by_key: Object.fromEntries(costByKey),
     },
   });
 };

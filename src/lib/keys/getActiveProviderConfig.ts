@@ -6,11 +6,11 @@ import { decryptWithEnvKey } from './crypto';
 
 export async function getActiveProviderConfig(
   supabase: SupabaseClient<Database>,
-  userId: string
+  userId: string,
 ): Promise<VisionProviderConfig | null> {
   const { data: row, error } = await supabase
     .from('user_api_keys')
-    .select('provider, encrypted_key, model, base_url')
+    .select('id, provider, encrypted_key, model, base_url')
     .eq('user_id', userId)
     .eq('is_active', true)
     .maybeSingle();
@@ -26,7 +26,10 @@ export async function getActiveProviderConfig(
   try {
     apiKey = await decryptWithEnvKey(row.encrypted_key);
   } catch (err) {
-    console.error('[getActiveProviderConfig] decrypt failed', err instanceof Error ? err.message : String(err));
+    console.error(
+      '[getActiveProviderConfig] decrypt failed',
+      err instanceof Error ? err.message : String(err),
+    );
     return null;
   }
 
@@ -35,5 +38,7 @@ export async function getActiveProviderConfig(
     apiKey,
     model: row.model,
     baseUrl: row.base_url,
+    // M27: id klucza do atrybucji kosztów (vision_runs/refine_calls.api_key_id)
+    keyId: row.id,
   };
 }

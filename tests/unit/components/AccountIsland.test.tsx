@@ -33,7 +33,7 @@ function stubFetch(...responses: Array<{ ok: boolean; body: unknown }>) {
     vi.fn(async () => {
       const r = responses[Math.min(i++, responses.length - 1)];
       return { ok: r.ok, json: async () => r.body };
-    })
+    }),
   );
 }
 
@@ -54,7 +54,7 @@ describe('AccountIsland — display_name', () => {
   it('zapisuje display_name i pokazuje sukces', async () => {
     stubFetch(
       { ok: true, body: MOCK_STATS },
-      { ok: true, body: { data: { profile: { id: USER_ID, display_name: 'Nowa Nazwa' } } } }
+      { ok: true, body: { data: { profile: { id: USER_ID, display_name: 'Nowa Nazwa' } } } },
     );
 
     render(<AccountIsland initialDisplayName={INITIAL_DISPLAY_NAME} userEmail={USER_EMAIL} />);
@@ -63,7 +63,7 @@ describe('AccountIsland — display_name', () => {
     fireEvent.click(screen.getByTestId('account-display-name-save'));
 
     await waitFor(() =>
-      expect(screen.getByTestId('account-display-name-success')).toBeInTheDocument()
+      expect(screen.getByTestId('account-display-name-success')).toBeInTheDocument(),
     );
     expect(input.value).toBe('Nowa Nazwa');
   });
@@ -71,7 +71,10 @@ describe('AccountIsland — display_name', () => {
   it('rollback display_name do ostatnio zapisanej wartości przy błędzie 400', async () => {
     stubFetch(
       { ok: true, body: MOCK_STATS },
-      { ok: false, body: { error: { code: 'VALIDATION_ERROR', message: 'Invalid profile input.' } } }
+      {
+        ok: false,
+        body: { error: { code: 'VALIDATION_ERROR', message: 'Invalid profile input.' } },
+      },
     );
 
     render(<AccountIsland initialDisplayName={INITIAL_DISPLAY_NAME} userEmail={USER_EMAIL} />);
@@ -80,7 +83,7 @@ describe('AccountIsland — display_name', () => {
     fireEvent.click(screen.getByTestId('account-display-name-save'));
 
     await waitFor(() =>
-      expect(screen.getByTestId('account-display-name-error')).toBeInTheDocument()
+      expect(screen.getByTestId('account-display-name-error')).toBeInTheDocument(),
     );
     expect(input.value).toBe(INITIAL_DISPLAY_NAME);
   });
@@ -94,7 +97,7 @@ describe('AccountIsland — display_name', () => {
     fireEvent.click(screen.getByTestId('account-display-name-save'));
 
     await waitFor(() =>
-      expect(screen.getByTestId('account-display-name-error')).toBeInTheDocument()
+      expect(screen.getByTestId('account-display-name-error')).toBeInTheDocument(),
     );
     // Tylko call stats + keys (mount) — PATCH nie wywołany
     expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2);
@@ -106,9 +109,7 @@ describe('AccountIsland — stats', () => {
     stubFetch({ ok: true, body: MOCK_STATS });
     render(<AccountIsland initialDisplayName={INITIAL_DISPLAY_NAME} userEmail={USER_EMAIL} />);
 
-    await waitFor(() =>
-      expect(screen.getByTestId('account-stats-content')).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByTestId('account-stats-content')).toBeInTheDocument());
     expect(screen.getByTestId('account-stats-total')).toBeInTheDocument();
   });
 
@@ -116,9 +117,7 @@ describe('AccountIsland — stats', () => {
     stubFetch({ ok: false, body: { error: { code: 'INTERNAL_ERROR', message: 'fail' } } });
     render(<AccountIsland initialDisplayName={INITIAL_DISPLAY_NAME} userEmail={USER_EMAIL} />);
 
-    await waitFor(() =>
-      expect(screen.getByTestId('account-stats-error')).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByTestId('account-stats-error')).toBeInTheDocument());
   });
 });
 
@@ -133,9 +132,7 @@ describe('AccountIsland — zmiana emaila', () => {
     });
     fireEvent.click(screen.getByTestId('account-email-save'));
 
-    await waitFor(() =>
-      expect(screen.getByTestId('account-email-pending')).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByTestId('account-email-pending')).toBeInTheDocument());
   });
 
   it('pokazuje błąd gdy updateUser zwróci error', async () => {
@@ -151,9 +148,7 @@ describe('AccountIsland — zmiana emaila', () => {
     });
     fireEvent.click(screen.getByTestId('account-email-save'));
 
-    await waitFor(() =>
-      expect(screen.getByTestId('account-email-error')).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByTestId('account-email-error')).toBeInTheDocument());
   });
 
   it('walidacja klient-side — nieprawidłowy email nie wywołuje updateUser', async () => {
@@ -165,9 +160,7 @@ describe('AccountIsland — zmiana emaila', () => {
     });
     fireEvent.click(screen.getByTestId('account-email-save'));
 
-    await waitFor(() =>
-      expect(screen.getByTestId('account-email-error')).toBeInTheDocument()
-    );
+    await waitFor(() => expect(screen.getByTestId('account-email-error')).toBeInTheDocument());
     expect(mockUpdateUser).not.toHaveBeenCalled();
   });
 });
@@ -186,7 +179,7 @@ describe('AccountIsland — zmiana hasła', () => {
     fireEvent.click(screen.getByTestId('account-password-save'));
 
     await waitFor(() =>
-      expect(screen.getByTestId('account-password-field-error')).toBeInTheDocument()
+      expect(screen.getByTestId('account-password-field-error')).toBeInTheDocument(),
     );
     expect(mockUpdateUser).not.toHaveBeenCalled();
   });
@@ -204,15 +197,11 @@ describe('AccountIsland — zmiana hasła', () => {
     });
     fireEvent.click(screen.getByTestId('account-password-save'));
 
-    await waitFor(() =>
-      expect(screen.getByTestId('account-password-success')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByTestId('account-password-success')).toBeInTheDocument());
+    expect((screen.getByTestId('account-new-password-input') as HTMLInputElement).value).toBe('');
+    expect((screen.getByTestId('account-confirm-password-input') as HTMLInputElement).value).toBe(
+      '',
     );
-    expect(
-      (screen.getByTestId('account-new-password-input') as HTMLInputElement).value
-    ).toBe('');
-    expect(
-      (screen.getByTestId('account-confirm-password-input') as HTMLInputElement).value
-    ).toBe('');
   });
 
   it('błąd updateUser → formError dla hasła', async () => {
@@ -231,8 +220,70 @@ describe('AccountIsland — zmiana hasła', () => {
     });
     fireEvent.click(screen.getByTestId('account-password-save'));
 
-    await waitFor(() =>
-      expect(screen.getByTestId('account-password-error')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByTestId('account-password-error')).toBeInTheDocument());
+  });
+});
+
+// ---------------------------------------------------------------------------
+// M27: suma kosztów per klucz API (chip przy każdym kluczu w sekcji Klucze)
+// ---------------------------------------------------------------------------
+
+describe('AccountIsland — koszty per klucz (M27)', () => {
+  const KEY_A = '00000000-0000-4000-8000-00000000aaa1';
+  const KEY_B = '00000000-0000-4000-8000-00000000bbb2';
+
+  function makeKey(id: string, label: string, isActive: boolean) {
+    return {
+      id,
+      label,
+      provider: 'anthropic',
+      model: null,
+      base_url: null,
+      is_active: isActive,
+      last_tested_at: null,
+      last_test_result: null,
+      created_at: '2026-06-01T10:00:00Z',
+    };
+  }
+
+  it('chip pokazuje sumę z cost_by_key; klucz bez wywołań → $0.0000', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (url: RequestInfo | URL) => {
+        const u = String(url);
+        if (u.includes('/api/account/stats')) {
+          return {
+            ok: true,
+            json: async () => ({
+              data: {
+                total_vision_cost_usd: 0.0244,
+                total_refine_cost_usd: 0,
+                vision_run_count: 3,
+                refine_call_count: 0,
+                cost_by_key: { [KEY_A]: { cost_usd: 0.0244, call_count: 3 } },
+              },
+            }),
+          };
+        }
+        if (u.includes('/api/account/keys')) {
+          return {
+            ok: true,
+            json: async () => ({
+              data: {
+                keys: [makeKey(KEY_A, 'Mój Anthropic', true), makeKey(KEY_B, 'Zapasowy', false)],
+              },
+            }),
+          };
+        }
+        return { ok: true, json: async () => ({ data: {} }) };
+      }),
     );
+
+    render(<AccountIsland initialDisplayName={INITIAL_DISPLAY_NAME} userEmail={USER_EMAIL} />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId(`account-key-cost-${KEY_A}`)).toHaveTextContent('$0.0244'),
+    );
+    expect(screen.getByTestId(`account-key-cost-${KEY_B}`)).toHaveTextContent('$0.0000');
   });
 });
