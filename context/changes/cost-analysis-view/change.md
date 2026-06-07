@@ -1,7 +1,7 @@
 ---
 change_id: cost-analysis-view
 title: "S-41: Widok analizy kosztów per klucz API / typ / okres na /account"
-status: plan_reviewed
+status: implementing
 created: 2026-06-07
 updated: 2026-06-07
 ---

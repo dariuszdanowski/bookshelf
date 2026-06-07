@@ -246,11 +246,11 @@ Suma dla filtra pobiera wszystkie `cost_usd` pasujące do filtra (bez paginacji)
 
 #### Automated
 
-- [ ] 1.1 Migracja aplikuje się czysto: `npx supabase db reset`
-- [ ] 1.2 Unit testy endpointu przechodzą: `npm run test -- costs`
+- [x] 1.1 Migracja aplikuje się czysto: `npx supabase db reset`
+- [x] 1.2 Unit testy endpointu przechodzą: `npm run test -- costs`
 - [ ] 1.3 Test integracyjny izolacji RLS cost_events przechodzi w CI (job e2e)
-- [ ] 1.4 Typecheck: `npm run typecheck`
-- [ ] 1.5 Lint: `npm run lint`
+- [x] 1.4 Typecheck: `npm run typecheck`
+- [x] 1.5 Lint: `npm run lint`
 
 ### Phase 2: CostAnalysisModal + AccountIsland + E2E
 
