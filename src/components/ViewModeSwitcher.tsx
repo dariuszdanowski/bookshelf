@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import HelpTip from './HelpTip';
 
 /**
  * Wspólny primitive trybów prezentacji listy (Karty / Lista / Kafelki).
@@ -79,34 +80,40 @@ export function ViewModeSwitcher({
   itemTestIdPrefix?: string;
 }) {
   return (
-    <div
-      data-testid={testId}
-      role="group"
-      aria-label="Tryb prezentacji listy"
-      className="mb-4 inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 dark:border-gray-700 dark:bg-gray-800"
-    >
-      {VIEW_MODES.map((m) => {
-        const active = m === mode;
-        return (
-          <button
-            key={m}
-            type="button"
-            data-testid={`${itemTestIdPrefix}-${m}`}
-            aria-pressed={active}
-            onClick={() => onChange(m)}
-            className={`rounded-md px-3 py-1 text-xs transition-colors ${
-              active
-                ? // M4: akcent kolorem (nie szarością) — ręczne override'y dark zlewają
-                  // wszystkie text-gray-* do jednej wartości, przez co aktywny chip był
-                  // nierozróżnialny; text-blue-700 mapuje się w dark na czytelny #93c5fd.
-                  'bg-white font-semibold text-blue-700 shadow-sm dark:bg-gray-900'
-                : 'font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
-            }`}
-          >
-            {labels[m]}
-          </button>
-        );
-      })}
-    </div>
+    <span className="inline-flex items-center gap-1">
+      <div
+        data-testid={testId}
+        role="group"
+        aria-label="Tryb prezentacji listy"
+        className="mb-4 inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 dark:border-gray-700 dark:bg-gray-800"
+      >
+        {VIEW_MODES.map((m) => {
+          const active = m === mode;
+          return (
+            <button
+              key={m}
+              type="button"
+              data-testid={`${itemTestIdPrefix}-${m}`}
+              aria-pressed={active}
+              onClick={() => onChange(m)}
+              className={`rounded-md px-3 py-1 text-xs transition-colors ${
+                active
+                  ? // M4: akcent kolorem (nie szarością) — ręczne override'y dark zlewają
+                    // wszystkie text-gray-* do jednej wartości, przez co aktywny chip był
+                    // nierozróżnialny; text-blue-700 mapuje się w dark na czytelny #93c5fd.
+                    'bg-white font-semibold text-blue-700 shadow-sm dark:bg-gray-900'
+                  : 'font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+              }`}
+            >
+              {labels[m]}
+            </button>
+          );
+        })}
+      </div>
+      <HelpTip label="view-mode">
+        Karty — okładka + metadane. Lista — kompaktowe wiersze. Kafelki — siatka okładek. Wybór jest
+        zapamiętywany w przeglądarce.
+      </HelpTip>
+    </span>
   );
 }

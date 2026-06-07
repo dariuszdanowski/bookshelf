@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { ChangePasswordSchema, UpdateProfileSchema } from '../lib/account/schema';
 import CostAnalysisModal from './CostAnalysisModal';
+import HelpTip from './HelpTip';
 import { createBrowserSupabaseClient } from '../lib/db/supabase.browser';
 import { formatCost } from '../lib/costs/format';
 import type { ApiKeyDTO, CreateKeyInput } from '../lib/keys/schema';
@@ -603,7 +604,14 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
       {/* Sekcja: Klucze API */}
       <section data-testid="account-keys-section">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Klucze API</h2>
+          <h2 className="flex items-center gap-2 text-xl font-semibold">
+            Klucze API
+            <HelpTip label="byok">
+              BYOK (Bring Your Own Key) — używasz własnego klucza Anthropic API, więc koszty vision
+              i refine trafiają na Twoje konto Anthropic, nie na konto aplikacji. Klucz jest
+              szyfrowany po stronie serwera i nigdy nie trafia do przeglądarki.
+            </HelpTip>
+          </h2>
           {!addOpen && (
             <button
               onClick={() => setAddOpen(true)}

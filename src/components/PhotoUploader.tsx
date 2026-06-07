@@ -6,6 +6,7 @@ import type { PhotoDTO } from '../lib/photos/schema';
 import { THUMB_SUFFIX } from '../lib/photos/thumb';
 import type { ShelfDTO } from '../lib/shelves/schema';
 import CameraPreview from './CameraPreview';
+import HelpTip from './HelpTip';
 
 type UploadStage =
   | 'idle'
@@ -510,8 +511,13 @@ export default function PhotoUploader({
             onChange={(e) => handleAutoProcessChange(e.target.checked)}
             className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
           />
-          <span>
+          <span className="flex items-center gap-1">
             Analizuj od razu <span className="text-gray-500">(vision + match, płatne)</span>
+            <HelpTip label="auto-process">
+              Zaznaczone: po wgraniu zdjęcie jest od razu analizowane przez AI (vision) i
+              dopasowywane do baz książek — generuje koszt API. Odznaczone: zdjęcie zostaje
+              zapisane, analizę uruchamiasz ręcznie z karty Zdjęcia.
+            </HelpTip>
           </span>
         </label>
       )}
