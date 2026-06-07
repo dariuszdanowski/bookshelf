@@ -22,7 +22,7 @@ const user = Astro.locals.user;
           >
             <a
               href="/login"
-              class="inline-flex items-center justify-center rounded-md border border-gray-900 bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+              class="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
               data-testid="cta-login"
             >
               Zaloguj się
@@ -36,14 +36,11 @@ const user = Astro.locals.user;
             </a>
           </div>
         ) : (
-          <div
-            class="flex items-center justify-center pt-2"
-            data-testid="landing-cta-auth"
-          >
+          <div class="flex items-center justify-center pt-2" data-testid="landing-cta-auth">
             {/* S-08 dostarczone → CTA wraca do /library (oryginalna intencja S-09). */}
             <a
               href="/library"
-              class="inline-flex items-center justify-center rounded-md border border-gray-900 bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800"
+              class="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
               data-testid="cta-library"
             >
               Przejdź do biblioteki

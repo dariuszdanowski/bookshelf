@@ -68,13 +68,18 @@ export default function ShelfForm({ onCreate, disabled }: Props) {
       <button
         type="submit"
         disabled={disabled || submitting || !name.trim()}
-        className="inline-flex items-center justify-center rounded-md border border-gray-900 bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50"
+        // M14: gray-900 znikał na ciemnym tle — primary wg konwencji repo (blue-600)
+        className="inline-flex items-center justify-center rounded-md border border-transparent bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
         data-testid="shelf-form-submit"
       >
         {submitting ? 'Tworzę...' : 'Dodaj półkę'}
       </button>
       {error && (
-        <p className="text-sm text-red-700 sm:col-span-3" role="alert" data-testid="shelf-form-error">
+        <p
+          className="text-sm text-red-700 sm:col-span-3"
+          role="alert"
+          data-testid="shelf-form-error"
+        >
           {error}
         </p>
       )}
