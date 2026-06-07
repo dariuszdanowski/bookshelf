@@ -9,7 +9,7 @@ const PHOTO_ID = '00000000-0000-4000-8000-000000000002';
 const OTHER_SHELF_ID = '00000000-0000-4000-8000-000000000099';
 
 function makePhoto(
-  overrides: Pick<PhotoListItemDTO, 'id' | 'stage'> & Partial<PhotoListItemDTO>
+  overrides: Pick<PhotoListItemDTO, 'id' | 'stage'> & Partial<PhotoListItemDTO>,
 ): PhotoListItemDTO {
   return {
     status: 'processed',
@@ -64,10 +64,14 @@ function mockFetch(routes: {
       return Promise.resolve(h?.() ?? jsonResponse({ data: { photos: [] } }));
     }
     if (url === `/api/photos/${PHOTO_ID}/process`) {
-      return Promise.resolve(routes.process?.() ?? jsonResponse({ data: { photo: {}, detections: [] } }));
+      return Promise.resolve(
+        routes.process?.() ?? jsonResponse({ data: { photo: {}, detections: [] } }),
+      );
     }
     if (url === `/api/photos/${PHOTO_ID}/match`) {
-      return Promise.resolve(routes.match?.() ?? jsonResponse({ data: { matched: 0, detections: [] } }));
+      return Promise.resolve(
+        routes.match?.() ?? jsonResponse({ data: { matched: 0, detections: [] } }),
+      );
     }
     if (url === `/api/photos/${PHOTO_ID}` && method === 'DELETE') {
       return Promise.resolve(routes.del?.() ?? jsonResponse({ data: { deleted: true } }));
@@ -95,7 +99,13 @@ describe('PhotoListIsland', () => {
       makePhoto({ id: 'p1', stage: 'uploaded' }),
       makePhoto({ id: 'p2', stage: 'vision_done', detected_count: 5 }),
       makePhoto({ id: 'p3', stage: 'match_done', detected_count: 5, matched_count: 3 }),
-      makePhoto({ id: 'p4', stage: 'confirmed', detected_count: 5, matched_count: 3, confirmed_count: 2 }),
+      makePhoto({
+        id: 'p4',
+        stage: 'confirmed',
+        detected_count: 5,
+        matched_count: 3,
+        confirmed_count: 2,
+      }),
     ];
     mockFetch({ photosList: () => jsonResponse({ data: { photos } }) });
     render(<PhotoListIsland shelfId={SHELF_ID} shelfName="Salon" />);
@@ -108,7 +118,10 @@ describe('PhotoListIsland', () => {
   });
 
   it('uploaded stage shows "Uruchom vision" + Otwórz + Usuń (no rerun/match)', async () => {
-    mockFetch({ photosList: () => jsonResponse({ data: { photos: [makePhoto({ id: PHOTO_ID, stage: 'uploaded' })] } }) });
+    mockFetch({
+      photosList: () =>
+        jsonResponse({ data: { photos: [makePhoto({ id: PHOTO_ID, stage: 'uploaded' })] } }),
+    });
     render(<PhotoListIsland shelfId={SHELF_ID} shelfName="Salon" />);
     await waitFor(() => expect(screen.getByTestId(`run-vision-${PHOTO_ID}`)).toBeInTheDocument());
     expect(screen.getByTestId(`delete-photo-${PHOTO_ID}`)).toBeInTheDocument();
@@ -118,7 +131,10 @@ describe('PhotoListIsland', () => {
   });
 
   it('vision_done stage shows match + rerun-vision + open-review buttons', async () => {
-    mockFetch({ photosList: () => jsonResponse({ data: { photos: [makePhoto({ id: PHOTO_ID, stage: 'vision_done' })] } }) });
+    mockFetch({
+      photosList: () =>
+        jsonResponse({ data: { photos: [makePhoto({ id: PHOTO_ID, stage: 'vision_done' })] } }),
+    });
     render(<PhotoListIsland shelfId={SHELF_ID} shelfName="Salon" />);
     await waitFor(() => expect(screen.getByTestId(`run-match-${PHOTO_ID}`)).toBeInTheDocument());
     expect(screen.getByTestId(`rerun-vision-${PHOTO_ID}`)).toBeInTheDocument();
@@ -127,7 +143,10 @@ describe('PhotoListIsland', () => {
   });
 
   it('confirmed stage shows rerun-match + rerun-vision + open-review buttons', async () => {
-    mockFetch({ photosList: () => jsonResponse({ data: { photos: [makePhoto({ id: PHOTO_ID, stage: 'confirmed' })] } }) });
+    mockFetch({
+      photosList: () =>
+        jsonResponse({ data: { photos: [makePhoto({ id: PHOTO_ID, stage: 'confirmed' })] } }),
+    });
     render(<PhotoListIsland shelfId={SHELF_ID} shelfName="Salon" />);
     await waitFor(() => expect(screen.getByTestId(`rerun-match-${PHOTO_ID}`)).toBeInTheDocument());
     expect(screen.getByTestId(`rerun-vision-${PHOTO_ID}`)).toBeInTheDocument();
@@ -138,7 +157,8 @@ describe('PhotoListIsland', () => {
     const fetchMock = mockFetch({
       photosList: [
         () => jsonResponse({ data: { photos: [makePhoto({ id: PHOTO_ID, stage: 'uploaded' })] } }),
-        () => jsonResponse({ data: { photos: [makePhoto({ id: PHOTO_ID, stage: 'vision_done' })] } }),
+        () =>
+          jsonResponse({ data: { photos: [makePhoto({ id: PHOTO_ID, stage: 'vision_done' })] } }),
       ],
       process: () => jsonResponse({ data: { photo: {}, detections: [] } }),
     });
@@ -151,8 +171,8 @@ describe('PhotoListIsland', () => {
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
         `/api/photos/${PHOTO_ID}/process`,
-        expect.objectContaining({ method: 'POST' })
-      )
+        expect.objectContaining({ method: 'POST' }),
+      ),
     );
     // refetch listy po sukcesie → stage vision_done
     await waitFor(() => expect(screen.getByTestId(`run-match-${PHOTO_ID}`)).toBeInTheDocument());
@@ -160,7 +180,8 @@ describe('PhotoListIsland', () => {
 
   it('Re-run vision opens modal and calls process only after modal confirm', async () => {
     const fetchMock = mockFetch({
-      photosList: () => jsonResponse({ data: { photos: [makePhoto({ id: PHOTO_ID, stage: 'vision_done' })] } }),
+      photosList: () =>
+        jsonResponse({ data: { photos: [makePhoto({ id: PHOTO_ID, stage: 'vision_done' })] } }),
       process: () => jsonResponse({ data: { photo: {}, detections: [] } }),
     });
 
@@ -169,24 +190,31 @@ describe('PhotoListIsland', () => {
 
     fireEvent.click(screen.getByTestId(`rerun-vision-${PHOTO_ID}`));
     expect(screen.getByTestId('photo-rerun-confirm')).toBeInTheDocument();
-    expect(fetchMock).not.toHaveBeenCalledWith(`/api/photos/${PHOTO_ID}/process`, expect.anything());
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      `/api/photos/${PHOTO_ID}/process`,
+      expect.anything(),
+    );
 
     fireEvent.click(screen.getByTestId('photo-rerun-confirm-cancel'));
-    expect(fetchMock).not.toHaveBeenCalledWith(`/api/photos/${PHOTO_ID}/process`, expect.anything());
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      `/api/photos/${PHOTO_ID}/process`,
+      expect.anything(),
+    );
 
     fireEvent.click(screen.getByTestId(`rerun-vision-${PHOTO_ID}`));
     fireEvent.click(screen.getByTestId('photo-rerun-confirm-confirm'));
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
         `/api/photos/${PHOTO_ID}/process`,
-        expect.objectContaining({ method: 'POST' })
-      )
+        expect.objectContaining({ method: 'POST' }),
+      ),
     );
   });
 
   it('shows toast on 409 CONFLICT from run vision', async () => {
     mockFetch({
-      photosList: () => jsonResponse({ data: { photos: [makePhoto({ id: PHOTO_ID, stage: 'uploaded' })] } }),
+      photosList: () =>
+        jsonResponse({ data: { photos: [makePhoto({ id: PHOTO_ID, stage: 'uploaded' })] } }),
       process: () => jsonResponse({ error: { code: 'CONFLICT', message: 'in progress' } }, 409),
     });
     render(<PhotoListIsland shelfId={SHELF_ID} shelfName="Salon" />);
@@ -199,7 +227,8 @@ describe('PhotoListIsland', () => {
 
   it('shows toast on 429 rate limit from run vision', async () => {
     mockFetch({
-      photosList: () => jsonResponse({ data: { photos: [makePhoto({ id: PHOTO_ID, stage: 'uploaded' })] } }),
+      photosList: () =>
+        jsonResponse({ data: { photos: [makePhoto({ id: PHOTO_ID, stage: 'uploaded' })] } }),
       process: () => jsonResponse({ error: { code: 'RATE_LIMITED', message: 'rate' } }, 429),
     });
     render(<PhotoListIsland shelfId={SHELF_ID} shelfName="Salon" />);
@@ -214,7 +243,10 @@ describe('PhotoListIsland', () => {
 
   it('delete: klik Usuń → modal → confirm woła DELETE i usuwa wiersz', async () => {
     const fetchMock = mockFetch({
-      photosList: () => jsonResponse({ data: { photos: [makePhoto({ id: PHOTO_ID, stage: 'vision_done', detected_count: 3 })] } }),
+      photosList: () =>
+        jsonResponse({
+          data: { photos: [makePhoto({ id: PHOTO_ID, stage: 'vision_done', detected_count: 3 })] },
+        }),
       del: () => jsonResponse({ data: { deleted: true } }),
     });
     render(<PhotoListIsland shelfId={SHELF_ID} shelfName="Salon" />);
@@ -227,15 +259,18 @@ describe('PhotoListIsland', () => {
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
         `/api/photos/${PHOTO_ID}`,
-        expect.objectContaining({ method: 'DELETE' })
-      )
+        expect.objectContaining({ method: 'DELETE' }),
+      ),
     );
-    await waitFor(() => expect(screen.queryByTestId(`photo-item-${PHOTO_ID}`)).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.queryByTestId(`photo-item-${PHOTO_ID}`)).not.toBeInTheDocument(),
+    );
   });
 
   it('delete: cancel zamyka modal bez wywołania DELETE', async () => {
     const fetchMock = mockFetch({
-      photosList: () => jsonResponse({ data: { photos: [makePhoto({ id: PHOTO_ID, stage: 'vision_done' })] } }),
+      photosList: () =>
+        jsonResponse({ data: { photos: [makePhoto({ id: PHOTO_ID, stage: 'vision_done' })] } }),
     });
     render(<PhotoListIsland shelfId={SHELF_ID} shelfName="Salon" />);
     await waitFor(() => expect(screen.getByTestId(`delete-photo-${PHOTO_ID}`)).toBeInTheDocument());
@@ -244,13 +279,17 @@ describe('PhotoListIsland', () => {
     fireEvent.click(screen.getByTestId('photo-delete-confirm-cancel'));
 
     expect(screen.queryByTestId('photo-delete-confirm')).not.toBeInTheDocument();
-    expect(fetchMock).not.toHaveBeenCalledWith(`/api/photos/${PHOTO_ID}`, expect.objectContaining({ method: 'DELETE' }));
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      `/api/photos/${PHOTO_ID}`,
+      expect.objectContaining({ method: 'DELETE' }),
+    );
     expect(screen.getByTestId(`photo-item-${PHOTO_ID}`)).toBeInTheDocument();
   });
 
   it('delete: błąd serwera → rollback (wiersz wraca) + toast', async () => {
     mockFetch({
-      photosList: () => jsonResponse({ data: { photos: [makePhoto({ id: PHOTO_ID, stage: 'vision_done' })] } }),
+      photosList: () =>
+        jsonResponse({ data: { photos: [makePhoto({ id: PHOTO_ID, stage: 'vision_done' })] } }),
       del: () => jsonResponse({ error: { code: 'INTERNAL_ERROR', message: 'boom' } }, 500),
     });
     render(<PhotoListIsland shelfId={SHELF_ID} shelfName="Salon" />);
@@ -269,26 +308,49 @@ describe('PhotoListIsland', () => {
         jsonResponse({
           data: {
             shelves: [
-              { id: SHELF_ID, name: 'Salon', location: null, position_index: 0, is_system: false, book_count: 0, photo_count: 1, created_at: '2026-01-01T00:00:00Z' },
-              { id: OTHER_SHELF_ID, name: 'Sypialnia', location: null, position_index: 1, is_system: false, book_count: 0, photo_count: 0, created_at: '2026-01-01T00:00:00Z' },
+              {
+                id: SHELF_ID,
+                name: 'Salon',
+                location: null,
+                position_index: 0,
+                is_system: false,
+                book_count: 0,
+                photo_count: 1,
+                created_at: '2026-01-01T00:00:00Z',
+              },
+              {
+                id: OTHER_SHELF_ID,
+                name: 'Sypialnia',
+                location: null,
+                position_index: 1,
+                is_system: false,
+                book_count: 0,
+                photo_count: 0,
+                created_at: '2026-01-01T00:00:00Z',
+              },
             ],
           },
         }),
-      photosList: () => jsonResponse({ data: { photos: [makePhoto({ id: PHOTO_ID, stage: 'vision_done' })] } }),
+      photosList: () =>
+        jsonResponse({ data: { photos: [makePhoto({ id: PHOTO_ID, stage: 'vision_done' })] } }),
       patch: () => jsonResponse({ data: { photo: {} } }),
     });
     render(<PhotoListIsland shelfId={SHELF_ID} shelfName="Salon" />);
     await waitFor(() => expect(screen.getByTestId(`move-photo-${PHOTO_ID}`)).toBeInTheDocument());
 
-    fireEvent.change(screen.getByTestId(`move-photo-${PHOTO_ID}`), { target: { value: OTHER_SHELF_ID } });
+    fireEvent.change(screen.getByTestId(`move-photo-${PHOTO_ID}`), {
+      target: { value: OTHER_SHELF_ID },
+    });
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
         `/api/photos/${PHOTO_ID}`,
-        expect.objectContaining({ method: 'PATCH' })
-      )
+        expect.objectContaining({ method: 'PATCH' }),
+      ),
     );
-    await waitFor(() => expect(screen.queryByTestId(`photo-item-${PHOTO_ID}`)).not.toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.queryByTestId(`photo-item-${PHOTO_ID}`)).not.toBeInTheDocument(),
+    );
   });
 
   it('badge „Bez hash" widoczny tylko gdy legacy_no_hash', async () => {
@@ -315,16 +377,65 @@ describe('PhotoListIsland', () => {
         jsonResponse({
           data: {
             shelves: [
-              { id: SHELF_ID, name: 'Salon', location: null, position_index: 0, is_system: false, book_count: 0, photo_count: 1, created_at: '2026-01-01T00:00:00Z' },
-              { id: OTHER_SHELF_ID, name: 'Sypialnia', location: null, position_index: 1, is_system: false, book_count: 0, photo_count: 0, created_at: '2026-01-01T00:00:00Z' },
+              {
+                id: SHELF_ID,
+                name: 'Salon',
+                location: null,
+                position_index: 0,
+                is_system: false,
+                book_count: 0,
+                photo_count: 1,
+                created_at: '2026-01-01T00:00:00Z',
+              },
+              {
+                id: OTHER_SHELF_ID,
+                name: 'Sypialnia',
+                location: null,
+                position_index: 1,
+                is_system: false,
+                book_count: 0,
+                photo_count: 0,
+                created_at: '2026-01-01T00:00:00Z',
+              },
             ],
           },
         }),
-      photosList: () => jsonResponse({ data: { photos: [makePhoto({ id: PHOTO_ID, stage: 'processing', has_running_run: true })] } }),
+      photosList: () =>
+        jsonResponse({
+          data: {
+            photos: [makePhoto({ id: PHOTO_ID, stage: 'processing', has_running_run: true })],
+          },
+        }),
     });
     render(<PhotoListIsland shelfId={SHELF_ID} shelfName="Salon" />);
     await waitFor(() => expect(screen.getByTestId(`delete-photo-${PHOTO_ID}`)).toBeInTheDocument());
     expect(screen.getByTestId(`delete-photo-${PHOTO_ID}`)).toBeDisabled();
     expect(screen.getByTestId(`move-photo-${PHOTO_ID}`)).toBeDisabled();
+  });
+
+  // M10: klik w miniaturę otwiera propozycje — miniatura jest linkiem do /photos/[id]
+  it('miniatura (i placeholder) jest linkiem do /photos/[id]', async () => {
+    mockFetch({
+      photosList: () =>
+        jsonResponse({
+          data: {
+            photos: [
+              makePhoto({ id: PHOTO_ID, stage: 'vision_done', thumbnail_url: 'https://t.png' }),
+              makePhoto({ id: 'p-no-thumb', stage: 'uploaded', thumbnail_url: null }),
+            ],
+          },
+        }),
+    });
+    render(<PhotoListIsland shelfId={SHELF_ID} shelfName="Salon" />);
+    await waitFor(() => expect(screen.getByTestId('photo-list')).toBeInTheDocument());
+
+    expect(screen.getByTestId(`photo-thumb-link-${PHOTO_ID}`)).toHaveAttribute(
+      'href',
+      `/photos/${PHOTO_ID}`,
+    );
+    expect(screen.getByTestId('photo-thumb-link-p-no-thumb')).toHaveAttribute(
+      'href',
+      '/photos/p-no-thumb',
+    );
   });
 });
