@@ -1,7 +1,8 @@
 ---
 change_id: camera-capture
 title: "S-42: Zdjęcie półki prosto z kamery (mobile capture + desktop getUserMedia)"
-status: impl_reviewed
+status: archived
+archived_at: 2026-06-07T20:32:24Z
 created: 2026-06-07
 updated: 2026-06-07
 ---
