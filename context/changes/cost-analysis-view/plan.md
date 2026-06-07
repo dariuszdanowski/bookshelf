@@ -256,15 +256,15 @@ Suma dla filtra pobiera wszystkie `cost_usd` pasujące do filtra (bez paginacji)
 
 #### Automated
 
-- [x] 2.1 Unit testy przechodzą: `npm run test`
-- [x] 2.2 E2E account-costs przechodzi: `npm run test:e2e -- account-costs`
-- [x] 2.3 Pełna suita E2E bez regresów: `npm run test:e2e`
-- [x] 2.4 Typecheck: `npm run typecheck`
-- [x] 2.5 Lint: `npm run lint`
-- [x] 2.6 Build: `npm run build`
+- [x] 2.1 Unit testy przechodzą: `npm run test` — 61c384f
+- [x] 2.2 E2E account-costs przechodzi: `npm run test:e2e -- account-costs` — 61c384f
+- [x] 2.3 Pełna suita E2E bez regresów: `npm run test:e2e` — 61c384f
+- [x] 2.4 Typecheck: `npm run typecheck` — 61c384f
+- [x] 2.5 Lint: `npm run lint` — 61c384f
+- [x] 2.6 Build: `npm run build` — 61c384f
 
 #### Manual
 
-- [x] 2.7 Modal z „Szczegóły" pokazuje realne dane; suma zgodna z chipem
-- [x] 2.8 Chip klucza otwiera modal z prefiltrem (26 wywołań Anthropic)
-- [x] 2.9 Filtry/paginacja/link „Zdjęcie" działają na realnych danych
+- [x] 2.7 Modal z „Szczegóły" pokazuje realne dane; suma zgodna z chipem — 61c384f
+- [x] 2.8 Chip klucza otwiera modal z prefiltrem (26 wywołań Anthropic) — 61c384f
+- [x] 2.9 Filtry/paginacja/link „Zdjęcie" działają na realnych danych — 61c384f
