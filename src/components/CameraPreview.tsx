@@ -27,8 +27,8 @@ export default function CameraPreview({ onCapture, onCancel }: CameraPreviewProp
         streamRef.current = stream;
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
+          // setReady via onLoadedMetadata — gwarantuje non-zero videoWidth/Height przy capture
         }
-        setReady(true);
       })
       .catch((e: unknown) => {
         if (cancelled) return;
@@ -105,6 +105,7 @@ export default function CameraPreview({ onCapture, onCancel }: CameraPreviewProp
               autoPlay
               muted
               playsInline
+              onLoadedMetadata={() => setReady(true)}
               className="w-full"
             />
             {!ready && (

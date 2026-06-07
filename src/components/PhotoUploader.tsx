@@ -6,7 +6,6 @@ import type { PhotoDTO } from '../lib/photos/schema';
 import { THUMB_SUFFIX } from '../lib/photos/thumb';
 import type { ShelfDTO } from '../lib/shelves/schema';
 import CameraPreview from './CameraPreview';
-import Skeleton from './Skeleton';
 
 type UploadStage =
   | 'idle'
@@ -23,7 +22,26 @@ const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15 MB cap (photon pamięć Work
 // S-36: preferencja „Analizuj od razu" — kontrola kosztu vision per user.
 const AUTO_PROCESS_STORAGE_KEY = 'bookshelf:upload-auto-process';
 
+// crypto.randomUUID and crypto.subtle both require a secure context (HTTPS / localhost).
+// On plain HTTP (e.g. LAN dev via IP), fall back to random strings so the flow
+// completes without crashing. Dedup is skipped in those cases.
+function safeRandomId(): string {
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  return (
+    Date.now().toString(16) +
+    '-' +
+    Math.random().toString(36).slice(2) +
+    '-' +
+    Math.random().toString(36).slice(2)
+  );
+}
+
 async function computeSha256(file: File): Promise<string> {
+  if (!crypto.subtle) {
+    // Non-secure context (HTTP over LAN): return a random 64-char hex that passes
+    // server validation but won't match any real hash, so dedup is naturally skipped.
+    return Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+  }
   const buffer = await file.arrayBuffer();
   const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
   return Array.from(new Uint8Array(hashBuffer))
@@ -57,8 +75,16 @@ export default function PhotoUploader({
   const [autoProcess, setAutoProcess] = useState(true);
   const [supportsDesktopCamera, setSupportsDesktopCamera] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [overlapWarning, setOverlapWarning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  // Ref mirrors stage for use inside callbacks without adding stage to dep arrays.
+  const stageRef = useRef<UploadStage>('idle');
+
+  // Keep stageRef in sync so callbacks can read latest stage without dep-array churn.
+  useEffect(() => {
+    stageRef.current = stage;
+  }, [stage]);
 
   // Feature detection po hydratacji — navigator.mediaDevices nie istnieje w SSR.
   useEffect(() => {
@@ -216,7 +242,7 @@ export default function PhotoUploader({
       setStage('uploading');
       const supabase = createBrowserSupabaseClient();
       const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg';
-      const storagePath = `${userId}/${crypto.randomUUID()}.${ext}`;
+      const storagePath = `${userId}/${safeRandomId()}.${ext}`;
       const { error: upErr } = await supabase.storage
         .from('shelf-photos')
         .upload(storagePath, file, { contentType: file.type || 'image/jpeg', upsert: false });
@@ -288,6 +314,11 @@ export default function PhotoUploader({
 
   const handleFile = useCallback(
     async (file: File) => {
+      if (stageRef.current !== 'idle') {
+        setOverlapWarning(true);
+        setTimeout(() => setOverlapWarning(false), 4000);
+        return;
+      }
       if (!selectedShelfId) {
         setErrorMsg('Wybierz półkę przed uploadem.');
         return;
@@ -402,6 +433,14 @@ export default function PhotoUploader({
 
   return (
     <div data-testid="photo-uploader">
+      {overlapWarning && (
+        <div
+          role="alert"
+          className="mb-4 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+        >
+          Poczekaj na zakończenie bieżącego przetwarzania przed wgraniem kolejnego zdjęcia.
+        </div>
+      )}
       {/* Shelf selector */}
       <div className="mb-4">
         <label htmlFor="shelf-select" className="mb-1 block text-sm font-medium text-gray-700">
@@ -499,6 +538,7 @@ export default function PhotoUploader({
             <button
               type="button"
               data-testid="camera-capture-btn"
+              data-camera-mode={supportsDesktopCamera ? 'desktop' : 'mobile'}
               onClick={() => {
                 if (supportsDesktopCamera) {
                   setCameraOpen(true);
@@ -516,7 +556,7 @@ export default function PhotoUploader({
             type="file"
             accept="image/*"
             capture="environment"
-            className="hidden"
+            className="absolute -top-[9999px] -left-[9999px] h-px w-px opacity-0"
             data-testid="camera-input"
             onChange={handleFileInputChange}
           />
@@ -526,12 +566,20 @@ export default function PhotoUploader({
         </>
       )}
 
-      {/* Progress */}
+      {/* Progress — przyciski zablokowane do czasu zakończenia */}
       {isProcessing && (
-        <div data-testid="progress-area" className="mt-4 space-y-3">
-          <Skeleton className="h-4 w-3/4" aria-label={stageLabel[stage]} />
-          <Skeleton className="h-4 w-1/2" />
-          <p className="text-sm text-gray-600">{stageLabel[stage]}</p>
+        <div
+          data-testid="progress-area"
+          className="mt-4 rounded-xl border border-blue-200 bg-blue-50 px-6 py-8 text-center"
+        >
+          <div
+            className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600"
+            aria-hidden="true"
+          />
+          <p className="text-base font-semibold text-blue-800">{stageLabel[stage]}</p>
+          <p className="mt-1 text-sm text-blue-600">
+            Poczekaj na zakończenie — kolejne zdjęcie będzie możliwe za chwilę.
+          </p>
         </div>
       )}
 

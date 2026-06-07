@@ -329,29 +329,29 @@ Patrz Phase 3. Kluczowe edge case'y:
 
 #### Automated
 
-- [x] 2.1 npm run typecheck — brak błędów TypeScript
-- [x] 2.2 npm run lint — brak lint errors
-- [x] 2.3 npm run test — istniejące unit testy zielone
+- [x] 2.1 npm run typecheck — brak błędów TypeScript — 5f3d3d0
+- [x] 2.2 npm run lint — brak lint errors — 5f3d3d0
+- [x] 2.3 npm run test — istniejące unit testy zielone — 5f3d3d0
 
 #### Manual
 
-- [x] 2.4 Desktop Chrome: „Zrób zdjęcie" → inline podgląd kamery
-- [x] 2.5 Po akceptacji uprawnienia: live video widoczny
-- [x] 2.6 Capture → file pojawia się w pipeline (Wgrywanie...)
-- [x] 2.7 Odmowa uprawnienia → komunikat błędu inline
-- [x] 2.8 „Anuluj" zamyka podgląd bez uploadu
-- [x] 2.9 Wskaźnik kamery gaśnie po zamknięciu
+- [x] 2.4 Desktop Chrome: „Zrób zdjęcie" → inline podgląd kamery — 5f3d3d0
+- [x] 2.5 Po akceptacji uprawnienia: live video widoczny — 5f3d3d0
+- [x] 2.6 Capture → file pojawia się w pipeline (Wgrywanie...) — 5f3d3d0
+- [x] 2.7 Odmowa uprawnienia → komunikat błędu inline — 5f3d3d0
+- [x] 2.8 „Anuluj" zamyka podgląd bez uploadu — 5f3d3d0
+- [x] 2.9 Wskaźnik kamery gaśnie po zamknięciu — 5f3d3d0
 
 ### Phase 3: E2E Tests
 
 #### Automated
 
-- [ ] 3.1 npm run test:e2e --grep camera-capture — testy zielone
-- [ ] 3.2 npm run typecheck — brak błędów
-- [ ] 3.3 npm run lint — brak lint errors
-- [ ] 3.4 npm run test — istniejące unit testy zielone
-- [ ] 3.5 Pełne npm run test:e2e — brak regresji
+- [x] 3.1 npm run test:e2e --grep camera-capture — testy zielone
+- [x] 3.2 npm run typecheck — brak błędów
+- [x] 3.3 npm run lint — brak lint errors
+- [x] 3.4 npm run test — istniejące unit testy zielone
+- [x] 3.5 Pełne npm run test:e2e — brak regresji
 
 #### Manual
 
-- [ ] 3.6 Na telefonie (real device): „Zrób zdjęcie" otwiera aparat systemowy
+- [x] 3.6 Na telefonie (real device): „Zrób zdjęcie" otwiera aparat systemowy
