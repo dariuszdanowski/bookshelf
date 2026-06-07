@@ -49,7 +49,7 @@ Widok SQL zamiast merge'owania dwóch zapytań w JS: UNION ALL daje jeden spójn
 - **Typy Supabase**: widok nie będzie w `database.types.ts` do regen — użyć precedensu `(locals.supabase as any)` z komentarzem jak w stats.ts:14-16.
 - **RLS w widoku z LEFT JOIN do `detections`**: polityka `detections` filtruje przez `photos` — wiersz refine z żywym zdjęciem dostanie `raw_title`, po usunięciu zdjęcia JOIN zwróci NULL (detekcje kasowane CASCADE). To pożądane degradowanie, nie bug.
 
-## Phase 1: Widok `cost_events` + `GET /api/account/costs`
+## Phase 1: Widok cost_events + GET /api/account/costs
 
 ### Overview
 
@@ -105,12 +105,21 @@ left join public.detections d on d.id = rc.detection_id;
 
 **Contract**: przypadki — 401 bez usera; default (bez filtrów, strona 1); filtr `key=<uuid>`, `key=none` (`is null`), `type`, `period` (sprawdzenie `gte` z poprawną granicą); paginacja (`range(25,49)` dla page=2); `total_cost_usd` liczone z drugiego query z `NULL cost_usd → 0`; 400 na zły `page`/`key`; 500 na błąd DB.
 
+#### 5. Test integracyjny izolacji RLS widoku
+
+**File**: `tests/integration/` (rozszerzenie istniejącego pliku RLS isolation lub nowy wg wzorca)
+
+**Intent**: `cost_events` to PIERWSZY widok `security_invoker` w repo — zero precedensu. Dowód automatyczny, że user A nie widzi zdarzeń usera B przez widok (guardrail prywatności #1 z test-plan.md); `db reset`/e2e tego nie dowodzą.
+
+**Contract**: wzorzec istniejących testów izolacji w `tests/integration/` — seed wierszy `vision_runs`/`refine_calls` dla dwóch userów, SELECT na `cost_events` klientem usera A zwraca wyłącznie jego wiersze. Biega w CI (job e2e, efemeryczna Supabase); lokalnie z Windows nie dosięga stacku WSL (znane ograniczenie) — weryfikacja w CI.
+
 ### Success Criteria:
 
 #### Automated Verification:
 
 - Migracja aplikuje się czysto na lokalnej Supabase: `npx supabase db reset` (WSL)
 - Unit testy przechodzą: `npm run test -- costs`
+- Test integracyjny izolacji RLS `cost_events` przechodzi w CI (job e2e)
 - Typecheck: `npm run typecheck`
 - Lint: `npm run lint`
 
@@ -120,7 +129,7 @@ left join public.detections d on d.id = rc.detection_id;
 
 ---
 
-## Phase 2: `CostAnalysisModal` + wpięcie w AccountIsland + E2E
+## Phase 2: CostAnalysisModal + AccountIsland + E2E
 
 ### Overview
 
@@ -132,9 +141,9 @@ Modal z listą, filtrami, paginacją i sumą; dwa punkty wejścia na /account; e
 
 **File**: `src/lib/costs/format.ts` (nowy) + `src/components/CostPanel.tsx` (konsumpcja)
 
-**Intent**: `formatCost`/`formatLatency`/`formatDate` wyciągnięte z CostPanel do zod-free modułu (lekcja vite-stale-deps), żeby modal nie tworzył drugiej kopii.
+**Intent**: `formatCost`/`formatLatency`/`formatDate` wyciągnięte z CostPanel do zod-free modułu (lekcja vite-stale-deps), żeby modal nie tworzył kolejnej kopii.
 
-**Contract**: czyste funkcje, identyczne sygnatury jak w CostPanel.tsx:34-54; CostPanel importuje zamiast definiować lokalnie. Zero zmian zachowania.
+**Contract**: czyste funkcje, identyczne sygnatury jak w CostPanel.tsx:34-54; CostPanel importuje zamiast definiować lokalnie. **AccountIsland również konsumuje `formatCost`** — ma 2 inline kopie `toFixed(4)` (linie ~24, ~895) w pliku i tak dotykanym w tej fazie. Inline kopie w DetectionReview/PhotoListIsland świadomie POZA scope (osobny sweep, jeśli kiedyś). Zero zmian zachowania.
 
 #### 2. Modal analizy kosztów
 
@@ -147,7 +156,7 @@ Modal z listą, filtrami, paginacją i sumą; dwa punkty wejścia na /account; e
 - Filtry: select klucza (Wszystkie / per label / „Bez przypisania"), segmenty typu (Wszystkie / Vision / OCR), segmenty okresu (Wszystko / 30 dni / 7 dni). Zmiana filtra resetuje stronę na 1.
 - Wiersz: ikona+etykieta typu, model, `formatDate(created_at)`, `formatLatency`, `formatCost`, label klucza (lookup po `api_key_id` w `keys`; NULL → „—"), `raw_title` dla OCR jeśli jest, link „Zdjęcie" → `/photos/[photo_id]` gdy `photo_id != null`.
 - Footer: „N wywołań · suma $X.XXXX" (z `total_count`/`total_cost_usd`) + paginacja Poprzednia/Następna ze wskaźnikiem strony (`Math.ceil(total_count/page_size)`).
-- Modal in-app (wzorzec BookModal): overlay, ESC, klik w tło zamyka; bez `window.confirm`/natywnych okien (konwencja CLAUDE.md).
+- Modal in-app (wzorzec BookModal): overlay, ESC, klik w tło zamyka (stopPropagation na panelu), `useBodyScrollLock` + `role="dialog" aria-modal="true"` — jak BookModal.tsx:439,469-475,600-613; bez `window.confirm`/natywnych okien (konwencja CLAUDE.md).
 
 #### 3. Punkty wejścia w AccountIsland
 
@@ -239,8 +248,9 @@ Suma dla filtra pobiera wszystkie `cost_usd` pasujące do filtra (bez paginacji)
 
 - [ ] 1.1 Migracja aplikuje się czysto: `npx supabase db reset`
 - [ ] 1.2 Unit testy endpointu przechodzą: `npm run test -- costs`
-- [ ] 1.3 Typecheck: `npm run typecheck`
-- [ ] 1.4 Lint: `npm run lint`
+- [ ] 1.3 Test integracyjny izolacji RLS cost_events przechodzi w CI (job e2e)
+- [ ] 1.4 Typecheck: `npm run typecheck`
+- [ ] 1.5 Lint: `npm run lint`
 
 ### Phase 2: CostAnalysisModal + AccountIsland + E2E
 

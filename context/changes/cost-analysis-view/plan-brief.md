@@ -42,7 +42,7 @@ Użytkownik klika „Szczegóły" w sekcji Koszty analizy (lub chip przy kluczu 
 
 | Phase | What it delivers | Key risk |
 |---|---|---|
-| 1. Widok + API | Migracja 0021, `GET /api/account/costs`, unit testy | RLS na widoku (`security_invoker`) — walidowane przez `db reset` + e2e CI |
+| 1. Widok + API | Migracja 0021, `GET /api/account/costs`, unit + integracyjny test izolacji RLS | Pierwszy `security_invoker` view w repo — izolacja per-user dowiedziona testem integracyjnym w CI |
 | 2. Modal + E2E | `CostAnalysisModal`, wpięcie w AccountIsland, E2E | Manual test na dev wymaga 0021 na prod DB (precedens M27) lub lokalnej Supabase |
 
 **Prerequisites:** brak — substrat (0020, `cost_by_key`) zmergowany w PR #79.
