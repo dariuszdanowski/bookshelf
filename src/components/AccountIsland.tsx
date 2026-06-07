@@ -54,7 +54,11 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
   const [keys, setKeys] = useState<ApiKeyDTO[]>([]);
   const [keysLoading, setKeysLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
-  const [addForm, setAddForm] = useState<CreateKeyInput>({ label: '', provider: 'anthropic', key_value: '' });
+  const [addForm, setAddForm] = useState<CreateKeyInput>({
+    label: '',
+    provider: 'anthropic',
+    key_value: '',
+  });
   const [addError, setAddError] = useState<string | null>(null);
   const [addLoading, setAddLoading] = useState(false);
   const [testingId, setTestingId] = useState<string | null>(null);
@@ -62,7 +66,13 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
   const [activatingId, setActivatingId] = useState<string | null>(null);
   const [deactivatingId, setDeactivatingId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<{ label: string; provider: CreateKeyInput['provider']; model: string; base_url: string; key_value: string }>({ label: '', provider: 'anthropic', model: '', base_url: '', key_value: '' });
+  const [editForm, setEditForm] = useState<{
+    label: string;
+    provider: CreateKeyInput['provider'];
+    model: string;
+    base_url: string;
+    key_value: string;
+  }>({ label: '', provider: 'anthropic', model: '', base_url: '', key_value: '' });
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
@@ -71,9 +81,7 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
     fetch('/api/account/stats')
       .then(
         (r) =>
-          r.json() as Promise<
-            { data: StatsData } | { error: { code: string; message: string } }
-          >
+          r.json() as Promise<{ data: StatsData } | { error: { code: string; message: string } }>,
       )
       .then((json) => {
         if (cancelled) return;
@@ -166,7 +174,7 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
     if (!parsed.success) {
       const flat = parsed.error.flatten();
       setPasswordFieldError(
-        flat.fieldErrors.confirm?.[0] ?? flat.fieldErrors.password?.[0] ?? 'Błąd walidacji.'
+        flat.fieldErrors.confirm?.[0] ?? flat.fieldErrors.password?.[0] ?? 'Błąd walidacji.',
       );
       return;
     }
@@ -202,8 +210,12 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
         if ('data' in json) setKeys(json.data.keys ?? []);
       })
       .catch(() => {})
-      .finally(() => { if (!cancelled) setKeysLoading(false); });
-    return () => { cancelled = true; };
+      .finally(() => {
+        if (!cancelled) setKeysLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function handleAddKey() {
@@ -242,9 +254,13 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
         setKeys((prev) =>
           prev.map((k) =>
             k.id === id
-              ? { ...k, last_test_result: json.data.result, last_tested_at: new Date().toISOString() }
-              : k
-          )
+              ? {
+                  ...k,
+                  last_test_result: json.data.result,
+                  last_tested_at: new Date().toISOString(),
+                }
+              : k,
+          ),
         );
       }
     } catch {
@@ -306,7 +322,13 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
 
   function openEdit(key: ApiKeyDTO) {
     setEditingId(key.id);
-    setEditForm({ label: key.label, provider: key.provider, model: key.model ?? '', base_url: key.base_url ?? '', key_value: '' });
+    setEditForm({
+      label: key.label,
+      provider: key.provider,
+      model: key.model ?? '',
+      base_url: key.base_url ?? '',
+      key_value: '',
+    });
     setEditError(null);
   }
 
@@ -540,7 +562,7 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
               <div className="text-2xl font-bold" data-testid="account-stats-total">
                 {formatUsd(stats.total_vision_cost_usd + stats.total_refine_cost_usd)}
               </div>
-              <div className="grid grid-cols-2 gap-4 text-sm text-gray-700 dark:text-gray-300">
+              <div className="grid grid-cols-1 gap-4 text-sm text-gray-700 sm:grid-cols-2 dark:text-gray-300">
                 <div>
                   <span className="font-medium">Vision:</span>{' '}
                   {formatUsd(stats.total_vision_cost_usd)} ({stats.vision_run_count} analiz)
@@ -620,7 +642,9 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
                   id="key_base_url"
                   type="url"
                   value={addForm.base_url ?? ''}
-                  onChange={(e) => setAddForm((f) => ({ ...f, base_url: e.target.value || undefined }))}
+                  onChange={(e) =>
+                    setAddForm((f) => ({ ...f, base_url: e.target.value || undefined }))
+                  }
                   className={`mt-1 ${inputCls}`}
                   placeholder="https://api.example.com/v1"
                   data-testid="account-keys-base-url-input"
@@ -694,7 +718,8 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
           )}
           {!keysLoading && keys.length === 0 && (
             <p className="text-sm text-gray-500" data-testid="account-keys-empty">
-              Brak skonfigurowanych kluczy. Dodaj własny klucz API (BYOK), aby korzystać z modeli AI.
+              Brak skonfigurowanych kluczy. Dodaj własny klucz API (BYOK), aby korzystać z modeli
+              AI.
             </p>
           )}
           {keys.map((key) => (
@@ -762,7 +787,9 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium">Nowy klucz API (opcjonalnie)</label>
+                    <label className="block text-sm font-medium">
+                      Nowy klucz API (opcjonalnie)
+                    </label>
                     <input
                       type="password"
                       autoComplete="off"
@@ -774,7 +801,10 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
                     />
                   </div>
                   {editError && (
-                    <p className="text-sm text-red-600" data-testid={`account-key-edit-error-${key.id}`}>
+                    <p
+                      className="text-sm text-red-600"
+                      data-testid={`account-key-edit-error-${key.id}`}
+                    >
                       {editError}
                     </p>
                   )}
@@ -788,7 +818,10 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
                       {editLoading ? 'Zapisuję...' : 'Zapisz'}
                     </button>
                     <button
-                      onClick={() => { setEditingId(null); setEditError(null); }}
+                      onClick={() => {
+                        setEditingId(null);
+                        setEditError(null);
+                      }}
                       className="rounded border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-600"
                       data-testid={`account-key-edit-cancel-${key.id}`}
                     >
@@ -815,12 +848,18 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
                         </span>
                       )}
                       {key.last_test_result === 'ok' && (
-                        <span className="text-xs text-green-600 dark:text-green-400" data-testid={`account-key-test-ok-${key.id}`}>
+                        <span
+                          className="text-xs text-green-600 dark:text-green-400"
+                          data-testid={`account-key-test-ok-${key.id}`}
+                        >
                           ✓ OK
                         </span>
                       )}
                       {key.last_test_result === 'error' && (
-                        <span className="text-xs text-red-600 dark:text-red-400" data-testid={`account-key-test-error-${key.id}`}>
+                        <span
+                          className="text-xs text-red-600 dark:text-red-400"
+                          data-testid={`account-key-test-error-${key.id}`}
+                        >
                           ✗ błąd
                         </span>
                       )}

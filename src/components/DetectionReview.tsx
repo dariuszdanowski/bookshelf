@@ -1378,7 +1378,8 @@ export function DetectionRow({
         </span>
       )}
 
-      <div className="flex flex-shrink-0 gap-1">
+      {/* S-28: wrap na wąskim ekranie — flex-shrink-0 bez wrap dawał 479 px min-content i poziomy scroll na 375 px */}
+      <div className="flex flex-wrap gap-1 sm:flex-shrink-0">
         {top && (
           <button
             data-testid="confirm-button"
