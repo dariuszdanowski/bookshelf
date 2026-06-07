@@ -10,6 +10,8 @@ import cloudflare from '@astrojs/cloudflare';
 export default defineConfig({
   output: 'server',
 
+  server: { host: true },
+
   integrations: [react()],
 
   vite: {
@@ -17,7 +19,9 @@ export default defineConfig({
       alias: {
         // Guard against SSR dep prebundle picking production jsx-dev-runtime,
         // which exports jsxDEV as undefined and breaks React islands in dev.
-        'react/jsx-dev-runtime': resolve('node_modules/react/cjs/react-jsx-dev-runtime.development.js'),
+        'react/jsx-dev-runtime': resolve(
+          'node_modules/react/cjs/react-jsx-dev-runtime.development.js',
+        ),
       },
     },
     plugins: [tailwindcss()],

@@ -17,7 +17,13 @@ export default defineConfig({
     { name: 'cleanup', testMatch: /auth\.teardown\.ts/ },
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'], storageState: 'tests/e2e/.auth/user.json' },
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'tests/e2e/.auth/user.json',
+        launchOptions: {
+          args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
+        },
+      },
       dependencies: ['setup'],
     },
   ],
