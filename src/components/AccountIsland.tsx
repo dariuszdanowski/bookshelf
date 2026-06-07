@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
 
 import { ChangePasswordSchema, UpdateProfileSchema } from '../lib/account/schema';
+import CostAnalysisModal from './CostAnalysisModal';
 import { createBrowserSupabaseClient } from '../lib/db/supabase.browser';
+import { formatCost } from '../lib/costs/format';
 import type { ApiKeyDTO, CreateKeyInput } from '../lib/keys/schema';
 
 type StatsData = {
@@ -51,6 +53,9 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
   const [stats, setStats] = useState<StatsData | null>(null);
   const [statsError, setStatsError] = useState<string | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
+
+  // S-41: Cost Analysis Modal
+  const [costModal, setCostModal] = useState<{ open: boolean; keyId?: string }>({ open: false });
 
   // API Keys (S-32)
   const [keys, setKeys] = useState<ApiKeyDTO[]>([]);
@@ -554,7 +559,16 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
 
       {/* Sekcja: Koszty analizy */}
       <section data-testid="account-stats-section">
-        <h2 className="mb-4 text-xl font-semibold">Koszty analizy</h2>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-xl font-semibold">Koszty analizy</h2>
+          <button
+            onClick={() => setCostModal({ open: true })}
+            className="rounded border border-gray-300 px-3 py-1 text-sm hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-700"
+            data-testid="account-costs-details-btn"
+          >
+            Szczegóły
+          </button>
+        </div>
         <div className="rounded border border-gray-200 p-4 dark:border-gray-600">
           {statsLoading && (
             <p className="text-sm text-gray-500" data-testid="account-stats-loading">
@@ -872,12 +886,14 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
                           ✗ błąd
                         </span>
                       )}
-                      {/* M27: suma kosztów wywołań tym kluczem (vision + OCR) —
-                          spójny styl z przyciskiem kosztów przy zdjęciu */}
-                      <span
+                      {/* S-41: chip → button z prefiltrem na klucz */}
+                      <button
+                        type="button"
                         data-testid={`account-key-cost-${key.id}`}
-                        title="Suma kosztów wywołań AI wykonanych tym kluczem (analizy vision + doczytywanie OCR). Wywołania sprzed wdrożenia atrybucji (2026-06-07) nie są przypisane do klucza."
-                        className="inline-flex items-center gap-1 rounded border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-xs font-semibold text-emerald-700 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300"
+                        title="Suma kosztów wywołań AI wykonanych tym kluczem (analizy vision + doczytywanie OCR). Kliknij, by zobaczyć szczegóły."
+                        aria-label="Pokaż wywołania wykonane tym kluczem"
+                        onClick={() => setCostModal({ open: true, keyId: key.id })}
+                        className="inline-flex cursor-pointer items-center gap-1 rounded border border-emerald-300 bg-emerald-50 px-1.5 py-0.5 text-xs font-semibold text-emerald-700 hover:border-emerald-400 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300"
                       >
                         <svg
                           width="10"
@@ -891,9 +907,8 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
                           <line x1="5" y1="0" x2="5" y2="14" />
                           <path d="M8 3H3.5A2.5 2.5 0 001 5.5v0A2.5 2.5 0 003.5 8H6.5A2.5 2.5 0 019 10.5v0A2.5 2.5 0 016.5 13H1" />
                         </svg>
-                        {/* 4 miejsca jak CostPanel — koszty pojedynczych calli to ułamki centa */}$
-                        {(stats?.cost_by_key?.[key.id]?.cost_usd ?? 0).toFixed(4)}
-                      </span>
+                        {formatCost(stats?.cost_by_key?.[key.id]?.cost_usd ?? 0)}
+                      </button>
                     </div>
                     {key.model && (
                       <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{key.model}</p>
@@ -950,6 +965,15 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
           ))}
         </div>
       </section>
+
+      {/* S-41: Cost Analysis Modal */}
+      {costModal.open && (
+        <CostAnalysisModal
+          keys={keys.map((k) => ({ id: k.id, label: k.label }))}
+          initialKeyId={costModal.keyId}
+          onClose={() => setCostModal({ open: false })}
+        />
+      )}
     </div>
   );
 }

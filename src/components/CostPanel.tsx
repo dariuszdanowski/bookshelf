@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 
+import { formatCost, formatDate, formatLatency } from '../lib/costs/format';
+
 type VisionRun = {
   id: string;
   model: string | null;
@@ -30,28 +32,6 @@ type CostData = {
     call_count: number;
   };
 };
-
-function formatCost(usd: number | null): string {
-  if (usd == null) return '—';
-  if (usd < 0.0001) return '<$0.0001';
-  return `$${usd.toFixed(4)}`;
-}
-
-function formatLatency(ms: number | null): string {
-  if (ms == null) return '';
-  return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
-}
-
-function formatDate(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleString('pl-PL', {
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
-}
 
 type Props = {
   photoId: string;

@@ -246,25 +246,25 @@ Suma dla filtra pobiera wszystkie `cost_usd` pasujące do filtra (bez paginacji)
 
 #### Automated
 
-- [x] 1.1 Migracja aplikuje się czysto: `npx supabase db reset`
-- [x] 1.2 Unit testy endpointu przechodzą: `npm run test -- costs`
+- [x] 1.1 Migracja aplikuje się czysto: `npx supabase db reset` — 44468c6
+- [x] 1.2 Unit testy endpointu przechodzą: `npm run test -- costs` — 44468c6
 - [ ] 1.3 Test integracyjny izolacji RLS cost_events przechodzi w CI (job e2e)
-- [x] 1.4 Typecheck: `npm run typecheck`
-- [x] 1.5 Lint: `npm run lint`
+- [x] 1.4 Typecheck: `npm run typecheck` — 44468c6
+- [x] 1.5 Lint: `npm run lint` — 44468c6
 
 ### Phase 2: CostAnalysisModal + AccountIsland + E2E
 
 #### Automated
 
-- [ ] 2.1 Unit testy przechodzą: `npm run test`
-- [ ] 2.2 E2E account-costs przechodzi: `npm run test:e2e -- account-costs`
-- [ ] 2.3 Pełna suita E2E bez regresów: `npm run test:e2e`
-- [ ] 2.4 Typecheck: `npm run typecheck`
-- [ ] 2.5 Lint: `npm run lint`
-- [ ] 2.6 Build: `npm run build`
+- [x] 2.1 Unit testy przechodzą: `npm run test`
+- [x] 2.2 E2E account-costs przechodzi: `npm run test:e2e -- account-costs`
+- [x] 2.3 Pełna suita E2E bez regresów: `npm run test:e2e`
+- [x] 2.4 Typecheck: `npm run typecheck`
+- [x] 2.5 Lint: `npm run lint`
+- [x] 2.6 Build: `npm run build`
 
 #### Manual
 
-- [ ] 2.7 Modal z „Szczegóły" pokazuje realne dane; suma zgodna z chipem
-- [ ] 2.8 Chip klucza otwiera modal z prefiltrem (26 wywołań Anthropic)
-- [ ] 2.9 Filtry/paginacja/link „Zdjęcie" działają na realnych danych
+- [x] 2.7 Modal z „Szczegóły" pokazuje realne dane; suma zgodna z chipem
+- [x] 2.8 Chip klucza otwiera modal z prefiltrem (26 wywołań Anthropic)
+- [x] 2.9 Filtry/paginacja/link „Zdjęcie" działają na realnych danych
