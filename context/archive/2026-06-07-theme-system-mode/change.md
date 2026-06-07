@@ -1,10 +1,10 @@
 ---
 change_id: theme-system-mode
 title: "Pakiet D2: theme-system mode (M17)"
-status: implemented
+status: archived
 created: 2026-06-07
 updated: 2026-06-07
-archived_at: null
+archived_at: 2026-06-07T13:10:00Z
 ---
 
 ## Notes
