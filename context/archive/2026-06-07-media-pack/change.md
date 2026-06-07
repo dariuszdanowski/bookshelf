@@ -1,10 +1,10 @@
 ---
 change_id: media-pack
 title: "Pakiet B2: media (M15, M16)"
-status: implemented
+status: archived
 created: 2026-06-07
 updated: 2026-06-07
-archived_at: null
+archived_at: 2026-06-07T12:50:00Z
 ---
 
 ## Notes
