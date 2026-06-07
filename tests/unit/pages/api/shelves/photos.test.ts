@@ -25,11 +25,28 @@ const baseRun = {
 };
 
 function makeSupabase(opts: {
-  shelfResult?: { data: { id: string } | null; error: { code?: string; name?: string; message?: string } | null };
-  photosResult?: { data: { id: string; storage_path: string; status: string; created_at: string; file_hash_sha256?: string | null }[] | null; error: null };
-  succeededRunsResult?: { data: typeof baseRun[] | null; error: null };
+  shelfResult?: {
+    data: { id: string } | null;
+    error: { code?: string; name?: string; message?: string } | null;
+  };
+  photosResult?: {
+    data:
+      | {
+          id: string;
+          storage_path: string;
+          status: string;
+          created_at: string;
+          file_hash_sha256?: string | null;
+        }[]
+      | null;
+    error: null;
+  };
+  succeededRunsResult?: { data: (typeof baseRun)[] | null; error: null };
   runningRunsResult?: { data: { photo_id: string }[] | null; error?: null };
-  detCountsResult?: { data: { vision_run_id: string; status: string; book_candidates: { id: string }[] }[] | null; error: null };
+  detCountsResult?: {
+    data: { vision_run_id: string; status: string; book_candidates: { id: string }[] }[] | null;
+    error: null;
+  };
   signedUrlsResult?: { data: { path: string | null; signedUrl: string }[] | null; error?: null };
 }) {
   const {
@@ -38,7 +55,10 @@ function makeSupabase(opts: {
     succeededRunsResult = { data: [baseRun], error: null },
     runningRunsResult = { data: [], error: null },
     detCountsResult = { data: [], error: null },
-    signedUrlsResult = { data: [{ path: STORAGE_PATH_1, signedUrl: 'https://signed.url/photo1.jpg' }], error: null },
+    signedUrlsResult = {
+      data: [{ path: STORAGE_PATH_1, signedUrl: 'https://signed.url/photo1.jpg' }],
+      error: null,
+    },
   } = opts;
 
   const mockStorage = {
@@ -109,7 +129,7 @@ function makeSupabase(opts: {
 function makeContext(
   supabase: ReturnType<typeof makeSupabase>['supabase'],
   shelfId = SHELF_ID,
-  user: { id: string } | null = { id: USER_ID }
+  user: { id: string } | null = { id: USER_ID },
 ) {
   return {
     params: { id: shelfId },
@@ -171,7 +191,9 @@ describe('GET /api/shelves/[id]/photos', () => {
       runningRunsResult: { data: [{ photo_id: PHOTO_ID_1 }], error: null },
     });
     const res = await GET(makeContext(supabase) as never);
-    const json = (await res.json()) as { data: { photos: { stage: string; has_running_run: boolean }[] } };
+    const json = (await res.json()) as {
+      data: { photos: { stage: string; has_running_run: boolean }[] };
+    };
     expect(json.data.photos[0].stage).toBe('processing');
     expect(json.data.photos[0].has_running_run).toBe(true);
   });
@@ -184,7 +206,9 @@ describe('GET /api/shelves/[id]/photos', () => {
       },
     });
     const res = await GET(makeContext(supabase) as never);
-    const json = (await res.json()) as { data: { photos: { stage: string; detected_count: number; matched_count: number }[] } };
+    const json = (await res.json()) as {
+      data: { photos: { stage: string; detected_count: number; matched_count: number }[] };
+    };
     expect(json.data.photos[0].stage).toBe('vision_done');
     expect(json.data.photos[0].detected_count).toBe(1);
     expect(json.data.photos[0].matched_count).toBe(0);
@@ -201,7 +225,9 @@ describe('GET /api/shelves/[id]/photos', () => {
       },
     });
     const res = await GET(makeContext(supabase) as never);
-    const json = (await res.json()) as { data: { photos: { stage: string; matched_count: number; confirmed_count: number }[] } };
+    const json = (await res.json()) as {
+      data: { photos: { stage: string; matched_count: number; confirmed_count: number }[] };
+    };
     expect(json.data.photos[0].stage).toBe('match_done');
     expect(json.data.photos[0].matched_count).toBe(1);
     expect(json.data.photos[0].confirmed_count).toBe(0);
@@ -218,7 +244,9 @@ describe('GET /api/shelves/[id]/photos', () => {
       },
     });
     const res = await GET(makeContext(supabase) as never);
-    const json = (await res.json()) as { data: { photos: { stage: string; confirmed_count: number }[] } };
+    const json = (await res.json()) as {
+      data: { photos: { stage: string; confirmed_count: number }[] };
+    };
     expect(json.data.photos[0].stage).toBe('confirmed');
     expect(json.data.photos[0].confirmed_count).toBe(1);
   });
@@ -243,11 +271,39 @@ describe('GET /api/shelves/[id]/photos', () => {
     expect(json.data.photos[0].latest_vision_run).toBeNull();
   });
 
-  it('includes signed thumbnail_url from storage', async () => {
+  it('includes signed thumbnail_url from storage (fallback do oryginału bez miniatury — M15)', async () => {
     const { supabase } = makeSupabase({});
     const res = await GET(makeContext(supabase) as never);
     const json = (await res.json()) as { data: { photos: { thumbnail_url: string | null }[] } };
     expect(json.data.photos[0].thumbnail_url).toBe('https://signed.url/photo1.jpg');
+  });
+
+  // M15: lista preferuje miniaturę <storage_path>.thumb.jpg nad oryginałem
+  it('M15: preferuje signed URL miniatury, gdy thumb istnieje w Storage', async () => {
+    const { supabase } = makeSupabase({
+      signedUrlsResult: {
+        data: [
+          { path: `${STORAGE_PATH_1}.thumb.jpg`, signedUrl: 'https://signed.url/photo1.thumb.jpg' },
+          { path: STORAGE_PATH_1, signedUrl: 'https://signed.url/photo1.jpg' },
+        ],
+        error: null,
+      },
+    });
+    const res = await GET(makeContext(supabase) as never);
+    const json = (await res.json()) as { data: { photos: { thumbnail_url: string | null }[] } };
+    expect(json.data.photos[0].thumbnail_url).toBe('https://signed.url/photo1.thumb.jpg');
+  });
+
+  it('M15: batch sign zawiera ścieżki miniatur PRZED oryginałami (2N paths)', async () => {
+    const { supabase, mockStorage } = makeSupabase({});
+    await GET(makeContext(supabase) as never);
+    const fromResult = mockStorage.from.mock.results[0]!.value as {
+      createSignedUrls: ReturnType<typeof vi.fn>;
+    };
+    expect(fromResult.createSignedUrls).toHaveBeenCalledWith(
+      [`${STORAGE_PATH_1}.thumb.jpg`, STORAGE_PATH_1],
+      3600,
+    );
   });
 
   it('thumbnail_url is null when storage returns no signed url for path', async () => {

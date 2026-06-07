@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { createBrowserSupabaseClient } from '../lib/db/supabase.browser';
+import { makeThumbnailBlob } from '../lib/images/browserThumb';
 import type { PhotoDTO } from '../lib/photos/schema';
+import { THUMB_SUFFIX } from '../lib/photos/thumb';
 import type { ShelfDTO } from '../lib/shelves/schema';
 import Skeleton from './Skeleton';
 
@@ -208,6 +210,23 @@ export default function PhotoUploader({
         .from('shelf-photos')
         .upload(storagePath, file, { contentType: file.type || 'image/jpeg', upsert: false });
       if (upErr) throw new Error(upErr.message);
+
+      // M15: miniatura (canvas, max 640px) obok oryginału — lista zdjęć nie musi
+      // ściągać wielomegabajtowych oryginałów. Best-effort: błąd NIE blokuje uploadu.
+      try {
+        const thumb = await makeThumbnailBlob(file);
+        if (thumb) {
+          const { error: thumbErr } = await supabase.storage
+            .from('shelf-photos')
+            .upload(`${storagePath}${THUMB_SUFFIX}`, thumb, {
+              contentType: 'image/jpeg',
+              upsert: false,
+            });
+          if (thumbErr) console.warn('[PhotoUploader] thumb upload failed', thumbErr.message);
+        }
+      } catch (thumbEx) {
+        console.warn('[PhotoUploader] thumb generation failed', thumbEx);
+      }
 
       setStage('recording');
       const recRes = await fetch('/api/photos', {

@@ -334,14 +334,19 @@ export default function PhotoListIsland({ shelfId }: Props) {
                 className="block flex-shrink-0"
               >
                 {photo.thumbnail_url ? (
+                  // M16: na sm+ większy podgląd BEZ kadrowania (h-28 + w-auto =
+                  // naturalne proporcje; max-w z object-contain zamiast crop).
+                  // M15: lazy + async — lista nie blokuje się na obrazach.
                   <img
                     src={photo.thumbnail_url}
                     alt="Miniatura zdjęcia półki"
-                    className="h-40 w-full rounded object-cover sm:h-16 sm:w-16"
+                    loading="lazy"
+                    decoding="async"
+                    className="h-40 w-full rounded object-cover sm:h-28 sm:w-auto sm:max-w-56 sm:object-contain"
                   />
                 ) : (
                   <div
-                    className="flex h-40 w-full items-center justify-center rounded bg-gray-100 text-gray-400 sm:h-16 sm:w-16"
+                    className="flex h-40 w-full items-center justify-center rounded bg-gray-100 text-gray-400 sm:h-28 sm:w-40"
                     aria-hidden="true"
                   >
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
