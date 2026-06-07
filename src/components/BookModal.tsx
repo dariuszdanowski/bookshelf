@@ -4,6 +4,7 @@ import type { CoverSource } from '../lib/books/schema';
 import BookFields from './book/BookFields';
 import type { BookFieldValues } from './book/BookFields';
 import CoverEditor, { type CoverEditorPatch } from './book/CoverEditor';
+import { useBodyScrollLock } from './useBodyScrollLock';
 
 /** Efektywna okładka wg wybranego slotu źródła (+ fallback do dowolnego niepustego). */
 function pickCover(
@@ -365,7 +366,10 @@ function SearchPanel({
       )}
 
       {results != null && results.length > 0 && (
-        <ul data-testid="candidates-list" className="max-h-64 space-y-1 overflow-y-auto">
+        <ul
+          data-testid="candidates-list"
+          className="max-h-64 space-y-1 overflow-y-auto overscroll-contain"
+        >
           {results.map((c, i) => (
             <li
               key={`${c.source}-${c.externalId}-${i}`}
@@ -432,6 +436,7 @@ function SearchPanel({
  * propose: read-only pola, „Szukaj w sieci", brak zapisu.
  */
 export default function BookModal({ mode, shelfId, book, onSaved, onClose }: BookModalProps) {
+  useBodyScrollLock(); // M5: bez przelewania scrolla na stronę pod modalem
   const [fields, setFields] = useState<BookFieldValues>(() => bookToFields(book));
   // Stan okładki (lifted z CoverEditor) — wspólny dla add i edit. Trafia do
   // ujednoliconego zapisu: POST (add) / PATCH razem z metadanymi (edit).
@@ -628,7 +633,7 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
         </div>
 
         <form onSubmit={handleSave} noValidate className="flex min-h-0 flex-1 flex-col">
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-5">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-5">
             <div className="flex flex-col gap-4 sm:flex-row">
               {/* Lewa kolumna — okładka. Stała szerokość na desktopie, by sekcja okładki
                 (zwłaszcza bez okładki) nie rozpychała się i nie ściskała pól + wyników po prawej. */}

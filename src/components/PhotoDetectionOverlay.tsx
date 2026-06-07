@@ -188,6 +188,10 @@ export default function PhotoDetectionOverlay({
   // S-24: pozycja OSTATNIEGO pointerdown — dragStateRef jest gated na zoom>1,
   // więc rozróżnienie klik-vs-pan-drag potrzebuje własnego, zawsze świeżego refa.
   const lastPointerDownRef = useRef<{ x: number; y: number } | null>(null);
+  // M6: pinch-zoom na dotyku — touch-action:none blokuje natywny gest, więc
+  // obsługujemy go sami: mapa aktywnych pointerów + dystans/zoom startowy.
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const pinchRef = useRef<{ startDist: number; startZoom: number } | null>(null);
 
   useEffect(() => {
     zoomRef.current = zoom;
@@ -346,6 +350,21 @@ export default function PhotoDetectionOverlay({
 
   function handleContainerPointerDown(e: PointerEvent<HTMLDivElement>) {
     lastPointerDownRef.current = { x: e.clientX, y: e.clientY }; // S-24: klik-vs-drag
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    // M6: drugi palec (poza trybami edycji) startuje pinch i przerywa pan
+    if (!isEditing && !singleEditId && pointersRef.current.size === 2) {
+      const [p1, p2] = [...pointersRef.current.values()];
+      pinchRef.current = {
+        startDist: Math.hypot(p2.x - p1.x, p2.y - p1.y),
+        startZoom: zoomRef.current,
+      };
+      dragStateRef.current.dragging = false;
+      dragStateRef.current.pointerId = -1;
+      if (e.currentTarget.setPointerCapture) {
+        e.currentTarget.setPointerCapture(e.pointerId);
+      }
+      return;
+    }
     if (isEditing) {
       if (e.button !== 0) return;
       // Only start drawing if the event wasn't stopped by a marker/handle
@@ -374,6 +393,31 @@ export default function PhotoDetectionOverlay({
   }
 
   function handleContainerPointerMove(e: PointerEvent<HTMLDivElement>) {
+    if (pointersRef.current.has(e.pointerId)) {
+      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+    // M6: aktywny pinch — zoom z punktem skupienia w środku gestu (jak wheel-handler)
+    const pinch = pinchRef.current;
+    if (pinch && pointersRef.current.size >= 2 && wheelViewportRef.current) {
+      const [p1, p2] = [...pointersRef.current.values()];
+      const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+      if (pinch.startDist > 0) {
+        const next = Math.max(1, Math.min(4, pinch.startZoom * (dist / pinch.startDist)));
+        if (next !== zoomRef.current) {
+          const viewport = wheelViewportRef.current;
+          const rect = viewport.getBoundingClientRect();
+          const fx = (p1.x + p2.x) / 2 - rect.left;
+          const fy = (p1.y + p2.y) / 2 - rect.top;
+          const ratio = next / zoomRef.current;
+          setZoom(next);
+          zoomRef.current = next; // ref od razu — kolejne move'y liczą od świeżej wartości
+          viewport.scrollLeft = Math.max(0, (viewport.scrollLeft + fx) * ratio - fx);
+          viewport.scrollTop = Math.max(0, (viewport.scrollTop + fy) * ratio - fy);
+        }
+      }
+      return;
+    }
+
     // Resize i move działają zarówno w globalnym edit mode jak i w single-edit
     const rs = resizingRef.current;
     if (rs) {
@@ -436,6 +480,15 @@ export default function PhotoDetectionOverlay({
   }
 
   function handleContainerPointerUp(e: PointerEvent<HTMLDivElement>) {
+    pointersRef.current.delete(e.pointerId);
+    // M6: koniec gestu pinch gdy zostaje mniej niż 2 palce
+    if (pinchRef.current && pointersRef.current.size < 2) {
+      pinchRef.current = null;
+      if (e.currentTarget.hasPointerCapture?.(e.pointerId)) {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }
+      return;
+    }
     if (isEditing) {
       if (draft) {
         const x1 = Math.min(draft.start.x, draft.current.x);

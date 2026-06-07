@@ -70,6 +70,16 @@ describe('PhotoLightbox (S-24)', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it('M5: blokuje scroll body na czas otwarcia i przywraca po zamknięciu', () => {
+    document.body.style.overflow = '';
+    const { unmount } = render(
+      <PhotoLightbox photoUrl={PHOTO_URL} detections={[]} onClose={vi.fn()} />,
+    );
+    expect(document.body.style.overflow).toBe('hidden');
+    unmount();
+    expect(document.body.style.overflow).toBe('');
+  });
+
   it('przycisk ✕ zamyka', () => {
     const onClose = vi.fn();
     render(<PhotoLightbox photoUrl={PHOTO_URL} detections={[]} onClose={onClose} />);
