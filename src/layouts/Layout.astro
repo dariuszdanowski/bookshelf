@@ -26,6 +26,8 @@ const titleWithEnv = `[${ENV_LABEL[dbEnv]}] ${title}`;
     <script is:inline>
       (() => {
         try {
+          // M17: trzeci stan 'system' — jawnie wybrany lub brak wpisu (default)
+          // rozwiązuje się do prefers-color-scheme. html.dark = source of truth.
           const key = 'bookshelf:theme-mode';
           const stored = window.localStorage.getItem(key);
           const mode =
