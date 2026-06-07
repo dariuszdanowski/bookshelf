@@ -15,8 +15,18 @@ const LINKS = [
  * Panel renderowany warunkowo (open) — LogoutButton w panelu nie dubluje się
  * w DOM z desktopowym, dopóki panel jest zamknięty.
  */
-export default function MobileNav({ email }: { email: string }) {
+export default function MobileNav({
+  email,
+  currentPath = '',
+}: {
+  email: string;
+  currentPath?: string;
+}) {
   const [open, setOpen] = useState(false);
+
+  function isActive(href: string) {
+    return currentPath === href || currentPath.startsWith(href + '/');
+  }
 
   return (
     <div className="md:hidden">
@@ -71,7 +81,8 @@ export default function MobileNav({ email }: { email: string }) {
                 <a
                   href={l.href}
                   data-testid={l.testid}
-                  className="block rounded px-2 py-2 font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                  aria-current={isActive(l.href) ? 'page' : undefined}
+                  className={`block rounded px-2 py-2 ${isActive(l.href) ? 'bg-indigo-50 font-semibold text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400' : 'font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100'}`}
                 >
                   {l.label}
                 </a>
