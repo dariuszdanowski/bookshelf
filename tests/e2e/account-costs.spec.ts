@@ -10,8 +10,11 @@ import { expect, test } from '@playwright/test';
  * Wszystkie wywołania /api/account/* mockowane — zero realnych LLM/DB.
  */
 
+// Fix impl-review F3: fixtures muszą być walidnymi UUID (hex) — realny endpoint
+// waliduje `key` przez CostEventsQuerySchema; nie-hex 'k1' przeszedłby tylko
+// dlatego, że route jest w pełni zmockowany (contract-incompatible dane).
 const MOCK_KEY = {
-  id: '00000000-0000-4000-8000-0000000000k1',
+  id: '00000000-0000-4000-8000-0000000000a1',
   label: 'Anthropic',
   provider: 'anthropic' as const,
   model: null,
@@ -25,7 +28,7 @@ const MOCK_KEY = {
 const PHOTO_ID = '00000000-0000-4000-8000-000000000aa1';
 
 const VISION_ITEM = {
-  id: 'ev-000000-0000-4000-8000-000000000001',
+  id: '10000000-0000-4000-8000-000000000001',
   kind: 'vision',
   model: 'claude-3-5-sonnet',
   cost_usd: 0.01,
@@ -38,7 +41,7 @@ const VISION_ITEM = {
 };
 
 const REFINE_ITEM = {
-  id: 'ev-000000-0000-4000-8000-000000000002',
+  id: '10000000-0000-4000-8000-000000000002',
   kind: 'refine',
   model: 'claude-3-5-sonnet',
   cost_usd: 0.002,
@@ -46,7 +49,7 @@ const REFINE_ITEM = {
   created_at: '2026-06-01T09:00:00Z',
   api_key_id: null,
   photo_id: null,
-  detection_id: 'det-0000-0000-4000-8000-000000000001',
+  detection_id: '20000000-0000-4000-8000-000000000001',
   raw_title: 'Pan Tadeusz',
 };
 
@@ -341,4 +344,42 @@ test('(7b) zamknięcie klikiem w tło (overlay)', async ({ page }) => {
   await expect(page.getByTestId('cost-analysis-modal')).toBeVisible();
   await page.getByTestId('cost-analysis-modal-overlay').click({ position: { x: 10, y: 10 } });
   await expect(page.getByTestId('cost-analysis-modal')).not.toBeAttached();
+});
+
+test('(8) error path: 500 → komunikat błędu → „Spróbuj ponownie" refetchuje (fix F1)', async ({
+  page,
+}) => {
+  await setupAccountRoutes(page);
+
+  // Pierwsze wywołanie costs → 500; kolejne → sukces. Nadpisujemy mock
+  // z setupAccountRoutes (ostatnio zarejestrowany route wygrywa).
+  let costsCalls = 0;
+  await page.route('**/api/account/costs**', (route) => {
+    costsCalls += 1;
+    if (costsCalls === 1) {
+      return route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: { code: 'INTERNAL_ERROR', message: 'Błąd serwera' } }),
+      });
+    }
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(makeCostsResponse([VISION_ITEM])),
+    });
+  });
+
+  await page.goto('/account');
+  await waitForAccountReady(page);
+  await page.getByTestId('account-costs-details-btn').click();
+
+  await expect(page.getByTestId('cost-events-error')).toBeVisible();
+
+  await page.getByTestId('cost-events-retry').click();
+
+  // Retry musi realnie ponowić fetch i wyrenderować dane.
+  await expect(page.getByTestId(`cost-event-row-${VISION_ITEM.id}`)).toBeVisible();
+  await expect(page.getByTestId('cost-events-error')).not.toBeVisible();
+  expect(costsCalls).toBeGreaterThanOrEqual(2);
 });
