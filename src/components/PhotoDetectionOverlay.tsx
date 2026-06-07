@@ -1,16 +1,12 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-  type MouseEvent as ReactMouseEvent,
-  type PointerEvent,
-} from 'react';
+import { useEffect, useRef, useState, type PointerEvent } from 'react';
 
 import { classifyCropQuality } from '../lib/matching/fallbackPolicy';
 import type { BboxCoords, BboxEditSet, DetectionWithCandidatesDTO } from '../lib/photos/schema';
 import ConfirmDialog from './ConfirmDialog';
 import CostPanel from './CostPanel';
-import PhotoLightbox from './PhotoLightbox';
+// M23: trigger lightboxa wyłączony na życzenie usera (2026-06-07) — zoom/pan +
+// pinch na miejscu wystarczają. Komponent PhotoLightbox + jego testy zostają
+// w repo (wyłącz, nie kasuj); przywrócenie = re-import + onClick na <img>.
 
 const TOOLTIP_W = 224; // w-56 = 14rem
 const TOOLTIP_H = 148; // estimated max height
@@ -139,8 +135,6 @@ export default function PhotoDetectionOverlay({
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgError, setImgError] = useState(false);
   const [showBoxes, setShowBoxes] = useState(true);
-  // S-24: lightbox — pełnoekranowy podgląd po kliknięciu zdjęcia (poza edycją)
-  const [lightboxOpen, setLightboxOpen] = useState(false);
   const [zoom, setZoom] = useState(1);
   const [hoveredDetId, setHoveredDetId] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -185,9 +179,6 @@ export default function PhotoDetectionOverlay({
     startScrollLeft: 0,
     startScrollTop: 0,
   });
-  // S-24: pozycja OSTATNIEGO pointerdown — dragStateRef jest gated na zoom>1,
-  // więc rozróżnienie klik-vs-pan-drag potrzebuje własnego, zawsze świeżego refa.
-  const lastPointerDownRef = useRef<{ x: number; y: number } | null>(null);
   // M6: pinch-zoom na dotyku — touch-action:none blokuje natywny gest, więc
   // obsługujemy go sami: mapa aktywnych pointerów + dystans/zoom startowy.
   const pointersRef = useRef(new Map<number, { x: number; y: number }>());
@@ -349,7 +340,6 @@ export default function PhotoDetectionOverlay({
   }
 
   function handleContainerPointerDown(e: PointerEvent<HTMLDivElement>) {
-    lastPointerDownRef.current = { x: e.clientX, y: e.clientY }; // S-24: klik-vs-drag
     pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     // M6: drugi palec (poza trybami edycji) startuje pinch i przerywa pan
     if (!isEditing && !singleEditId && pointersRef.current.size === 2) {
@@ -900,15 +890,6 @@ export default function PhotoDetectionOverlay({
     });
   }
 
-  // S-24: klik w obraz otwiera lightbox — tylko poza trybami edycji i tylko gdy
-  // pointer nie przesunął się od pointerdown (>5 px = pan-drag, nie klik).
-  function handleImageClick(e: ReactMouseEvent<HTMLImageElement>) {
-    if (isEditing || singleEditId) return;
-    const down = lastPointerDownRef.current;
-    if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 5) return;
-    setLightboxOpen(true);
-  }
-
   function renderPhotoLayer(withLoadHandlers: boolean) {
     return (
       <div
@@ -920,7 +901,7 @@ export default function PhotoDetectionOverlay({
           src={resolvedPhotoUrl}
           alt="Zdjęcie półki z wykrytymi książkami"
           draggable={false}
-          className={`block h-auto w-full select-none ${isEditing || singleEditId ? '' : 'cursor-zoom-in'}`}
+          className="block h-auto w-full select-none"
           onLoad={
             withLoadHandlers
               ? () => {
@@ -937,7 +918,6 @@ export default function PhotoDetectionOverlay({
                 }
               : undefined
           }
-          onClick={withLoadHandlers ? handleImageClick : undefined}
         />
         <div className={`absolute inset-0 ${isEditing ? '' : 'pointer-events-none'}`}>
           {renderMarkers()}
@@ -1073,15 +1053,6 @@ export default function PhotoDetectionOverlay({
       >
         {renderPhotoLayer(true)}
       </div>
-
-      {lightboxOpen && (
-        <PhotoLightbox
-          photoUrl={resolvedPhotoUrl}
-          detections={visibleDetections}
-          focusedDetectionId={focusedDetectionId}
-          onClose={() => setLightboxOpen(false)}
-        />
-      )}
 
       <ConfirmDialog
         open={confirmCancelOpen}

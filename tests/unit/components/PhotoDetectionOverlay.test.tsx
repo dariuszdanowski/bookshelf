@@ -276,44 +276,13 @@ describe('PhotoDetectionOverlay', () => {
 });
 
 // ---------------------------------------------------------------------------
-// S-24: lightbox — klik w obraz otwiera pełnoekranowy podgląd
+// M23: trigger lightboxa wyłączony (2026-06-07, "wyłącz, nie kasuj") — klik
+// w obraz NIE może już otwierać lightboxa. Komponent PhotoLightbox + jego
+// testy (PhotoLightbox.test.tsx) zostają w repo na wypadek przywrócenia.
 // ---------------------------------------------------------------------------
 
-describe('PhotoDetectionOverlay — lightbox (S-24)', () => {
-  it('klik w obraz otwiera lightbox; ✕ zamyka', () => {
-    render(
-      <PhotoDetectionOverlay
-        photoUrl={PHOTO_URL}
-        detections={[makeDetection(1, { x1: 0.1, y1: 0.1, x2: 0.2, y2: 0.9 })]}
-      />,
-    );
-    const img = screen.getByAltText('Zdjęcie półki z wykrytymi książkami');
-    fireEvent.load(img);
-    expect(screen.queryByTestId('photo-lightbox')).toBeNull();
-
-    fireEvent.click(img);
-    expect(screen.getByTestId('photo-lightbox')).toBeTruthy();
-    expect(screen.getByTestId('lightbox-marker-1')).toBeTruthy();
-
-    fireEvent.click(screen.getByTestId('photo-lightbox-close'));
-    expect(screen.queryByTestId('photo-lightbox')).toBeNull();
-  });
-
-  it('w trybie edycji klik NIE otwiera lightboxa', () => {
-    render(
-      <PhotoDetectionOverlay
-        photoUrl={PHOTO_URL}
-        detections={[makeDetection(1, { x1: 0.1, y1: 0.1, x2: 0.2, y2: 0.9 })]}
-        isEditing
-      />,
-    );
-    const img = screen.getByAltText('Zdjęcie półki z wykrytymi książkami');
-    fireEvent.load(img);
-    fireEvent.click(img);
-    expect(screen.queryByTestId('photo-lightbox')).toBeNull();
-  });
-
-  it('pan-drag (przesunięcie > 5 px od pointerdown) NIE otwiera lightboxa', () => {
+describe('PhotoDetectionOverlay — lightbox wyłączony (M23)', () => {
+  it('klik w obraz NIE otwiera lightboxa', () => {
     render(
       <PhotoDetectionOverlay
         photoUrl={PHOTO_URL}
@@ -323,35 +292,10 @@ describe('PhotoDetectionOverlay — lightbox (S-24)', () => {
     const img = screen.getByAltText('Zdjęcie półki z wykrytymi książkami');
     fireEvent.load(img);
 
-    const viewport = screen.getByTestId('photo-overlay-viewport');
-    fireEvent.pointerDown(viewport, { clientX: 10, clientY: 10, button: 0 });
-    fireEvent.click(img, { clientX: 60, clientY: 60 });
-    expect(screen.queryByTestId('photo-lightbox')).toBeNull();
-
-    // czysty klik (ta sama pozycja) — otwiera
-    fireEvent.pointerDown(viewport, { clientX: 10, clientY: 10, button: 0 });
-    fireEvent.click(img, { clientX: 11, clientY: 11 });
-    expect(screen.getByTestId('photo-lightbox')).toBeTruthy();
-  });
-
-  it('lightbox przy fokusie pokazuje tylko fokusowaną ramkę (visibleDetections)', () => {
-    render(
-      <PhotoDetectionOverlay
-        photoUrl={PHOTO_URL}
-        detections={[
-          makeDetection(1, { x1: 0.1, y1: 0.1, x2: 0.2, y2: 0.9 }),
-          makeDetection(2, { x1: 0.3, y1: 0.1, x2: 0.4, y2: 0.9 }),
-        ]}
-        focusedDetectionId="det-2"
-        onClearFocus={() => {}}
-      />,
-    );
-    const img = screen.getByAltText('Zdjęcie półki z wykrytymi książkami');
-    fireEvent.load(img);
     fireEvent.click(img);
-    expect(screen.getByTestId('photo-lightbox')).toBeTruthy();
-    expect(screen.queryByTestId('lightbox-marker-1')).toBeNull();
-    expect(screen.getByTestId('lightbox-marker-2')).toBeTruthy();
+    expect(screen.queryByTestId('photo-lightbox')).toBeNull();
+    // kursor zoom-in też zniknął — brak fałszywej afordancji klikalności
+    expect(img.className).not.toContain('cursor-zoom-in');
   });
 });
 

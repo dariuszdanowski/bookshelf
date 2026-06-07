@@ -16,6 +16,8 @@ export type FindCandidatesOpts = {
    *  Pozwala zwrócić kandydatów dla zapytań „sam ISBN" gdzie titleSim=0 → score=0.20 < 0.25.
    *  Nie wpływa na zapytania z tytułem — gate aktywny jak dotychczas. */
   isbnOnly?: boolean;
+  /** M22: wydawnictwo z grzbietu — zawęża kaskadę GB (`inpublisher:`); ścieżka ręczna. */
+  publisher?: string | null;
 };
 
 /**
@@ -27,10 +29,15 @@ export async function findBookCandidates(
   rawTitle: string,
   rawAuthor: string | null,
   rawIsbn: string | null,
-  opts?: FindCandidatesOpts
+  opts?: FindCandidatesOpts,
 ): Promise<{ candidates: ScoredCandidate[]; rateLimited: boolean }> {
   const [googleResult, olTitleResult, bnResult] = await Promise.all([
-    searchGoogleBooks({ title: rawTitle, author: rawAuthor, isbn: rawIsbn ?? undefined }),
+    searchGoogleBooks({
+      title: rawTitle,
+      author: rawAuthor,
+      isbn: rawIsbn ?? undefined,
+      publisher: opts?.publisher ?? undefined,
+    }),
     searchOpenLibraryByTitle({ title: rawTitle, author: rawAuthor }),
     searchNationalLibrary({ title: rawTitle, author: rawAuthor, isbn: rawIsbn ?? undefined }),
   ]);
@@ -66,21 +73,28 @@ export async function findBookCandidates(
     ...c,
     matchScore: scoreCandidate(
       { raw_title: rawTitle, raw_author: rawAuthor },
-      { title: c.title, authors: c.authors, isbn13: c.isbn13, isbn10: c.isbn10 }
+      { title: c.title, authors: c.authors, isbn13: c.isbn13, isbn10: c.isbn10 },
     ),
   }));
 
   scored.sort((a, b) => b.matchScore - a.matchScore);
   const skipScoreGate = opts?.isbnOnly && !rawTitle;
   const candidates = dedupeCandidates(
-    scored.filter((c) => (skipScoreGate || c.matchScore >= SEARCH_MIN_SCORE) && authorTokensMatch(rawAuthor, c.authors))
+    scored.filter(
+      (c) =>
+        (skipScoreGate || c.matchScore >= SEARCH_MIN_SCORE) &&
+        authorTokensMatch(rawAuthor, c.authors),
+    ),
   )
     .slice(0, SEARCH_MAX_CANDIDATES)
     .map((c) => {
       if (c.coverUrl) return c;
       const isbn = c.isbn13 ?? c.isbn10;
       if (!isbn) return c;
-      return { ...c, coverUrl: `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg?default=false` };
+      return {
+        ...c,
+        coverUrl: `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg?default=false`,
+      };
     });
 
   return { candidates, rateLimited: false };

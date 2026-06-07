@@ -22,7 +22,13 @@ const GoogleBooksResponseSchema = z.object({
   items: z.array(z.object({ id: z.string(), volumeInfo: VolumeInfoSchema })).optional(),
 });
 
-type SearchQuery = { title: string; author?: string | null; isbn?: string | null };
+type SearchQuery = {
+  title: string;
+  author?: string | null;
+  isbn?: string | null;
+  /** M22: wydawnictwo z grzbietu — zawęża wyniki przez `inpublisher:` (tylko ścieżka ręczna). */
+  publisher?: string | null;
+};
 
 function getApiKey(): string | null {
   return env?.GOOGLE_BOOKS_API_KEY ?? import.meta.env.GOOGLE_BOOKS_API_KEY ?? null;
@@ -151,6 +157,15 @@ export async function searchGoogleBooks(query: SearchQuery): Promise<BookSearchR
   if (cleanAuthor) {
     const result = await fetchBooks(
       buildUrl(`intitle:"${cleanTitle}"+inauthor:"${cleanAuthor}"`, apiKey),
+    );
+    if (result.ok || result.reason === 'rate_limited') return result;
+  }
+
+  // M22: wydawnictwo (z grzbietu) zawęża wyniki, gdy autor nie pomógł / brak autora.
+  const cleanPublisher = query.publisher ? cleanSearchTitle(query.publisher) : null;
+  if (cleanPublisher) {
+    const result = await fetchBooks(
+      buildUrl(`intitle:"${cleanTitle}"+inpublisher:"${cleanPublisher}"`, apiKey),
     );
     if (result.ok || result.reason === 'rate_limited') return result;
   }

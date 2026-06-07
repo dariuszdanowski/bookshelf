@@ -896,3 +896,187 @@ describe('DetectionReview — rematch form close po sukcesie (M12)', () => {
     expect(screen.queryByTestId('rematch-no-results')).not.toBeInTheDocument();
   });
 });
+
+// ---------------------------------------------------------------------------
+// M19: parytet akcji „Szukaj" w trybach Lista i Kafelki — przy istniejącym
+// kandydacie (top) Karty miały „Szukaj", a Lista/Kafelki tylko „Popraw".
+// ---------------------------------------------------------------------------
+
+describe('DetectionReview — Szukaj w trybach lista/kafelki (M19)', () => {
+  beforeEach(() => localStorage.removeItem('bookshelf:detection-view-mode'));
+  afterEach(() => localStorage.removeItem('bookshelf:detection-view-mode'));
+
+  it('tryb lista: detekcja z kandydatem ma Popraw + Szukaj', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 }),
+    );
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => screen.getByTestId('detection-card-1'));
+
+    fireEvent.click(screen.getByTestId('view-mode-list'));
+    await waitFor(() => screen.getByTestId('detection-row-1'));
+    expect(screen.getByTestId('correct-button')).toBeInTheDocument();
+    expect(screen.getByTestId('rematch-button')).toBeInTheDocument();
+  });
+
+  it('tryb kafelki: detekcja z kandydatem ma Popraw + Szukaj', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 }),
+    );
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => screen.getByTestId('detection-card-1'));
+
+    fireEvent.click(screen.getByTestId('view-mode-tiles'));
+    await waitFor(() => screen.getByTestId('detection-tile-1'));
+    expect(screen.getByTestId('correct-button')).toBeInTheDocument();
+    expect(screen.getByTestId('rematch-button')).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// M20: detekcja potwierdzona w DB (deep-link S-37 do skatalogowanej książki)
+// renderuje od razu widok „dodano" zamiast udawać pending z absurdalnym
+// dedupem „Masz już tę książkę w katalogu"; auto-redirect na półkę wymaga
+// AKCJI w tej sesji — nie strzela przy wejściu na w pełni potwierdzone zdjęcie.
+// ---------------------------------------------------------------------------
+
+describe('DetectionReview — potwierdzone z DB (M20)', () => {
+  const detConfirmed: DetectionWithCandidatesDTO = {
+    ...detHigh,
+    status: 'confirmed',
+    duplicate: { type: 'exact' as const },
+  };
+
+  it('status confirmed → widok decided (bez przycisków akcji, bez bannera dedup)', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(makePhotoResponse([detConfirmed])), { status: 200 }),
+    );
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => screen.getByTestId('detection-card-1'));
+
+    expect(screen.queryByTestId('accept-button')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('reject-button')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Masz już tę książkę/)).not.toBeInTheDocument();
+    expect(screen.getByText('Solaris')).toBeInTheDocument();
+  });
+
+  it('wszystko potwierdzone w DB → BRAK auto-redirectu na półkę', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify(
+          makePhotoResponse([detConfirmed, { ...detLow, status: 'confirmed' as const }]),
+        ),
+        { status: 200 },
+      ),
+    );
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => screen.getByTestId('detection-card-1'));
+
+    // redirect ustawiałby window.location.href na /shelves/<id> — ma zostać puste
+    await new Promise((r) => setTimeout(r, 50));
+    expect(window.location.href).toBe('');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// M22: pole „Wydawnictwo" w formularzu „Szukaj po tytule" — przekazywane
+// do POST /rematch (server zawęża kaskadę GB przez inpublisher:).
+// ---------------------------------------------------------------------------
+
+describe('DetectionReview — rematch z wydawnictwem (M22)', () => {
+  it('wpisany publisher trafia do body POST /rematch', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation((url, init) => {
+      const u = typeof url === 'string' ? url : (url as Request).url;
+      if (u.includes('/rematch') && init?.method === 'POST') {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              data: {
+                applied: false,
+                detection: {
+                  id: detNoMatch.id,
+                  status: 'pending',
+                  raw_title: 'Mafalda',
+                  raw_author: null,
+                },
+                candidates: [],
+                duplicate: null,
+              },
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify(makePhotoResponse([detNoMatch])), { status: 200 }),
+      );
+    });
+
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => screen.getByTestId('no-match-placeholder'));
+
+    fireEvent.click(screen.getByTestId('rematch-button'));
+    await waitFor(() => screen.getByTestId('rematch-form'));
+    fireEvent.change(screen.getByTestId('rematch-title'), { target: { value: 'Mafalda' } });
+    fireEvent.change(screen.getByTestId('rematch-publisher'), {
+      target: { value: 'Nasza Księgarnia' },
+    });
+    fireEvent.click(screen.getByTestId('rematch-submit'));
+
+    await waitFor(() => {
+      const rematchCall = fetchMock.mock.calls.find(
+        ([u, init]) => String(u).includes('/rematch') && init?.method === 'POST',
+      );
+      expect(rematchCall).toBeDefined();
+      const body = JSON.parse(String(rematchCall![1]!.body));
+      expect(body.publisher).toBe('Nasza Księgarnia');
+      expect(body.title).toBe('Mafalda');
+    });
+  });
+
+  it('puste pole publisher → null w body (nie pusty string)', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation((url, init) => {
+      const u = typeof url === 'string' ? url : (url as Request).url;
+      if (u.includes('/rematch') && init?.method === 'POST') {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              data: {
+                applied: false,
+                detection: {
+                  id: detNoMatch.id,
+                  status: 'pending',
+                  raw_title: 'Mafalda',
+                  raw_author: null,
+                },
+                candidates: [],
+                duplicate: null,
+              },
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify(makePhotoResponse([detNoMatch])), { status: 200 }),
+      );
+    });
+
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => screen.getByTestId('no-match-placeholder'));
+
+    fireEvent.click(screen.getByTestId('rematch-button'));
+    await waitFor(() => screen.getByTestId('rematch-form'));
+    fireEvent.change(screen.getByTestId('rematch-title'), { target: { value: 'Mafalda' } });
+    fireEvent.click(screen.getByTestId('rematch-submit'));
+
+    await waitFor(() => {
+      const rematchCall = fetchMock.mock.calls.find(
+        ([u, init]) => String(u).includes('/rematch') && init?.method === 'POST',
+      );
+      expect(rematchCall).toBeDefined();
+      const body = JSON.parse(String(rematchCall![1]!.body));
+      expect(body.publisher).toBeNull();
+    });
+  });
+});
