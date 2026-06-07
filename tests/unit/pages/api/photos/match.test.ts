@@ -47,10 +47,27 @@ const detectionRow = {
 const latestRunRow = { id: RUN_ID_1 };
 
 function makeSupabase(opts: {
-  photoResult?: { data: { id: string } | null; error: { code?: string; name: string; message: string } | null };
-  latestRunResult?: { data: { id: string } | null; error: { code?: string; name?: string; message?: string } | null };
-  detectionsResult?: { data: typeof detectionRow[] | null; error: null };
-  booksResult?: { data: { id: string; title: string; authors: string[]; isbn_13: string | null; isbn_10: string | null }[] | null; error: null };
+  photoResult?: {
+    data: { id: string } | null;
+    error: { code?: string; name: string; message: string } | null;
+  };
+  latestRunResult?: {
+    data: { id: string } | null;
+    error: { code?: string; name?: string; message?: string } | null;
+  };
+  detectionsResult?: { data: (typeof detectionRow)[] | null; error: null };
+  booksResult?: {
+    data:
+      | {
+          id: string;
+          title: string;
+          authors: string[];
+          isbn_13: string | null;
+          isbn_10: string | null;
+        }[]
+      | null;
+    error: null;
+  };
   existingCandidatesResult?: {
     data:
       | {
@@ -257,9 +274,15 @@ describe('POST /api/photos/[id]/match', () => {
 
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
-      data: { matched: number; detections: { status: string; candidates: { title: string }[] }[] };
+      data: {
+        matched: number;
+        rate_limited: number;
+        detections: { status: string; candidates: { title: string }[] }[];
+      };
     };
     expect(json.data.matched).toBe(1);
+    // S-39: licznik ściętych przez 429 obecny w payloadzie (tu: nic nie ścięto)
+    expect(json.data.rate_limited).toBe(0);
     expect(json.data.detections).toHaveLength(1);
     expect(json.data.detections[0].status).toBe('matched');
     expect(json.data.detections[0].candidates[0].title).toBe('Solaris');
@@ -269,23 +292,28 @@ describe('POST /api/photos/[id]/match', () => {
     mockSearchGoogleBooks.mockResolvedValue({ ok: false, reason: 'empty' });
     mockSearchNationalLibrary.mockResolvedValue({
       ok: true,
-      candidates: [{
-        source: 'national_library' as const,
-        externalId: 'bn-1',
-        title: 'Solaris',
-        authors: ['Lem, Stanisław'],
-        isbn10: null,
-        isbn13: '9788308069790',
-        publisher: 'Wydawnictwo Literackie',
-        publishedYear: 2016,
-        coverUrl: null,
-      }],
+      candidates: [
+        {
+          source: 'national_library' as const,
+          externalId: 'bn-1',
+          title: 'Solaris',
+          authors: ['Lem, Stanisław'],
+          isbn10: null,
+          isbn13: '9788308069790',
+          publisher: 'Wydawnictwo Literackie',
+          publishedYear: 2016,
+          coverUrl: null,
+        },
+      ],
     });
     const { supabase } = makeSupabase({});
     const res = await POST(makeContext(supabase) as never);
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
-      data: { matched: number; detections: { status: string; candidates: { source: string; title: string }[] }[] };
+      data: {
+        matched: number;
+        detections: { status: string; candidates: { source: string; title: string }[] }[];
+      };
     };
     expect(json.data.matched).toBe(1);
     expect(json.data.detections[0].candidates[0].source).toBe('national_library');
@@ -348,7 +376,13 @@ describe('POST /api/photos/[id]/match', () => {
       ok: true,
       candidates: [
         googleCandidate,
-        { ...googleCandidate, externalId: 'gb-2', title: 'Solaris (PL)', isbn13: null, isbn10: null },
+        {
+          ...googleCandidate,
+          externalId: 'gb-2',
+          title: 'Solaris (PL)',
+          isbn13: null,
+          isbn10: null,
+        },
       ],
     });
 
@@ -364,7 +398,7 @@ describe('POST /api/photos/[id]/match', () => {
     const { supabase } = makeSupabase({});
     await POST(makeContext(supabase) as never);
     expect(mockSearchOpenLibrary).toHaveBeenCalledWith(
-      expect.objectContaining({ isbn: googleCandidate.isbn13 })
+      expect.objectContaining({ isbn: googleCandidate.isbn13 }),
     );
   });
 

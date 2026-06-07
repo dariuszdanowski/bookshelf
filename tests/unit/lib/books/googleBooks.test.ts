@@ -90,30 +90,60 @@ describe('searchGoogleBooks', () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
-  it('returns rate_limited on 429', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(makeRateLimitResponse()));
+  // S-39: 429 wyzwala do 2 retry z backoffem — rate_limited dopiero po wyczerpaniu prób
+  it('returns rate_limited on persistent 429 (po 1+2 próbach)', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(makeRateLimitResponse()));
+    vi.stubGlobal('fetch', fetchMock);
 
-    const result = await searchGoogleBooks({ title: 'Solaris' });
+    const promise = searchGoogleBooks({ title: 'Solaris' });
+    await vi.runAllTimersAsync();
+    const result = await promise;
+    vi.useRealTimers();
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.reason).toBe('rate_limited');
+    expect(fetchMock).toHaveBeenCalledTimes(3); // 1 próba + 2 retry
+  });
+
+  it('S-39: 429 → sukces przy retry (burst QPS odzyskany)', async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(makeRateLimitResponse())
+      .mockResolvedValueOnce(makeOkResponse());
+    vi.stubGlobal('fetch', fetchMock);
+
+    const promise = searchGoogleBooks({ title: 'Solaris' });
+    await vi.runAllTimersAsync();
+    const result = await promise;
+    vi.useRealTimers();
+
+    expect(result.ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it('stops cascade immediately on rate_limited', async () => {
-    const fetchMock = vi.fn().mockResolvedValueOnce(makeRateLimitResponse());
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockImplementation(() => Promise.resolve(makeRateLimitResponse()));
     vi.stubGlobal('fetch', fetchMock);
 
-    const result = await searchGoogleBooks({
+    const resultPromise = searchGoogleBooks({
       title: 'Solaris',
       author: 'Lem',
       isbn: '9780156027601',
     });
+    await vi.runAllTimersAsync();
+    const result = await resultPromise;
+    vi.useRealTimers();
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.reason).toBe('rate_limited');
-    expect(fetchMock).toHaveBeenCalledTimes(1); // no further cascade attempts
+    // 3 fetch-calle (1+2 retry) na PIERWSZYM stage'u kaskady (isbn:) — bez przejścia
+    // do kolejnych wariantów zapytania
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it('returns empty when items array is empty', async () => {

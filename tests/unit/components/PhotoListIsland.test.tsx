@@ -413,6 +413,23 @@ describe('PhotoListIsland', () => {
     expect(screen.getByTestId(`move-photo-${PHOTO_ID}`)).toBeDisabled();
   });
 
+  // S-39: toast gdy match ścięty limitem GB mimo retry
+  it('toast „N pozycji wstrzymał limit" gdy /match zwraca rate_limited > 0', async () => {
+    mockFetch({
+      photosList: () =>
+        jsonResponse({ data: { photos: [makePhoto({ id: PHOTO_ID, stage: 'vision_done' })] } }),
+      match: () => jsonResponse({ data: { matched: 5, rate_limited: 9, detections: [] } }),
+    });
+    render(<PhotoListIsland shelfId={SHELF_ID} shelfName="Salon" />);
+    await waitFor(() => expect(screen.getByTestId(`run-match-${PHOTO_ID}`)).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId(`run-match-${PHOTO_ID}`));
+
+    await waitFor(() =>
+      expect(screen.getByText(/9 pozycji wstrzymał limit Google/)).toBeInTheDocument(),
+    );
+  });
+
   // M10: klik w miniaturę otwiera propozycje — miniatura jest linkiem do /photos/[id]
   it('miniatura (i placeholder) jest linkiem do /photos/[id]', async () => {
     mockFetch({

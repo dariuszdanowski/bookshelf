@@ -143,7 +143,7 @@ export default function PhotoListIsland({ shelfId }: Props) {
           method: 'POST',
         });
         const json = (await res.json()) as {
-          data?: unknown;
+          data?: { matched?: number; rate_limited?: number };
           error?: { message?: string };
         };
         if (res.status === 429) {
@@ -155,6 +155,14 @@ export default function PhotoListIsland({ shelfId }: Props) {
             toast: json.error?.message ?? `Błąd matchowania (${res.status})`,
           });
           return;
+        }
+        // S-39: część detekcji ścięta przez limit GB mimo retry — bez komunikatu
+        // user widział „dopasowano X" i nie wiedział, że ponowienie odzyska resztę
+        const rateLimited = json.data?.rate_limited ?? 0;
+        if (rateLimited > 0) {
+          patchRow(photoId, {
+            toast: `Dopasowano ${json.data?.matched ?? 0} · ${rateLimited} pozycji wstrzymał limit Google — ponów match za chwilę.`,
+          });
         }
         await fetchPhotos();
       } catch (err) {
