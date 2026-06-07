@@ -960,100 +960,105 @@ export default function PhotoDetectionOverlay({
     );
   }
 
+  // M25: pasek sterujący pływa NAD zdjęciem (lewy górny róg kontenera) zamiast
+  // nad nim w flow — mniej pionowego miejsca, kontrolki przy treści. Jest
+  // SIBLING-iem viewportu (nie dzieckiem), więc klik nie startuje pan/draw.
+  const toolbar = (
+    <div className="absolute top-2 left-2 z-20 flex max-w-[calc(100%-1rem)] flex-wrap gap-2">
+      {isEditing ? (
+        <>
+          <button
+            type="button"
+            data-testid="apply-bbox-edits-button"
+            disabled={applyBusy}
+            onClick={() => void handleApply()}
+            className="rounded border border-green-600 bg-green-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
+          >
+            {applyBusy ? 'Zapisuję...' : 'Zastosuj zmiany'}
+          </button>
+          <button
+            type="button"
+            data-testid="cancel-bbox-edits-button"
+            disabled={applyBusy}
+            onClick={() => {
+              if (hasUnsavedChanges()) {
+                setConfirmCancelOpen(true);
+              } else {
+                onEditingChange?.(false);
+              }
+            }}
+            className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            Anuluj
+          </button>
+        </>
+      ) : (
+        <>
+          <button
+            type="button"
+            data-testid="edit-bboxes-button"
+            onClick={() => onEditingChange?.(true)}
+            className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Edytuj ramki
+          </button>
+          {photoId && (
+            <CostPanel
+              photoId={photoId}
+              preloadedVisionRun={
+                visionRun ? { ...visionRun, status: visionRun.status ?? 'completed' } : undefined
+              }
+            />
+          )}
+          <button
+            type="button"
+            data-testid="toggle-bboxes-button"
+            onClick={() => setShowBoxes((v) => !v)}
+            className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+          >
+            {showBoxes ? 'Ukryj ramki' : 'Pokaż ramki'}
+          </button>
+          {focusedDetectionId && onClearFocus && (
+            <button
+              type="button"
+              data-testid="clear-focus-button"
+              onClick={onClearFocus}
+              className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Pokaż wszystkie detekcje
+            </button>
+          )}
+          <button
+            type="button"
+            data-testid="zoom-out-button"
+            onClick={() => changeZoom(zoom - 0.25)}
+            className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+          >
+            -
+          </button>
+          <button
+            type="button"
+            data-testid="zoom-reset-button"
+            onClick={() => setZoom(1)}
+            className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+          >
+            {Math.round(zoom * 100)}%
+          </button>
+          <button
+            type="button"
+            data-testid="zoom-in-button"
+            onClick={() => changeZoom(zoom + 0.25)}
+            className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+          >
+            +
+          </button>
+        </>
+      )}
+    </div>
+  );
+
   return (
     <div data-testid="photo-overlay" className="mb-4">
-      <div className="mb-2 flex flex-wrap gap-2">
-        {isEditing ? (
-          <>
-            <button
-              type="button"
-              data-testid="apply-bbox-edits-button"
-              disabled={applyBusy}
-              onClick={() => void handleApply()}
-              className="rounded border border-green-600 bg-green-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
-            >
-              {applyBusy ? 'Zapisuję...' : 'Zastosuj zmiany'}
-            </button>
-            <button
-              type="button"
-              data-testid="cancel-bbox-edits-button"
-              disabled={applyBusy}
-              onClick={() => {
-                if (hasUnsavedChanges()) {
-                  setConfirmCancelOpen(true);
-                } else {
-                  onEditingChange?.(false);
-                }
-              }}
-              className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-            >
-              Anuluj
-            </button>
-          </>
-        ) : (
-          <>
-            <button
-              type="button"
-              data-testid="edit-bboxes-button"
-              onClick={() => onEditingChange?.(true)}
-              className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-            >
-              Edytuj ramki
-            </button>
-            {photoId && (
-              <CostPanel
-                photoId={photoId}
-                preloadedVisionRun={
-                  visionRun ? { ...visionRun, status: visionRun.status ?? 'completed' } : undefined
-                }
-              />
-            )}
-            <button
-              type="button"
-              data-testid="toggle-bboxes-button"
-              onClick={() => setShowBoxes((v) => !v)}
-              className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-            >
-              {showBoxes ? 'Ukryj ramki' : 'Pokaż ramki'}
-            </button>
-            {focusedDetectionId && onClearFocus && (
-              <button
-                type="button"
-                data-testid="clear-focus-button"
-                onClick={onClearFocus}
-                className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-              >
-                Pokaż wszystkie detekcje
-              </button>
-            )}
-            <button
-              type="button"
-              data-testid="zoom-out-button"
-              onClick={() => changeZoom(zoom - 0.25)}
-              className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-            >
-              -
-            </button>
-            <button
-              type="button"
-              data-testid="zoom-reset-button"
-              onClick={() => setZoom(1)}
-              className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-            >
-              {Math.round(zoom * 100)}%
-            </button>
-            <button
-              type="button"
-              data-testid="zoom-in-button"
-              onClick={() => changeZoom(zoom + 0.25)}
-              className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-            >
-              +
-            </button>
-          </>
-        )}
-      </div>
-
       {!isEditing && withBbox.length > 0 && (
         <div className="mb-2 space-y-0.5 text-xs text-gray-400">
           <p>Numery ramek odpowiadają pozycjom (#N) na liście poniżej.</p>
@@ -1075,17 +1080,22 @@ export default function PhotoDetectionOverlay({
         </div>
       )}
 
-      <div
-        ref={wheelViewportRef}
-        data-testid="photo-overlay-viewport"
-        onPointerDown={handleContainerPointerDown}
-        onPointerMove={handleContainerPointerMove}
-        onPointerUp={handleContainerPointerUp}
-        onPointerCancel={handleContainerPointerUp}
-        className={`scrollbar-hidden max-h-[72vh] w-full overflow-auto rounded-lg border border-gray-200 bg-gray-100 p-3 select-none ${isEditing ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'}`}
-        style={{ touchAction: 'none' }}
-      >
-        {renderPhotoLayer(true)}
+      {/* M25: relative wrapper — toolbar pływa nad viewportem (sibling, nie
+          dziecko: klik w przyciski nie odpala pan/draw na viewporcie) */}
+      <div className="relative">
+        <div
+          ref={wheelViewportRef}
+          data-testid="photo-overlay-viewport"
+          onPointerDown={handleContainerPointerDown}
+          onPointerMove={handleContainerPointerMove}
+          onPointerUp={handleContainerPointerUp}
+          onPointerCancel={handleContainerPointerUp}
+          className={`scrollbar-hidden max-h-[72vh] w-full overflow-auto rounded-lg border border-gray-200 bg-gray-100 p-3 select-none ${isEditing ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'}`}
+          style={{ touchAction: 'none' }}
+        >
+          {renderPhotoLayer(true)}
+        </div>
+        {toolbar}
       </div>
 
       <ConfirmDialog
