@@ -1,10 +1,10 @@
 ---
 change_id: dark-polish-pack
 title: "Pakiet A2: dark-polish (M13, M14)"
-status: implemented
+status: archived
 created: 2026-06-07
 updated: 2026-06-07
-archived_at: null
+archived_at: 2026-06-07T12:20:00Z
 ---
 
 ## Notes
