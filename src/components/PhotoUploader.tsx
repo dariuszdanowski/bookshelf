@@ -55,6 +55,7 @@ export default function PhotoUploader({
   // (zero wywołań vision/match = zero kosztu); analiza ręcznie z taba Zdjęcia.
   const [autoProcess, setAutoProcess] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   // Preferencja persystowana — odczyt po mount (hydration-safe).
   useEffect(() => {
@@ -315,6 +316,15 @@ export default function PhotoUploader({
     [selectedShelfId, doUpload],
   );
 
+  const handleFileInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) void handleFile(file);
+      e.target.value = '';
+    },
+    [handleFile],
+  );
+
   const handleCancelDuplicate = useCallback(() => {
     setDuplicatePhotoId(null);
     setDuplicateCreatedAt(null);
@@ -434,38 +444,55 @@ export default function PhotoUploader({
         </label>
       )}
 
-      {/* Drop zone */}
+      {/* Drop zone + camera button */}
       {!isProcessing && stage !== 'done' && stage !== 'duplicate' && (
-        <div
-          data-testid="drop-zone"
-          onDragOver={(e) => {
-            e.preventDefault();
-            setIsDragOver(true);
-          }}
-          onDragLeave={() => setIsDragOver(false)}
-          onDrop={handleDrop}
-          onClick={() => fileInputRef.current?.click()}
-          className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-12 transition-colors ${isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-gray-50 hover:border-gray-400'}`}
-        >
-          <p className="mb-2 text-sm font-medium text-gray-700">
-            Przeciągnij zdjęcie półki lub kliknij, by wybrać
-          </p>
-          <p className="text-xs text-gray-500">
-            JPEG, PNG, WebP — max 15 MB (serwer przetwarza oryginał)
-          </p>
+        <>
+          <div
+            data-testid="drop-zone"
+            onDragOver={(e) => {
+              e.preventDefault();
+              setIsDragOver(true);
+            }}
+            onDragLeave={() => setIsDragOver(false)}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+            className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-12 transition-colors ${isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-gray-50 hover:border-gray-400'}`}
+          >
+            <p className="mb-2 text-sm font-medium text-gray-700">
+              Przeciągnij zdjęcie półki lub kliknij, by wybrać
+            </p>
+            <p className="text-xs text-gray-500">
+              JPEG, PNG, WebP — max 15 MB (serwer przetwarza oryginał)
+            </p>
+            <input
+              ref={fileInputRef}
+              data-testid="file-input"
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileInputChange}
+            />
+          </div>
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              data-testid="camera-capture-btn"
+              onClick={() => cameraInputRef.current?.click()}
+              className="flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+            >
+              Zrób zdjęcie
+            </button>
+          </div>
           <input
-            ref={fileInputRef}
-            data-testid="file-input"
+            ref={cameraInputRef}
             type="file"
             accept="image/*"
+            capture="environment"
             className="hidden"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) void handleFile(file);
-              e.target.value = '';
-            }}
+            data-testid="camera-input"
+            onChange={handleFileInputChange}
           />
-        </div>
+        </>
       )}
 
       {/* Progress */}
