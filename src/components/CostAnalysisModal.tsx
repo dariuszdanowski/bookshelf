@@ -43,6 +43,9 @@ export default function CostAnalysisModal({ keys, initialKeyId, onClose }: Props
   const [filterType, setFilterType] = useState<FilterType>('');
   const [filterPeriod, setFilterPeriod] = useState<FilterPeriod>('');
   const [page, setPage] = useState(1);
+  // Fix impl-review F1: retry musi realnie ponowić fetch — setPage(p => p) to
+  // React bailout (identyczna wartość = brak re-rendu, effect nie odpala).
+  const [refetchNonce, setRefetchNonce] = useState(0);
 
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -84,7 +87,7 @@ export default function CostAnalysisModal({ keys, initialKeyId, onClose }: Props
     return () => {
       cancelled = true;
     };
-  }, [filterKey, filterType, filterPeriod, page]);
+  }, [filterKey, filterType, filterPeriod, page, refetchNonce]);
 
   function handleFilterKey(val: FilterKey) {
     setFilterKey(val);
@@ -236,7 +239,8 @@ export default function CostAnalysisModal({ keys, initialKeyId, onClose }: Props
                 {error}
               </p>
               <button
-                onClick={() => setPage((p) => p)}
+                data-testid="cost-events-retry"
+                onClick={() => setRefetchNonce((n) => n + 1)}
                 className="rounded border border-gray-300 px-3 py-1 text-sm hover:bg-gray-50"
               >
                 Spróbuj ponownie

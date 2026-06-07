@@ -194,6 +194,32 @@ describe('CostAnalysisModal', () => {
     });
   });
 
+  it('„Spróbuj ponownie" po błędzie realnie ponawia fetch (fix F1: nie setPage-bailout)', async () => {
+    // 1. wywołanie → error; 2. (retry) → sukces
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({ error: { message: 'Błąd serwera' } }),
+      })
+      .mockResolvedValueOnce({ ok: true, json: async () => makeResponse([VISION_ITEM]) });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(<CostAnalysisModal keys={KEYS} onClose={() => {}} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('cost-events-error')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('cost-events-retry'));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(screen.queryByTestId('cost-events-error')).not.toBeInTheDocument();
+      expect(screen.getByText('Vision')).toBeInTheDocument();
+    });
+  });
+
   it('ESC wywołuje onClose', async () => {
     stubFetch(makeResponse([]));
     const onClose = vi.fn();

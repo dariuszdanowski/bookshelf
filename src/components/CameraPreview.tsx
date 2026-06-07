@@ -11,11 +11,16 @@ export default function CameraPreview({ onCapture, onCancel }: CameraPreviewProp
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  // Fix impl-review F7: unmount/cancel przed resolve toBlob nie może już
+  // wywołać onCapture (upload mimo Anuluj); capturing blokuje double-click.
+  const unmountedRef = useRef(false);
   const [error, setError] = useState<CameraError>(null);
   const [ready, setReady] = useState(false);
+  const [capturing, setCapturing] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+    unmountedRef.current = false;
 
     navigator.mediaDevices
       .getUserMedia({ video: { facingMode: 'environment' } })
@@ -42,6 +47,7 @@ export default function CameraPreview({ onCapture, onCancel }: CameraPreviewProp
 
     return () => {
       cancelled = true;
+      unmountedRef.current = true;
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     };
@@ -50,7 +56,8 @@ export default function CameraPreview({ onCapture, onCancel }: CameraPreviewProp
   function capture() {
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    if (!video || !canvas) return;
+    if (!video || !canvas || capturing) return;
+    setCapturing(true);
 
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
@@ -58,7 +65,13 @@ export default function CameraPreview({ onCapture, onCancel }: CameraPreviewProp
 
     canvas.toBlob(
       (blob) => {
-        if (!blob) return;
+        // Anuluj/unmount w trakcie toBlob → nie startuj uploadu.
+        if (unmountedRef.current) return;
+        if (!blob) {
+          setCapturing(false);
+          setError('unavailable');
+          return;
+        }
         streamRef.current?.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
         onCapture(new File([blob], 'camera.jpg', { type: 'image/jpeg' }));
@@ -118,7 +131,7 @@ export default function CameraPreview({ onCapture, onCancel }: CameraPreviewProp
             <button
               type="button"
               data-testid="camera-preview-take"
-              disabled={!ready}
+              disabled={!ready || capturing}
               onClick={capture}
               className="flex-1 rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
             >

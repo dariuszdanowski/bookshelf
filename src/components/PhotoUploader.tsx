@@ -80,6 +80,7 @@ export default function PhotoUploader({
   const cameraInputRef = useRef<HTMLInputElement>(null);
   // Ref mirrors stage for use inside callbacks without adding stage to dep arrays.
   const stageRef = useRef<UploadStage>('idle');
+  const overlapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Keep stageRef in sync so callbacks can read latest stage without dep-array churn.
   useEffect(() => {
@@ -87,9 +88,14 @@ export default function PhotoUploader({
   }, [stage]);
 
   // Feature detection po hydratacji — navigator.mediaDevices nie istnieje w SSR.
+  // Fix impl-review F6: na urządzeniach dotykowych (pointer: coarse) preferujemy
+  // natywny aparat przez <input capture="environment"> — getUserMedia po HTTPS
+  // istnieje też na telefonach, ale inline preview traci natywny UX aparatu
+  // (focus/HDR/rozdzielczość). Desktop (fine pointer) → CameraPreview.
   useEffect(() => {
+    const coarsePointer = window.matchMedia?.('(pointer: coarse)')?.matches ?? false;
     setSupportsDesktopCamera(
-      typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia,
+      typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia && !coarsePointer,
     );
   }, []);
 
@@ -314,9 +320,14 @@ export default function PhotoUploader({
 
   const handleFile = useCallback(
     async (file: File) => {
-      if (stageRef.current !== 'idle') {
+      // Guard tylko na realnie trwające przetwarzanie — w 'error'/'duplicate'
+      // nowy plik ma zaczynać świeży flow (fix impl-review F2: dawne
+      // `!== 'idle'` blokowało restart po failu z mylącym komunikatem).
+      const busyStages: UploadStage[] = ['uploading', 'recording', 'processing', 'matching'];
+      if (busyStages.includes(stageRef.current)) {
         setOverlapWarning(true);
-        setTimeout(() => setOverlapWarning(false), 4000);
+        if (overlapTimerRef.current) clearTimeout(overlapTimerRef.current);
+        overlapTimerRef.current = setTimeout(() => setOverlapWarning(false), 4000);
         return;
       }
       if (!selectedShelfId) {
