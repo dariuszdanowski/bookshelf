@@ -1,10 +1,10 @@
 ---
 change_id: match-rate-limit-resilience
 title: "S-39: Odporność auto-matchu na 429 Google Books"
-status: planned
+status: archived
 created: 2026-06-07
 updated: 2026-06-07
-archived_at: null
+archived_at: 2026-06-07T11:45:00Z
 ---
 
 ## Notes
