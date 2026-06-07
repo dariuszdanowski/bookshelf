@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { PhotoListItemDTO } from '../lib/photos/schema';
 import type { ShelfDTO } from '../lib/shelves/schema';
 import ConfirmDialog from './ConfirmDialog';
+import CostPanel from './CostPanel';
 import Skeleton from './Skeleton';
 
 type Props = {
@@ -387,14 +388,32 @@ export default function PhotoListIsland({ shelfId }: Props) {
                   {photo.confirmed_count} zatwierdzono
                 </p>
 
-                {/* Vision run metadata */}
+                {/* Vision run metadata — M26: koszt jako przycisk CostPanel
+                    (wartość = etykieta, hint tłumaczy; spójnie z review) */}
                 {photo.latest_vision_run && (
-                  <p className="mt-0.5 text-xs text-gray-400">
-                    {photo.latest_vision_run.model ?? 'vision'} ·{' '}
-                    {relativeTime(photo.latest_vision_run.created_at)}
-                    {photo.latest_vision_run.cost_usd != null &&
-                      ` · $${photo.latest_vision_run.cost_usd.toFixed(4)}`}
-                  </p>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                    <p className="text-xs text-gray-400">
+                      {photo.latest_vision_run.model ?? 'vision'} ·{' '}
+                      {relativeTime(photo.latest_vision_run.created_at)}
+                    </p>
+                    <CostPanel
+                      photoId={photo.id}
+                      label={(() => {
+                        // M26: PEŁNA suma (vision + OCR) z API; fallback latest run
+                        const total = photo.total_cost_usd ?? photo.latest_vision_run.cost_usd;
+                        return total != null ? `$${total.toFixed(4)}` : 'koszt';
+                      })()}
+                      hint="Pełny koszt AI tego zdjęcia (wszystkie analizy vision + doczytywanie OCR ramek). Kliknij, by zobaczyć listę wywołań z cenami."
+                      preloadedVisionRun={{
+                        id: photo.latest_vision_run.id,
+                        model: photo.latest_vision_run.model,
+                        created_at: photo.latest_vision_run.created_at,
+                        cost_usd: photo.latest_vision_run.cost_usd,
+                        latency_ms: null,
+                        status: 'completed',
+                      }}
+                    />
+                  </div>
                 )}
 
                 {/* Per-row toast */}

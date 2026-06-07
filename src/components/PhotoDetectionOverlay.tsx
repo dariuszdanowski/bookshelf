@@ -3,7 +3,6 @@ import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'rea
 import { classifyCropQuality } from '../lib/matching/fallbackPolicy';
 import type { BboxCoords, BboxEditSet, DetectionWithCandidatesDTO } from '../lib/photos/schema';
 import ConfirmDialog from './ConfirmDialog';
-import CostPanel from './CostPanel';
 // M23: trigger lightboxa wyłączony na życzenie usera (2026-06-07) — zoom/pan +
 // pinch na miejscu wystarczają. Komponent PhotoLightbox + jego testy zostają
 // w repo (wyłącz, nie kasuj); przywrócenie = re-import + onClick na <img>.
@@ -108,15 +107,6 @@ type Props = {
   onApplyEdits?: (changes: BboxEditSet) => Promise<void>;
   onMarkerContextMenu?: (detectionId: string) => void;
   onSaveSingleBbox?: (detectionId: string, bbox: BboxCoords) => Promise<void>;
-  photoId?: string;
-  visionRun?: {
-    id: string;
-    model: string | null;
-    cost_usd: number | null;
-    latency_ms: number | null;
-    status?: string;
-    created_at: string;
-  } | null;
 };
 
 export default function PhotoDetectionOverlay({
@@ -129,8 +119,6 @@ export default function PhotoDetectionOverlay({
   onApplyEdits,
   onMarkerContextMenu,
   onSaveSingleBbox,
-  photoId,
-  visionRun,
 }: Props) {
   const [imgLoaded, setImgLoaded] = useState(false);
   const [imgError, setImgError] = useState(false);
@@ -1002,14 +990,8 @@ export default function PhotoDetectionOverlay({
           >
             Edytuj ramki
           </button>
-          {photoId && (
-            <CostPanel
-              photoId={photoId}
-              preloadedVisionRun={
-                visionRun ? { ...visionRun, status: visionRun.status ?? 'completed' } : undefined
-              }
-            />
-          )}
+          {/* M26: CostPanel ($) przeniesiony do panelu vision-run pod zdjęciem
+              (DetectionReview) — koszt jest etykietą przycisku, nie ikoną tutaj. */}
           <button
             type="button"
             data-testid="toggle-bboxes-button"

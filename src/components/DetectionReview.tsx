@@ -877,7 +877,18 @@ function DetectionCard({
         )}
         {photoId && (
           <span onClick={(e) => e.stopPropagation()}>
-            <CostPanel photoId={photoId} detectionId={detection.id} align="left" />
+            {/* M26: wartość kosztu OCR jako etykieta (gdy >0; bez OCR — sama ikona) */}
+            <CostPanel
+              photoId={photoId}
+              detectionId={detection.id}
+              align="left"
+              label={
+                detection.refine_cost_usd != null && detection.refine_cost_usd > 0
+                  ? `$${detection.refine_cost_usd.toFixed(4)}`
+                  : undefined
+              }
+              hint="Koszt doczytywania OCR tej ramki. Kliknij, by zobaczyć wywołania z cenami."
+            />
           </span>
         )}
       </div>
@@ -1799,6 +1810,8 @@ type ApiResponse = {
     photo_url?: string | null;
     detections?: DetectionWithCandidatesDTO[];
     vision_run: VisionRunMeta | null;
+    /** M26: pełny koszt zdjęcia (vision + OCR) — etykieta przycisku kosztów */
+    costs_total_usd?: number | null;
   };
   error?: { message?: string };
 };
@@ -1861,6 +1874,8 @@ export default function DetectionReview({
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [detections, setDetections] = useState<DetectionWithCandidatesDTO[]>([]);
   const [visionRun, setVisionRun] = useState<VisionRunMeta | null>(null);
+  // M26: pełny koszt zdjęcia (vision + OCR) z API — etykieta przycisku kosztów
+  const [costsTotalUsd, setCostsTotalUsd] = useState<number | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
   const [decidedIds, setDecidedIds] = useState<Set<string>>(new Set());
@@ -1889,6 +1904,7 @@ export default function DetectionReview({
         const loadedDetections = json.data.detections ?? [];
         setDetections(loadedDetections);
         setVisionRun(json.data.vision_run ?? null);
+        setCostsTotalUsd(json.data.costs_total_usd ?? null);
         // M20: potwierdzone w DB liczą się jako zdecydowane (liczniki, bulk),
         // ale NIE jako akcja sesyjna — auto-redirect ich nie uwzględnia.
         const confirmedFromDb = new Set(
@@ -2288,8 +2304,6 @@ export default function DetectionReview({
           onApplyEdits={handleApplyEdits}
           onMarkerContextMenu={handleMarkerContextMenu}
           onSaveSingleBbox={handleSaveSingleBbox}
-          photoId={photoId}
-          visionRun={visionRun}
         />
       )}
 
@@ -2299,10 +2313,24 @@ export default function DetectionReview({
           data-testid="vision-run-panel"
           className="mb-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3"
         >
-          <p className="text-xs text-gray-500">
-            Vision: {visionRun.model ?? 'model'} &bull; {relativeTime(visionRun.created_at)}
-            {visionRun.cost_usd != null && ` · $${visionRun.cost_usd.toFixed(4)}`}
-          </p>
+          {/* M26: koszt jako etykieta przycisku CostPanel (zamiast gołej wartości
+              w tekście i ikony $ w toolbarze zdjęcia) — hint tłumaczy, co to. */}
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xs text-gray-500">
+              Vision: {visionRun.model ?? 'model'} &bull; {relativeTime(visionRun.created_at)}
+            </p>
+            <CostPanel
+              photoId={photoId}
+              label={(() => {
+                // M26: PEŁNA suma (vision + OCR ramek) — spójna z sumą w dropdownie;
+                // fallback do kosztu ostatniego runa, gdy suma niedostępna.
+                const total = costsTotalUsd ?? visionRun.cost_usd;
+                return total != null ? `$${total.toFixed(4)}` : 'koszt';
+              })()}
+              hint="Pełny koszt AI tego zdjęcia (wszystkie analizy vision + doczytywanie OCR ramek). Kliknij, by zobaczyć listę wywołań z cenami."
+              preloadedVisionRun={{ ...visionRun, status: 'completed' }}
+            />
+          </div>
           <div className="mt-2 flex flex-wrap gap-2">
             <button
               data-testid="rerun-vision-button"
@@ -2355,7 +2383,7 @@ export default function DetectionReview({
             &bull; pozostało <strong>{pendingCount}</strong>
           </>
         )}
-        {photo?.vision_cost_usd != null && <> &bull; koszt: ${photo.vision_cost_usd.toFixed(4)}</>}
+        {/* M26: koszt zniknął stąd — żyje jako przycisk w panelu vision-run wyżej */}
       </p>
 
       <ViewModeSwitcher mode={viewMode} onChange={setViewMode} />

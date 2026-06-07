@@ -95,6 +95,39 @@ export const GET: APIRoute = async ({ params, locals }) => {
     });
   }
 
+  // M26: pełny koszt zdjęcia (WSZYSTKIE vision_runs + refine_calls — ta sama
+  // suma co dropdown CostPanel/endpoint /costs) + per-detekcja koszt OCR.
+  // Best-effort: koszt to dekoracja UI — błąd degraduje do null, nie 500.
+  let costsTotalUsd: number | null = null;
+  const refineCostByDet = new Map<string, number>();
+  try {
+    const [allRunsRes, refineRes] = await Promise.all([
+      locals.supabase.from('vision_runs').select('cost_usd').eq('photo_id', id),
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (locals.supabase as any)
+        .from('refine_calls')
+        .select('detection_id, cost_usd')
+        .eq('photo_id', id) as Promise<{
+        data: Array<{ detection_id: string; cost_usd: number | null }> | null;
+        error: { message: string } | null;
+      }>,
+    ]);
+    const visionTotal = (allRunsRes.data ?? []).reduce((s, r) => s + (r.cost_usd ?? 0), 0);
+    let refineTotal = 0;
+    for (const rc of refineRes.data ?? []) {
+      refineTotal += rc.cost_usd ?? 0;
+      refineCostByDet.set(
+        rc.detection_id,
+        (refineCostByDet.get(rc.detection_id) ?? 0) + (rc.cost_usd ?? 0),
+      );
+    }
+    if (!allRunsRes.error) costsTotalUsd = visionTotal + refineTotal;
+  } catch (err) {
+    console.warn('[api/photos GET] costs total unavailable', {
+      message: err instanceof Error ? err.message : String(err),
+    });
+  }
+
   // Latest succeeded vision_run — defines which detections to show
   const { data: latestRun, error: runError } = await locals.supabase
     .from('vision_runs')
@@ -119,7 +152,15 @@ export const GET: APIRoute = async ({ params, locals }) => {
   }
 
   if (!latestRun) {
-    return apiResponse({ data: { photo, photo_url, detections: [], vision_run: null } });
+    return apiResponse({
+      data: {
+        photo,
+        photo_url,
+        detections: [],
+        vision_run: null,
+        costs_total_usd: costsTotalUsd,
+      },
+    });
   }
 
   const visionRun = {
@@ -155,7 +196,9 @@ export const GET: APIRoute = async ({ params, locals }) => {
 
   if (rows.length === 0) {
     const detections: DetectionWithCandidatesDTO[] = [];
-    return apiResponse({ data: { photo, photo_url, detections, vision_run: visionRun } });
+    return apiResponse({
+      data: { photo, photo_url, detections, vision_run: visionRun, costs_total_usd: costsTotalUsd },
+    });
   }
 
   const detectionIds = rows.map((d) => d.id);
@@ -270,10 +313,14 @@ export const GET: APIRoute = async ({ params, locals }) => {
       status: row.status,
       candidates,
       duplicate,
+      // M26: koszt OCR (refine) tej detekcji — etykieta przycisku $ na karcie
+      refine_cost_usd: refineCostByDet.get(row.id) ?? 0,
     };
   });
 
-  return apiResponse({ data: { photo, photo_url, detections, vision_run: visionRun } });
+  return apiResponse({
+    data: { photo, photo_url, detections, vision_run: visionRun, costs_total_usd: costsTotalUsd },
+  });
 };
 
 /**
