@@ -951,8 +951,11 @@ export default function PhotoDetectionOverlay({
   // M25: pasek sterujący pływa NAD zdjęciem (lewy górny róg kontenera) zamiast
   // nad nim w flow — mniej pionowego miejsca, kontrolki przy treści. Jest
   // SIBLING-iem viewportu (nie dzieckiem), więc klik nie startuje pan/draw.
+  // Fix post-#79: wrapper pointer-events-none (przerwy między przyciskami nie
+  // przechwytują kliknięć w markery pod spodem); każdy przycisk przywraca
+  // pointer-events-auto. Headroom pt-12 na viewporcie — zob. niżej.
   const toolbar = (
-    <div className="absolute top-2 left-2 z-20 flex max-w-[calc(100%-1rem)] flex-wrap gap-2">
+    <div className="pointer-events-none absolute top-2 left-2 z-20 flex max-w-[calc(100%-1rem)] flex-wrap gap-2">
       {isEditing ? (
         <>
           <button
@@ -960,7 +963,7 @@ export default function PhotoDetectionOverlay({
             data-testid="apply-bbox-edits-button"
             disabled={applyBusy}
             onClick={() => void handleApply()}
-            className="rounded border border-green-600 bg-green-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
+            className="pointer-events-auto rounded border border-green-600 bg-green-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
           >
             {applyBusy ? 'Zapisuję...' : 'Zastosuj zmiany'}
           </button>
@@ -975,7 +978,7 @@ export default function PhotoDetectionOverlay({
                 onEditingChange?.(false);
               }
             }}
-            className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className="pointer-events-auto rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
           >
             Anuluj
           </button>
@@ -986,7 +989,7 @@ export default function PhotoDetectionOverlay({
             type="button"
             data-testid="edit-bboxes-button"
             onClick={() => onEditingChange?.(true)}
-            className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+            className="pointer-events-auto rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
           >
             Edytuj ramki
           </button>
@@ -996,7 +999,7 @@ export default function PhotoDetectionOverlay({
             type="button"
             data-testid="toggle-bboxes-button"
             onClick={() => setShowBoxes((v) => !v)}
-            className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+            className="pointer-events-auto rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
           >
             {showBoxes ? 'Ukryj ramki' : 'Pokaż ramki'}
           </button>
@@ -1005,7 +1008,7 @@ export default function PhotoDetectionOverlay({
               type="button"
               data-testid="clear-focus-button"
               onClick={onClearFocus}
-              className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+              className="pointer-events-auto rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
             >
               Pokaż wszystkie detekcje
             </button>
@@ -1014,7 +1017,7 @@ export default function PhotoDetectionOverlay({
             type="button"
             data-testid="zoom-out-button"
             onClick={() => changeZoom(zoom - 0.25)}
-            className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+            className="pointer-events-auto rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
           >
             -
           </button>
@@ -1022,7 +1025,7 @@ export default function PhotoDetectionOverlay({
             type="button"
             data-testid="zoom-reset-button"
             onClick={() => setZoom(1)}
-            className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+            className="pointer-events-auto rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
           >
             {Math.round(zoom * 100)}%
           </button>
@@ -1030,7 +1033,7 @@ export default function PhotoDetectionOverlay({
             type="button"
             data-testid="zoom-in-button"
             onClick={() => changeZoom(zoom + 0.25)}
-            className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+            className="pointer-events-auto rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
           >
             +
           </button>
@@ -1072,7 +1075,7 @@ export default function PhotoDetectionOverlay({
           onPointerMove={handleContainerPointerMove}
           onPointerUp={handleContainerPointerUp}
           onPointerCancel={handleContainerPointerUp}
-          className={`scrollbar-hidden max-h-[72vh] w-full overflow-auto rounded-lg border border-gray-200 bg-gray-100 p-3 select-none ${isEditing ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'}`}
+          className={`scrollbar-hidden max-h-[72vh] w-full overflow-auto rounded-lg border border-gray-200 bg-gray-100 px-3 pt-12 pb-3 select-none ${isEditing ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'}`}
           style={{ touchAction: 'none' }}
         >
           {renderPhotoLayer(true)}
