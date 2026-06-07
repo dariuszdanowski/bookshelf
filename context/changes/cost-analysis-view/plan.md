@@ -248,7 +248,7 @@ Suma dla filtra pobiera wszystkie `cost_usd` pasujące do filtra (bez paginacji)
 
 - [x] 1.1 Migracja aplikuje się czysto: `npx supabase db reset` — 44468c6
 - [x] 1.2 Unit testy endpointu przechodzą: `npm run test -- costs` — 44468c6
-- [ ] 1.3 Test integracyjny izolacji RLS cost_events przechodzi w CI (job e2e)
+- [x] 1.3 Test integracyjny izolacji RLS cost_events przechodzi w CI (job e2e) — CI run 27103317098, step „Run integration tests" success
 - [x] 1.4 Typecheck: `npm run typecheck` — 44468c6
 - [x] 1.5 Lint: `npm run lint` — 44468c6
 
