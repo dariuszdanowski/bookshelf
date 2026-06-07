@@ -349,7 +349,12 @@ type RematchFormProps = {
   initialIsbn: string;
   busy: boolean;
   errorMsg: string | null;
-  onSubmit: (title: string, author: string | null, isbn: string | null) => void;
+  onSubmit: (
+    title: string,
+    author: string | null,
+    isbn: string | null,
+    publisher: string | null,
+  ) => void;
   onCancel: () => void;
 };
 
@@ -365,11 +370,13 @@ function RematchForm({
   const [title, setTitle] = useState(initialTitle);
   const [author, setAuthor] = useState(initialAuthor);
   const [isbn, setIsbn] = useState(initialIsbn);
+  // M22: wydawnictwo z grzbietu (np. logo Naszej Księgarni) zawęża wyniki GB
+  const [publisher, setPublisher] = useState('');
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!title.trim()) return;
-    onSubmit(title.trim(), author.trim() || null, isbn.trim() || null);
+    onSubmit(title.trim(), author.trim() || null, isbn.trim() || null, publisher.trim() || null);
   }
 
   return (
@@ -398,6 +405,18 @@ function RematchForm({
             value={author}
             onChange={(e) => setAuthor(e.target.value)}
             className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+          />
+        </label>
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+          Wydawnictwo (opcjonalnie — gdy widoczne na grzbiecie)
+          <input
+            data-testid="rematch-publisher"
+            value={publisher}
+            onChange={(e) => setPublisher(e.target.value)}
+            placeholder="np. Nasza Księgarnia"
+            className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 placeholder:text-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500"
           />
         </label>
       </div>
@@ -519,8 +538,14 @@ function useDetectionDecision(
   onUndecided?: (detectionId: string) => void,
 ) {
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
-  const [state, setState] = useState<DecisionState>('pending');
-  const [decidedKind, setDecidedKind] = useState<DecisionKind | null>(null);
+  // M20: detekcja potwierdzona w DB (np. wejście deep-linkiem S-37 do skatalogowanej
+  // książki) od razu renderuje widok „dodano do katalogu" — wcześniej udawała pending
+  // i dedup meldował absurdalne „Masz już tę książkę w katalogu".
+  const initiallyConfirmed = detection.status === 'confirmed';
+  const [state, setState] = useState<DecisionState>(initiallyConfirmed ? 'decided' : 'pending');
+  const [decidedKind, setDecidedKind] = useState<DecisionKind | null>(
+    initiallyConfirmed ? 'confirmed' : null,
+  );
   const [busy, setBusy] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -604,6 +629,7 @@ function useDetectionDecision(
     title: string,
     author: string | null,
     isbn: string | null,
+    publisher: string | null = null, // M22
   ): Promise<boolean> {
     setBusy(true);
     setErrorMsg(null);
@@ -611,7 +637,7 @@ function useDetectionDecision(
       const res = await fetch(`/api/detections/${detection.id}/rematch`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, author, isbn }),
+        body: JSON.stringify({ title, author, isbn, publisher }),
       });
       const json = (await res.json()) as {
         data?: {
@@ -915,8 +941,8 @@ function DetectionCard({
           initialIsbn={''}
           busy={busy}
           errorMsg={errorMsg}
-          onSubmit={async (title, author, isbn) => {
-            const found = await handleRematch(title, author, isbn);
+          onSubmit={async (title, author, isbn, publisher) => {
+            const found = await handleRematch(title, author, isbn, publisher);
             // M12: zamykaj ZAWSZE — po sukcesie pojawia się kandydat (top) i stan
             // showRematchForm=true przejmowała gałąź „z kandydatem", renderując
             // formularz ponownie pod zaktualizowaną propozycją.
@@ -1130,8 +1156,8 @@ function DetectionCard({
           initialIsbn={top.isbn13 ?? top.isbn10 ?? ''}
           busy={busy}
           errorMsg={errorMsg}
-          onSubmit={async (title, author, isbn) => {
-            const found = await handleRematch(title, author, isbn);
+          onSubmit={async (title, author, isbn, publisher) => {
+            const found = await handleRematch(title, author, isbn, publisher);
             setShowRematchForm(false);
             if (!found) setRematchNoResults(true);
           }}
@@ -1400,14 +1426,25 @@ export function DetectionRow({
           Odrzuć
         </button>
         {top ? (
-          <button
-            data-testid="correct-button"
-            disabled={busy}
-            onClick={() => setShowModal(true)}
-            className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-          >
-            Popraw
-          </button>
+          // M19: parytet z Kartami — „Szukaj" także przy istniejącym kandydacie
+          <>
+            <button
+              data-testid="correct-button"
+              disabled={busy}
+              onClick={() => setShowModal(true)}
+              className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              Popraw
+            </button>
+            <button
+              data-testid="rematch-button"
+              disabled={busy}
+              onClick={() => setShowRematchForm(true)}
+              className="rounded border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
+            >
+              Szukaj
+            </button>
+          </>
         ) : (
           <>
             <button
@@ -1443,8 +1480,8 @@ export function DetectionRow({
           initialIsbn={detection.candidates?.[0]?.isbn13 ?? detection.candidates?.[0]?.isbn10 ?? ''}
           busy={busy}
           errorMsg={errorMsg}
-          onSubmit={async (title, author, isbn) => {
-            const found = await handleRematch(title, author, isbn);
+          onSubmit={async (title, author, isbn, publisher) => {
+            const found = await handleRematch(title, author, isbn, publisher);
             if (found) setShowRematchForm(false);
           }}
           onCancel={() => setShowRematchForm(false)}
@@ -1666,14 +1703,25 @@ export function DetectionTile({
           Odrzuć
         </button>
         {top ? (
-          <button
-            data-testid="correct-button"
-            disabled={busy}
-            onClick={() => setShowModal(true)}
-            className="rounded border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-          >
-            Popraw
-          </button>
+          // M19: parytet z Kartami — „Szukaj" także przy istniejącym kandydacie
+          <>
+            <button
+              data-testid="correct-button"
+              disabled={busy}
+              onClick={() => setShowModal(true)}
+              className="rounded border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              Popraw
+            </button>
+            <button
+              data-testid="rematch-button"
+              disabled={busy}
+              onClick={() => setShowRematchForm(true)}
+              className="rounded border border-emerald-300 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
+            >
+              Szukaj
+            </button>
+          </>
         ) : (
           <>
             <button
@@ -1709,8 +1757,8 @@ export function DetectionTile({
           initialIsbn={detection.candidates?.[0]?.isbn13 ?? detection.candidates?.[0]?.isbn10 ?? ''}
           busy={busy}
           errorMsg={errorMsg}
-          onSubmit={async (title, author, isbn) => {
-            const found = await handleRematch(title, author, isbn);
+          onSubmit={async (title, author, isbn, publisher) => {
+            const found = await handleRematch(title, author, isbn, publisher);
             if (found) setShowRematchForm(false);
           }}
           onCancel={() => setShowRematchForm(false)}
@@ -1823,6 +1871,8 @@ export default function DetectionReview({
   const [confirmRerunOpen, setConfirmRerunOpen] = useState(false);
   const [isBboxEditing, setIsBboxEditing] = useState(false);
   const [applyingEdits, setApplyingEdits] = useState(false);
+  // M20: id potwierdzonych już w DB przy wejściu — odróżnia decyzje sesyjne od historycznych
+  const initialDecidedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     let cancelled = false;
@@ -1839,6 +1889,16 @@ export default function DetectionReview({
         const loadedDetections = json.data.detections ?? [];
         setDetections(loadedDetections);
         setVisionRun(json.data.vision_run ?? null);
+        // M20: potwierdzone w DB liczą się jako zdecydowane (liczniki, bulk),
+        // ale NIE jako akcja sesyjna — auto-redirect ich nie uwzględnia.
+        const confirmedFromDb = new Set(
+          loadedDetections.filter((d) => d.status === 'confirmed').map((d) => d.id),
+        );
+        initialDecidedRef.current = confirmedFromDb;
+        if (confirmedFromDb.size > 0) {
+          setDecidedIds(new Set(confirmedFromDb));
+          setConfirmedIds(new Set(confirmedFromDb));
+        }
       } catch (err) {
         if (!cancelled)
           setErrorMsg(err instanceof Error ? err.message : 'Nie udało się załadować propozycji.');
@@ -1904,10 +1964,14 @@ export default function DetectionReview({
   // Bez warunku confirmedIds.size > 0 odrzucenie ostatniej detekcji wyrzucało
   // usera na półkę, zanim zdążył kliknąć „Cofnij" (dziura UX).
   useEffect(() => {
+    // M20: redirect wymaga AKCJI w tej sesji — wejście deep-linkiem na zdjęcie,
+    // gdzie wszystko było już potwierdzone, NIE może wyrzucać usera na półkę.
+    const sessionActed = [...decidedIds].some((id) => !initialDecidedRef.current.has(id));
     if (
       detections.length > 0 &&
       detections.every((d) => decidedIds.has(d.id)) &&
       confirmedIds.size > 0 &&
+      sessionActed &&
       photo?.shelf_id
     ) {
       window.location.href = `/shelves/${photo.shelf_id}`;

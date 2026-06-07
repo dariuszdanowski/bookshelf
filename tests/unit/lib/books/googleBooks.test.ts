@@ -217,6 +217,45 @@ describe('searchGoogleBooks', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1); // only free-text, no inauthor attempt
   });
 
+  // M22: wydawnictwo z grzbietu zawęża wyniki, gdy intitle+inauthor nie trafiło
+  it('M22: publisher → etap intitle+inpublisher po pustym intitle+inauthor', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(makeEmptyResponse()) // intitle+inauthor: empty
+      .mockResolvedValueOnce(makeOkResponse()); // intitle+inpublisher: hit
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await searchGoogleBooks({
+      title: 'Mafalda',
+      author: 'Quino',
+      publisher: 'Nasza Księgarnia',
+    });
+
+    expect(result.ok).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2); // free-text NIE wywołany
+    const secondUrl = decodeURIComponent(fetchMock.mock.calls[1][0] as string);
+    expect(secondUrl).toContain('inpublisher:');
+    // spacje w query idą jako '+' (URLSearchParams-style)
+    expect(secondUrl).toContain('Nasza+Księgarnia');
+  });
+
+  it('M22: bez publishera kaskada nie woła inpublisher', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(makeEmptyResponse()) // intitle+inauthor: empty
+      .mockResolvedValueOnce(makeOkResponse()); // free-text: hit
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await searchGoogleBooks({ title: 'Mafalda', author: 'Quino' });
+
+    expect(result.ok).toBe(true);
+    for (const call of fetchMock.mock.calls) {
+      expect(decodeURIComponent(call[0] as string)).not.toContain('inpublisher:');
+    }
+  });
+
   it('skips isbn cascade step when no isbn provided', async () => {
     const fetchMock = vi.fn().mockResolvedValueOnce(makeOkResponse());
     vi.stubGlobal('fetch', fetchMock);

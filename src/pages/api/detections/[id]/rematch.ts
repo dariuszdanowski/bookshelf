@@ -58,9 +58,10 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     });
   }
 
-  const { title: rawTitle, author, isbn: rawIsbn } = parsed.data;
+  const { title: rawTitle, author, isbn: rawIsbn, publisher } = parsed.data;
   const rawAuthorFromForm = author ?? null;
   const rawIsbnFromForm = rawIsbn?.trim() || null;
+  const rawPublisher = publisher?.trim() || null; // M22
 
   // Auto-extract autora gdy tytuł zawiera wzorzec "Tytuł — Imię Nazwisko"
   // i pole autora jest puste (np. user wkleił pełny opis z grzbietem).
@@ -121,7 +122,9 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     isbn_10: b.isbn_10,
   }));
 
-  const match = await findBookCandidates(title, rawAuthor, rawIsbnFromForm);
+  const match = await findBookCandidates(title, rawAuthor, rawIsbnFromForm, {
+    publisher: rawPublisher,
+  });
   if (match.rateLimited) {
     return apiError({
       code: 'RATE_LIMITED',

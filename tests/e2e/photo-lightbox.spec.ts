@@ -3,7 +3,12 @@ import { expect, test } from '@playwright/test';
 /**
  * E2E spec dla S-24: lightbox zdjęcia w review.
  *
- * Ryzyka pokryte:
+ * ⚠ M23 (2026-06-07): trigger lightboxa WYŁĄCZONY na życzenie usera
+ * ("wyłącz, nie kasuj") — zoom/pan + pinch na miejscu wystarczają. Spec
+ * w całości test.skip; mechanizm (PhotoLightbox + testy unit) zostaje
+ * w repo. Przywrócenie = re-import w PhotoDetectionOverlay + zdjęcie skipa.
+ *
+ * Ryzyka pokryte (gdy aktywny):
  *  - klik w zdjęcie otwiera pełnoekranowy lightbox z numerowanymi ramkami
  *  - Esc zamyka lightbox (powrót do review bez przeładowania)
  *  - w trybie edycji ramek klik w obraz NIE otwiera lightboxa (kolizja intencji
@@ -11,6 +16,11 @@ import { expect, test } from '@playwright/test';
  *
  * API mockowane przez page.route — zero realnego vision/Storage/DB write.
  */
+
+test.skip(
+  true,
+  'M23: trigger lightboxa wyłączony na życzenie usera (2026-06-07) — mechanizm zachowany w repo',
+);
 
 const PHOTO_ID = '00000000-0000-4000-8000-242424242424';
 
