@@ -1,10 +1,10 @@
 ---
 change_id: review-ux-pack
 title: "Pakiet C: review-UX (M19, M20, M22, M23)"
-status: implemented
+status: archived
 created: 2026-06-07
 updated: 2026-06-07
-archived_at: null
+archived_at: 2026-06-07T11:55:00Z
 ---
 
 ## Notes
