@@ -14,6 +14,13 @@ const { title = 'BookShelf Catalog' } = Astro.props;
 const user = Astro.locals.user;
 const dbEnv = detectDbEnvironment();
 const titleWithEnv = `[${ENV_LABEL[dbEnv]}] ${title}`;
+const currentPath = Astro.url.pathname;
+function navCls(href: string) {
+  const active = currentPath === href || currentPath.startsWith(href + '/');
+  return active
+    ? 'font-semibold text-indigo-600 dark:text-indigo-400'
+    : 'font-medium text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100';
+}
 ---
 
 <!doctype html>
@@ -54,39 +61,48 @@ const titleWithEnv = `[${ENV_LABEL[dbEnv]}] ${title}`;
           data-testid="auth-header"
         >
           {/* S-28: hamburger < md; desktopowy nav z dotychczasowymi testidami zostaje */}
-          <MobileNav client:load email={user.email ?? ''} />
+          <MobileNav client:load email={user.email ?? ''} currentPath={currentPath} />
           <nav class="hidden items-center gap-4 md:flex" aria-label="Nawigacja główna">
             <a
               href="/library"
-              class="font-medium text-gray-700 hover:text-gray-900"
+              class={navCls('/library')}
+              aria-current={currentPath.startsWith('/library') ? 'page' : undefined}
               data-testid="nav-library"
             >
               Biblioteka
             </a>
             <a
               href="/shelves"
-              class="font-medium text-gray-700 hover:text-gray-900"
+              class={navCls('/shelves')}
+              aria-current={
+                currentPath === '/shelves' || currentPath.startsWith('/shelves/')
+                  ? 'page'
+                  : undefined
+              }
               data-testid="nav-shelves"
             >
               Moje półki
             </a>
             <a
               href="/upload"
-              class="font-medium text-gray-700 hover:text-gray-900"
+              class={navCls('/upload')}
+              aria-current={currentPath.startsWith('/upload') ? 'page' : undefined}
               data-testid="nav-upload"
             >
               Skanuj półkę
             </a>
             <a
               href="/purchase"
-              class="font-medium text-gray-700 hover:text-gray-900"
+              class={navCls('/purchase')}
+              aria-current={currentPath.startsWith('/purchase') ? 'page' : undefined}
               data-testid="nav-add-purchase"
             >
               Dodaj zakup
             </a>
             <a
               href="/account"
-              class="font-medium text-gray-700 hover:text-gray-900"
+              class={navCls('/account')}
+              aria-current={currentPath.startsWith('/account') ? 'page' : undefined}
               data-testid="nav-account"
             >
               Moje konto
