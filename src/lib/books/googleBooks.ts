@@ -74,18 +74,36 @@ function mapItem(item: {
   };
 }
 
+// S-39: 429 z GB to przejściowy limit QPS — bez retry burst /match (concurrency 5
+// × N detekcji) po cichu gubił dopasowania (prod: 9/14 detekcji pending z 0 kandydatów
+// na popularnych tytułach). Backoff + jitter rozprasza ponowienia.
+export const RATE_LIMIT_RETRY_DELAYS_MS = [500, 1500] as const;
+const RATE_LIMIT_JITTER_MS = 250;
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
 async function fetchBooks(url: string): Promise<BookSearchResult> {
-  let response: Response;
-  try {
-    response = await fetch(url);
-  } catch (e) {
-    console.error('[googleBooks] network error', {
-      err: e instanceof Error ? e.message : String(e),
-    });
-    return { ok: false, reason: 'network' };
+  let response: Response | null = null;
+
+  for (let attempt = 0; attempt <= RATE_LIMIT_RETRY_DELAYS_MS.length; attempt++) {
+    try {
+      response = await fetch(url);
+    } catch (e) {
+      console.error('[googleBooks] network error', {
+        err: e instanceof Error ? e.message : String(e),
+      });
+      return { ok: false, reason: 'network' };
+    }
+
+    if (response.status !== 429) break;
+
+    if (attempt === RATE_LIMIT_RETRY_DELAYS_MS.length) {
+      return { ok: false, reason: 'rate_limited' };
+    }
+    await sleep(RATE_LIMIT_RETRY_DELAYS_MS[attempt] + Math.random() * RATE_LIMIT_JITTER_MS);
   }
 
-  if (response.status === 429) return { ok: false, reason: 'rate_limited' };
+  if (!response) return { ok: false, reason: 'network' }; // nieosiągalne — typ-guard
 
   if (!response.ok) {
     console.error('[googleBooks] HTTP error', { status: response.status });

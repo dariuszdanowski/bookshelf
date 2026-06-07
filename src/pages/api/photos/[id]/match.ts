@@ -343,6 +343,8 @@ export const POST: APIRoute = async ({ params, locals }) => {
 
   let matchedCount = 0;
   let allRateLimited = true;
+  // S-39: liczba detekcji ściętych przez 429 mimo retry — klient pokazuje toast
+  let rateLimitedCount = 0;
 
   type CandidateRow = {
     detection_id: string;
@@ -412,6 +414,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
 
     // Rate-limited → leave detection at current status (retriable)
     if (rateLimited) {
+      rateLimitedCount++;
       responseDetections.push({
         id: det.id,
         raw_title: det.raw_title ?? '',
@@ -596,5 +599,12 @@ export const POST: APIRoute = async ({ params, locals }) => {
     });
   }
 
-  return apiResponse({ data: { matched: matchedCount, detections: responseDetections } });
+  return apiResponse({
+    data: {
+      matched: matchedCount,
+      // S-39: >0 oznacza, że część detekcji wstrzymał limit GB — „Ponów match" pomoże
+      rate_limited: rateLimitedCount,
+      detections: responseDetections,
+    },
+  });
 };
