@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import type { DetectionWithCandidatesDTO } from '../lib/photos/schema';
+import { useBodyScrollLock } from './useBodyScrollLock';
 
 type Props = {
   photoUrl: string;
@@ -21,6 +22,8 @@ export default function PhotoLightbox({
   focusedDetectionId = null,
   onClose,
 }: Props) {
+  useBodyScrollLock(); // M5: modal zamontowany = body bez scrolla
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose();

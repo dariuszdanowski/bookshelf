@@ -1,5 +1,7 @@
 import { useEffect } from 'react';
 
+import { useBodyScrollLock } from './useBodyScrollLock';
+
 type Props = {
   open: boolean;
   title: string;
@@ -23,6 +25,8 @@ export default function ConfirmDialog({
   onConfirm,
   onCancel,
 }: Props) {
+  useBodyScrollLock(open); // M5: bez przelewania scrolla na stronę pod spodem
+
   useEffect(() => {
     if (!open) return;
     function onKeyDown(event: KeyboardEvent) {
