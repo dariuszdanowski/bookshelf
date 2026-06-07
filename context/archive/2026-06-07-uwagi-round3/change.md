@@ -1,10 +1,10 @@
 ---
 change_id: uwagi-round3
 title: "Runda 3 uwag z testów manualnych (M24–M27) + backfill atrybucji kosztów"
-status: implemented
+status: archived
 created: 2026-06-07
 updated: 2026-06-07
-archived_at: null
+archived_at: 2026-06-07T15:30:00Z
 ---
 
 ## Notes
