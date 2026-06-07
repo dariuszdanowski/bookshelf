@@ -346,12 +346,12 @@ Patrz Phase 3. Kluczowe edge case'y:
 
 #### Automated
 
-- [x] 3.1 npm run test:e2e --grep camera-capture — testy zielone
-- [x] 3.2 npm run typecheck — brak błędów
-- [x] 3.3 npm run lint — brak lint errors
-- [x] 3.4 npm run test — istniejące unit testy zielone
-- [x] 3.5 Pełne npm run test:e2e — brak regresji
+- [x] 3.1 npm run test:e2e --grep camera-capture — testy zielone — f10c0d0
+- [x] 3.2 npm run typecheck — brak błędów — f10c0d0
+- [x] 3.3 npm run lint — brak lint errors — f10c0d0
+- [x] 3.4 npm run test — istniejące unit testy zielone — f10c0d0
+- [x] 3.5 Pełne npm run test:e2e — brak regresji — f10c0d0
 
 #### Manual
 
-- [x] 3.6 Na telefonie (real device): „Zrób zdjęcie" otwiera aparat systemowy
+- [x] 3.6 Na telefonie (real device): „Zrób zdjęcie" otwiera aparat systemowy — f10c0d0
