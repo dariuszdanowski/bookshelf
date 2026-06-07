@@ -94,10 +94,13 @@ export function ViewModeSwitcher({
             data-testid={`${itemTestIdPrefix}-${m}`}
             aria-pressed={active}
             onClick={() => onChange(m)}
-            className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+            className={`rounded-md px-3 py-1 text-xs transition-colors ${
               active
-                ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-900 dark:text-gray-100'
-                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+                ? // M4: akcent kolorem (nie szarością) — ręczne override'y dark zlewają
+                  // wszystkie text-gray-* do jednej wartości, przez co aktywny chip był
+                  // nierozróżnialny; text-blue-700 mapuje się w dark na czytelny #93c5fd.
+                  'bg-white font-semibold text-blue-700 shadow-sm dark:bg-gray-900'
+                : 'font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
             }`}
           >
             {labels[m]}

@@ -92,8 +92,11 @@ export default function ShelfTabs({ shelfId, shelfName }: Props) {
               data-testid={`shelf-tab-${t}`}
               aria-selected={active}
               onClick={() => setTab(t)}
-              className={`rounded-md px-4 py-1.5 text-sm font-medium transition-colors ${
-                active ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              className={`rounded-md px-4 py-1.5 text-sm transition-colors ${
+                active
+                  ? // M4: akcent jak w ViewModeSwitcher — widoczny stan aktywny też w dark
+                    'bg-white font-semibold text-blue-700 shadow-sm'
+                  : 'font-medium text-gray-500 hover:text-gray-700'
               }`}
             >
               {TAB_LABELS[t]}
