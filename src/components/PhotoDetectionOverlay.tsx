@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type PointerEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type PointerEvent } from 'react';
 
 import { classifyCropQuality } from '../lib/matching/fallbackPolicy';
 import type { BboxCoords, BboxEditSet, DetectionWithCandidatesDTO } from '../lib/photos/schema';
@@ -136,6 +136,11 @@ export default function PhotoDetectionOverlay({
   const [imgError, setImgError] = useState(false);
   const [showBoxes, setShowBoxes] = useState(true);
   const [zoom, setZoom] = useState(1);
+  // M24: bazowa skala "fit-to-container" — zoom=1 to CAŁE zdjęcie w oknie
+  // (contain), nie fit-to-width. Dla poziomych zdjęć półek fitScale=1 (bez
+  // zmiany zachowania); dla pionowych (pojedyncza książka z telefonu) <1,
+  // żeby portret nie renderował się ~3× wyżej niż okno na desktopie.
+  const [fitScale, setFitScale] = useState(1);
   const [hoveredDetId, setHoveredDetId] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -183,6 +188,8 @@ export default function PhotoDetectionOverlay({
   // obsługujemy go sami: mapa aktywnych pointerów + dystans/zoom startowy.
   const pointersRef = useRef(new Map<number, { x: number; y: number }>());
   const pinchRef = useRef<{ startDist: number; startZoom: number } | null>(null);
+  // M24: naturalne wymiary obrazu (z onLoad) do przeliczania fitScale przy resize
+  const naturalDimsRef = useRef<{ w: number; h: number } | null>(null);
 
   useEffect(() => {
     zoomRef.current = zoom;
@@ -232,6 +239,27 @@ export default function PhotoDetectionOverlay({
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
   }, []);
+
+  // M24: fitScale = ułamek szerokości okna, przy którym całe zdjęcie mieści
+  // się w max-height kontenera (contain). 1 dla poziomych zdjęć półek.
+  const recomputeFitScale = useCallback(() => {
+    const viewport = wheelViewportRef.current;
+    const dims = naturalDimsRef.current;
+    if (!viewport || !dims || !dims.w || !dims.h) return;
+    const styles = getComputedStyle(viewport);
+    const padX = parseFloat(styles.paddingLeft) + parseFloat(styles.paddingRight);
+    const padY = parseFloat(styles.paddingTop) + parseFloat(styles.paddingBottom);
+    const availW = viewport.clientWidth - padX;
+    const maxH = parseFloat(styles.maxHeight) - padY;
+    if (!availW || !Number.isFinite(maxH) || maxH <= 0) return;
+    const fitW = Math.min(availW, maxH * (dims.w / dims.h));
+    setFitScale(Math.min(1, fitW / availW));
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener('resize', recomputeFitScale);
+    return () => window.removeEventListener('resize', recomputeFitScale);
+  }, [recomputeFitScale]);
 
   if (!photoUrl) return null;
   const resolvedPhotoUrl = photoUrl;
@@ -894,8 +922,8 @@ export default function PhotoDetectionOverlay({
     return (
       <div
         ref={imgContainerRef}
-        className="relative block"
-        style={{ width: `${zoom * 100}%`, minWidth: '100%' }}
+        className="relative mx-auto block"
+        style={{ width: `${zoom * fitScale * 100}%` }}
       >
         <img
           src={resolvedPhotoUrl}
@@ -904,7 +932,13 @@ export default function PhotoDetectionOverlay({
           className="block h-auto w-full select-none"
           onLoad={
             withLoadHandlers
-              ? () => {
+              ? (e) => {
+                  // M24: zapamiętaj proporcje i policz bazowy fit (contain)
+                  naturalDimsRef.current = {
+                    w: e.currentTarget.naturalWidth,
+                    h: e.currentTarget.naturalHeight,
+                  };
+                  recomputeFitScale();
                   setImgLoaded(true);
                   setImgError(false);
                 }
