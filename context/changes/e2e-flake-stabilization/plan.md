@@ -348,6 +348,6 @@ przebiegnięty lokalnie zgodnie z twardą regułą „E2E przed PR").
 
 #### Automated
 
-- [x] 3.1 Pełny `npm run test:e2e` zielony 3× pod rząd lokalnie (retries:0)
-- [x] 3.2 `rg "page.waitForTimeout" tests/e2e` zwraca tylko dokumentację
-- [x] 3.3 Typecheck + lint przechodzą
+- [x] 3.1 Pełny `npm run test:e2e` zielony 3× pod rząd lokalnie (retries:0) — bc88130
+- [x] 3.2 `rg "page.waitForTimeout" tests/e2e` zwraca tylko dokumentację — bc88130
+- [x] 3.3 Typecheck + lint przechodzą — bc88130
