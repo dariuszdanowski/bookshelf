@@ -120,8 +120,8 @@ Unit: HelpTip (open/close/Esc/aria) + empty-state CTA. E2E: /help (nav, render,
 
 #### Automated
 
-- [x] 3.1 Typecheck / Lint / Unit / E2E zielone (w tym /help w mobile-responsive)
+- [x] 3.1 Typecheck / Lint / Unit / E2E zielone (w tym /help w mobile-responsive) — 3985248
 
 #### Manual
 
-- [x] 3.2 Przejście golden path „oczami nowego usera" (user-only)
+- [x] 3.2 Przejście golden path „oczami nowego usera" (user-only) — 3985248
