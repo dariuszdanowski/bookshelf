@@ -60,13 +60,14 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   const parsed = CreateDetectionSchema.safeParse(body);
   if (!parsed.success) {
     const flat = z.flattenError(parsed.error);
-    const first = flat.formErrors[0] ?? Object.values(flat.fieldErrors)[0]?.[0] ?? 'Nieprawidłowe dane bbox.';
+    const first =
+      flat.formErrors[0] ?? Object.values(flat.fieldErrors)[0]?.[0] ?? 'Nieprawidłowe dane bbox.';
     return apiError({ code: 'VALIDATION_ERROR', status: 400, message: first });
   }
 
   const { bbox } = parsed.data;
 
-  // Get latest vision_run_id for this photo
+  // Get latest vision_run_id — lub utwórz manual run jeśli żadnego nie ma
   const { data: visionRuns } = await locals.supabase
     .from('vision_runs')
     .select('id')
@@ -74,15 +75,25 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     .order('created_at', { ascending: false })
     .limit(1);
 
-  if (!visionRuns || visionRuns.length === 0) {
-    return apiError({
-      code: 'VALIDATION_ERROR',
-      status: 400,
-      message: 'Foto nie zostało przetworzone przez vision.',
-    });
+  let visionRunId: string;
+  if (visionRuns && visionRuns.length > 0) {
+    visionRunId = visionRuns[0].id as string;
+  } else {
+    const { data: newRun, error: runErr } = await locals.supabase
+      .from('vision_runs')
+      .insert({ photo_id: photoId, model: 'manual', status: 'succeeded' })
+      .select('id')
+      .single();
+    if (runErr || !newRun) {
+      console.error('[api/photos detections POST] auto-create manual vision_run failed', runErr);
+      return apiError({
+        code: 'INTERNAL_ERROR',
+        status: 500,
+        message: 'Nie udało się utworzyć detekcji.',
+      });
+    }
+    visionRunId = newRun.id as string;
   }
-
-  const visionRunId = visionRuns[0].id as string;
 
   // Get next position_index
   const { data: maxRows } = await locals.supabase
@@ -92,7 +103,8 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     .order('position_index', { ascending: false })
     .limit(1);
 
-  const nextPosition = maxRows && maxRows.length > 0 ? (maxRows[0].position_index as number) + 1 : 1;
+  const nextPosition =
+    maxRows && maxRows.length > 0 ? (maxRows[0].position_index as number) + 1 : 1;
 
   // Insert new detection
   const { data: inserted, error: insertError } = await locals.supabase
@@ -111,7 +123,9 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       bbox_y2: bbox.y2,
       vision_run_id: visionRunId,
     })
-    .select('id, position_index, raw_title, raw_author, vision_confidence, spine_color, status, bbox_x1, bbox_y1, bbox_x2, bbox_y2')
+    .select(
+      'id, position_index, raw_title, raw_author, vision_confidence, spine_color, status, bbox_x1, bbox_y1, bbox_x2, bbox_y2, bbox_quad',
+    )
     .single();
 
   if (insertError || !inserted) {
@@ -120,7 +134,11 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       message: insertError?.message,
       code: insertError?.code,
     });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się utworzyć detekcji.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się utworzyć detekcji.',
+    });
   }
 
   const result: DetectionWithCandidatesDTO = {
@@ -139,6 +157,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
             y2: inserted.bbox_y2 as number,
           }
         : null,
+    quad: null,
     status: inserted.status as string,
     candidates: [],
     duplicate: null,

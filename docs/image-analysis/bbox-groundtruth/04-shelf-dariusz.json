@@ -1,0 +1,19 @@
+{
+  "photo_id": "4cc6ed8e-aa8e-4076-83ae-1e66b80407aa",
+  "type": "shelf",
+  "note": "Ground-truth z ręcznych korekt usera (2026-06-08). Zdjęcie 4000×1848 px landscape (AR 2.165). Półka Kallax/IKEA, 9 książek pionowych. Pozycje posortowane wg x (lewo→prawo). Uwaga: #1 DOM Lalkarki i #2 THE INHERITANCE GAMES lekko nakładają się w x (książki w różnych planach). Pozycja #3 Trzej Maszkaronowie (dodana ręcznie, wąska) między #2 i #4 w osi x.",
+  "image_width": 4000,
+  "image_height": 1848,
+  "image_aspect_ratio": 2.165,
+  "detections": [
+    { "position": 1, "title": "DOM Lalkarki", "author": "Paula Mazurek", "orientation": "vertical", "surface": "shelf", "bbox": [0.138, 0.140, 0.212, 0.929] },
+    { "position": 2, "title": "THE INHERITANCE GAMES", "author": "Jennifer Lynn Barnes", "orientation": "vertical", "surface": "shelf", "bbox": [0.184, 0.138, 0.263, 0.928] },
+    { "position": 3, "title": "Trzej Maszkaronowie", "author": "Franciszek Piątkowski", "orientation": "vertical", "surface": "shelf", "bbox": [0.245, 0.119, 0.286, 0.925] },
+    { "position": 4, "title": "TAJNE PRZEZ MAGICZNE", "author": "Katarzyna Wierzbicka", "orientation": "vertical", "surface": "shelf", "bbox": [0.264, 0.135, 0.340, 0.930] },
+    { "position": 5, "title": "Zbrodnia i Magia", "author": "Katarzyna Wierzbicka", "orientation": "vertical", "surface": "shelf", "bbox": [0.333, 0.141, 0.379, 0.926] },
+    { "position": 6, "title": "Toast za ocalałych", "author": "Madeleine Jedrsek", "orientation": "vertical", "surface": "shelf", "bbox": [0.380, 0.174, 0.424, 0.920] },
+    { "position": 7, "title": "PAPIEROWY MAG", "author": "Charlie N. Holmberg", "orientation": "vertical", "surface": "shelf", "bbox": [0.427, 0.115, 0.473, 0.919] },
+    { "position": 8, "title": "SZKLANY MAG", "author": "Charlie N. Holmberg", "orientation": "vertical", "surface": "shelf", "bbox": [0.470, 0.113, 0.524, 0.916] },
+    { "position": 9, "title": "ARCYMAG", "author": "Charlie N. Holmberg", "orientation": "vertical", "surface": "shelf", "bbox": [0.513, 0.113, 0.576, 0.918] }
+  ]
+}

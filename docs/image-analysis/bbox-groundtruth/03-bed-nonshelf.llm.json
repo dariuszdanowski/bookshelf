@@ -1,0 +1,13 @@
+{
+  "photo_id": "03-bed-nonshelf",
+  "annotator": "claude-llm-via-read (CONTAMINATED — GT seen earlier)",
+  "note": "Detekcja LLM via Read na 03-bed-nonshelf-display.jpg. UWAGA: widziałem już GT → sanity-check, nie ślepy test. NON-SHELF: 6 książek leżących ukośnie na kanapie (~10-15° przechyłu). Bbox axis-aligned z natury luźny (obejmuje ukos).",
+  "detections": [
+    { "position": 1, "title": "Pożeracze książek", "author": "Bekman", "orientation": "horizontal", "bbox": [0.100, 0.368, 0.920, 0.452] },
+    { "position": 2, "title": "Siewcy koszmarów", "author": "Martyna Duchowska", "orientation": "horizontal", "bbox": [0.080, 0.416, 0.860, 0.500] },
+    { "position": 3, "title": "Necrovet", "author": "Joanna W. Gajzler", "orientation": "horizontal", "bbox": [0.200, 0.455, 0.917, 0.573] },
+    { "position": 4, "title": "T. Kingfisher", "author": "T. Kingfisher", "orientation": "horizontal", "bbox": [0.110, 0.500, 0.822, 0.620] },
+    { "position": 5, "title": "Szalej i Srebro / Sny z Domionu", "author": "Magdalena Kubasiewicz", "orientation": "horizontal", "bbox": [0.090, 0.570, 0.803, 0.645] },
+    { "position": 6, "title": "Alter Ego", "author": "Milena Wójtowicz", "orientation": "horizontal", "bbox": [0.157, 0.593, 0.823, 0.681] }
+  ]
+}

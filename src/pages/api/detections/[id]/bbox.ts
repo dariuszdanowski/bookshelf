@@ -1,11 +1,13 @@
 import { z } from 'zod';
 import type { APIRoute } from 'astro';
 
-
 import { apiError, apiResponse, parseUuidParam } from '../../../../lib/http/response';
-import type { BboxCoords } from '../../../../lib/photos/schema';
+import type { Json } from '../../../../lib/db/database.types';
+import type { BboxCoords, QuadPoints } from '../../../../lib/photos/schema';
 
 export const prerender = false;
+
+const PointSchema = z.tuple([z.number().min(0).max(1), z.number().min(0).max(1)]);
 
 const UpdateBboxSchema = z
   .object({
@@ -15,6 +17,7 @@ const UpdateBboxSchema = z
       x2: z.number().min(0).max(1),
       y2: z.number().min(0).max(1),
     }),
+    quad: z.tuple([PointSchema, PointSchema, PointSchema, PointSchema]).nullable().optional(),
   })
   .refine((d) => d.bbox.x1 < d.bbox.x2 && d.bbox.y1 < d.bbox.y2, {
     message: 'x1 < x2 i y1 < y2 wymagane',
@@ -49,15 +52,22 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
   const parsed = UpdateBboxSchema.safeParse(body);
   if (!parsed.success) {
     const flat = z.flattenError(parsed.error);
-    const first = flat.formErrors[0] ?? Object.values(flat.fieldErrors)[0]?.[0] ?? 'Nieprawidłowe dane bbox.';
+    const first =
+      flat.formErrors[0] ?? Object.values(flat.fieldErrors)[0]?.[0] ?? 'Nieprawidłowe dane bbox.';
     return apiError({ code: 'VALIDATION_ERROR', status: 400, message: first });
   }
 
-  const { bbox } = parsed.data;
+  const { bbox, quad = null } = parsed.data;
 
   const { data: rows, error } = await locals.supabase
     .from('detections')
-    .update({ bbox_x1: bbox.x1, bbox_y1: bbox.y1, bbox_x2: bbox.x2, bbox_y2: bbox.y2 })
+    .update({
+      bbox_x1: bbox.x1,
+      bbox_y1: bbox.y1,
+      bbox_x2: bbox.x2,
+      bbox_y2: bbox.y2,
+      bbox_quad: quad as Json | null,
+    })
     .eq('id', detectionId)
     .select('id');
 
@@ -74,6 +84,10 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
     return apiError({ code: 'NOT_FOUND', status: 404, message: 'Nie znaleziono detekcji.' });
   }
 
-  const result: { id: string; bbox: BboxCoords } = { id: rows[0].id as string, bbox };
+  const result: { id: string; bbox: BboxCoords; quad: QuadPoints | null } = {
+    id: rows[0].id as string,
+    bbox,
+    quad: (quad as QuadPoints | null) ?? null,
+  };
   return apiResponse({ data: result });
 };

@@ -1,0 +1,14 @@
+{
+  "photo_id": "9cdbe5eb-e837-4a63-8c8d-ed035e855891",
+  "type": "none",
+  "note": "Ground-truth z ręcznych korekt usera (2026-06-08). NON-SHELF — książki leżą na kanapie/łóżku ukośnie. Zdjęcie portretowe EXIF-rotated 90° CW do display. Wszystkie 6 książek to poziome pasy z ukosem (quad zamiast prostokąta). Anotacja bbox = axis-aligned obrys (obejmuje ukos). IoU na tym zdjęciu traktować jako orientacyjne — obiekty przechylone, bbox axis-aligned nie jest ciasny. y1 rosnące od góry (mniejsza y = wyżej w obrazie).",
+  "image_aspect_ratio": 0.462,
+  "detections": [
+    { "position": 1, "title": "Pożeracze książek (okładka face-on lub grzbiet Bekman)", "orientation": "horizontal", "surface": "none", "bbox": [0.104, 0.372, 0.920, 0.452] },
+    { "position": 2, "title": "Kucharz koszmarów / ciemny grzbiet", "orientation": "horizontal", "surface": "none", "bbox": [0.080, 0.418, 0.858, 0.500] },
+    { "position": 3, "title": "Necrovet (Gajzler)", "orientation": "horizontal", "surface": "none", "bbox": [0.204, 0.455, 0.917, 0.573] },
+    { "position": 4, "title": "T. Kingfisher", "orientation": "horizontal", "surface": "none", "bbox": [0.110, 0.499, 0.822, 0.620] },
+    { "position": 5, "title": "Szalej i Srebro / Sny z Domionu (Kubasiewicz)", "orientation": "horizontal", "surface": "none", "bbox": [0.092, 0.570, 0.803, 0.645] },
+    { "position": 6, "title": "Alter Ego (Wójtowicz)", "orientation": "horizontal", "surface": "none", "bbox": [0.157, 0.593, 0.823, 0.681] }
+  ]
+}

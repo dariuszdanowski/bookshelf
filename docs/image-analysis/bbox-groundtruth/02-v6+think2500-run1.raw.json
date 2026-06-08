@@ -1,0 +1,170 @@
+[
+  {
+    "position": 1,
+    "title": "Porachunki Bezimiennej Pisarki",
+    "author": "Alice Basso",
+    "confidence": 0.95,
+    "orientation": "horizontal",
+    "spine_color": "zielony",
+    "bbox": [
+      0.07,
+      0.175,
+      0.88,
+      0.215
+    ]
+  },
+  {
+    "position": 2,
+    "title": "Raz Wiedźmie Śmierć",
+    "author": "Adam Fabek",
+    "confidence": 0.92,
+    "orientation": "horizontal",
+    "spine_color": "granatowy",
+    "bbox": [
+      0.07,
+      0.215,
+      0.88,
+      0.265
+    ]
+  },
+  {
+    "position": 3,
+    "title": "Wilk z Lasu",
+    "author": "Adam Fabek",
+    "confidence": 0.93,
+    "orientation": "horizontal",
+    "spine_color": "granatowy",
+    "bbox": [
+      0.07,
+      0.265,
+      0.88,
+      0.315
+    ]
+  },
+  {
+    "position": 4,
+    "title": "W Przeklętą Godzinę",
+    "author": "Adam Fabek",
+    "confidence": 0.92,
+    "orientation": "horizontal",
+    "spine_color": "granatowy",
+    "bbox": [
+      0.07,
+      0.315,
+      0.88,
+      0.365
+    ]
+  },
+  {
+    "position": 5,
+    "title": "Pieczęć Ognia",
+    "author": "Gesa Schwartz",
+    "confidence": 0.75,
+    "orientation": "vertical",
+    "spine_color": "czerwony",
+    "bbox": [
+      0,
+      0.38,
+      0.07,
+      0.92
+    ]
+  },
+  {
+    "position": 6,
+    "title": "Talon",
+    "author": "Julie Kagawa",
+    "confidence": 0.95,
+    "orientation": "vertical",
+    "spine_color": "czarny",
+    "bbox": [
+      0.08,
+      0.38,
+      0.16,
+      0.92
+    ]
+  },
+  {
+    "position": 7,
+    "title": "Pikantne Historie Dię Pendżabskich Wdów",
+    "author": "Balli Kaur Jaswal",
+    "confidence": 0.88,
+    "orientation": "vertical",
+    "spine_color": "fioletowy",
+    "bbox": [
+      0.17,
+      0.38,
+      0.26,
+      0.92
+    ]
+  },
+  {
+    "position": 8,
+    "title": "Podróż Życia Sióstr Shergill",
+    "author": "Balli Kaur Jaswal",
+    "confidence": 0.9,
+    "orientation": "vertical",
+    "spine_color": "fioletowy",
+    "bbox": [
+      0.27,
+      0.38,
+      0.36,
+      0.92
+    ]
+  },
+  {
+    "position": 9,
+    "title": "Ruchomy Zamek Hauru",
+    "author": "Diana Wynne Jones",
+    "confidence": 0.88,
+    "orientation": "vertical",
+    "spine_color": "czarny",
+    "bbox": [
+      0.37,
+      0.38,
+      0.46,
+      0.92
+    ]
+  },
+  {
+    "position": 10,
+    "title": "Lotnik",
+    "author": "Eoin Colfer",
+    "confidence": 0.92,
+    "orientation": "vertical",
+    "spine_color": "czarny",
+    "bbox": [
+      0.47,
+      0.38,
+      0.62,
+      0.92
+    ]
+  },
+  {
+    "position": 11,
+    "title": "Przewoźnik",
+    "author": "Claire McFall",
+    "confidence": 0.9,
+    "orientation": "vertical",
+    "spine_color": "biały",
+    "bbox": [
+      0.63,
+      0.38,
+      0.74,
+      0.92
+    ]
+  },
+  {
+    "position": 12,
+    "title": "Osobliwy Dom Pani Peregrine",
+    "author": "Ransom Riggs",
+    "confidence": 0.88,
+    "orientation": "vertical",
+    "spine_color": "biały",
+    "bbox": [
+      0.75,
+      0.38,
+      0.85,
+      0.92
+    ]
+  }
+]

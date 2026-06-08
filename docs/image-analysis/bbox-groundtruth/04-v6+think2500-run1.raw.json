@@ -1,0 +1,114 @@
+[
+  {
+    "position": 1,
+    "title": "DOM LALEK",
+    "author": "Paula Szarek",
+    "confidence": 0.85,
+    "orientation": "vertical",
+    "spine_color": "zielony",
+    "bbox": [
+      0.08,
+      0.1,
+      0.15,
+      0.82
+    ]
+  },
+  {
+    "position": 2,
+    "title": "THE INHERITANCE GAMES",
+    "author": "Jennifer Lynn Barnes",
+    "confidence": 0.95,
+    "orientation": "vertical",
+    "spine_color": "granatowy",
+    "bbox": [
+      0.15,
+      0.1,
+      0.23,
+      0.82
+    ]
+  },
+  {
+    "position": 3,
+    "title": "TAJNE PRZEZ MAGICZNE",
+    "author": "Katarzyna Wierzbicka, Franciszek M. Piątkowski",
+    "confidence": 0.88,
+    "orientation": "vertical",
+    "spine_color": "czerwony",
+    "bbox": [
+      0.23,
+      0.08,
+      0.32,
+      0.82
+    ]
+  },
+  {
+    "position": 4,
+    "title": "ZBRODNIA I MAGIA",
+    "author": "Katarzyna Wierzbicka",
+    "confidence": 0.92,
+    "orientation": "vertical",
+    "spine_color": "fioletowy",
+    "bbox": [
+      0.32,
+      0.1,
+      0.4,
+      0.82
+    ]
+  },
+  {
+    "position": 5,
+    "title": "TOAST za ODWAŻNYCH",
+    "author": "Magdalena Jędrzejek",
+    "confidence": 0.82,
+    "orientation": "vertical",
+    "spine_color": "biały",
+    "bbox": [
+      0.4,
+      0.1,
+      0.49,
+      0.82
+    ]
+  },
+  {
+    "position": 6,
+    "title": "PAPIEROWY MAG",
+    "author": "Charlie N. Holmberg",
+    "confidence": 0.93,
+    "orientation": "vertical",
+    "spine_color": "czarny",
+    "bbox": [
+      0.49,
+      0.1,
+      0.58,
+      0.82
+    ]
+  },
+  {
+    "position": 7,
+    "title": "SZKLANY MAG",
+    "author": "Charlie N. Holmberg",
+    "confidence": 0.93,
+    "orientation": "vertical",
+    "spine_color": "czarny",
+    "bbox": [
+      0.58,
+      0.1,
+      0.67,
+      0.82
+    ]
+  },
+  {
+    "position": 8,
+    "title": "ARCYMAG",
+    "author": "Charlie N. Holmberg",
+    "confidence": 0.93,
+    "orientation": "vertical",
+    "spine_color": "czarny",
+    "bbox": [
+      0.67,
+      0.1,
+      0.76,
+      0.82
+    ]
+  }
+]

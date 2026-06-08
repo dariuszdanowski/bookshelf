@@ -5,6 +5,7 @@ import {
   UpdatePhotoSchema,
   type PhotoDTO,
   type DetectionWithCandidatesDTO,
+  type QuadPoints,
 } from '../../../lib/photos/schema';
 import { THUMB_SUFFIX } from '../../../lib/photos/thumb';
 import type { BookCandidateDTO } from '../../../lib/books/schema';
@@ -174,7 +175,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
   const { data: detRows, error: detError } = await locals.supabase
     .from('detections')
     .select(
-      'id, position_index, raw_title, raw_author, vision_confidence, spine_color, bbox_x1, bbox_y1, bbox_x2, bbox_y2, status',
+      'id, position_index, raw_title, raw_author, vision_confidence, spine_color, bbox_x1, bbox_y1, bbox_x2, bbox_y2, bbox_quad, status',
     )
     .eq('vision_run_id', latestRun.id)
     .order('position_index', { ascending: true });
@@ -310,6 +311,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
         row.bbox_x1 != null && row.bbox_y1 != null && row.bbox_x2 != null && row.bbox_y2 != null
           ? { x1: row.bbox_x1, y1: row.bbox_y1, x2: row.bbox_x2, y2: row.bbox_y2 }
           : null,
+      quad: (row.bbox_quad as QuadPoints | null) ?? null,
       status: row.status,
       candidates,
       duplicate,

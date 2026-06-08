@@ -4,6 +4,7 @@ import { POST } from '../../../../../../src/pages/api/photos/[id]/detections';
 
 const PHOTO_ID = '00000000-0000-4000-8000-000000000030';
 const VISION_RUN_ID = '00000000-0000-4000-8000-000000000050';
+const MANUAL_RUN_ID = '00000000-0000-4000-8000-000000000060';
 const NEW_DET_ID = '00000000-0000-4000-8000-000000000099';
 
 type ApiJson = { data?: Record<string, unknown>; error?: { code: string; message: string } };
@@ -31,7 +32,10 @@ function makeContext(opts: {
   photoExists?: boolean;
   visionRuns?: { id: string }[];
   maxPosition?: number | null;
-  insertResult?: { data: typeof insertedRow | null; error: { name: string; message: string; code?: string } | null };
+  insertResult?: {
+    data: typeof insertedRow | null;
+    error: { name: string; message: string; code?: string } | null;
+  };
 }) {
   const {
     photoExists = true,
@@ -60,6 +64,11 @@ function makeContext(opts: {
             order: vi.fn(() => ({
               limit: vi.fn().mockResolvedValue({ data: visionRuns, error: null }),
             })),
+          })),
+        })),
+        insert: vi.fn(() => ({
+          select: vi.fn(() => ({
+            single: vi.fn().mockResolvedValue({ data: { id: MANUAL_RUN_ID }, error: null }),
           })),
         })),
       };
@@ -121,13 +130,12 @@ describe('POST /api/photos/[id]/detections', () => {
     expect(json.error!.code).toBe('NOT_FOUND');
   });
 
-  it('400 gdy brak vision_runs', async () => {
+  it('200 auto-tworzy manual vision_run gdy brak vision_runs', async () => {
     const ctx = makeContext({ visionRuns: [] });
     const res = await POST(ctx);
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(200);
     const json = (await res.json()) as ApiJson;
-    expect(json.error!.code).toBe('VALIDATION_ERROR');
-    expect(json.error!.message).toContain('vision');
+    expect(json.data!.status).toBe('pending');
   });
 
   it('400 gdy x1 >= x2', async () => {

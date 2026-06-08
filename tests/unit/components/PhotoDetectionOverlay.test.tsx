@@ -87,15 +87,21 @@ describe('PhotoDetectionOverlay', () => {
     expect(screen.queryByTestId('bbox-marker-1')).toBeNull();
   });
 
-  it('marker position_index badge matches detection position_index', () => {
-    const detections = [makeDetection(3, { x1: 0.1, y1: 0.1, x2: 0.5, y2: 0.5 })];
+  it('marker badge numbers sequentially (1..N) while testid keys by position_index', () => {
+    // Quad-work zmieniło badge na numerację wyświetlania (1..N), spójnie w obu blokach
+    // renderujących markery; data-testid zostaje kluczowane kanonicznym position_index
+    // (stabilny selektor + korelacja z listą detekcji). Marker = kotwica numerowana
+    // sekwencyjnie (rola po pivocie S-40→S-43 identity-first).
+    const detections = [
+      makeDetection(3, { x1: 0.1, y1: 0.1, x2: 0.3, y2: 0.5 }),
+      makeDetection(7, { x1: 0.5, y1: 0.1, x2: 0.7, y2: 0.5 }),
+    ];
     render(<PhotoDetectionOverlay photoUrl={PHOTO_URL} detections={detections} />);
     const img = screen.getByAltText('Zdjęcie półki z wykrytymi książkami');
     fireEvent.load(img);
 
-    const marker = screen.getByTestId('bbox-marker-3');
-    expect(marker).toBeTruthy();
-    expect(marker.textContent).toBe('#3');
+    expect(screen.getByTestId('bbox-marker-3').textContent).toContain('#1');
+    expect(screen.getByTestId('bbox-marker-7').textContent).toContain('#2');
   });
 
   it('toggle ramek ukrywa i pokazuje bbox markery', () => {
