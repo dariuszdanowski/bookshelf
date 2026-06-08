@@ -1,10 +1,10 @@
 ---
 change_id: e2e-flake-stabilization
 title: "S-44: utwardzenie flaky E2E — pełny test:e2e przechodzi deterministycznie"
-status: impl_reviewed
+status: archived
 created: 2026-06-09
 updated: 2026-06-09
-archived_at: null
+archived_at: 2026-06-08T23:47:49Z
 ---
 
 ## Notes
