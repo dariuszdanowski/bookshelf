@@ -333,16 +333,16 @@ przebiegnięty lokalnie zgodnie z twardą regułą „E2E przed PR").
 
 #### Automated
 
-- [x] 1.1 Typecheck przechodzi: `npm run typecheck`
-- [x] 1.2 Lint przechodzi: `npm run lint`
-- [x] 1.3 `account.spec` podłączony do `openUserMenu` — `npx playwright test account.spec.ts` zielony 3× lokalnie
+- [x] 1.1 Typecheck przechodzi: `npm run typecheck` — fc9a0f9
+- [x] 1.2 Lint przechodzi: `npm run lint` — fc9a0f9
+- [x] 1.3 `account.spec` podłączony do `openUserMenu` — `npx playwright test account.spec.ts` zielony 3× lokalnie — fc9a0f9
 
 ### Phase 2: Aplikacja helperów do 3 nazwanych flaków
 
 #### Automated
 
-- [ ] 2.1 `account.spec.ts shelves.spec.ts dark-mode-contrast.spec.ts` zielone 3× pod rząd (retries:0)
-- [ ] 2.2 Typecheck + lint przechodzą
+- [x] 2.1 `account.spec.ts shelves.spec.ts dark-mode-contrast.spec.ts` zielone 3× pod rząd (retries:0)
+- [x] 2.2 Typecheck + lint przechodzą
 
 ### Phase 3: Sweep tych samych antywzorców
 

@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+import { createShelf, expectHoverBg } from './helpers/interactions';
+
 /**
  * E2E dla Pakietu A2 (dark-polish, M13+M14): kontrast przycisków i hoverów
  * w trybie ciemnym — asercje na computed style (jsdom tego nie widzi,
@@ -18,7 +20,7 @@ import { expect, test } from '@playwright/test';
 // Tailwind v4 definiuje palety w oklch — computed style zwraca oklch, nie rgb.
 const BLUE_600 = 'oklch(0.546 0.245 262.881)';
 const DARK_HOVER_GRAY = 'rgb(31, 41, 55)'; // #1f2937 — override z global.css
-const LIGHT_HOVER_GRAY = 'rgb(243, 244, 246)'; // #f3f4f6 — gray-100 (bug M13)
+// (gray-100 #f3f4f6 = bug M13 „bieleje" — równość z DARK_HOVER_GRAY go wyklucza)
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
@@ -48,25 +50,27 @@ test('M13: hover na „Edytuj" w dark ciemnieje (#1f2937), nie bieleje', async (
   await expect(page.getByTestId('shelves-island')).toBeVisible();
   await expect(page.locator('html')).toHaveClass(/dark/);
 
-  // „Zakupione" (systemowa) nie ma Edytuj — tworzymy własną półkę (cleanup niżej)
-  await page.getByTestId('shelf-form-name').fill(shelfName);
-  await page.getByTestId('shelf-form-submit').click();
+  // „Zakupione" (systemowa) nie ma Edytuj — tworzymy własną półkę (cleanup niżej).
+  // createShelf czeka na POST + refetch (S-44).
+  await createShelf(page, shelfName);
   const row = page.locator('[data-testid^="shelf-item-"]').filter({ hasText: shelfName });
   const editButton = row.getByTestId('shelf-item-edit-button');
   await expect(editButton).toBeVisible({ timeout: 5_000 });
 
-  await editButton.hover();
-  const hoverBg = await editButton.evaluate((el) => getComputedStyle(el).backgroundColor);
+  // expectHoverBg polluje computed-style do ustabilizowania (S-44) — równość z
+  // DARK_HOVER_GRAY implikuje „nie bieleje" (≠ gray-100 z buga M13).
+  await expectHoverBg(editButton, DARK_HOVER_GRAY);
 
-  expect(hoverBg).toBe(DARK_HOVER_GRAY);
-  expect(hoverBg).not.toBe(LIGHT_HOVER_GRAY);
-
-  // cleanup — usuwamy testową półkę (asercja na shelf-item-name: row-locator
-  // matchuje 2 elementy — kontener li + span nazwy — strict mode by się wywalił)
+  // cleanup — usuwamy testową półkę (couple klik z odpowiedzią DELETE, S-44)
   await row.getByTestId('shelf-item-delete-button').click();
-  await page.getByRole('button', { name: 'Usuń półkę' }).click();
+  await Promise.all([
+    page.waitForResponse(
+      (r) => r.url().includes('/api/shelves/') && r.request().method() === 'DELETE' && r.ok(),
+    ),
+    page.getByRole('button', { name: 'Usuń półkę' }).click(),
+  ]);
   await expect(page.getByTestId('shelf-item-name').filter({ hasText: shelfName })).not.toBeVisible({
-    timeout: 5_000,
+    timeout: 10_000,
   });
 });
 

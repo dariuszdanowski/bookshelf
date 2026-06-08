@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+import { createShelf } from './helpers/interactions';
+
 /**
  * Golden path E2E dla S-02:
  *  1. Signup nowego usera (auto-confirm, trigger handle_new_user tworzy
@@ -21,9 +23,7 @@ const SHELF_NAME = `E2E Półka ${STAMP}`;
 const SHELF_NAME_RENAMED = `E2E Półka Renamed ${STAMP}`;
 const SHELF_LOCATION = 'Salon, regał testowy';
 
-test('/shelves → create → edit → delete (system Zakupione protected)', async ({
-  page,
-}) => {
+test('/shelves → create → edit → delete (system Zakupione protected)', async ({ page }) => {
   // Sesja z współdzielonego storageState — od razu na /shelves (bez signup per-test)
   await page.goto('/shelves');
   await expect(page.getByTestId('shelves-island')).toBeVisible();
@@ -33,30 +33,28 @@ test('/shelves → create → edit → delete (system Zakupione protected)', asy
   await expect(systemBadge).toBeVisible();
   await expect(systemBadge).toHaveText('systemowa');
 
-  // 3. Tworzenie własnej półki
-  await page.getByTestId('shelf-form-name').fill(SHELF_NAME);
-  await page.getByTestId('shelf-form-location').fill(SHELF_LOCATION);
-  await page.getByTestId('shelf-form-submit').click();
-
-  // Refetch zakończony — widzimy nową półkę w liście.
-  const newShelfName = page.getByTestId('shelf-item-name').filter({ hasText: SHELF_NAME });
-  await expect(newShelfName).toBeVisible({ timeout: 5_000 });
+  // 3. Tworzenie własnej półki — createShelf czeka na POST + refetch (S-44),
+  // zamiast gołego 5s timeoutu ścigającego się z zimnym dev-serverem (asercja
+  // widoczności nowego wiersza jest w helperze).
+  await createShelf(page, SHELF_NAME, SHELF_LOCATION);
 
   // 4. Edit — toggle edit mode, rename + change location, save
-  const newShelfRow = page
-    .locator('[data-testid^="shelf-item-"]')
-    .filter({ hasText: SHELF_NAME });
+  const newShelfRow = page.locator('[data-testid^="shelf-item-"]').filter({ hasText: SHELF_NAME });
   await newShelfRow.getByTestId('shelf-item-edit-button').click();
   // edit-mode: nazwa jest teraz w <input> (value), więc filtr hasText nie matchuje
   // już wiersza — input edycji jest jedyny na stronie (jeden wiersz w edit-mode naraz)
   const editName = page.getByTestId('shelf-item-edit-name');
   await editName.fill(SHELF_NAME_RENAMED);
-  await page.getByRole('button', { name: 'Zapisz' }).click();
+  // Couple klik z odpowiedzią PATCH (S-44) — czekamy na realny stan, nie na zegar.
+  await Promise.all([
+    page.waitForResponse(
+      (r) => r.url().includes('/api/shelves/') && r.request().method() === 'PATCH' && r.ok(),
+    ),
+    page.getByRole('button', { name: 'Zapisz' }).click(),
+  ]);
 
-  const renamedShelf = page
-    .getByTestId('shelf-item-name')
-    .filter({ hasText: SHELF_NAME_RENAMED });
-  await expect(renamedShelf).toBeVisible({ timeout: 5_000 });
+  const renamedShelf = page.getByTestId('shelf-item-name').filter({ hasText: SHELF_NAME_RENAMED });
+  await expect(renamedShelf).toBeVisible({ timeout: 10_000 });
 
   // 5. Delete — React ConfirmDialog (nie natywny window.confirm per CLAUDE.md)
   const renamedRow = page
@@ -64,11 +62,16 @@ test('/shelves → create → edit → delete (system Zakupione protected)', asy
     .filter({ hasText: SHELF_NAME_RENAMED });
   await renamedRow.getByTestId('shelf-item-delete-button').click();
 
-  // ConfirmDialog widoczny — kliknij „Usuń półkę"
-  await page.getByRole('button', { name: 'Usuń półkę' }).click();
+  // ConfirmDialog widoczny — kliknij „Usuń półkę", couple z odpowiedzią DELETE (S-44)
+  await Promise.all([
+    page.waitForResponse(
+      (r) => r.url().includes('/api/shelves/') && r.request().method() === 'DELETE' && r.ok(),
+    ),
+    page.getByRole('button', { name: 'Usuń półkę' }).click(),
+  ]);
 
   // Po refetch — usuniętej półki nie ma w liście.
-  await expect(renamedShelf).not.toBeVisible({ timeout: 5_000 });
+  await expect(renamedShelf).not.toBeVisible({ timeout: 10_000 });
 
   // „Zakupione" wciąż widoczna (nieusuwalna).
   await expect(systemBadge).toBeVisible();
