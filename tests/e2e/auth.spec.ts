@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 import { expect, test } from '@playwright/test';
 
+import { openUserMenu } from './helpers/interactions';
+
 /**
  * Golden path E2E dla S-01: signup → auto-login → logout → redirect.
  *
@@ -71,8 +73,8 @@ test.describe('auth golden path', () => {
     await Promise.all([page.waitForURL('/'), page.click('[data-testid="submit-login"]')]);
     await expect(page.getByTestId('user-email')).toHaveText(email);
 
-    // Otwórz dropdown UserMenu i kliknij Wyloguj
-    await page.click('[data-testid="user-menu-trigger"]');
+    // Otwórz dropdown UserMenu (deterministycznie mimo hydratacji, S-44) i kliknij Wyloguj
+    await openUserMenu(page);
     await Promise.all([page.waitForURL('/login'), page.click('[data-testid="user-menu-logout"]')]);
     // Po wylogowaniu header jest zawsze widoczny (S-38), ale nav-links znikają
     await expect(page.getByTestId('nav-library')).toHaveCount(0);

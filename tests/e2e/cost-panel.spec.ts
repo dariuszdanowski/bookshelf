@@ -234,8 +234,10 @@ test.describe('cost-panel', () => {
       if (req.url().includes('/costs')) costsCalled = true;
     });
 
-    // Odczekaj chwilę bez klikania $
-    await page.waitForTimeout(500);
+    // Strona ustabilizowana (button gotowy + brak pending requestów) bez klikania $.
+    // Deterministyczny dowód „lazy fetch nie odpalił" zamiast arbitralnego timera (S-44).
+    await expect(page.getByTestId('cost-button-photo')).toBeVisible();
+    await page.waitForLoadState('networkidle');
     expect(costsCalled).toBe(false);
 
     // Dopiero klik wywołuje fetch
