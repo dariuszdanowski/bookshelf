@@ -341,13 +341,13 @@ przebiegnięty lokalnie zgodnie z twardą regułą „E2E przed PR").
 
 #### Automated
 
-- [x] 2.1 `account.spec.ts shelves.spec.ts dark-mode-contrast.spec.ts` zielone 3× pod rząd (retries:0)
-- [x] 2.2 Typecheck + lint przechodzą
+- [x] 2.1 `account.spec.ts shelves.spec.ts dark-mode-contrast.spec.ts` zielone 3× pod rząd (retries:0) — 1bfc128
+- [x] 2.2 Typecheck + lint przechodzą — 1bfc128
 
 ### Phase 3: Sweep tych samych antywzorców
 
 #### Automated
 
-- [ ] 3.1 Pełny `npm run test:e2e` zielony 3× pod rząd lokalnie (retries:0)
-- [ ] 3.2 `rg "page.waitForTimeout" tests/e2e` zwraca tylko dokumentację
-- [ ] 3.3 Typecheck + lint przechodzą
+- [x] 3.1 Pełny `npm run test:e2e` zielony 3× pod rząd lokalnie (retries:0)
+- [x] 3.2 `rg "page.waitForTimeout" tests/e2e` zwraca tylko dokumentację
+- [x] 3.3 Typecheck + lint przechodzą
