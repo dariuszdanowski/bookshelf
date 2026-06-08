@@ -6,6 +6,12 @@ on:
   push:
     branches: [main]
 
+# Oszczędność minut Actions: anuluj poprzedni, niezakończony run dla tego samego
+# ref'a, gdy przyjdzie nowy push (np. szybkie poprawki na PR).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -50,108 +56,14 @@ jobs:
       - name: Build
         run: npm run build
 
-  e2e:
-    # E2E (Playwright) na efemerycznej lokalnej Supabase. Osobny job od `verify`:
-    # inny setup (Docker/Supabase/browsers), nie blokuje feedbacku lint/unit.
-    # Vision/match/storage mockowane browser-side (page.route) → bez ANTHROPIC_API_KEY,
-    # bez kosztu LLM. `supabase start` aplikuje migracje + seed = darmowy gate walidacji
-    # migracji (złapałby klasę bugów 42P17).
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: '22.13.0'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Generate Cloudflare Worker types
-        # Dev server (webServer w playwright.config.ts) ładuje moduł serwerowy
-        # typujący `cloudflare:workers`; regeneracja gitignored artefaktu jak w `verify`.
-        run: npx wrangler types
-
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
-        with:
-          version: latest
-
-      - name: Start local Supabase
-        # Stawia kontenery, aplikuje wszystkie migracje + seed.sql na świeżej bazie.
-        run: supabase start
-
-      - name: Write .dev.vars (local Supabase)
-        # Astro dev czyta env wyłącznie z .dev.vars (CLAUDE.md env matrix). Klucze
-        # bierzemy runtime z `supabase status -o env` (odporne na format kluczy CLI).
-        # ANTHROPIC_API_KEY dummy — vision mockowany browser-side, realny klucz zbędny.
-        run: |
-          eval "$(supabase status -o env)"
-          {
-            echo "PUBLIC_SUPABASE_URL=${API_URL}"
-            echo "PUBLIC_SUPABASE_ANON_KEY=${ANON_KEY}"
-            echo "SUPABASE_SERVICE_ROLE_KEY=${SERVICE_ROLE_KEY}"
-            echo "ANTHROPIC_API_KEY=dummy-not-used-in-e2e"
-          } > .dev.vars
-
-      - name: Install Playwright browser
-        run: npx playwright install --with-deps chromium
-
-      - name: Warm up auth (absorb supabase-start JWT iat skew)
-        # Tuż po `supabase start` pierwsze uwierzytelnione zapytanie bywa odrzucane
-        # z "JWT issued at future": świeżo zmintowany token GoTrue ma `iat` minimalnie
-        # przed zegarem walidatora, który dogania po ~kilku sekundach (zaobserwowane:
-        # ten sam token pada, a 3.4s później przechodzi na retry). Tu robimy realny
-        # round-trip signup→authed select w pętli AŻ przejdzie czysto — wyczekujemy
-        # to okno skew, zanim ruszy Playwright, żeby auth.setup nie łapał flake'a.
-        # Best-effort: każda ścieżka kończy się exit 0 (Playwright retries zostają
-        # siatką); warm-up nigdy nie wywala joba. Throwaway user na efemerycznej DB.
-        run: |
-          eval "$(supabase status -o env)"
-          token=$(curl -s "${API_URL}/auth/v1/signup" \
-            -H "apikey: ${ANON_KEY}" -H "Content-Type: application/json" \
-            -d '{"email":"warmup@example.com","password":"warmup-pass-123"}' \
-            | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p')
-          if [ -z "$token" ]; then
-            echo "::warning::warm-up: brak access_token z signup — pomijam (Playwright retries jako siatka)"
-            exit 0
-          fi
-          for i in $(seq 1 20); do
-            body=$(curl -s "${API_URL}/rest/v1/shelves?select=id&limit=1" \
-              -H "apikey: ${ANON_KEY}" -H "Authorization: Bearer ${token}")
-            if echo "$body" | grep -qi "issued at future"; then
-              echo "warm-up #$i: iat-future, czekam na zbieżność zegara…"
-              sleep 1.5
-            else
-              echo "warm-up: czysty round-trip na próbie #$i — auth gotowy"
-              exit 0
-            fi
-          done
-          echo "::warning::warm-up: iat-future utrzymał się ~30s — Playwright retries zostają siatką"
-
-      - name: Run integration tests (RLS isolation)
-        # Dowód izolacji per-user (tests/integration/*) na świeżej lokalnej bazie —
-        # guardrail prywatności #1 z test-plan.md (§3 Phase 1). Przedtem te testy
-        # nigdy nie odpalały się automatycznie: describe.skip bez env, walidowane
-        # tylko ręcznie post-merge. vitest.integration.config.ts czyta env z
-        # .dev.vars (zapisane w kroku „Write .dev.vars") → skip się rozpina i testy
-        # hitują realny Supabase (127.0.0.1:54321). Warm-up wyżej absorbuje też tu
-        # JWT iat-skew (testy robią signup→authed select przez admin API). Lokalna
-        # Supabase już stoi — zerowy dodatkowy setup, zerowy koszt LLM.
-        run: npm run test:integration
-
-      - name: Run E2E tests
-        # webServer w configu sam startuje `npm run dev` (czyta świeży .dev.vars) i
-        # czeka na :4321. CI=true (auto) włącza retries/workers/forbidOnly.
-        run: npx playwright test
-
-      - name: Upload Playwright report
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 7
+  # ──────────────────────────────────────────────────────────────────────────
+  # Job `e2e` USUNIĘTY (2026-06-08, oszczędność minut GitHub Actions).
+  # E2E (Playwright) + testy integracyjne RLS + migration-gate (supabase start)
+  # uruchamiamy WYŁĄCZNIE LOKALNIE:
+  #   npm run test:e2e            # Playwright (reuse dev server :4321)
+  #   npm run test:integration    # RLS isolation na lokalnej Supabase (WSL)
+  # Migracje walidowane lokalnie (`supabase db reset`) + przy deployu
+  # (deploy.yml: migrate-first `supabase db push` przed wrangler deploy).
+  # Trade-off: brak automatycznej bramki E2E/integ/migracji na PR — świadoma
+  # decyzja kosztowa; przywrócić przez `git revert` tego commita gdy minuty wrócą.
+  # ──────────────────────────────────────────────────────────────────────────
