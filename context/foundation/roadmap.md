@@ -3,7 +3,7 @@ project: "BookShelf Scanner"
 version: 1
 status: draft
 created: 2026-05-25
-updated: 2026-06-07
+updated: 2026-06-08
 prd_version: 1
 main_goal: speed
 top_blocker: time
@@ -68,7 +68,7 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | S-35  | refine-ux-cost-info           | UX fix przycisków refine: jeden spójny label „Doprecyzuj odczyt" (zamiast mylących dwóch nazw); ⚠ ikona + tooltip przy słabym cropie; widoczna informacja „Dodatkowa analiza AI (płatna)" przy każdym wariancie; opcjonalny dialog potwierdzenia dla `uncertain_localization` | — | UX polish | done |
 | S-36  | photo-upload-skip-process     | upload zdjęcia bez uruchamiania vision: checkbox „Analizuj od razu" (domyślnie zaznaczony) w `PhotoUploader`; zdjęcie w stanie `uploaded` widoczne w zakładce Zdjęcia (S-29) z przyciskiem „Analizuj teraz" | S-29 | UX (kontrola kosztu) | done     |
 | S-37  | book-to-detection-focus       | „Źródłowe zdjęcie" z karty/modala książki otwiera review spozycjonowany na propozycji TEJ książki: `detection_id` dołożony do GET /api/shelves/[id]/books (+ ścieżka /library), link `/photos/[photo_id]?detection=`, `DetectionReview` czyta param → `setFocusedDetectionId` (overlay pokazuje wtedy tylko 1 ramkę — mechanizm fokusa z S-18) + scroll do karty detekcji; fallback bez `detection_id` (NULL po re-analizie/wpis ręczny) = obecne zachowanie | S-15, S-18 | UX (nawigacja książka→źródło) | done     |
-| S-38  | user-onboarding-help          | onboarding warstwowy (M7): instruktażowe empty states z CTA następnego kroku + kontekstowe „?" (`HelpTip`) przy decyzjach kosztowych/nietrywialnych + publiczna strona `/help` (golden path ze screenshotami + FAQ); tour poza zakresem | — | UX (onboarding) | proposed |
+| S-38  | user-onboarding-help          | onboarding warstwowy (M7): instruktażowe empty states z CTA następnego kroku + kontekstowe „?" (`HelpTip`) przy decyzjach kosztowych/nietrywialnych + publiczna strona `/help` (golden path ze screenshotami + FAQ); tour poza zakresem | — | UX (onboarding) | done |
 | S-39  | match-rate-limit-resilience   | odporność auto-matchu na 429 GB (M11): retry z backoffem per request w `googleBooks.ts` (2 próby, 500/1500 ms + jitter) + komunikat w review „N pozycji wstrzymał limit" z CTA „Ponów match" — dziś rate-limited detekcje po cichu zostają pending z zerem kandydatów (case usera: 1/14 dopasowane) | S-04 | FR-015–018 (jakość matchingu) | done     |
 | S-40  | bbox-quality-validation       | jakość bboxów z vision (analiza zewn. 2026-06-07, częściowo zweryfikowana na prod: 51/71 detekcji zdjęcia `8c7f62df…` ma identyczne `y2=0.555`, 18× `y1=0.30`, 2× `x2≥0.999` — model klastruje współrzędne): benchmark ground-truth → iteracja promptu → DOPIERO potem bezpieczny post-processing; surowe heurystyki z analizy (clamp ±0.06, detekcja deski po kolorze) bez walidacji ODRZUCONE | S-04, S-18 | FR-010–014 (jakość detekcji) | proposed |
 
@@ -515,7 +515,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 | S-35       | refine-ux-cost-info          | Ujednolicony label refine + info o koszcie + dialog potwierdzenia | yes | Czysto frontendowy, niezależny. |
 | S-36       | photo-upload-skip-process    | Checkbox „Analizuj od razu" w uploaderze + akcja „Analizuj" na liście zdjęć | no | Czeka na S-29 (tab Zdjęcia). |
 | S-37       | book-to-detection-focus      | Deep-link książka→review z fokusem na jej detekcji (1 ramka + scroll) | yes | Prereqs done (S-15 link, S-18 fokus overlay); czyste wiring — `detection_id` w books API + `?detection=` w DetectionReview; zero migracji. Szacunek S. |
-| S-38       | user-onboarding-help         | Onboarding warstwowy: empty states + HelpTip + /help | yes | Plan gotowy: `context/changes/user-onboarding-help/plan.md` (3 fazy, M). Realizować po merge pakietów mobile-fix (spójne screenshoty). |
+| S-38       | user-onboarding-help         | Onboarding warstwowy: empty states + HelpTip + /help | done | Zrealizowane i zarchiwizowane 2026-06-08 → `context/archive/2026-06-07-user-onboarding-help/`. Impl-review fazy 3 złapał krytyczny prod-bug (prerender → SSR). |
 | S-39       | match-rate-limit-resilience  | Retry+backoff na 429 GB + komunikat „N wstrzymał limit" w review | done | Zrealizowane 2026-06-07. Weryfikacja prod POTWIERDZIŁA: photo `e9876820…` — 9/14 pending z 0 kandydatów na popularnych tytułach. Adaptacja: toast w tabie Zdjęcia (review robi reload). |
 | S-40       | bbox-quality-validation      | Benchmark ground-truth bboxów → prompt → bezpieczny post-processing | yes | `context/changes/bbox-quality-validation/change.md` — notatki z analizy zewn. + weryfikacja prod + prior art (`scripts/bbox-*.mjs`, `docs/image-analysis/`). Validation-first: NIE wdrażać heurystyk bez benchmarku. Powiązane: S-21 (jakość cropów). |
 | (framed)   | purchase-add-book-merge      | Unifikacja „Dodaj zakup" → BookModal add + data zakupu | frame done | `context/changes/purchase-add-book-merge/frame.md` (M8, Confidence HIGH, wariant A) — czeka na akceptację kierunku (kasuje /purchase + link nav), potem `/10x-plan`. |
@@ -600,5 +600,7 @@ Foundations poniżej zakładają obecność tych warstw i ich NIE odtwarzają.
 - **S-41: modal analizy kosztów AI na /account — lista wywołań (vision + OCR) filtrowana per klucz API / typ / okres, z paginacją po 25, sumą dla filtra i drill-downem do zdjęcia; widok SQL `cost_events` (security_invoker) + `GET /api/account/costs`** — Archived 2026-06-07 → `context/archive/2026-06-07-cost-analysis-view/`. Lesson: —. Impl-review APPROVED; follow-up: martwy retry w error state (fix w review-fixes).
 
 - **S-42: zdjęcie półki prosto z kamery — mobile `<input capture="environment">` + desktop `getUserMedia`/`CameraPreview` (canvas → File → istniejący pipeline uploadu); E2E z fake-device** — Archived 2026-06-07 → `context/archive/2026-06-07-camera-capture/`. Lesson: —. Impl-review NEEDS ATTENTION; follow-upy w review-fixes (busy-guard error stage, mocki storage w E2E, dispatch mobile/desktop na HTTPS).
+
+- **S-38: onboarding warstwowy (M7): instruktażowe empty states z CTA następnego kroku + kontekstowe „?" (`HelpTip`) przy decyzjach kosztowych/nietrywialnych + publiczna strona `/help` (golden path ze screenshotami jasny/ciemny + lightbox + FAQ); tour poza zakresem** — Archived 2026-06-08 → `context/archive/2026-06-07-user-onboarding-help/`. Lesson: impl-review fazy 3 złapał krytyczny prod-bug niewidoczny w dev/E2E — `prerender=true` zamrażał redirect `/help/→/login` jako statyczny HTML (trailing slash vs PUBLIC_EXACT); fix `prerender=false` (SSR). Build-time prerender weryfikować buildem, nie tylko dev.
 
 (Pusta przy pierwszej generacji. `/10x-archive` dopisuje tu wpis — i przerzuca Status pozycji na `done` — gdy archiwizowana zmiana ma `Change ID` zgodny z pozycją roadmapy. NIE wypełniać ręcznie.)
