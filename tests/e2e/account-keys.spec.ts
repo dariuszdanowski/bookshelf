@@ -43,9 +43,7 @@ test('keys section — lista kluczy renderuje się poprawnie', async ({ page }) 
   await expect(page.getByTestId(`account-key-active-badge-${MOCK_KEY.id}`)).toBeVisible();
 });
 
-test('keys section — dodaj klucz flow (formularz → zapis → wiersz w liście)', async ({
-  page,
-}) => {
+test('keys section — dodaj klucz flow (formularz → zapis → wiersz w liście)', async ({ page }) => {
   const NEW_KEY = {
     ...MOCK_KEY,
     id: '00000000-0000-4000-8000-000000000098',
@@ -89,7 +87,9 @@ test('keys section — dodaj klucz flow (formularz → zapis → wiersz w liści
   await expect(page.getByTestId(`account-key-label-${NEW_KEY.id}`)).toHaveText('Nowy klucz');
 });
 
-test('keys section — deaktywuj klucz flow (aktywny klucz traci badge aktywny)', async ({ page }) => {
+test('keys section — deaktywuj klucz flow (aktywny klucz traci badge aktywny)', async ({
+  page,
+}) => {
   await page.route('**/api/account/keys', (route) => {
     if (route.request().method() === 'GET') {
       return route.fulfill({
@@ -120,7 +120,9 @@ test('keys section — deaktywuj klucz flow (aktywny klucz traci badge aktywny)'
 
   await page.getByTestId(`account-key-deactivate-btn-${MOCK_KEY.id}`).click();
 
-  await expect(page.getByTestId(`account-key-active-badge-${MOCK_KEY.id}`)).not.toBeVisible({ timeout: 5_000 });
+  await expect(page.getByTestId(`account-key-active-badge-${MOCK_KEY.id}`)).not.toBeVisible({
+    timeout: 5_000,
+  });
   // Klucz nadal w liście (nie usunięty)
   await expect(row).toBeVisible();
   // Przycisk Aktywuj pojawia się
@@ -159,4 +161,74 @@ test('keys section — usuń klucz flow (klucz znika z listy po DELETE)', async 
 
   await expect(row).not.toBeVisible({ timeout: 5_000 });
   await expect(page.getByTestId('account-keys-empty')).toBeVisible();
+});
+
+test('keys section — błąd HTTP przy usuwaniu pokazuje komunikat, klucz zostaje', async ({
+  page,
+}) => {
+  await page.route('**/api/account/keys', (route) => {
+    if (route.request().method() === 'GET') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { keys: [MOCK_KEY] } }),
+      });
+    }
+    return route.continue();
+  });
+
+  // DELETE zwraca 500 — wcześniej UI połykał to po cichu (brak else + silent catch).
+  await page.route(`**/api/account/keys/${MOCK_KEY.id}`, (route) => {
+    if (route.request().method() === 'DELETE') {
+      return route.fulfill({
+        status: 500,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: { code: 'INTERNAL_ERROR', message: 'Coś poszło nie tak.' } }),
+      });
+    }
+    return route.continue();
+  });
+
+  await page.goto('/account');
+
+  const row = page.getByTestId(`account-key-row-${MOCK_KEY.id}`);
+  await expect(row).toBeVisible({ timeout: 5_000 });
+
+  await page.getByTestId(`account-key-delete-btn-${MOCK_KEY.id}`).click();
+
+  // Komunikat błędu widoczny, klucz NADAL w liście (operacja nie udała się — żadnej cichej porażki).
+  await expect(page.getByTestId('account-key-action-error')).toBeVisible({ timeout: 5_000 });
+  await expect(row).toBeVisible();
+});
+
+test('keys section — błąd sieci przy dezaktywacji pokazuje komunikat', async ({ page }) => {
+  await page.route('**/api/account/keys', (route) => {
+    if (route.request().method() === 'GET') {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { keys: [MOCK_KEY] } }),
+      });
+    }
+    return route.continue();
+  });
+
+  // PATCH przerwany na poziomie sieci — testuje gałąź catch (wcześniej // silent).
+  await page.route(`**/api/account/keys/${MOCK_KEY.id}`, (route) => {
+    if (route.request().method() === 'PATCH') {
+      return route.abort('failed');
+    }
+    return route.continue();
+  });
+
+  await page.goto('/account');
+
+  const row = page.getByTestId(`account-key-row-${MOCK_KEY.id}`);
+  await expect(row).toBeVisible({ timeout: 5_000 });
+
+  await page.getByTestId(`account-key-deactivate-btn-${MOCK_KEY.id}`).click();
+
+  await expect(page.getByTestId('account-key-action-error')).toBeVisible({ timeout: 5_000 });
+  // Klucz pozostaje aktywny (dezaktywacja się nie powiodła).
+  await expect(page.getByTestId(`account-key-active-badge-${MOCK_KEY.id}`)).toBeVisible();
 });

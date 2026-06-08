@@ -3,8 +3,25 @@ name: CI
 on:
   pull_request:
     branches: [main]
-  push:
-    branches: [main]
+    # Pomijaj zmiany wyłącznie dokumentacyjne/konfiguracyjne — nie dotykają
+    # lint/typecheck/unit/build. Oszczędność minut na commitach docs/prompts/skille.
+    paths-ignore:
+      - '**/*.md'
+      - '.claude/**'
+      - 'context/**'
+      - 'docs/**'
+  # Pełny E2E + integracje RLS + bramka migracji — odpalane RĘCZNIE:
+  #   Actions → „Run workflow"  albo  `gh workflow run ci.yml --ref <branch>`
+  # REGUŁA (CLAUDE.md § Testy): odpalaj przed KAŻDYM wrzuceniem zmiany do PR.
+  # Trigger `push: [main]` usunięty — post-merge waliduje deploy.yml (build + smoke);
+  # PR przeszedł verify przed merge → bez redundantnego drugiego runu.
+  workflow_dispatch:
+
+# Oszczędność minut Actions: anuluj poprzedni, niezakończony run dla tego samego
+# ref'a, gdy przyjdzie nowy push (np. szybkie poprawki na PR).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   verify:
@@ -51,11 +68,14 @@ jobs:
         run: npm run build
 
   e2e:
-    # E2E (Playwright) na efemerycznej lokalnej Supabase. Osobny job od `verify`:
-    # inny setup (Docker/Supabase/browsers), nie blokuje feedbacku lint/unit.
+    # Pełny gate browser-level + integracje RLS + walidacja migracji.
+    # ODPALANY WYŁĄCZNIE RĘCZNIE (workflow_dispatch) — oszczędność minut Actions
+    # (decyzja 2026-06-08). NIE biega na każdym PR. Reguła zespołu: odpalaj go
+    # przed każdym wrzuceniem do PR (lokalnie `npm run test:e2e` i/lub ten run),
+    # oraz przed oddaniem certyfikacyjnym (ręczny run na main).
     # Vision/match/storage mockowane browser-side (page.route) → bez ANTHROPIC_API_KEY,
-    # bez kosztu LLM. `supabase start` aplikuje migracje + seed = darmowy gate walidacji
-    # migracji (złapałby klasę bugów 42P17).
+    # bez kosztu LLM. `supabase start` aplikuje migracje + seed = gate walidacji migracji.
+    if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -134,13 +154,7 @@ jobs:
 
       - name: Run integration tests (RLS isolation)
         # Dowód izolacji per-user (tests/integration/*) na świeżej lokalnej bazie —
-        # guardrail prywatności #1 z test-plan.md (§3 Phase 1). Przedtem te testy
-        # nigdy nie odpalały się automatycznie: describe.skip bez env, walidowane
-        # tylko ręcznie post-merge. vitest.integration.config.ts czyta env z
-        # .dev.vars (zapisane w kroku „Write .dev.vars") → skip się rozpina i testy
-        # hitują realny Supabase (127.0.0.1:54321). Warm-up wyżej absorbuje też tu
-        # JWT iat-skew (testy robią signup→authed select przez admin API). Lokalna
-        # Supabase już stoi — zerowy dodatkowy setup, zerowy koszt LLM.
+        # guardrail prywatności #1 z test-plan.md (§3 Phase 1).
         run: npm run test:integration
 
       - name: Run E2E tests

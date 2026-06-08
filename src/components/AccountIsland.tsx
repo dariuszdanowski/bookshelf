@@ -83,6 +83,8 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
   }>({ label: '', provider: 'anthropic', model: '', base_url: '', key_value: '' });
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
+  // Błąd akcji wierszowych (aktywuj/dezaktywuj/usuń) — wcześniej połykany po cichu.
+  const [keyActionError, setKeyActionError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -280,6 +282,7 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
 
   async function handleActivateKey(id: string) {
     setActivatingId(id);
+    setKeyActionError(null);
     try {
       const res = await fetch(`/api/account/keys/${id}`, {
         method: 'PATCH',
@@ -288,9 +291,14 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
       });
       if (res.ok) {
         setKeys((prev) => prev.map((k) => ({ ...k, is_active: k.id === id })));
+      } else {
+        const err = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
+        setKeyActionError(
+          err?.error?.message ?? 'Nie udało się aktywować klucza. Spróbuj ponownie.',
+        );
       }
     } catch {
-      // silent
+      setKeyActionError('Błąd sieci. Spróbuj ponownie.');
     } finally {
       setActivatingId(null);
     }
@@ -298,6 +306,7 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
 
   async function handleDeactivateKey(id: string) {
     setDeactivatingId(id);
+    setKeyActionError(null);
     try {
       const res = await fetch(`/api/account/keys/${id}`, {
         method: 'PATCH',
@@ -306,9 +315,14 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
       });
       if (res.ok) {
         setKeys((prev) => prev.map((k) => (k.id === id ? { ...k, is_active: false } : k)));
+      } else {
+        const err = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
+        setKeyActionError(
+          err?.error?.message ?? 'Nie udało się dezaktywować klucza. Spróbuj ponownie.',
+        );
       }
     } catch {
-      // silent
+      setKeyActionError('Błąd sieci. Spróbuj ponownie.');
     } finally {
       setDeactivatingId(null);
     }
@@ -316,13 +330,17 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
 
   async function handleDeleteKey(id: string) {
     setDeletingId(id);
+    setKeyActionError(null);
     try {
       const res = await fetch(`/api/account/keys/${id}`, { method: 'DELETE' });
       if (res.ok) {
         setKeys((prev) => prev.filter((k) => k.id !== id));
+      } else {
+        const err = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
+        setKeyActionError(err?.error?.message ?? 'Nie udało się usunąć klucza. Spróbuj ponownie.');
       }
     } catch {
-      // silent
+      setKeyActionError('Błąd sieci. Spróbuj ponownie.');
     } finally {
       setDeletingId(null);
     }
@@ -742,6 +760,15 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
         )}
 
         <div className={sectionBoxCls} data-testid="account-keys-list">
+          {keyActionError && (
+            <p
+              className="mb-2 text-sm text-red-600 dark:text-red-400"
+              data-testid="account-key-action-error"
+              role="alert"
+            >
+              {keyActionError}
+            </p>
+          )}
           {keysLoading && (
             <p className="text-sm text-gray-500" data-testid="account-keys-loading">
               Ładuję...
