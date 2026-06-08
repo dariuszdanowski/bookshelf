@@ -72,7 +72,7 @@ Server-side: `import { env } from 'cloudflare:workers'` (Astro v6+). Browser-sid
 
 ## CI / Deploy
 
-`.github/workflows/ci.yml`: `verify` job (lint + typecheck + vitest + build) + `e2e` job (Playwright on ephemeral local Supabase — `supabase start` + migrations + seed). `.github/workflows/deploy.yml`: build + `wrangler deploy` + post-deploy `/api/health` smoke. Run `npm run lint && npm run typecheck && npm run test` locally before pushing.
+`.github/workflows/ci.yml`: `verify` job (lint + typecheck + vitest + build) runs on every PR; `e2e` job (Playwright + RLS integration on ephemeral local Supabase) is **manual** (`workflow_dispatch`) to save Actions minutes — run it locally (`npm run test:e2e`) and/or via `gh workflow run ci.yml` **before every PR** (see `CLAUDE.md § Testy`). `.github/workflows/deploy.yml`: build + `wrangler deploy` + post-deploy `/api/health` smoke. Run `npm run lint && npm run typecheck && npm run test` locally before pushing.
 
 ## Deeper context
 
