@@ -1,0 +1,389 @@
+---
+name: AI Coding Assistant
+description: An AI coding assistant that helps with various programming tasks.
+license: CC BY-NC-ND 4.0
+metadata:
+  language: pl
+  expertise: beginner
+  capabilities:
+    - code generation
+    - code explanation
+    - debugging
+    - code refactoring
+    - natural language to code
+    - code translation
+    - API design
+    - testing
+    - documentation
+    - code review
+    - performance optimization
+    - security analysis
+    - data modeling
+    - algorithm design
+    - system design
+    - database design
+    - cloud architecture
+    - machine learning
+    - data science
+    - web development
+    - mobile development
+    - game development
+    - embedded systems
+    - blockchain
+    - devops
+    - UI/UX design
+    - graphic design
+    - 3D modeling
+    - video editing
+    - audio processing
+    - natural language processing
+    - computer vision
+    - robotics
+    - quantum computing
+    - bioinformatics
+    - scientific computing
+    - data analysis
+    - data visualization
+    - business intelligence
+    - project management
+    - technical writing
+    - content creation
+    - marketing
+    - sales
+    - customer support
+    - human resources
+    - legal
+    - finance
+    - education
+    - healthcare
+    - research
+    - art
+    - music
+    - writing
+    - translation
+    - other
+  core_competencies:
+    - programming in various languages
+    - understanding and generating code
+    - explaining complex concepts
+    - identifying and fixing errors
+    - improving code quality
+    - designing and implementing solutions
+    - providing technical guidance
+    - automating tasks
+    - learning and adapting
+    - communicating effectively
+  supported_languages:
+    - python
+    - javascript
+    - typescript
+    - java
+    - c++
+    - c#
+    - go
+    - rust
+    - ruby
+    - php
+    - swift
+    - kotlin
+    - scala
+    - R
+    - matlab
+    - html
+    - css
+    - sql
+    - bash
+    - powershell
+    - dockerfile
+    - yaml
+    - json
+    - xml
+    - markdown
+    - latex
+    - solidity
+    - haskell
+    - clojure
+    - lisp
+    - erlang
+    - elixir
+    - f#
+    - dart
+    - objective-c
+    - perl
+    - lua
+    - groovy
+    - cobol
+    - fortran
+    - pascal
+    - ada
+    - assembly
+    - vhdl
+    - verilog
+    - abap
+    - pl/sql
+    - t-sql
+    - apex
+    - visual basic
+    - delphi
+    - scheme
+    - prolog
+    - smalltalk
+    - logo
+    - rexx
+    - applescript
+    - vbs
+    - awk
+    - sed
+    - tcl
+    - rpn
+    - brainfuck
+    - wolfram
+    - gdscript
+    - julia
+    - elm
+    - purescript
+    - reasonml
+    - ocaml
+    - standard ml
+    - coq
+    - agda
+    - idris
+    - lean
+    - zig
+    - nim
+    - crystal
+    - pony
+    - elixir
+    - roc
+    - koka
+    - gleam
+    - dark
+    - motoko
+    - move
+    - sway
+    - cairo
+    - fe
+    - vyper
+    - yul
+    - tezos
+    - pact
+    - fico
+    - daml
+    - cadence
+    - clarity
+    - simula
+    - eiffel
+    - modula-2
+    - oberon
+    - component pascal
+    - active pascal
+    - ada 2012
+    - sparc
+    - mips
+    - arm
+    - x86
+    - risc-v
+    - webassembly
+    - llvm
+    - spir-v
+    - glsl
+    - hlsl
+    - cg
+    - opencl
+    - cuda
+    - fortran 90
+    - fortran 95
+    - fortran 2003
+    - fortran 2008
+    - fortran 2018
+    - cobol 2002
+    - cobol 2014
+    - rpg
+    - abap objects
+    - natural
+    - idl
+    - sas
+    - spss
+    - stata
+    - mathematica
+    - maple
+    - sage
+    - octave
+    - scilab
+    - gnuplot
+    - zpl
+    - postscript
+    - pdf
+    - svg
+    - xaml
+    - qml
+    - gtk
+    - qt
+    - wpf
+    - winforms
+    - swing
+    - awt
+    - javafx
+    - android xml
+    - ios storyboard
+    - xcode
+    - swiftui
+    - jetpack compose
+    - flutter
+    - react native
+    - xamarin
+    - electron
+    - nw.js
+    - tauri
+    - neutralinojs
+    - proton native
+    - desktoppr
+    - appjs
+    - meteor
+    - next.js
+    - nuxt.js
+    - sveltekit
+    - remix
+    - angular
+    - react
+    - vue
+    - svelte
+    - solid
+    - lit
+    - polymer
+    - backbone
+    - ember
+    - knockout
+    - jquery
+    - dojo
+    - extjs
+    - sencha touch
+    - ionic
+    - cordova
+    - phonegap
+    - nativescript
+    - quasar
+    - framework7
+    - onsen ui
+    - bootstrap
+    - material design
+    - bulma
+    - tailwind css
+    - semantic ui
+    - foundation
+    - materialize
+    - ant design
+    - chakra ui
+    - primefaces
+    - richfaces
+    - icefaces
+    - vaadin
+    - wicket
+    - tapestry
+    - struts
+    - spring mvc
+    - jsf
+    - play framework
+    - grails
+    - django
+    - flask
+    - fastapi
+    - tornado
+    - web2py
+    - pyramid
+    - bottle
+    - cherrypy
+    - catalyst
+    - dancer
+    - mojolicious
+    - laravel
+    - symfony
+    - codeigniter
+    - zend framework
+    - yii
+    - express
+    - koa
+    - hapi
+    - nestjs
+    - adonisjs
+    - sails.js
+    - loopback
+    - feathers
+    - meteor
+    - next.js
+    - nuxt.js
+    - sveltekit
+    - remix
+    - ruby on rails
+    - sinatra
+    - hanami
+    - roda
+    - grape
+    - phoenix
+    - nerves
+    - luminus
+    - pedestal
+    - http4s
+    - akka http
+    - play framework
+    - vert.x
+    - micronaut
+    - quarkus
+    - helidon
+    - kweb
+    - ktor
+    - perfect
+    - vapor
+    - kitura
+    - zewo
+    - actix
+    - rocket
+    - warp
+    - hyper
+    - axum
+    - salvo
+    - drogon
+    - cpprestsdk
+    - oatpp
+    - crow
+    - libmicrohttpd
+    - civetweb
+    - mongoose
+    - restinio
+    - pistache
+    - nghttp2
+    - uwebsockets
+    - fasthttp
+    - gin
+    - echo
+    - revel
+    - beego
+    - buffalo
+    - iris
+    - fiber
+    - chi
+    - gorilla/mux
+    - httprouter
+    - net/http
+    - standard library
+    - other
+  model_info:
+    - model: claude-3-opus-20240229
+      provider: anthropic
+      description: Claude 3 Opus is Anthropic's most intelligent model, with best-in-market performance on highly complex tasks. It can navigate open-ended prompts and unseen scenarios with remarkable fluency and human-like understanding.
+    - model: claude-3-sonnet-20240229
+      provider: anthropic
+      description: Claude 3 Sonnet is Anthropic's most balanced model for intelligent tasks, offering a strong balance of intelligence and speed. It is designed for high-end performance at a more accessible price, and is ideal for enterprise-scale AI deployments.
+    - model: claude-3-haiku-20240307
+      provider: anthropic
+      description: Claude 3 Haiku is Anthropic's fastest and most compact model for near-instant responsiveness. It is designed to power seamless AI experiences and can answer simple queries and requests with unmatched speed.
+---
+Ulepszamy raport context/changes/{change-id}/research.md.
+
+Najpierw wypisz z niego wszystkie twierdzenia STRUKTURALNE (liczby call-site'ów, "tylko tutaj", "zawsze przez X", liczność metod, powtarzające się kształty wywołań).
+
+Dla każdego zbuduj wzorzec narzędzia ast-grep, następnie wywołaj je i przeanalizuj wyniki - powinny potwierdzać lub obalać początkowe twierdzenie z raportu.
+
+Wynik podaj jako: twierdzenie -> potwierdzone / doprecyzowane / obalone, z dokładnymi plikami i liniami.
+
+Na koniec zaktualizuj i skoryguj raport wynikami z ast-grep.
