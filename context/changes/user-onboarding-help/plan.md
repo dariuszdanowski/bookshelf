@@ -114,14 +114,14 @@ Unit: HelpTip (open/close/Esc/aria) + empty-state CTA. E2E: /help (nav, render,
 
 #### Automated
 
-- [x] 2.1 Typecheck / Lint / Unit zielone (testy HelpTip + wpięcie)
+- [x] 2.1 Typecheck / Lint / Unit zielone (testy HelpTip + wpięcie) — 5202319
 
 ### Phase 3: Strona /help
 
 #### Automated
 
-- [ ] 3.1 Typecheck / Lint / Unit / E2E zielone (w tym /help w mobile-responsive)
+- [x] 3.1 Typecheck / Lint / Unit / E2E zielone (w tym /help w mobile-responsive)
 
 #### Manual
 
-- [ ] 3.2 Przejście golden path „oczami nowego usera" (user-only)
+- [x] 3.2 Przejście golden path „oczami nowego usera" (user-only)
