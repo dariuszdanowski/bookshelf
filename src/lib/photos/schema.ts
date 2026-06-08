@@ -40,10 +40,23 @@ export type PhotoDTO = {
 
 export type BboxCoords = { x1: number; y1: number; x2: number; y2: number };
 
+// Czworokąt — 4 narożniki [x,y] 0..1, clockwise od TL.
+export type QuadPoints = [[number, number], [number, number], [number, number], [number, number]];
+
+/** Konwertuje prostokąt bbox na czworokąt (TL, TR, BR, BL). */
+export function bboxToQuad(b: BboxCoords): QuadPoints {
+  return [
+    [b.x1, b.y1],
+    [b.x2, b.y1],
+    [b.x2, b.y2],
+    [b.x1, b.y2],
+  ];
+}
+
 export type BboxEditSet = {
-  updated: Array<{ detectionId: string; bbox: BboxCoords }>;
+  updated: Array<{ detectionId: string; bbox: BboxCoords; quad?: QuadPoints | null }>;
   removed: Array<{ detectionId: string }>;
-  added: Array<{ bbox: BboxCoords }>;
+  added: Array<{ bbox: BboxCoords; quad?: QuadPoints | null }>;
 };
 
 export type DetectionDTO = {
@@ -91,6 +104,7 @@ export type DetectionWithCandidatesDTO = {
   vision_confidence: number | null;
   spine_color: string | null;
   bbox: BboxCoords | null;
+  quad?: QuadPoints | null;
   status: string;
   candidates: BookCandidateDTO[];
   duplicate: { type: 'exact' | 'edition'; shelfHint?: string } | null;

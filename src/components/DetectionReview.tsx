@@ -2125,17 +2125,20 @@ export default function DetectionReview({
   async function handleSaveSingleBbox(
     detectionId: string,
     bbox: BboxEditSet['updated'][number]['bbox'],
+    quad?: BboxEditSet['updated'][number]['quad'],
   ): Promise<void> {
     const res = await fetch(`/api/detections/${detectionId}/bbox`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ bbox }),
+      body: JSON.stringify({ bbox, quad: quad ?? null }),
     });
     if (!res.ok) {
       const json = (await res.json()) as { error?: { message?: string } };
       throw new Error(json.error?.message ?? `Błąd zapisu bbox (${res.status})`);
     }
-    setDetections((prev) => prev.map((d) => (d.id === detectionId ? { ...d, bbox } : d)));
+    setDetections((prev) =>
+      prev.map((d) => (d.id === detectionId ? { ...d, bbox, quad: quad ?? null } : d)),
+    );
   }
 
   function handleMarkerContextMenu(detectionId: string) {
@@ -2164,14 +2167,14 @@ export default function DetectionReview({
     setActionMsg(null);
 
     const updateResults = await Promise.allSettled(
-      changes.updated.map(({ detectionId, bbox }) =>
+      changes.updated.map(({ detectionId, bbox, quad }) =>
         fetch(`/api/detections/${detectionId}/bbox`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ bbox }),
+          body: JSON.stringify({ bbox, quad: quad ?? null }),
         }).then((r) => {
           if (!r.ok) throw new Error(`PATCH ${r.status}`);
-          return { detectionId, bbox };
+          return { detectionId, bbox, quad: quad ?? null };
         }),
       ),
     );
@@ -2185,18 +2188,25 @@ export default function DetectionReview({
       ),
     );
 
-    const addResults = await Promise.allSettled(
-      changes.added.map(({ bbox }) =>
-        fetch(`/api/photos/${photoId}/detections`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ bbox }),
-        }).then(async (r) => {
+    // Sequential (not parallel) — each POST reads MAX(position_index) from DB,
+    // concurrent requests would all read the same max and produce duplicate indices.
+    const addResults: PromiseSettledResult<DetectionWithCandidatesDTO>[] = [];
+    for (const { bbox } of changes.added) {
+      const result = await fetch(`/api/photos/${photoId}/detections`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bbox }),
+      })
+        .then(async (r) => {
           if (!r.ok) throw new Error(`POST ${r.status}`);
           return ((await r.json()) as { data: DetectionWithCandidatesDTO }).data;
-        }),
-      ),
-    );
+        })
+        .then(
+          (value) => ({ status: 'fulfilled' as const, value }),
+          (reason) => ({ status: 'rejected' as const, reason }),
+        );
+      addResults.push(result);
+    }
 
     const failCount = [...updateResults, ...removeResults, ...addResults].filter(
       (r) => r.status === 'rejected',
@@ -2208,8 +2218,8 @@ export default function DetectionReview({
 
       for (const r of updateResults) {
         if (r.status !== 'fulfilled') continue;
-        const { detectionId, bbox } = r.value;
-        next = next.map((d) => (d.id === detectionId ? { ...d, bbox } : d));
+        const { detectionId, bbox, quad } = r.value;
+        next = next.map((d) => (d.id === detectionId ? { ...d, bbox, quad: quad ?? null } : d));
       }
 
       const removedIds = new Set(

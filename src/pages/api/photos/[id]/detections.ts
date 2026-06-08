@@ -124,7 +124,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       vision_run_id: visionRunId,
     })
     .select(
-      'id, position_index, raw_title, raw_author, vision_confidence, spine_color, status, bbox_x1, bbox_y1, bbox_x2, bbox_y2',
+      'id, position_index, raw_title, raw_author, vision_confidence, spine_color, status, bbox_x1, bbox_y1, bbox_x2, bbox_y2, bbox_quad',
     )
     .single();
 
@@ -157,6 +157,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
             y2: inserted.bbox_y2 as number,
           }
         : null,
+    quad: null,
     status: inserted.status as string,
     candidates: [],
     duplicate: null,

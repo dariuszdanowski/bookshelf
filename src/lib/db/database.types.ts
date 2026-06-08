@@ -185,6 +185,7 @@ export type Database = {
       };
       detections: {
         Row: {
+          bbox_quad: Json | null;
           bbox_x1: number | null;
           bbox_x2: number | null;
           bbox_y1: number | null;
@@ -202,6 +203,7 @@ export type Database = {
           vision_run_id: string;
         };
         Insert: {
+          bbox_quad?: Json | null;
           bbox_x1?: number | null;
           bbox_x2?: number | null;
           bbox_y1?: number | null;
@@ -219,6 +221,7 @@ export type Database = {
           vision_run_id: string;
         };
         Update: {
+          bbox_quad?: Json | null;
           bbox_x1?: number | null;
           bbox_x2?: number | null;
           bbox_y1?: number | null;

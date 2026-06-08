@@ -13,8 +13,7 @@ const SHELF_ID = '00000000-0000-4000-8000-000000000dd2';
 const DET_1_ID = '00000000-0000-4000-8000-000000000f01';
 const DET_2_ID = '00000000-0000-4000-8000-000000000f02';
 
-const TINY_GIF =
-  'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+const TINY_GIF = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 
 async function setupRoutes(page: Page) {
   await page.route(`**/api/photos/${PHOTO_ID}`, async (route) => {
@@ -25,32 +24,49 @@ async function setupRoutes(page: Page) {
       body: JSON.stringify({
         data: {
           photo: {
-            id: PHOTO_ID, shelf_id: SHELF_ID, status: 'processed',
-            detected_count: 2, error_message: null,
-            vision_cost_usd: 0.01, vision_latency_ms: 2000,
+            id: PHOTO_ID,
+            shelf_id: SHELF_ID,
+            status: 'processed',
+            detected_count: 2,
+            error_message: null,
+            vision_cost_usd: 0.01,
+            vision_latency_ms: 2000,
             created_at: '2026-06-01T10:00:00Z',
           },
           photo_url: TINY_GIF,
           detections: [
             {
-              id: DET_1_ID, position_index: 1,
-              raw_title: 'Solaris', raw_author: 'Lem',
-              vision_confidence: 0.95, spine_color: 'niebieski',
+              id: DET_1_ID,
+              position_index: 1,
+              raw_title: 'Solaris',
+              raw_author: 'Lem',
+              vision_confidence: 0.95,
+              spine_color: 'niebieski',
               // bbox w górnej części — uchwyty widoczne w viewport bez scrollowania
               bbox: { x1: 0.05, y1: 0.02, x2: 0.18, y2: 0.28 },
-              status: 'matched', candidates: [], duplicate: null,
+              status: 'matched',
+              candidates: [],
+              duplicate: null,
             },
             {
-              id: DET_2_ID, position_index: 2,
-              raw_title: 'Lalka', raw_author: 'Prus',
-              vision_confidence: 0.88, spine_color: 'czerwony',
+              id: DET_2_ID,
+              position_index: 2,
+              raw_title: 'Lalka',
+              raw_author: 'Prus',
+              vision_confidence: 0.88,
+              spine_color: 'czerwony',
               bbox: { x1: 0.3, y1: 0.02, x2: 0.45, y2: 0.28 },
-              status: 'matched', candidates: [], duplicate: null,
+              status: 'matched',
+              candidates: [],
+              duplicate: null,
             },
           ],
           vision_run: {
-            id: 'vr-single', model: 'claude-sonnet-4-6',
-            created_at: '2026-06-01T10:00:00Z', cost_usd: 0.01, latency_ms: 2000,
+            id: 'vr-single',
+            model: 'claude-sonnet-4-6',
+            created_at: '2026-06-01T10:00:00Z',
+            cost_usd: 0.01,
+            latency_ms: 2000,
           },
         },
       }),
@@ -87,7 +103,7 @@ test.describe('edycja pojedynczej ramki', () => {
     await expect(pencil).toBeVisible();
     await pencil.click();
 
-    // Uchwyt SE visible → edit mode aktywny
+    // Róg SE (SVG circle) visible → edit mode aktywny
     await expect(page.getByTestId('bbox-handle-1-se')).toBeVisible();
     // Przyciski save i cancel widoczne
     await expect(page.getByTestId('single-edit-save-1')).toBeVisible();
@@ -130,7 +146,7 @@ test.describe('edycja pojedynczej ramki', () => {
 
   test('save bez zmiany wywołuje PATCH z oryginalnym bbox i zamyka edycję', async ({ page }) => {
     const patchPromise = page.waitForRequest(
-      (req) => req.url().includes(`/api/detections/${DET_1_ID}/bbox`) && req.method() === 'PATCH'
+      (req) => req.url().includes(`/api/detections/${DET_1_ID}/bbox`) && req.method() === 'PATCH',
     );
 
     await page.getByTestId('single-edit-enter-1').click();
@@ -138,7 +154,9 @@ test.describe('edycja pojedynczej ramki', () => {
 
     // PATCH wywołany
     const req = await patchPromise;
-    const body = JSON.parse(req.postData() ?? '{}') as { bbox: { x1: number; y1: number; x2: number; y2: number } };
+    const body = JSON.parse(req.postData() ?? '{}') as {
+      bbox: { x1: number; y1: number; x2: number; y2: number };
+    };
     expect(body.bbox).toMatchObject({ x1: 0.05, y1: 0.02, x2: 0.18, y2: 0.28 });
 
     // Tryb edycji zamknięty
@@ -146,9 +164,9 @@ test.describe('edycja pojedynczej ramki', () => {
     await expect(page.getByTestId('single-edit-enter-1')).toBeVisible();
   });
 
-  // ── Resize — drag uchwytu ─────────────────────────────────────────────────
+  // ── Drag rogu SE (SVG circle) ────────────────────────────────────────────
 
-  test('drag uchwytu SE zmienia bbox i save wywołuje PATCH ze zmienionym bbox', async ({ page }) => {
+  test('drag rogu SE zmienia bbox i save wywołuje PATCH ze zmienionym bbox', async ({ page }) => {
     await page.getByTestId('single-edit-enter-1').click();
 
     const handle = page.getByTestId('bbox-handle-1-se');
@@ -160,7 +178,7 @@ test.describe('edycja pojedynczej ramki', () => {
     const hcx = box!.x + box!.width / 2;
     const hcy = box!.y + box!.height / 2;
 
-    // Drag uchwytu SE w prawo i w dół o 60px
+    // Drag rogu SE w prawo i w dół o 60px
     await page.mouse.move(hcx, hcy);
     await page.mouse.down({ button: 'left' });
     await page.mouse.move(hcx + 60, hcy + 30, { steps: 10 });
@@ -168,13 +186,15 @@ test.describe('edycja pojedynczej ramki', () => {
 
     // Save — PATCH musi być wywołany
     const patchPromise = page.waitForRequest(
-      (req) => req.url().includes(`/api/detections/${DET_1_ID}/bbox`) && req.method() === 'PATCH'
+      (req) => req.url().includes(`/api/detections/${DET_1_ID}/bbox`) && req.method() === 'PATCH',
     );
     await page.getByTestId('single-edit-save-1').click();
     const req = await patchPromise;
 
-    const body = JSON.parse(req.postData() ?? '{}') as { bbox: { x1: number; y1: number; x2: number; y2: number } };
-    // x2 powinien wzrosnąć (drag w prawo)
+    const body = JSON.parse(req.postData() ?? '{}') as {
+      bbox: { x1: number; y1: number; x2: number; y2: number };
+    };
+    // x2 powinien wzrosnąć (drag rogu BR w prawo przesuwa punkt i zmienia bbox)
     expect(body.bbox.x2).toBeGreaterThan(0.18);
   });
 
@@ -197,12 +217,14 @@ test.describe('edycja pojedynczej ramki', () => {
     await page.mouse.up({ button: 'left' });
 
     const patchPromise = page.waitForRequest(
-      (req) => req.url().includes(`/api/detections/${DET_1_ID}/bbox`) && req.method() === 'PATCH'
+      (req) => req.url().includes(`/api/detections/${DET_1_ID}/bbox`) && req.method() === 'PATCH',
     );
     await page.getByTestId('single-edit-save-1').click();
     const req = await patchPromise;
 
-    const body = JSON.parse(req.postData() ?? '{}') as { bbox: { x1: number; y1: number; x2: number; y2: number } };
+    const body = JSON.parse(req.postData() ?? '{}') as {
+      bbox: { x1: number; y1: number; x2: number; y2: number };
+    };
     // Marker przesunięty — x1 > oryginalnego 0.05
     expect(body.bbox.x1).toBeGreaterThan(0.05);
   });
