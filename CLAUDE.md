@@ -166,6 +166,7 @@ Header `Cache-Control: private, no-store` na każdej odpowiedzi z danymi per-use
 - **Vitest** dla unit: matching, dedupe, isbn validation, vision response parsing. Config: `vitest.config.ts` (jsdom env, setup w `tests/unit/setup.ts`, coverage v8).
 - **Playwright** dla E2E: golden paths w `tests/e2e/` (auth, shelves, upload-flow, shelf-photo-pipeline-ui, smoke) z **mock** vision/match/external przez `page.route`. Config: `playwright.config.ts` (chromium + projekty `setup`/`cleanup`; współdzielona sesja przez storageState = 1 signup/run; `webServer` startuje `npm run dev` na :4321).
 - **E2E = pełnoprawna część pętli weryfikacji**: przy każdej realizacji/weryfikacji zmiany uruchamiaj Playwright na równi z `vitest`/`typecheck`/`lint` — NIE pomijaj. Wyjątek tylko gdy zmiana ewidentnie nie dotyka warstwy UI/flow (odnotuj to świadomie).
+- **E2E przed każdym PR — twarda reguła** (od 2026-06-08, oszczędność minut Actions): job `e2e` w CI biega **WYŁĄCZNIE ręcznie** (`workflow_dispatch` — Actions → „Run workflow" lub `gh workflow run ci.yml --ref <branch>`), NIE na każdym PR. Dlatego **ZAWSZE odpalaj pełny E2E ZANIM wrzucisz zmianę do PR** — lokalnie (`npm run test:e2e`) i/lub ręcznym runem `e2e`. PR domyślnie przepuszcza tylko `verify` (lint/typecheck/unit/build); E2E + integracje RLS + bramka migracji żyją w manualnym jobie `e2e`. Przed oddaniem certyfikacyjnym odpal `e2e` ręcznie też na main.
 - **Koszt = twardy guardrail**: NIGDY nie wywołuj realnego vision/LLM w automatach (Anthropic API = fizyczne pieniądze). E2E zawsze mockuje vision/match/external (`page.route`). Realny vision wyłącznie w **manualnym** smoke (user-only), nie w CI (flaky + drogi).
 - Browser binaries Playwrighta **nie są** wciągane przez `npm install` — pierwszy `npm run test:e2e` na świeżej maszynie wymaga `npx playwright install --with-deps`.
 
@@ -176,7 +177,7 @@ Header `Cache-Control: private, no-store` na każdej odpowiedzi z danymi per-use
 - `eslint-config-prettier` musi zostać ostatnim wpisem w `eslint.config.mjs` (wyłącza reguły kolidujące z formaterem).
 
 ### CI
-- GitHub Actions: lint + typecheck + vitest + playwright + deploy CF Workers (`cloudflare/wrangler-action@v4`)
+- GitHub Actions (`ci.yml`): job `verify` (lint + typecheck + vitest + build) na PR (z `paths-ignore` docs/skille); job `e2e` (playwright + integracje RLS + migracje) **ręczny** `workflow_dispatch` — zob. § Testy „E2E przed każdym PR". Deploy CF Workers w `deploy.yml` (`cloudflare/wrangler-action@v4`) na push do main; trigger `push:[main]` w `ci.yml` usunięty (post-merge waliduje deploy.yml + smoke).
 - Sekrety: `ANTHROPIC_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `CLOUDFLARE_API_TOKEN`, `PUBLIC_SUPABASE_URL`, `PUBLIC_SUPABASE_ANON_KEY` w GitHub Secrets
 - CI typecheck wymaga `npx wrangler types` step PRZED `astro check` (regeneruje gitignored `worker-configuration.d.ts`) — zob. lessons.md § „Generated artifacts w CI"
 
