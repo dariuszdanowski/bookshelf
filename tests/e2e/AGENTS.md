@@ -30,6 +30,25 @@ Reguły pisania i utrzymania testów E2E w tym projekcie. Zwięzła, projektowa 
 
 Re-prompt po nazwie antywzorca: nie „popraw test", tylko nazwij wadę, wyjaśnij czemu nie chroni ryzyka, podaj wzorzec docelowy.
 
+## Deterministyczne interakcje (helpers/interactions.ts)
+
+Trzy wyścigi powodują flaki „zielone w izolacji, padają w pełnym przebiegu" —
+**używaj helperów z `helpers/interactions.ts`**, nie surowych klików/odczytów:
+
+- **Lost-click podczas hydratacji wyspy** — element istnieje w SSR-HTML zanim React
+  podepnie `onClick` (`client:load`); klik przepada. Dla UserMenu: `openUserMenu(page)`
+  (bounded retry klika trigger aż dropdown się otworzy). Dla innych obserwowalnych
+  side-effectów: ten sam wzorzec `expect(async () => { …click…; await expect(skutek)
+  .toBeVisible(); }).toPass()`.
+- **Timing refetchu po mutacji** — gołe `toBeVisible({ timeout: 5_000 })` po POST pada
+  pod zimnym dev-serverem. Czekaj na `waitForResponse('**/api/…')` sprzężony z klikiem.
+  Półki: `createShelf(page, name, location?)`.
+- **Transientny odczyt computed-style** — `hover()` + jednorazowy `getComputedStyle`
+  łapie stan bez hovera. `expectHoverBg(locator, expected)` polluje do ustabilizowania.
+
+Zasada: bounded `toPass` walidowany realnym skutkiem — NIE globalny retry maskujący
+(`retries` w configu zostaje wyłącznie siatką na infra-blip, nie fixem flake'a).
+
 ## Vision w E2E
 
 DOM/snapshot (drzewo dostępności) jest domyślny dla weryfikacji funkcjonalnej. Tryb wizyjny tylko dla ryzyk czysto wizualnych (layout/z-index/animacja) — kosztuje i halucynuje, nie default. Do regresji pikseli preferuj deterministyczne `toMatchSnapshot`.

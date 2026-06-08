@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+import { openUserMenu } from './helpers/interactions';
+
 /**
  * E2E dla S-31: strona /account
  *
@@ -29,8 +31,9 @@ test('/account → sekcje widoczne, edycja display_name z mock PATCH', async ({ 
   });
 
   await page.goto('/shelves');
-  // S-38: wejście na /account przez UserMenu (link nav-account usunięty z nav)
-  await page.getByTestId('user-menu-trigger').click();
+  // S-38: wejście na /account przez UserMenu (link nav-account usunięty z nav).
+  // openUserMenu — deterministyczne otwarcie mimo wyścigu hydratacji wyspy (S-44).
+  await openUserMenu(page);
   await page.getByTestId('user-menu-account').click();
   await page.waitForURL('/account');
 
