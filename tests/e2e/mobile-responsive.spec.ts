@@ -82,6 +82,54 @@ test.describe('S-28: hamburger nav', () => {
   });
 });
 
+test.describe('S-38: strona /help', () => {
+  test('nav → /help renderuje sekcje przewodnika i FAQ', async ({ page }) => {
+    await page.goto('/library');
+    await expect(page.getByTestId('nav-help')).toBeVisible({ timeout: 10_000 });
+    await page.getByTestId('nav-help').click();
+    await page.waitForURL('**/help', { timeout: 10_000 });
+    await expect(page.getByTestId('help-page')).toBeVisible();
+    await expect(page.getByTestId('help-guide')).toBeVisible();
+    await expect(page.getByTestId('help-faq')).toBeVisible();
+  });
+
+  test('375px: /help renderuje się bez poziomego scrolla', async ({ page }) => {
+    await page.setViewportSize(MOBILE);
+    await page.goto('/help');
+    await expect(page.getByTestId('help-page')).toBeVisible({ timeout: 10_000 });
+    await page.waitForLoadState('networkidle');
+    await expectNoHorizontalScroll(page);
+  });
+
+  test('lightbox: klik w zrzut otwiera modal, X / Esc / klik w tło zamykają', async ({ page }) => {
+    await page.goto('/help');
+    const lightbox = page.getByTestId('help-lightbox');
+    await expect(lightbox).not.toBeVisible();
+
+    // Klik w pierwszy widoczny (zgodny z motywem) zrzut przewodnika
+    const firstImg = page.locator('img[data-lightbox]:visible').first();
+    await firstImg.click();
+    await expect(lightbox).toBeVisible();
+    await expect(lightbox.locator('img').first()).toHaveAttribute('src', /01-login/);
+
+    // Przycisk X zamyka
+    await page.getByTestId('help-lightbox-close').click();
+    await expect(lightbox).not.toBeVisible();
+
+    // Esc zamyka
+    await firstImg.click();
+    await expect(lightbox).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(lightbox).not.toBeVisible();
+
+    // Klik w tło zamyka (backdrop = poza boxem dialogu → współrzędne strony)
+    await firstImg.click();
+    await expect(lightbox).toBeVisible();
+    await page.mouse.click(8, 8);
+    await expect(lightbox).not.toBeVisible();
+  });
+});
+
 test.describe('S-28: brak poziomego scrolla na 375px', () => {
   test.use({ viewport: MOBILE });
 

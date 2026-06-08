@@ -48,10 +48,7 @@ test.describe('auth golden path', () => {
     await page.fill('input[name="email"]', email);
     await page.fill('input[name="display_name"]', displayName);
     await page.fill('input[name="password"]', password);
-    await Promise.all([
-      page.waitForURL('/'),
-      page.click('[data-testid="submit-signup"]'),
-    ]);
+    await Promise.all([page.waitForURL('/'), page.click('[data-testid="submit-signup"]')]);
 
     await expect(page.getByTestId('user-email')).toHaveText(email);
 
@@ -66,21 +63,18 @@ test.describe('auth golden path', () => {
     }
   });
 
-  test('logout → header znika', async ({ page }) => {
+  test('logout → nav znika', async ({ page }) => {
     // Re-login first (each Playwright test gets fresh browser context).
     await page.goto('/login');
     await page.fill('input[name="email"]', email);
     await page.fill('input[name="password"]', password);
-    await Promise.all([
-      page.waitForURL('/'),
-      page.click('[data-testid="submit-login"]'),
-    ]);
+    await Promise.all([page.waitForURL('/'), page.click('[data-testid="submit-login"]')]);
     await expect(page.getByTestId('user-email')).toHaveText(email);
 
-    await Promise.all([
-      page.waitForURL('/'),
-      page.click('[data-testid="logout-button"]'),
-    ]);
-    await expect(page.getByTestId('auth-header')).toHaveCount(0);
+    // Otwórz dropdown UserMenu i kliknij Wyloguj
+    await page.click('[data-testid="user-menu-trigger"]');
+    await Promise.all([page.waitForURL('/login'), page.click('[data-testid="user-menu-logout"]')]);
+    // Po wylogowaniu header jest zawsze widoczny (S-38), ale nav-links znikają
+    await expect(page.getByTestId('nav-library')).toHaveCount(0);
   });
 });

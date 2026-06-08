@@ -6,6 +6,7 @@ import type { PhotoDTO } from '../lib/photos/schema';
 import { THUMB_SUFFIX } from '../lib/photos/thumb';
 import type { ShelfDTO } from '../lib/shelves/schema';
 import CameraPreview from './CameraPreview';
+import HelpTip from './HelpTip';
 
 type UploadStage =
   | 'idle'
@@ -454,19 +455,22 @@ export default function PhotoUploader({
       )}
       {/* Shelf selector */}
       <div className="mb-4">
-        <label htmlFor="shelf-select" className="mb-1 block text-sm font-medium text-gray-700">
+        <label
+          htmlFor="shelf-select"
+          className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-200"
+        >
           Półka
         </label>
         {shelvesError ? (
           <p
-            className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700"
+            className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/40 dark:text-red-300"
             role="alert"
             data-testid="shelves-error"
           >
             {shelvesError}
           </p>
         ) : shelves.length === 0 ? (
-          <p className="text-sm text-gray-500">Ładowanie półek...</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Ładowanie półek...</p>
         ) : (
           <select
             id="shelf-select"
@@ -510,8 +514,14 @@ export default function PhotoUploader({
             onChange={(e) => handleAutoProcessChange(e.target.checked)}
             className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
           />
-          <span>
-            Analizuj od razu <span className="text-gray-500">(vision + match, płatne)</span>
+          <span className="flex items-center gap-1">
+            Analizuj od razu{' '}
+            <span className="text-gray-500 dark:text-gray-400">(vision + match, płatne)</span>
+            <HelpTip label="auto-process">
+              Zaznaczone: po wgraniu zdjęcie jest od razu analizowane przez AI (vision) i
+              dopasowywane do baz książek — generuje koszt API. Odznaczone: zdjęcie zostaje
+              zapisane, analizę uruchamiasz ręcznie z karty Zdjęcia.
+            </HelpTip>
           </span>
         </label>
       )}
@@ -528,12 +538,12 @@ export default function PhotoUploader({
             onDragLeave={() => setIsDragOver(false)}
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
-            className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-12 transition-colors ${isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300 bg-gray-50 hover:border-gray-400'}`}
+            className={`flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-12 transition-colors ${isDragOver ? 'border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-950/40' : 'border-gray-300 bg-gray-50 hover:border-gray-400 dark:border-gray-600 dark:bg-gray-800/50 dark:hover:border-gray-500'}`}
           >
-            <p className="mb-2 text-sm font-medium text-gray-700">
+            <p className="mb-2 text-sm font-medium text-gray-700 dark:text-gray-200">
               Przeciągnij zdjęcie półki lub kliknij, by wybrać
             </p>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
               JPEG, PNG, WebP — max 15 MB (serwer przetwarza oryginał)
             </p>
             <input
@@ -581,14 +591,16 @@ export default function PhotoUploader({
       {isProcessing && (
         <div
           data-testid="progress-area"
-          className="mt-4 rounded-xl border border-blue-200 bg-blue-50 px-6 py-8 text-center"
+          className="mt-4 rounded-xl border border-blue-200 bg-blue-50 px-6 py-8 text-center dark:border-blue-900 dark:bg-blue-950/40"
         >
           <div
-            className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600"
+            className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600 dark:border-blue-900 dark:border-t-blue-400"
             aria-hidden="true"
           />
-          <p className="text-base font-semibold text-blue-800">{stageLabel[stage]}</p>
-          <p className="mt-1 text-sm text-blue-600">
+          <p className="text-base font-semibold text-blue-800 dark:text-blue-200">
+            {stageLabel[stage]}
+          </p>
+          <p className="mt-1 text-sm text-blue-600 dark:text-blue-300">
             Poczekaj na zakończenie — kolejne zdjęcie będzie możliwe za chwilę.
           </p>
         </div>
@@ -598,9 +610,9 @@ export default function PhotoUploader({
       {stage === 'duplicate' && (
         <div
           data-testid="duplicate-warning"
-          className="mt-4 rounded-md border border-yellow-300 bg-yellow-50 px-4 py-4"
+          className="mt-4 rounded-md border border-yellow-300 bg-yellow-50 px-4 py-4 dark:border-yellow-800 dark:bg-yellow-950/40"
         >
-          <p className="mb-3 text-sm font-medium text-yellow-800">
+          <p className="mb-3 text-sm font-medium text-yellow-800 dark:text-yellow-200">
             {formattedDuplicateDate
               ? `To zdjęcie jest już w katalogu (dodane ${formattedDuplicateDate}).`
               : 'To zdjęcie zostało już wcześniej wgrane do katalogu.'}
@@ -618,7 +630,7 @@ export default function PhotoUploader({
             <button
               data-testid="cancel-duplicate-button"
               onClick={handleCancelDuplicate}
-              className="rounded border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700 hover:bg-gray-50"
+              className="rounded border border-gray-300 bg-white px-3 py-1 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
             >
               Anuluj
             </button>
@@ -630,15 +642,15 @@ export default function PhotoUploader({
       {stage === 'error' && (
         <div
           data-testid="error-area"
-          className="mt-4 rounded-md border border-red-300 bg-red-50 px-4 py-3"
+          className="mt-4 rounded-md border border-red-300 bg-red-50 px-4 py-3 dark:border-red-800 dark:bg-red-950/40"
         >
-          <p className="mb-2 text-sm text-red-700">{errorMsg}</p>
+          <p className="mb-2 text-sm text-red-700 dark:text-red-300">{errorMsg}</p>
           {noApiKey && (
             <div className="mb-2 flex flex-wrap gap-3">
               <a
                 data-testid="no-api-key-link"
                 href="/account"
-                className="text-sm text-blue-600 underline hover:text-blue-800"
+                className="text-sm text-blue-600 underline hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
               >
                 Dodaj klucz API w ustawieniach konta
               </a>
@@ -646,7 +658,7 @@ export default function PhotoUploader({
                 <a
                   data-testid="uploaded-photo-link"
                   href={`/photos/${currentPhotoId}`}
-                  className="text-sm text-blue-600 underline hover:text-blue-800"
+                  className="text-sm text-blue-600 underline hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                 >
                   Przejdź do wgranego zdjęcia
                 </a>

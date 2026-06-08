@@ -29,14 +29,16 @@ test('/account → sekcje widoczne, edycja display_name z mock PATCH', async ({ 
   });
 
   await page.goto('/shelves');
-  await page.getByTestId('nav-account').click();
+  // S-38: wejście na /account przez UserMenu (link nav-account usunięty z nav)
+  await page.getByTestId('user-menu-trigger').click();
+  await page.getByTestId('user-menu-account').click();
   await page.waitForURL('/account');
 
   await expect(page.getByTestId('account-profile-section')).toBeVisible();
   await expect(page.getByTestId('account-keys-section')).toBeVisible();
 
   await expect(
-    page.getByTestId('account-stats-content').or(page.getByTestId('account-stats-error'))
+    page.getByTestId('account-stats-content').or(page.getByTestId('account-stats-error')),
   ).toBeVisible({ timeout: 8_000 });
 
   const input = page.getByTestId('account-display-name-input');
@@ -49,7 +51,7 @@ test('/account → sekcje widoczne, edycja display_name z mock PATCH', async ({ 
 test('/account → niezgodne hasła → błąd klient-side bez network', async ({ page }) => {
   await page.goto('/account');
   await expect(
-    page.getByTestId('account-stats-content').or(page.getByTestId('account-stats-error'))
+    page.getByTestId('account-stats-content').or(page.getByTestId('account-stats-error')),
   ).toBeVisible({ timeout: 8_000 });
 
   await page.getByTestId('account-new-password-input').fill('Haslo123');
@@ -68,7 +70,10 @@ test('/account → zmiana emaila i hasła z mock auth.updateUser', async ({ page
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ id: '00000000-0000-4000-8000-000000000001', email: 'new@example.com' }),
+        body: JSON.stringify({
+          id: '00000000-0000-4000-8000-000000000001',
+          email: 'new@example.com',
+        }),
       });
     }
     return route.continue();
@@ -78,7 +83,7 @@ test('/account → zmiana emaila i hasła z mock auth.updateUser', async ({ page
   // Poczekaj na zakończenie stats fetch — eliminuje race condition z concurrent
   // React re-render, który resetuje controlled inputs podczas hydratacji wyspy.
   await expect(
-    page.getByTestId('account-stats-content').or(page.getByTestId('account-stats-error'))
+    page.getByTestId('account-stats-content').or(page.getByTestId('account-stats-error')),
   ).toBeVisible({ timeout: 8_000 });
 
   // Zmiana emaila → baner pending

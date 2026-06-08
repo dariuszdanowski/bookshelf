@@ -1,0 +1,223 @@
+---
+// prerender=false (SSR): przy prerender middleware emitował redirect /help/ → /login
+// (trailing slash nie matchował PUBLIC_EXACT) i zamrażał go jako statyczny HTML —
+// /help był martwy w prod. SSR + whitelist /help renderuje auth-aware header
+// poprawnie. Plan zakładał prerender=true (static) z obawy o <Image> na on-demand
+// route, ale używamy zwykłego <img src={imported.src}>, więc obawa nieaktualna.
+export const prerender = false;
+
+import Layout from '../layouts/Layout.astro';
+import img01Login from '../assets/help/01-login.png';
+import img01LoginDark from '../assets/help/01-login-dark.png';
+import img02Shelves from '../assets/help/02-shelves.png';
+import img02ShelvesDark from '../assets/help/02-shelves-dark.png';
+import img03Upload from '../assets/help/03-upload.png';
+import img03UploadDark from '../assets/help/03-upload-dark.png';
+import img04Overlay from '../assets/help/04-detection-overlay.png';
+import img04OverlayDark from '../assets/help/04-detection-overlay-dark.png';
+import img05Proposals from '../assets/help/05-proposals.png';
+import img05ProposalsDark from '../assets/help/05-proposals-dark.png';
+import img06Library from '../assets/help/06-library.png';
+import img06LibraryDark from '../assets/help/06-library-dark.png';
+
+const steps = [
+  {
+    title: '1. Zaloguj się',
+    desc: 'Utwórz konto lub zaloguj się emailem i hasłem. Twój katalog jest prywatny — widzi go tylko Twoje konto.',
+    img: img01Login,
+    imgDark: img01LoginDark,
+    alt: 'Ekran logowania',
+  },
+  {
+    title: '2. Utwórz półkę',
+    desc: 'Na stronie Moje półki dodaj pierwszą półkę (np. "Salon", "Sypialnia"). Możesz też wpisać lokalizację w domu.',
+    img: img02Shelves,
+    imgDark: img02ShelvesDark,
+    alt: 'Lista półek',
+  },
+  {
+    title: '3. Wgraj zdjęcie półki',
+    desc: 'Przejdź do Skanuj półkę, wybierz zdjęcie i kliknij Wgraj. Zaznacz "Analizuj od razu", żeby AI od razu rozpoznało grzbiety.',
+    img: img03Upload,
+    imgDark: img03UploadDark,
+    alt: 'Uploader zdjęcia',
+  },
+  {
+    title: '4. Sprawdź detekcje na zdjęciu',
+    desc: 'Po analizie widzisz zaznaczone grzbiety. Klikaj ramki, żeby przejść do konkretnej propozycji dopasowania.',
+    img: img04Overlay,
+    imgDark: img04OverlayDark,
+    alt: 'Overlay detekcji na zdjęciu',
+  },
+  {
+    title: '5. Akceptuj lub koryguj propozycje',
+    desc: 'Dla każdej wykrytej książki aplikacja proponuje dopasowanie z Google Books. Zielona ramka = wysoka pewność (≥75%). Akceptuj, odrzuć lub wpisz ręcznie.',
+    img: img05Proposals,
+    imgDark: img05ProposalsDark,
+    alt: 'Propozycje dopasowania',
+  },
+  {
+    title: '6. Przeglądaj katalog',
+    desc: 'Zaakceptowane książki trafiają do katalogu. Wyszukuj po tytule, autorze, kolorze grzbietu lub filtruj po półce.',
+    img: img06Library,
+    imgDark: img06LibraryDark,
+    alt: 'Katalog książek',
+  },
+];
+
+const faqs = [
+  {
+    q: 'Ile kosztuje analiza zdjęcia?',
+    a: 'Analiza wymaga własnego klucza API jednego z obsługiwanych dostawców (BYOK) — bez niego rozpoznawanie obrazu jest niedostępne. Koszty trafiają bezpośrednio na Twoje konto u dostawcy. Dla Anthropic (Claude) typowy koszt to $0.01–$0.03 za zdjęcie. Szczegóły kosztów widać w karcie każdego zdjęcia. Przy OpenAI/OpenRouter koszty zależą od cennika wybranego modelu.',
+  },
+  {
+    q: 'Jakie klucze API są obsługiwane?',
+    html: '<p>Przejdź do <strong>Moje konto → Klucze API</strong> i dodaj klucz jednego z czterech obsługiwanych dostawców. Aktywny może być najwyżej jeden klucz — bez niego przycisk Analizuj jest niedostępny.</p><ul class="mt-2 list-disc space-y-2 pl-4"><li><strong>Anthropic</strong> (zalecany) — klucz <code>sk-ant-…</code> z console.anthropic.com. Pełne wsparcie vision i Refine, domyślny model: claude-sonnet-4-6. Koszty naliczane przez Anthropic.</li><li><strong>OpenAI</strong> — klucz <code>sk-…</code> z platform.openai.com. Domyślny model: gpt-4o-mini. Koszty naliczane przez OpenAI.</li><li><strong>OpenRouter</strong> — jeden klucz dający dostęp do setek modeli (Claude, GPT, Mistral, Llama i inne). Wpisz nazwę modelu, np. <code>anthropic/claude-sonnet-4-6</code>. Koszty przez OpenRouter.</li><li><strong>OpenAI-compatible</strong> — własny endpoint zgodny z OpenAI API (Azure OpenAI, Ollama, LM Studio). Podaj Base URL i nazwę modelu.</li></ul>',
+  },
+  {
+    q: 'Dlaczego dopasowanie nie znalazło mojej książki?',
+    a: 'Małe polskie wydawnictwa lub stare wydania mogą nie być w Google Books ani OpenLibrary. Użyj przycisku "Szukaj w sieci" przy detekcji, by znaleźć książkę ręcznie, lub wpisz tytuł/autora samodzielnie.',
+  },
+  {
+    q: 'Co zrobić z duplikatem zdjęcia?',
+    a: 'Jeśli wgrasz to samo zdjęcie ponownie, system rozpozna duplikat (po hash pliku) i zapyta, czy otworzyć istniejące zdjęcie, czy wgrać mimo to. To zabezpieczenie przed podwójnym kosztem analizy.',
+  },
+  {
+    q: 'Czym różnią się tryby widoku Karty / Lista / Kafelki?',
+    a: 'Karty pokazują okładkę i metadane (autor, półka). Lista to kompaktowe wiersze — przydatne przy długim katalogu. Kafelki to siatka samych okładek. Wybór jest zapamiętywany w przeglądarce.',
+  },
+  {
+    q: 'Co to jest "Doprecyzuj odczyt" (Refine)?',
+    a: 'Gdy vision nie odczytał tytułu dokładnie, Refine przycina fragment zdjęcia wokół grzbietu i uruchamia dodatkową analizę AI. Jest to płatne wywołanie — koszt pojawia się w historii zdjęcia.',
+  },
+];
+---
+
+<Layout title="Pomoc">
+  <main class="mx-auto max-w-3xl px-4 pt-8 pb-20" data-testid="help-page">
+    <h1 class="mb-2 text-2xl font-bold text-gray-900 dark:text-gray-100">
+      Jak korzystać z BookShelf
+    </h1>
+    <p class="mb-10 text-sm text-gray-500">
+      Przewodnik krok po kroku — od założenia konta do przeszukiwania katalogu.
+    </p>
+
+    <!-- Golden path steps -->
+    <section aria-labelledby="guide-heading" data-testid="help-guide">
+      <h2 id="guide-heading" class="mb-6 text-lg font-semibold text-gray-800 dark:text-gray-200">
+        Przewodnik
+      </h2>
+      <ol class="space-y-10">
+        {
+          steps.map((step) => (
+            <li class="flex flex-col gap-4 sm:flex-row sm:gap-6">
+              <div class="flex-1">
+                <h3 class="mb-1 font-semibold text-gray-900 dark:text-gray-100">{step.title}</h3>
+                <p class="text-sm text-gray-600 dark:text-gray-400">{step.desc}</p>
+              </div>
+              {/* Para jasny/ciemny — widoczny wariant zgodny z aktywnym motywem (html.dark).
+                data-lightbox: klik powiększa zrzut w modalu (skrypt na dole strony). */}
+              <img
+                src={step.img.src}
+                alt={step.alt}
+                width={step.img.width}
+                height={step.img.height}
+                loading="lazy"
+                data-lightbox
+                class="w-full cursor-zoom-in rounded-lg border border-gray-200 object-cover shadow-sm sm:w-48 sm:flex-shrink-0 dark:hidden"
+              />
+              <img
+                src={step.imgDark.src}
+                alt={step.alt}
+                width={step.imgDark.width}
+                height={step.imgDark.height}
+                loading="lazy"
+                data-lightbox
+                class="hidden w-full cursor-zoom-in rounded-lg border border-gray-700 object-cover shadow-sm sm:w-48 sm:flex-shrink-0 dark:block"
+              />
+            </li>
+          ))
+        }
+      </ol>
+    </section>
+
+    <!-- FAQ -->
+    <section aria-labelledby="faq-heading" class="mt-16" data-testid="help-faq">
+      <h2 id="faq-heading" class="mb-6 text-lg font-semibold text-gray-800 dark:text-gray-200">
+        FAQ
+      </h2>
+      <dl class="space-y-6">
+        {
+          faqs.map((faq) => (
+            <div>
+              <dt class="font-medium text-gray-900 dark:text-gray-100">{faq.q}</dt>
+              {'html' in faq ? (
+                <dd
+                  class="mt-1 text-sm leading-relaxed text-gray-600 dark:text-gray-400 [&_code]:rounded [&_code]:bg-gray-100 [&_code]:px-1 [&_code]:font-mono [&_code]:text-[11px] [&_code]:dark:bg-gray-800 [&_li]:leading-relaxed [&_strong]:font-semibold [&_strong]:text-gray-800 [&_strong]:dark:text-gray-200"
+                  set:html={faq.html}
+                />
+              ) : (
+                <dd class="mt-1 text-sm text-gray-600 dark:text-gray-400">{faq.a ?? ''}</dd>
+              )}
+            </div>
+          ))
+        }
+      </dl>
+    </section>
+
+    {/* Lightbox — natywny <dialog>: Esc zamyka, klik w tło zamyka, przycisk X. */}
+    <dialog
+      id="help-lightbox"
+      data-testid="help-lightbox"
+      class="m-auto max-h-[92vh] max-w-[92vw] overflow-visible bg-transparent p-0 backdrop:bg-black/80"
+    >
+      <div class="relative inline-block">
+        <img src="" alt="" class="max-h-[92vh] max-w-[92vw] rounded-xl object-contain" />
+        <button
+          type="button"
+          id="help-lightbox-close"
+          data-testid="help-lightbox-close"
+          aria-label="Zamknij powiększenie"
+          class="absolute -top-3 -right-3 flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-gray-900 text-white shadow-lg transition hover:bg-gray-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+        >
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+    </dialog>
+  </main>
+</Layout>
+
+<script>
+  const dialog = document.getElementById('help-lightbox') as HTMLDialogElement | null;
+  const dialogImg = dialog?.querySelector('img');
+  const closeBtn = document.getElementById('help-lightbox-close');
+  if (dialog && dialogImg) {
+    for (const thumb of document.querySelectorAll<HTMLImageElement>('img[data-lightbox]')) {
+      thumb.addEventListener('click', () => {
+        dialogImg.src = thumb.currentSrc || thumb.src;
+        dialogImg.alt = thumb.alt;
+        dialog.showModal();
+      });
+    }
+    // Przycisk X zamyka modal.
+    closeBtn?.addEventListener('click', () => dialog.close());
+    // Klik w tło (sam <dialog>, nie obraz ani przycisk) zamyka modal;
+    // Esc działa natywnie.
+    dialog.addEventListener('click', (e) => {
+      if (e.target === dialog) dialog.close();
+    });
+  }
+</script>

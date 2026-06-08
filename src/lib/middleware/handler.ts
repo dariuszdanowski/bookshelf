@@ -36,7 +36,7 @@ function logEnvBannerOnce(): void {
  * na liście). PREFIX = match po prefiksie (`/api/auth/login`,
  * `/api/auth/signup` → match na `/api/auth/`).
  */
-const PUBLIC_EXACT = new Set(['/', '/login', '/signup', '/api/health']);
+const PUBLIC_EXACT = new Set(['/', '/login', '/signup', '/api/health', '/help', '/logout']);
 const PUBLIC_PREFIXES = ['/api/auth/'] as const;
 
 function isPublicPath(pathname: string): boolean {
@@ -50,10 +50,7 @@ function isPublicPath(pathname: string): boolean {
  * (`astro:middleware` to virtual module dostępny tylko w Astro build/dev —
  * w Vitest nie da się go resolvować, lessons.md: „Adaptacje literalne").
  */
-export async function handleRequest(
-  context: APIContext,
-  next: MiddlewareNext
-): Promise<Response> {
+export async function handleRequest(context: APIContext, next: MiddlewareNext): Promise<Response> {
   logEnvBannerOnce();
 
   // Bootstrap może paść przy missing env (createServerSupabaseClient rzuca
@@ -80,15 +77,23 @@ export async function handleRequest(
 
   let user: AuthUser | null = null;
   try {
-    const { data } = await supabase.auth.getUser();
-    user = data.user;
+    const { data, error } = await supabase.auth.getUser();
+    if (error) {
+      // Expected for stale/expired browser sessions — treat as anon silently.
+      // Non-auth errors (network, config) would throw and land in the catch below.
+      user = null;
+    } else {
+      user = data.user;
+    }
   } catch (err) {
-    // Treat-as-anon + log (PRD guardrail: brak utraty danych po awarii;
-    // refresh przez user naprawia transient blip).
-    console.error('[middleware] auth.getUser failed', {
-      path: context.url.pathname,
-      err: err instanceof Error ? err.message : String(err),
-    });
+    // Treat-as-anon + log only unexpected (non-auth) errors.
+    const isExpectedAuthError = err != null && typeof err === 'object' && '__isAuthError' in err;
+    if (!isExpectedAuthError) {
+      console.error('[middleware] auth.getUser failed', {
+        path: context.url.pathname,
+        err: err instanceof Error ? err.message : String(err),
+      });
+    }
     user = null;
   }
 

@@ -6,6 +6,7 @@ import { classifyCropQuality } from '../lib/matching/fallbackPolicy';
 import BookModal, { type BookModalBook } from './BookModal';
 import ConfirmDialog from './ConfirmDialog';
 import CostPanel from './CostPanel';
+import HelpTip from './HelpTip';
 import PhotoDetectionOverlay from './PhotoDetectionOverlay';
 import Skeleton from './Skeleton';
 import { ViewModeSwitcher, useViewMode, type ViewMode } from './ViewModeSwitcher';
@@ -1048,8 +1049,13 @@ function DetectionCard({
                 {activeCandidate.isbn13 && (
                   <p className="mt-0.5 text-xs text-gray-400">ISBN {activeCandidate.isbn13}</p>
                 )}
-                <p className="mt-1 text-xs text-gray-400">
+                <p className="mt-1 flex items-center gap-1 text-xs text-gray-400">
                   Pewność: {Math.round(activeCandidate.matchScore * 100)}%
+                  <HelpTip label="match-score">
+                    Wynik dopasowania tytułu do bazy Google Books / OpenLibrary. ≥75% (zielony) =
+                    wysoka pewność, pre-zaznaczone. 55–74% (żółty) = sprawdź ręcznie. &lt;55% =
+                    niska pewność, rozważ korektę lub wyszukanie ręczne.
+                  </HelpTip>
                 </p>
               </div>
             </div>

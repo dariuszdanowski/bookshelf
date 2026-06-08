@@ -7,6 +7,7 @@ const LINKS = [
   { href: '/upload', label: 'Skanuj półkę', testid: 'mobile-nav-upload' },
   { href: '/purchase', label: 'Dodaj zakup', testid: 'mobile-nav-add-purchase' },
   { href: '/account', label: 'Moje konto', testid: 'mobile-nav-account' },
+  { href: '/help', label: 'Pomoc', testid: 'mobile-nav-help' },
 ] as const;
 
 /**
