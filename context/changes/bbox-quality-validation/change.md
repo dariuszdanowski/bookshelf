@@ -1,9 +1,9 @@
 ---
 change_id: bbox-quality-validation
 title: "S-40: Jakość bboxów z vision — walidacja, prompt, bezpieczny post-processing"
-status: captured
+status: planned
 created: 2026-06-07
-updated: 2026-06-07
+updated: 2026-06-08
 archived_at: null
 ---
 
