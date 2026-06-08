@@ -1,5 +1,10 @@
 ---
-export const prerender = true;
+// prerender=false (SSR): przy prerender middleware emitował redirect /help/ → /login
+// (trailing slash nie matchował PUBLIC_EXACT) i zamrażał go jako statyczny HTML —
+// /help był martwy w prod. SSR + whitelist /help renderuje auth-aware header
+// poprawnie. Plan zakładał prerender=true (static) z obawy o <Image> na on-demand
+// route, ale używamy zwykłego <img src={imported.src}>, więc obawa nieaktualna.
+export const prerender = false;
 
 import Layout from '../layouts/Layout.astro';
 import img01Login from '../assets/help/01-login.png';

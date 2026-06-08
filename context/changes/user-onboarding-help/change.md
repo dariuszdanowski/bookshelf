@@ -1,7 +1,7 @@
 ---
 change_id: user-onboarding-help
 title: "S-38: Onboarding i pomoc kontekstowa (M7)"
-status: implemented
+status: impl_reviewed
 created: 2026-06-07
 updated: 2026-06-08
 archived_at: null
