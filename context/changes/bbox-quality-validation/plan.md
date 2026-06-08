@@ -171,29 +171,29 @@ Koszt = realne wywołania vision (BYOK): 3 zdjęcia × (1 baseline + 3 warianty)
 ### Phase 1: Ground-truth (3 typy) + harness IoU
 
 #### Automated
-- [ ] 1.1 Benchmark v6 drukuje baseline per-typ na 3 zdjęciach
+- [x] 1.1 Benchmark v6 drukuje baseline per-typ na 3 zdjęciach
 - [x] 1.2 3 pliki ground-truth JSON (z `surface`) istnieją i parsują się
-- [ ] 1.3 `npm run lint` przechodzi na `bbox-iou-benchmark.mjs`
+- [x] 1.3 `npm run lint` przechodzi na `bbox-iou-benchmark.mjs`
 
 #### Manual
-- [ ] 1.4 Ground-truth agenta zweryfikowany wzrokowo na każdym z 3 zdjęć
-- [ ] 1.5 Baseline pokazuje klastrowanie (półka) + zachowanie na nie-półkowym
+- [x] 1.4 Ground-truth zweryfikowany wzrokowo (overlaye); konwencja zamrożona (CONVENTION.md), 01 naprawione (było niespójne z 04)
+- [x] 1.5 Baseline pokazuje klastrowanie (04: %Y2cl=100%) + portret 02/03 lokalizuje X dobrze (xIoU 0.75–0.86)
 
 ### Phase 2: Warianty promptu (surface-agnostic) + pomiar
 
 #### Automated
-- [ ] 2.1 Benchmark zwraca metryki dla wszystkich wariantów na 3 zdjęciach
-- [ ] 2.2 Recall detekcji żadnego wariantu nie spada poniżej baseline (per-typ)
+- [x] 2.1 Benchmark zwraca metryki (v6, v7-final, v6+thinking) na 3 zdjęciach, N=3, metryki kierunkowe
+- [x] 2.2 NONE BEATS BASELINE — v7 regresuje (04: recall 67→56%, szer× 1.29→1.59, klaster bez zmian); thinking też nie pomaga
 
 #### Manual
-- [ ] 2.3 User akceptuje tabelę + zwycięzcę (lub „none beats baseline")
+- [ ] 2.3 User akceptuje „none beats baseline" → eskalacja: prompt-only zamknięte, post-proc/manual jako follow-up
 
 ### Phase 3: Wdrożenie zwycięzcy + raport decyzyjny
 
 #### Automated
-- [ ] 3.1 `typecheck + lint + test + build` zielone
-- [ ] 3.2 Testy pinujące `PROMPT_VERSION` zaktualizowane (jeśli istnieją)
+- [x] 3.1 N/A — brak zmiany kodu prod (v7 odrzucony, `PROMPT_VERSION` zostaje v6)
+- [x] 3.2 N/A — `PROMPT_VERSION` bez bumpu (v6)
 
 #### Manual
-- [ ] 3.3 Bramka demo: overlay ciasny na półce I nie-półkowym, bez klastra/halucynacji deski
-- [ ] 3.4 Raport decyzyjny jednoznaczny
+- [ ] 3.3 Bramka demo: best-achievable = stan v6 (prompt-only nie poprawił); ścieżka prod = ręczna edycja bbox (e2aa2ed)
+- [x] 3.4 Raport decyzyjny jednoznaczny — change.md „Wyniki i decyzja" (prompt NIE wystarczył; klaster wrodzony)

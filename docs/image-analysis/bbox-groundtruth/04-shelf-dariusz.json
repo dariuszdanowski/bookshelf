@@ -1,7 +1,7 @@
 {
-  "photo_id": "b79f3a02-e56d-4b81-a339-2f780eed3f2d",
+  "photo_id": "4cc6ed8e-aa8e-4076-83ae-1e66b80407aa",
   "type": "shelf",
-  "note": "NAPRAWIONE 2026-06-08 (S-40 self-test): poprzednia anotacja używała konwencji 'y2=deska 0.805' + zawężonych x, niespójnej z 04. Plik 01 jest BAJT-IDENTYCZNY z 04-shelf-dariusz.jpg (4000×1848, ten sam plik) → współrzędne zportowane z 04 (konwencja zamrożona: y2=dół widocznego grzbietu, realne krawędzie x). Zob. CONVENTION.md.",
+  "note": "Ground-truth z ręcznych korekt usera (2026-06-08). Zdjęcie 4000×1848 px landscape (AR 2.165). Półka Kallax/IKEA, 9 książek pionowych. Pozycje posortowane wg x (lewo→prawo). Uwaga: #1 DOM Lalkarki i #2 THE INHERITANCE GAMES lekko nakładają się w x (książki w różnych planach). Pozycja #3 Trzej Maszkaronowie (dodana ręcznie, wąska) między #2 i #4 w osi x.",
   "image_width": 4000,
   "image_height": 1848,
   "image_aspect_ratio": 2.165,

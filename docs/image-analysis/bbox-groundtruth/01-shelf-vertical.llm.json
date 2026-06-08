@@ -1,0 +1,15 @@
+{
+  "photo_id": "01-shelf-vertical",
+  "annotator": "claude-llm-via-read (blind, GT unseen)",
+  "note": "Detekcja wykonana przez agenta LLM (Read tool) jako proxy endpointu vision, prompt v6, BEZ wglądu w GT. Obraz landscape, białą półka Kallax, 8 grzbietów pionowych. Cel: zmierzyć czy LLM lokalizuje bbox lepiej niż prod API v6 (~0.28 IoU) i czy klastruje y2.",
+  "detections": [
+    { "position": 1, "title": "DOM", "author": "Paula Ozark", "orientation": "vertical", "bbox": [0.114, 0.176, 0.166, 0.906] },
+    { "position": 2, "title": "The Inheritance Games", "author": "Jennifer Lynn Barnes", "orientation": "vertical", "bbox": [0.166, 0.128, 0.220, 0.912] },
+    { "position": 3, "title": "Tajne przez magiczne", "author": "Katarzyna Wierzbicka", "orientation": "vertical", "bbox": [0.220, 0.140, 0.286, 0.910] },
+    { "position": 4, "title": "Zbrodnia i Magia", "author": "Katarzyna Wierzbicka", "orientation": "vertical", "bbox": [0.286, 0.126, 0.350, 0.908] },
+    { "position": 5, "title": "Toast za bohaterów", "author": null, "orientation": "vertical", "bbox": [0.350, 0.162, 0.388, 0.898] },
+    { "position": 6, "title": "Papierowy Mag", "author": "Charlie N. Holmberg", "orientation": "vertical", "bbox": [0.388, 0.150, 0.448, 0.902] },
+    { "position": 7, "title": "Szklany Mag", "author": "Charlie N. Holmberg", "orientation": "vertical", "bbox": [0.448, 0.150, 0.508, 0.900] },
+    { "position": 8, "title": "Arcymag", "author": "Charlie N. Holmberg", "orientation": "vertical", "bbox": [0.508, 0.152, 0.566, 0.900] }
+  ]
+}

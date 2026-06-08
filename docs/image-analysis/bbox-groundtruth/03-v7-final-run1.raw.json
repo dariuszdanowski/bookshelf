@@ -1,0 +1,86 @@
+[
+  {
+    "position": 1,
+    "title": "Pożeracze Książek",
+    "author": "Bertman",
+    "confidence": 0.92,
+    "orientation": "horizontal",
+    "spine_color": "czarny",
+    "bbox": [
+      0.05,
+      0.38,
+      0.85,
+      0.46
+    ]
+  },
+  {
+    "position": 2,
+    "title": "Siewcy Koszmarów",
+    "author": "Martyna Duchowska",
+    "confidence": 0.88,
+    "orientation": "horizontal",
+    "spine_color": "czarny",
+    "bbox": [
+      0.05,
+      0.46,
+      0.85,
+      0.52
+    ]
+  },
+  {
+    "position": 3,
+    "title": "NECROVET",
+    "author": "Joanna W. Gajzler",
+    "confidence": 0.92,
+    "orientation": "horizontal",
+    "spine_color": "niebieski",
+    "bbox": [
+      0.05,
+      0.52,
+      0.85,
+      0.6
+    ]
+  },
+  {
+    "position": 4,
+    "title": "Szalej i Srebro",
+    "author": "T. Kingfisher",
+    "confidence": 0.9,
+    "orientation": "horizontal",
+    "spine_color": "czarny",
+    "bbox": [
+      0.05,
+      0.6,
+      0.85,
+      0.67
+    ]
+  },
+  {
+    "position": 5,
+    "title": "Sny z Donlonu",
+    "author": "Magdalena Kubasiewicz",
+    "confidence": 0.88,
+    "orientation": "horizontal",
+    "spine_color": "czarny",
+    "bbox": [
+      0.05,
+      0.67,
+      0.85,
+      0.73
+    ]
+  },
+  {
+    "position": 6,
+    "title": "ALTER EGO",
+    "author": "Milena Wójtowicz",
+    "confidence": 0.92,
+    "orientation": "horizontal",
+    "spine_color": "niebieski",
+    "bbox": [
+      0.05,
+      0.73,
+      0.85,
+      0.8
+    ]
+  }
+]

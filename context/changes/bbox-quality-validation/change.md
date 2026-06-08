@@ -107,3 +107,87 @@ Scharakteryzować deformację X (afiniczną, AR-zależną) na korpusie i odjąć
 (walidowane benchmarkiem, NIE ślepa heurystyka). **Blocker danych**: 1 czysty punkt AR (01);
 dla generalizacji potrzeba ≥2 AR → re-anotować 02/03 w orientacji display (ffmpeg-rotate→Read).
 Skrypty robocze: pobranie zdjęć + overlay + warianty (w `lekcje/_scraper/`, poza repo).
+
+## Wyniki i decyzja (2026-06-08) — PROMPT NIE WYSTARCZYŁ, decision point
+
+Po dostarczeniu przez usera ręcznego GT dla wszystkich zdjęć przeprowadzono dwustopniową
+weryfikację: (1) **self-test bez API** — agent Claude jako proxy endpointu vision (Read tool),
+(2) **realny test API** v6 vs v7 vs v6+thinking, N=3, metryki kierunkowe. Narzędzia:
+`scripts/bbox-llm-selftest.mjs`, `scripts/bbox-iou-benchmark.mjs` (rozszerzony: xIoU, szer×, |Δy2|,
+centerHit, zapis surowych detekcji). Konwencja GT zamrożona: `CONVENTION.md`. Pełna analiza:
+`docs/image-analysis/bbox-groundtruth/selftest-findings.md`. Overlaye: `01-compare`, `01-gt-disagree`,
+`04-api-compare`.
+
+**Higiena pomiaru naprawiona (warunek wiarygodności):**
+- GT był **niespójny** — 01 („y2=deska 0.805" + wąskie x) vs 04 („y2=dół grzbietu 0.92" + realne x)
+  dla **bajt-identycznego** pliku. Te same detekcje dawały szer×1.41 vs ×1.00 zależnie od GT.
+  → zamrożono konwencję („dół widocznego grzbietu, realne krawędzie x, surface-agnostic"), 01 naprawione.
+- **2D-IoU to zła metryka** dla wąskich grzbietów (wizualnie dobry odczyt = 0.42). Wprowadzono metryki
+  kierunkowe (xIoU 1D, szer×, |Δy2|, centerHit) — odporne na konwencję y i wąskość boxów.
+
+**Realny test API (GT naprawione, N=3):**
+
+| Zdjęcie | Prompt | medIoU | xIoU | szer× | ctrHit | recall | %Y2cl |
+|---|---|---|---|---|---|---|---|
+| 04 shelf (landscape) | v6 | 0.207 | 0.358 | 1.29 | 50% | 67% | **100%** |
+| 04 shelf | v7-final | **0.042** | 0.402 | **1.59** | 20% | 56% | **100%** |
+| 04 shelf | v6+think2500 | 0.189 | 0.348 | 1.39 | 33% | 67% | **100%** |
+| 02 mixed (portrait) | v6 | 0.424 | 0.746 | 0.81 | 100% | 83% | 67% |
+| 02 mixed | v7-final | 0.339 | 0.819 | 0.92 | 100% | 83% | 67% |
+| 03 none (portrait) | v6 | 0.322 | 0.858 | 1.08 | 100% | 83% | 17% |
+| 03 none | v7-final | 0.263 | 0.857 | 1.09 | 100% | 83% | 17% |
+
+**Wnioski (zmierzone, nie założone):**
+1. **Reframe promptu OBALONY jako fix.** Usunięcie kotwicy „deska" i przykładu y2 (v7) **nie zmieniło
+   klastrowania** (%Y2cl: 100/67/17% identyczne v6=v7) i **pogorszyło** resztę (04: medIoU 0.207→0.042,
+   szer× 1.29→1.59, recall 67→56%). Klastrowanie y2 jest **wrodzone modelowi**, nie pochodzi z promptu.
+2. **Thinking nie pomaga.** v6+think2500 ≈ v6 (klaster 100% bez zmian) — deliberacja nie odblokowuje
+   precyzji w ścieżce API single-shot.
+3. **Model POTRAFI (self-test via Read: szer×1.00, klaster 25%), ale API single-shot nie.** Zdolność
+   istnieje, lecz jest niedostępna przez prompt/thinking. Różnica = ścieżka generowania, nie wiedza.
+4. **Awaria jest skoncentrowana na gęstej półce wąskich, podobnych grzbietów** (04: xIoU 0.36, ctrHit 50%,
+   ramki rozlane w pustą półkę — zob. `04-api-compare.overlay`). **Portret stack/non-shelf (02/03)
+   lokalizuje X dobrze** (xIoU 0.75–0.86, ctrHit 100%) — bbox vision tam jest użyteczny.
+5. **Wysoka wariancja run-to-run** (±σ≈0.22 na IoU) — nawet korekta afiniczna byłaby niestabilna
+   (deformacja zmienia się między wywołaniami).
+
+**DECYZJA:**
+- **NIE wdrażać v7** — `PROMPT_VERSION` zostaje `v6` (v7 zmierzony jako regresja). Faza 3.1 pominięta.
+- **Prompt-only: ZAMKNIĘTE jako ścieżka** (udowodnione: prompt+thinking nie ruszają biasu).
+- **Produktowo**: opierać się na **ręcznej edycji/tworzeniu bbox** (już dowiezione: `e2aa2ed`
+  „manual bbox creation without vision") jako podstawowej ścieżce dla półek pionowych; vision-bbox
+  traktować jako wstępną propozycję, nie źródło prawdy. Dla non-shelf rozważyć **quad** (`0022_detection_quad.sql`).
+- **Post-processing (korekta afiniczna X) — osobny slice, warunkowo.** Charakterystyka jest AR-zależna
+  i niestabilna (σ wysoka); ROI niepewny. Najpierw zebrać ≥3 AR czystego GT, potem decyzja. NIE blokuje S-40.
+- **S-21 (re-OCR cropów)**: cropy z vision-bbox są za luźne na gęstych półkach → re-OCR z tych bboxów
+  niewiarygodny; sensowny dopiero po ręcznej korekcie bbox lub post-processingu. Odroczone.
+
+## Pivot produktowy (2026-06-09, decyzja usera: identity-first)
+
+User zakwestionował cały cel: wartością produktu jest **JAKIE książki/gry są na zdjęciu**, nie
+gdzie dokładnie. Match (Google Books) i dedup nie używają pikseli; bbox karmi tylko pozycję
+(wystarczy kolejność), review-UX (wystarczy kotwica) i crop-reOCR. Decyzja: **identyfikacja = cel,
+lokalizacja = kotwica + narzędzie naprawcze gdy model nie rozpozna**.
+
+**Test walidujący (identity-only vs v6, `scripts/bbox-identity-test.mjs`, fuzzy-title match, N=2):**
+
+| Zdjęcie | recall v6 → identity | precyzja | koszt |
+|---|---|---|---|
+| 04 shelf | 83% → **89%** | 94% → **100%** | −31% |
+| 02 mixed | 90% → **95%** | 82% → 79% | −46% |
+| 03 none | 67% → 67% | 67% → 57% | −39% |
+
+Prompt bez bbox czyta **≥ równie dobrze**, jest **tańszy** (mniej tokenów out) i prostszy.
+Trade-off: więcej FP na zagraconych scenach (03) — neutralizuje review (reject).
+
+**Kierunek docelowy (do osobnego /10x-plan, pełny cykl):**
+1. Tryb identyfikacji jako główna ścieżka: model zwraca listę `{kind, title, author, confidence}`
+   bez współrzędnych → karty „potwierdź" z kandydatami match + miniaturą.
+2. Lokalizacja zdegradowana do kotwicy (numer porządkowy + opcjonalny przybliżony marker).
+3. Bbox-editor (`e2aa2ed`) = narzędzie doszczegółowiania, surfaceowane gdy: niski confidence /
+   brak matchu / user dodaje pominiętą pozycję.
+4. KPI zmienione z IoU na **title-recall + precyzja + czas review**.
+5. „Inne narzędzie" tylko dla geometrii i tylko jeśli boxy okażą się krytyczne (CV pionowych
+   grzbietów / Gemini grounding) — osobny, warunkowy slice.
+
+**S-40 zamyka się jako decision-point**: prompt-bbox odrzucony (zmierzony), kierunek = identity-first.

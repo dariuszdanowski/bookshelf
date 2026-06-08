@@ -1,20 +1,20 @@
 {
-  "photo_id": "5b18b976-cf03-42f0-8617-070283c2d5a0",
+  "photo_id": "198c8cbe-5c6f-4da0-be31-7306105aab6e",
   "type": "mixed",
-  "note": "Anotacja deliberate przez agenta (Read). 0..1 top-left. LEWA: 4 pionowe stojące na blacie (surface none — brak półki/deski). PRAWA: stos poziomy leżący (surface stack) — każda książka szeroka w x (~0.45-0.99), cienka w y. Precyzja stosu poziomego zgrubna (±~0.03 w y-bandach); kluczowa prawda = orientacja (poziome ≠ pionowe) + brak wspólnej linii deski.",
-  "image_aspect_ratio": 2.146,
+  "note": "Ground-truth z ręcznych korekt usera (2026-06-08). Zdjęcie portretowe EXIF-rotated 90° CW do display. GÓRNA część (y≈0.24-0.45): 4 grzbiety z boku (stos poziomy, każda książka jako cienki poziomy pasek). DOLNA część (y≈0.45-0.82): 8 książek stojących pionowo — ich grzbiety widoczne od przodu (wąskie w x, wysokie w y). y2≈0.82 = dolna krawędź stosu (nie cały obraz). Korekty z UI (bbox_x1/y1/x2/y2), sorted: poziome wg y1, pionowe wg x1.",
+  "image_aspect_ratio": 0.462,
   "detections": [
-    { "position": 1, "title": "Porachunki bezimiennej pisarki (Basso)", "orientation": "vertical", "surface": "none", "bbox": [0.245, 0.085, 0.286, 0.905] },
-    { "position": 2, "title": "Raz wiedźmą śmierć (Fader)", "orientation": "vertical", "surface": "none", "bbox": [0.288, 0.080, 0.335, 0.905] },
-    { "position": 3, "title": "Wilk z lasu (Fader)", "orientation": "vertical", "surface": "none", "bbox": [0.338, 0.080, 0.385, 0.905] },
-    { "position": 4, "title": "W przeklętą godzinę (Fader)", "orientation": "vertical", "surface": "none", "bbox": [0.388, 0.080, 0.436, 0.905] },
-    { "position": 5, "title": "Osobliwy dom Pani Peregrine (Riggs)", "orientation": "horizontal", "surface": "stack", "bbox": [0.452, 0.060, 0.995, 0.135] },
-    { "position": 6, "title": "Przewoźnik (McFall)", "orientation": "horizontal", "surface": "stack", "bbox": [0.452, 0.140, 0.995, 0.210] },
-    { "position": 7, "title": "Lotnik (Colfer)", "orientation": "horizontal", "surface": "stack", "bbox": [0.452, 0.215, 0.995, 0.285] },
-    { "position": 8, "title": "Ruchomy zamek Hauru (Jones)", "orientation": "horizontal", "surface": "stack", "bbox": [0.452, 0.290, 0.995, 0.355] },
-    { "position": 9, "title": "Podróż życia sióstr Shergill (Jaswal)", "orientation": "horizontal", "surface": "stack", "bbox": [0.452, 0.360, 0.995, 0.430] },
-    { "position": 10, "title": "Pikantne historie dla pendżabskich wdów (Jaswal)", "orientation": "horizontal", "surface": "stack", "bbox": [0.452, 0.435, 0.995, 0.505] },
-    { "position": 11, "title": "Talon (Kagawa)", "orientation": "horizontal", "surface": "stack", "bbox": [0.452, 0.545, 0.995, 0.660] },
-    { "position": 12, "title": "Pieczęć ognia / Cass Schwarz", "orientation": "horizontal", "surface": "stack", "bbox": [0.452, 0.690, 0.995, 0.895] }
+    { "position": 1, "title": "Porachunki bezimiennej pisarki (Alice Basso)", "orientation": "horizontal", "surface": "none", "bbox": [0.126, 0.243, 0.912, 0.285] },
+    { "position": 2, "title": "Raz wiedźmie śmierć (Adam Fader)", "orientation": "horizontal", "surface": "none", "bbox": [0.076, 0.281, 0.917, 0.343] },
+    { "position": 3, "title": "Wilk z lasu (Adam Fader)", "orientation": "horizontal", "surface": "none", "bbox": [0.084, 0.347, 0.914, 0.400] },
+    { "position": 4, "title": "W przeklętą godzinę (Adam Fader)", "orientation": "horizontal", "surface": "none", "bbox": [0.079, 0.399, 0.915, 0.452] },
+    { "position": 5, "title": "Pieczęć ognia / Cass Schwarz", "orientation": "vertical", "surface": "stack", "bbox": [0.000, 0.537, 0.129, 0.820] },
+    { "position": 6, "title": "nieznany (lewy stos)", "orientation": "vertical", "surface": "stack", "bbox": [0.120, 0.454, 0.243, 0.822] },
+    { "position": 7, "title": "nieznany", "orientation": "vertical", "surface": "stack", "bbox": [0.254, 0.456, 0.371, 0.813] },
+    { "position": 8, "title": "Talon (Julie Kagawa)", "orientation": "vertical", "surface": "stack", "bbox": [0.368, 0.457, 0.486, 0.814] },
+    { "position": 9, "title": "Pikantne historie dla pendżabskich wdów (Jaswal)", "orientation": "vertical", "surface": "stack", "bbox": [0.488, 0.470, 0.581, 0.817] },
+    { "position": 10, "title": "Podróż życia sióstr Shergill (Jaswal)", "orientation": "vertical", "surface": "stack", "bbox": [0.584, 0.454, 0.721, 0.817] },
+    { "position": 11, "title": "Ruchomy zamek Hauru (Jones)", "orientation": "vertical", "surface": "stack", "bbox": [0.716, 0.468, 0.824, 0.821] },
+    { "position": 12, "title": "Osobliwy dom Pani Peregrine (Riggs)", "orientation": "vertical", "surface": "stack", "bbox": [0.822, 0.457, 0.943, 0.819] }
   ]
 }

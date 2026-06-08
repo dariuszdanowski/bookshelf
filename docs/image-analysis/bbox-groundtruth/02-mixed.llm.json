@@ -1,0 +1,19 @@
+{
+  "photo_id": "02-mixed",
+  "annotator": "claude-llm-via-read (CONTAMINATED — GT seen earlier)",
+  "note": "Detekcja LLM via Read na 02-mixed-display.jpg (display orientation = to co dostaje model). UWAGA: widziałem już GT tego zdjęcia → wynik traktować jako sanity-check / górną granicę, nie jako ślepy test. 4 poziome (góra) + 8 pionowych (dół, na desce).",
+  "detections": [
+    { "position": 1, "title": "Porachunki bezimiennej pisarki", "author": "Alice Basso", "orientation": "horizontal", "bbox": [0.100, 0.245, 0.912, 0.288] },
+    { "position": 2, "title": "Raz wiedźmie śmierć", "author": "Adam Fader", "orientation": "horizontal", "bbox": [0.075, 0.285, 0.916, 0.345] },
+    { "position": 3, "title": "Wilk z lasu", "author": "Adam Fader", "orientation": "horizontal", "bbox": [0.080, 0.347, 0.915, 0.400] },
+    { "position": 4, "title": "W przeklętą godzinę", "author": "Adam Fader", "orientation": "horizontal", "bbox": [0.078, 0.400, 0.915, 0.453] },
+    { "position": 5, "title": "Pieczęć ognia", "author": "Gęsa Schwartz", "orientation": "vertical", "bbox": [0.000, 0.540, 0.128, 0.818] },
+    { "position": 6, "title": "Talon", "author": "Julie Kagawa", "orientation": "vertical", "bbox": [0.128, 0.456, 0.244, 0.820] },
+    { "position": 7, "title": "Pikantne historie dla pendżabskich wdów", "author": "Balli Kaur Jaswal", "orientation": "vertical", "bbox": [0.250, 0.457, 0.371, 0.815] },
+    { "position": 8, "title": "Podróż życia sióstr Shergill", "author": "Balli Kaur Jaswal", "orientation": "vertical", "bbox": [0.371, 0.456, 0.487, 0.816] },
+    { "position": 9, "title": "Ruchomy zamek Hauru", "author": "Diana Wynne Jones", "orientation": "vertical", "bbox": [0.487, 0.468, 0.582, 0.818] },
+    { "position": 10, "title": "Lotnik", "author": "Eoin Colfer", "orientation": "vertical", "bbox": [0.582, 0.455, 0.720, 0.818] },
+    { "position": 11, "title": "Przewoźnik", "author": "Claire McFall", "orientation": "vertical", "bbox": [0.716, 0.467, 0.824, 0.820] },
+    { "position": 12, "title": "Osobliwy dom Pani Peregrine", "author": "Ransom Riggs", "orientation": "vertical", "bbox": [0.822, 0.456, 0.944, 0.819] }
+  ]
+}
