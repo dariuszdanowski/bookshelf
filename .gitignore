@@ -176,5 +176,11 @@ tests/e2e/.auth/
 # Sesyjne zrzuty UX (artefakty robocze agenta, reprodukowalne przez E2E)
 tmp-ux-shots/
 
+# Zdjęcia referencyjne bbox (realne wnętrza usera — prywatność; NIE do public repo).
+# Commitujemy tylko współrzędne: ground-truth JSON + results.md. Obrazy zostają lokalnie.
+docs/image-analysis/bbox-groundtruth/*.jpg
+docs/image-analysis/bbox-groundtruth/*.jpeg
+docs/image-analysis/bbox-groundtruth/*.png
+
 # Stryker mutation testing - raporty + incremental cache (lokalne artefakty)
 reports/
