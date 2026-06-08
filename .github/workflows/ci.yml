@@ -3,8 +3,16 @@ name: CI
 on:
   pull_request:
     branches: [main]
-  push:
-    branches: [main]
+    # Pomijaj zmiany wyłącznie dokumentacyjne/konfiguracyjne — nie dotykają
+    # lint/typecheck/unit/build. Oszczędność minut na commitach docs/prompts/skille.
+    paths-ignore:
+      - '**/*.md'
+      - '.claude/**'
+      - 'context/**'
+      - 'docs/**'
+  # Trigger `push: [main]` USUNIĘTY (oszczędność minut): post-merge walidację robi
+  # deploy.yml (build + post-deploy smoke), a verify przeszedł już na PR przed merge.
+  # Eliminuje redundantny drugi run verify na każdą zmianę.
 
 # Oszczędność minut Actions: anuluj poprzedni, niezakończony run dla tego samego
 # ref'a, gdy przyjdzie nowy push (np. szybkie poprawki na PR).
