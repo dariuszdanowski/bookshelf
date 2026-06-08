@@ -181,6 +181,8 @@ tmp-ux-shots/
 docs/image-analysis/bbox-groundtruth/*.jpg
 docs/image-analysis/bbox-groundtruth/*.jpeg
 docs/image-analysis/bbox-groundtruth/*.png
+docs/image-analysis/bbox-groundtruth/*-model-*.json
+docs/image-analysis/bbox-groundtruth/_*.jpg
 
 # Stryker mutation testing - raporty + incremental cache (lokalne artefakty)
 reports/

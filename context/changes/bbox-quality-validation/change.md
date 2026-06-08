@@ -1,7 +1,7 @@
 ---
 change_id: bbox-quality-validation
 title: "S-40: Jakość bboxów z vision — walidacja, prompt, bezpieczny post-processing"
-status: plan_reviewed
+status: implementing
 created: 2026-06-07
 updated: 2026-06-08
 archived_at: null
@@ -80,3 +80,30 @@ Ustalenia:
 Bboxy ciasno obrysowujące widoczne książki na każdym typie zdjęcia (półka / stos / nie-półka),
 zmierzone IoU przed/po na 3-zdjęciowym korpusie; najlepszy prompt wdrożony (v7) lub jawny raport,
 że bias wymaga post-processingu/zmiany modelu. Plan: [plan.md](plan.md).
+
+## Ustalenia empiryczne (Faza 1, 2026-06-08) — ROOT CAUSE ZIDENTYFIKOWANY
+
+Korpus: 3 zdjęcia prod (Storage `shelf-photos`, lokalne+gitignored): `01-shelf-vertical`
+(b79f3a02, EXIF=1, AR 2.165), `02-mixed` (5b18b976, EXIF=6 portret), `03-bed-nonshelf`
+(7cb7193d, EXIF=6 portret). Ground-truth anotowany przez agenta (Read) + overlay ffmpeg.
+
+**Co OBALONE (dowodami):**
+1. **Render CSS poprawny** — `PhotoDetectionOverlay.tsx`: kontener (`<div relative>` z `<img w-full h-auto>`) przylega do obrazu; bbox `left/width: %` mapuje WPROST na piksele. Brak letterbox/object-fit bugu. change.md „UI poprawne" potwierdzone.
+2. **EXIF nie jest bugiem** — model Anthropic HONORUJE EXIF (na 02/EXIF=6 ramki modelu pasują do portretowej orientacji wyświetlanej); przeglądarka też → zgadzają się → render OK. ⚠ **Gotcha narzędziowy: Read tool NIE stosuje EXIF tak jak przeglądarka** → moje GT dla 02/03 wyszło w złej orientacji (landscape RAW zamiast portret display). GT 02/03 do re-anotacji z wersji display.
+3. **„Bias y2=0.555"** z analizy zewn. — specyficzny dla gęstego `8c7f62df` (71 książek), NIE uniwersalny. Na czystej półce (01) model daje y2≈0.83 (deska), dobrze.
+
+**PRAWDZIWY BUG (zmierzony na 01, EXIF=1, GT poprawne):**
+- **Współrzędne X z modelu są zdeformowane afinicznie, zależnie od proporcji obrazu.**
+  Na szerokim zdjęciu (AR 2.165): `model_x ≈ 1.31·gt_x − 0.056` — **stretch ~1.3×** wokół
+  pivota ≈0.17; prawe książki za daleko w prawo (Arcymag: GT xc 0.542 → model 0.655, +0.113).
+- **Test reprezentacji** (po x-center, GT 0.135–0.542):
+  - `%` (v6): 0.110–0.655 (stretch w prawo) ❌
+  - piksele + wymiary: 0.051–0.242 (ściśnięte w lewo — Anthropic resize do ~1568px, model gubi skalę 4000px) ❌❌
+  - square-pad (4000²): 0.155–0.590 (stretch ~halved, skrajny błąd +0.113→+0.048) ✅ X-lepiej, ale **psuje Y** (y2 wychodzi w pad, klastruje).
+- Wniosek: **% to właściwa reprezentacja**; deformacja jest w PERCEPCJI modelu (zależna od AR), nie w jednostkach ani renderze.
+
+**Kierunek (decyzja usera: A — zmierzona korekta affine):**
+Scharakteryzować deformację X (afiniczną, AR-zależną) na korpusie i odjąć w post-processingu
+(walidowane benchmarkiem, NIE ślepa heurystyka). **Blocker danych**: 1 czysty punkt AR (01);
+dla generalizacji potrzeba ≥2 AR → re-anotować 02/03 w orientacji display (ffmpeg-rotate→Read).
+Skrypty robocze: pobranie zdjęć + overlay + warianty (w `lekcje/_scraper/`, poza repo).

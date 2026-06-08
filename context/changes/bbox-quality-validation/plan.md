@@ -172,7 +172,7 @@ Koszt = realne wywołania vision (BYOK): 3 zdjęcia × (1 baseline + 3 warianty)
 
 #### Automated
 - [ ] 1.1 Benchmark v6 drukuje baseline per-typ na 3 zdjęciach
-- [ ] 1.2 3 pliki ground-truth JSON (z `surface`) istnieją i parsują się
+- [x] 1.2 3 pliki ground-truth JSON (z `surface`) istnieją i parsują się
 - [ ] 1.3 `npm run lint` przechodzi na `bbox-iou-benchmark.mjs`
 
 #### Manual

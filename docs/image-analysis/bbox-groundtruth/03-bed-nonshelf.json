@@ -1,0 +1,16 @@
+{
+  "photo_id": "7cb7193d-2edc-4d54-9a99-c94b278588b3",
+  "type": "none",
+  "note": "NON-SHELF (książki na brązowej kanapie/łóżku), zdjęcie OBLIQUE + bałagan. Anotacja CELOWO zgrubna (±~0.04-0.06, książki przechylone — bbox axis-aligned obejmuje przechył). Główna wartość tego zdjęcia: sprawdzić, czy model NIE halucynuje linii 'deski' na miękkim podłożu i bounduje widoczne książki. Lewy bałagan (przekąska, papiery, drobne) WYKLUCZONY; anotowany główny wachlarz grzbietów. IoU na tym zdjęciu traktować jako orientacyjne, nie precyzyjne.",
+  "image_aspect_ratio": 2.146,
+  "detections": [
+    { "position": 1, "title": "Zielona książka (lewa)", "orientation": "vertical", "surface": "none", "bbox": [0.150, 0.040, 0.265, 0.480] },
+    { "position": 2, "title": "Pożeracze książek (okładka face-on)", "orientation": "vertical", "surface": "none", "bbox": [0.270, 0.040, 0.430, 0.870] },
+    { "position": 3, "title": "Pożeracze książek (grzbiet, Bekman)", "orientation": "vertical", "surface": "none", "bbox": [0.405, 0.100, 0.452, 0.810] },
+    { "position": 4, "title": "Ciemny grzbiet (Shadowóra/Hideyo)", "orientation": "vertical", "surface": "none", "bbox": [0.452, 0.120, 0.495, 0.825] },
+    { "position": 5, "title": "Necrovet (Gajzler)", "orientation": "vertical", "surface": "none", "bbox": [0.495, 0.140, 0.538, 0.840] },
+    { "position": 6, "title": "T. Kingfisher", "orientation": "vertical", "surface": "none", "bbox": [0.538, 0.120, 0.578, 0.845] },
+    { "position": 7, "title": "Sny o Domionu / Szalej i Srebro (Kubasiewicz)", "orientation": "vertical", "surface": "none", "bbox": [0.578, 0.135, 0.628, 0.860] },
+    { "position": 8, "title": "Alter Ego (Wójtowicz)", "orientation": "vertical", "surface": "none", "bbox": [0.628, 0.105, 0.680, 0.865] }
+  ]
+}
