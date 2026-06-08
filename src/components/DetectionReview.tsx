@@ -2253,7 +2253,7 @@ export default function DetectionReview({
     );
   }
 
-  if (detections.length === 0) {
+  if (detections.length === 0 && !isBboxEditing) {
     const status = photo?.status;
     const notYetProcessed = status === 'uploaded' || status === 'processing';
     const processFailed = status === 'failed';
@@ -2277,8 +2277,8 @@ export default function DetectionReview({
         <div className="rounded-xl border border-dashed border-gray-300 px-6 py-8 text-center">
           <p className="text-gray-500">Brak detekcji dla tego zdjęcia.</p>
           <p className="mt-1 text-sm text-gray-400">{subMsg}</p>
-          <div className="mt-4">
-            {actionMsg && <p className="mb-3 text-sm text-red-600">{actionMsg}</p>}
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+            {actionMsg && <p className="mb-3 w-full text-sm text-red-600">{actionMsg}</p>}
             <button
               data-testid="process-now-button"
               onClick={() => void runRerunVision()}
@@ -2286,6 +2286,14 @@ export default function DetectionReview({
               className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             >
               {actionBusy ? 'Przetwarzanie...' : btnLabel}
+            </button>
+            <button
+              data-testid="manual-bbox-button"
+              onClick={() => setIsBboxEditing(true)}
+              disabled={actionBusy || !photoUrl}
+              className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              Dodaj ramki ręcznie
             </button>
           </div>
         </div>
@@ -2299,7 +2307,7 @@ export default function DetectionReview({
   return (
     <div data-testid="detection-review">
       {/* Zdjęcie z ramkami detekcji — 'Pokaż wszystkie' jest w toolbarze overlay */}
-      {detections.length > 0 && (
+      {(detections.length > 0 || isBboxEditing) && (
         <PhotoDetectionOverlay
           photoUrl={photoUrl}
           detections={detections}
