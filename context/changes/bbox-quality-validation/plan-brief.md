@@ -1,58 +1,60 @@
 # S-40: Jakość bboxów z vision — Plan Brief
 
 > Full plan: `context/changes/bbox-quality-validation/plan.md`
-> Identity + analiza: `context/changes/bbox-quality-validation/change.md`
+> Identity + analiza + reframe: `context/changes/bbox-quality-validation/change.md`
 
 ## What & Why
 
-Vision-model **systematycznie klastruje współrzędne bbox** (prod: 51/71 detekcji `y2=0.5550`, 18× `y1=0.30`) → ramki grzbietów ucięte ~13%, nie sięgają deski. Prompt v6 już instruuje poprawnie, a model ignoruje → to bias, nie brak instrukcji. Mierzymy go (IoU vs ground-truth), iterujemy prompt mocniejszą dźwignią i kończymy wdrożeniem najlepszego promptu + raportem czy potrzebny dalszy krok. Bezpośredni cel: scena-hero demo (bboxy na zdjęciu) ma wyglądać przekonująco.
+Vision-model **klastruje współrzędne bbox** (prod: 51/71 detekcji `y2=0.5550`) → ramki nie obrysowują pojedynczych książek. **Reframe (user):** instrukcja v6 „y2 = deska półki" to błędne uogólnienie — działa tylko dla pionowych na półce, **łamie się na zdjęciach nie-półkowych** (koc / stos na blacie — Flow B „dodaj zakup", przypadek pełnoprawny) i jest **głównym podejrzanym o samo klastrowanie** (model kotwiczy wszystkie y2 do jednej domniemanej linii). Cel: bboxy ciasno obrysowujące widoczne książki na każdym typie zdjęcia — pod scenę-hero demo.
 
 ## Starting Point
 
-`src/lib/vision/prompt.ts` v6 ma instrukcję „y2 = deska półki" — zignorowaną przez model. UI overlay jest poprawny (zweryfikowany, E2E S-18/S-37). Istnieje infra benchmarku (`scripts/bbox-prompt-benchmark.mjs`, woła realny vision z `.dev.vars`), ale bez IoU.
+`src/lib/vision/prompt.ts` v6 zakotwiczony w „desce". UI overlay poprawny (E2E S-18/S-37). Jest infra benchmarku (`scripts/bbox-prompt-benchmark.mjs`, realny vision z `.dev.vars`) bez IoU.
 
 ## Desired End State
 
-Zmierzony baseline + warianty promptu; najlepszy wdrożony jako `PROMPT_VERSION='v7'` (jeśli bije baseline bez regresji detekcji); jawny raport decyzyjny: prompt wystarczył / potrzebny post-processing / model. Na zdjęciu demo overlay sięga deski bez klastrowania.
+Baseline + warianty zmierzone IoU na **3 zdjęciach różnego rodzaju**; najlepszy wdrożony jako `PROMPT_VERSION='v7'` (jeśli bije baseline bez regresji na żadnym typie); raport decyzyjny (prompt wystarczył / post-proc / model + czy kotwica „deska" była przyczyną). Overlay ciasny na półce I poza nią.
 
 ## Key Decisions Made
 
 | Decyzja | Wybór | Czemu | Źródło |
 | --- | --- | --- | --- |
-| Ground-truth | Agent anotuje przez Read tool | zero kosztu/toilu, zgodne z regułą „obrazy przez Read"; deliberate > single-shot | Plan |
-| DoD | Best prompt + decision point | praktyczne pod demo; pełny post-proc dopiero jeśli raport uzasadni | Plan |
-| Metryka | IoU per detekcja + % klastrowania + recall | kwantyfikuje bias, chroni przed regresją wykrywania | Plan |
-| Dźwignia | few-shot ze współrzędnymi + anti-anchoring | v6 ma instrukcję, model ignoruje → trzeba mocniej | Change |
-| Post-processing | poza zakresem (tylko rekomendacja) | surowe heurystyki odrzucone bez dowodu | Change |
+| Niezmiennik bbox | ciasny obrys widocznego obiektu, surface-agnostic, per-book | „deska" błędna i podejrzana o klastrowanie | User |
+| Zakres non-shelf | pełnoprawny (koc/stos/blat) | Flow B fotografuje blat, nie półkę | User |
+| Korpus referencyjny | 3 zdjęcia różnego rodzaju (user dostarcza) | pokrycie półka / stos / nie-półka | User |
+| Ground-truth | agent anotuje przez Read | zero kosztu/toilu; deliberate > single-shot | Plan |
+| DoD | best prompt + decision point | praktyczne pod demo | Plan |
+| Dźwignia | usuń „deska" + tight-bound + anti-anchoring | testuje hipotezę, że kotwica = przyczyna | Plan |
 
 ## Scope
 
-**In scope:** harness IoU, ground-truth 2 zdjęć, 2–3 warianty promptu, pomiar, wdrożenie zwycięzcy, raport decyzyjny.
-**Out of scope:** implementacja post-processingu, S-21 re-OCR, zmiana palety/overlay/refine-promptu, detektor YOLO.
+**In scope:** harness IoU, ground-truth 3 typów, warianty promptu surface-agnostic, pomiar per-typ, wdrożenie zwycięzcy, raport.
+**Out of scope:** implementacja post-processingu, S-21, zmiana palety/overlay/refine, YOLO.
 
 ## Architecture / Approach
 
-Validation-first: narzędzie pomiaru (IoU) → iteracja promptu mierzona tym narzędziem → wdrożenie zwycięzcy + decyzja. Benchmark woła realny vision (BYOK), porównuje detekcje do ręcznie-anotowanego ground-truth. Zmiana produkcyjna = wyłącznie treść `VISION_SYSTEM_PROMPT` + bump wersji.
+Validation-first na zróżnicowanym korpusie: pomiar (IoU) → iteracja promptu wokół poprawnego niezmiennika → wdrożenie + decyzja. Zmiana prod = wyłącznie treść `VISION_SYSTEM_PROMPT` + bump wersji.
 
 ## Phases at a Glance
 
 | Faza | Dostarcza | Kluczowe ryzyko |
 | --- | --- | --- |
-| 1. Ground-truth + harness IoU | baseline v6 zmierzony liczbowo | jakość ręcznej anotacji agenta |
-| 2. Warianty promptu + pomiar | zwycięzca lub „nic nie pomaga" | model może ignorować KAŻDY prompt (bias twardy) |
-| 3. Wdrożenie + raport | v7 (warunkowo) + decyzja go/no-go | regresja recall detekcji przy zmianie promptu |
+| 1. Ground-truth (3 typy) + harness IoU | baseline per-typ zmierzony | jakość ręcznej anotacji agenta |
+| 2. Warianty promptu (surface-agnostic) | zwycięzca lub „nic nie pomaga" | bias może być nieusuwalny promptem |
+| 3. Wdrożenie + raport | v7 (warunkowo) + decyzja | regresja recall lub poprawa na półce kosztem nie-półki |
 
-**Prerequisites:** dostęp do 2 zdjęć prod (Storage, service-role z `.dev.vars`), `ANTHROPIC_API_KEY` (BYOK, koszt zaakceptowany).
-**Estimated effort:** ~1–2 sesje (3 fazy; gros to benchmark + anotacja, niski wolumen kodu).
+**Prerequisites:** **user dostarcza 3 zdjęcia różnego rodzaju**; `ANTHROPIC_API_KEY` (BYOK, koszt zaakceptowany).
+**Estimated effort:** ~1–2 sesje (gros to benchmark + anotacja 3 zdjęć).
 
 ## Open Risks & Assumptions
 
-- **Bias może być nieusuwalny promptem** — wtedy Faza 3 = raport rekomendujący post-processing/model (DoD nadal spełnione: osiągnięto decision point).
-- Ground-truth z rodziny tego samego modelu (agent) — odnotowane jako ograniczenie; deliberate annotation łagodzi.
-- Benchmark to manual/BYOK, NIE w CI (koszt + niedeterminizm — koszt-guardrail).
+- Bias może być nieusuwalny promptem → Faza 3 = raport rekomendujący post-proc/model (DoD spełnione: decision point).
+- Poprawa na półce może pogorszyć nie-półkę (i odwrotnie) — dlatego metryki per-typ + guard regresji.
+- Ground-truth z rodziny tego modelu (agent) — ograniczenie odnotowane.
+- Benchmark manual/BYOK, NIE w CI.
 
 ## Success Criteria (Summary)
 
-- Baseline i warianty zmierzone IoU; zwycięzca wdrożony lub jawnie uzasadniony brak.
-- Na realnym zdjęciu overlay sięga deski bez klastrowania (bramka demo).
-- Raport jednoznaczny co do następnego kroku (post-proc / S-21 / koniec).
+- Baseline i warianty zmierzone IoU per-typ; zwycięzca wdrożony lub jawnie uzasadniony brak.
+- Overlay ciasny na półce I nie-półkowym (bramka demo).
+- Raport: kotwica „deska" — przyczyna czy nie; następny krok jednoznaczny.

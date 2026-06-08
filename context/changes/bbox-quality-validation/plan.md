@@ -2,187 +2,188 @@
 
 ## Overview
 
-Vision-model systematycznie **klastruje współrzędne bbox** (potwierdzone na prod: 51/71 detekcji `y2=0.5550`, 18× `y1=0.30`), przez co ramki grzbietów są ucięte ~13% i nie sięgają deski półki. Prompt `v6` JUŻ instruuje poprawnie (`y2 = DÓŁ grzbietu = deska półki [typowo 0.75–0.88]`), a model i tak ignoruje — więc to systematyczny bias, nie brak instrukcji. Ten slice **mierzy** problem (IoU vs ground-truth), **iteruje prompt** mocniejszą dźwignią (few-shot ze współrzędnymi + anti-anchoring) i kończy **wdrożeniem najlepszego promptu + raportem decyzyjnym** czy potrzebny jest post-processing / zmiana modelu / S-21.
+Vision-model systematycznie **klastruje współrzędne bbox** (prod: 51/71 detekcji `y2=0.5550`, 18× `y1=0.30`) → ramki nie obrysowują pojedynczych książek. **Reframe (uwaga usera 2026-06-08):** instrukcja promptu v6 „`y2 = DÓŁ grzbietu = deska półki`" jest **błędnym uogólnieniem** — działa tylko dla książek stojących pionowo na półce, a zdjęcia bywają **nie-półkowe** (książki na kocu, stos na blacie — to wprost Flow B „dodaj zakup", przypadek pełnoprawny). Co więcej, kotwica „deska" jest **głównym podejrzanym o samo klastrowanie** (model przykleja `y2` wszystkich książek do jednej domniemanej linii półki).
+
+Właściwy niezmiennik bbox: **ciasny obrys WIDOCZNEGO obiektu książki, niezależnie od podłoża; każda książka ma WŁASNE, niezależne współrzędne.** Slice mierzy problem (IoU vs ground-truth) na 3 zdjęciach różnego rodzaju, iteruje prompt (usunięcie kotwicy „deska" + tight-bound + anti-anchoring) i kończy wdrożeniem najlepszego promptu + raportem decyzyjnym.
 
 ## Current State Analysis
 
-- **Prompt**: `src/lib/vision/prompt.ts` `VISION_SYSTEM_PROMPT` (`PROMPT_VERSION='v6'`) — ma już instrukcję bbox z przykładami per-orientacja i jawnym „y2 = deska, NIE dół tekstu". Bias przetrwał tę instrukcję.
-- **UI overlay**: poprawne (zweryfikowane w change.md; overlay liczy % od pełnego obrazu; pokryte E2E S-18/S-37). **Nie ruszamy.**
-- **Prior art benchmarku**: `scripts/bbox-prompt-benchmark.mjs` woła realny Anthropic API (ładuje `ANTHROPIC_API_KEY` z `.dev.vars`), porównuje warianty promptu — ale liczy jakość detekcji, **nie IoU bboxów**. `bbox-deep-analysis.mjs`, `bbox-horizontal-experiments.mjs`, `docs/image-analysis/` — dodatkowa infra/wyniki.
-- **Dane referencyjne**: 2 zdjęcia prod z change.md — A (skośna perspektywa, bias `y1` +0.05–0.07) i B (`8c7f62df-adca-40a0-a98c-8dfd55575820`, AR=2.165, 37 książek, bias `y2` ucięty).
+- **Prompt**: `src/lib/vision/prompt.ts` `VISION_SYSTEM_PROMPT` (`PROMPT_VERSION='v6'`) — instrukcja bbox zakotwiczona w „desce półki" (`prompt.ts:54`), z przykładami per-orientacja. Bias przetrwał tę instrukcję; kotwica jest podejrzana o jego współ-przyczynę i wprost zawodzi na zdjęciach bez półki.
+- **UI overlay**: poprawne (zweryfikowane w change.md; overlay liczy % od pełnego obrazu; E2E S-18/S-37). **Nie ruszamy.**
+- **Prior art benchmarku**: `scripts/bbox-prompt-benchmark.mjs` woła realny Anthropic API (klucz z `.dev.vars`), porównuje warianty promptu — bez IoU. Rozszerzyć.
+- **Typy zdjęć w grze**: (i) pionowa półka (klasyka), (ii) stos poziomy / mieszany, (iii) **nie-półkowe** (koc / blat — Flow B). Wszystkie pełnoprawne.
 
 ## Desired End State
 
-Zmierzony baseline IoU + klastrowanie dla v6 na obu zdjęciach; przetestowane 2–3 warianty promptu; **najlepszy wariant wdrożony** (jeśli bije baseline bez regresji detekcji) jako `PROMPT_VERSION='v7'`; **raport decyzyjny** stwierdzający czy prompt rozwiązał bias, czy potrzebny jest następny krok (post-processing / thinking budget / model / S-21). Weryfikowalne: benchmark drukuje metryki przed/po; na zdjęciu demo overlay sięga deski bez klastrowania.
+Zmierzony baseline IoU + klastrowanie dla v6 na **3 zdjęciach różnego rodzaju**; przetestowane 2–3 warianty promptu (w tym wariant bez kotwicy „deska"); **najlepszy wariant wdrożony** jako `PROMPT_VERSION='v7'` (jeśli bije baseline bez regresji detekcji, na WSZYSTKICH typach); **raport decyzyjny** (prompt wystarczył / potrzebny post-processing / model). Weryfikowalne: benchmark drukuje metryki per-typ przed/po; na zdjęciu demo (półka) ORAZ na nie-półkowym overlay ciasno obrysowuje książki, bez klastrowania i bez halucynowania „deski".
 
 ### Key Discoveries
 
-- `src/lib/vision/prompt.ts:54` — instrukcja „y2 = deska" już istnieje → prompt-only fix NIEPEWNY, benchmark musi rozstrzygnąć (nie zakładać sukcesu).
-- `scripts/bbox-prompt-benchmark.mjs:17` — wzorzec ładowania klucza z `.dev.vars` + woła realny vision; rozszerzyć o IoU.
-- change.md → „Weryfikacja zasadności" — surowe heurystyki (clamp ±0.06, detekcja deski po kolorze) **odrzucone bez benchmarku**; post-processing tylko udowodniony.
+- `src/lib/vision/prompt.ts:54` — kotwica „y2 = deska" jest (a) shelf-only → łamie się na kocu/stosie, (b) **podejrzana o klastrowanie** `y2`. Reframe = usunąć kotwicę, dać per-book tight-bound.
+- v6 już miał poprawną-dla-półki instrukcję, a model ignorował → prompt-only fix NIEPEWNY; benchmark rozstrzyga (nie zakładać sukcesu).
+- change.md → surowe heurystyki post-proc (clamp, detekcja deski po kolorze) **odrzucone bez benchmarku** — a „detekcja deski" tym bardziej, bo deski może nie być.
 
 ## What We're NOT Doing
 
-- **Implementacja post-processingu** (clampy per-orientacja, detekcja deski po kolorze) — tylko REKOMENDACJA w raporcie, jeśli benchmark uzasadni; właściwa implementacja to osobny slice.
-- **S-21 (re-OCR cropów)** — decyzja po wynikach, poza tym slice'em.
-- **Zmiana palety `SPINE_COLORS`** (load-bearing, S-08) i **zmiana overlay UI** (jest poprawny).
-- Detektor YOLO/GPU (serverless stack go nie uniesie).
-- Zmiana `REFINE_VISION_SYSTEM_PROMPT` (osobna ścieżka).
+- **Implementacja post-processingu** — tylko rekomendacja w raporcie, jeśli benchmark uzasadni; właściwa implementacja = osobny slice.
+- **S-21 (re-OCR cropów)** — decyzja po wynikach.
+- **Zmiana palety `SPINE_COLORS`** (load-bearing, S-08) i **zmiana overlay UI** (poprawny).
+- Detektor YOLO/GPU; zmiana `REFINE_VISION_SYSTEM_PROMPT`.
 
 ## Implementation Approach
 
-Validation-first: najpierw narzędzie do pomiaru (IoU vs ground-truth anotowany przez agenta), potem iteracja promptu mierzona tym narzędziem, na końcu wdrożenie zwycięzcy + jawna decyzja o dalszych krokach. Koszt: garść realnych wywołań vision (BYOK, zaakceptowane).
+Validation-first na zróżnicowanym korpusie: narzędzie pomiaru (IoU vs ground-truth) → iteracja promptu wokół poprawnego niezmiennika (tight-bound, surface-agnostic, per-book) → wdrożenie zwycięzcy + decyzja. Koszt: garść realnych wywołań vision (BYOK, zaakceptowane).
 
 ## Critical Implementation Details
 
-- **Ground-truth anotuje agent przez Read tool** (zgodnie z regułą projektu „czytaj obrazy przez Read, nie API") — deliberate, pełna uwaga na całym zdjęciu, nie single-shot. Znana słabość: referencja z tej samej rodziny modeli — odnotować w raporcie; mimo to deliberate annotation > produkcyjny single-shot jako baseline.
-- **Anti-anchoring** to sedno wariantu: model powiela `y2=0.555` dla różnych książek → prompt musi jawnie zakazać reużywania tej samej wartości („każda książka ma WŁASNĄ dolną krawędź przy desce; nie powielaj współrzędnych między pozycjami").
-- Benchmark MUSI też raportować **recall detekcji** (liczba dopasowanych książek), żeby wariant poprawiający bbox nie pogorszył wykrywania tytułów (regresja).
+- **Ground-truth anotuje agent przez Read tool** (reguła „obrazy przez Read, nie API") — deliberate, pełna uwaga; znana słabość (rodzina modelu) odnotowana w raporcie.
+- **Sedno reframe'u promptu**: usunąć „deska półki"; zastąpić niezmiennikiem „obrysuj DOLNĄ WIDOCZNĄ krawędź TEGO grzbietu/książki; nie zakładaj żadnej wspólnej linii podłoża; KAŻDA książka ma własne y2 — nie powielaj wartości między pozycjami" (anti-anchoring). Surface-agnostic: półka, koc, blat tak samo.
+- Benchmark raportuje **recall detekcji** per-typ, żeby wariant poprawiający bbox nie pogorszył wykrywania tytułów (regresja), szczególnie na nie-półkowych.
 
-## Phase 1: Ground-truth + harness IoU
+## Phase 1: Ground-truth (3 typy) + harness IoU
 
 ### Overview
-Pozyskać 2 zdjęcia referencyjne lokalnie, zaanotować docelowe bboxy (agent przez Read), rozszerzyć benchmark o IoU + metryki klastrowania. Zmierzyć baseline v6.
+Pozyskać 3 zdjęcia referencyjne różnego rodzaju (od usera), zaanotować docelowe bboxy (agent przez Read), rozszerzyć benchmark o IoU + metryki klastrowania per-typ. Zmierzyć baseline v6.
 
 ### Changes Required
 
-#### 1. Zdjęcia referencyjne
-**File**: `docs/image-analysis/bbox-groundtruth/` (2 obrazy + `provenance.md`)
-**Intent**: mieć dokładnie te piksele, których dotyczyła analiza prod.
-**Contract**: pobranie z prod Storage po `storage_path` (service-role z `.dev.vars`) lub reuse jeśli już w `docs/image-analysis/`; `provenance.md` z photo IDs, AR, storage_path.
+#### 1. Zdjęcia referencyjne (3 typy)
+**File**: `docs/image-analysis/bbox-groundtruth/` (3 obrazy + `provenance.md`)
+**Intent**: korpus pokrywający pionową półkę, stos poziomy i nie-półkowe (koc/blat).
+**Contract**: 3 zdjęcia dostarczone przez usera (różnego rodzaju); `provenance.md` z opisem typu każdego (półka / stos / koc-blat), wymiarami, AR. **Prerequisite: user dostarcza 3 zdjęcia.**
 
 #### 2. Anotacja ground-truth (agent via Read)
-**File**: `docs/image-analysis/bbox-groundtruth/<photoA>.json`, `<photoB>.json`
-**Intent**: referencyjne docelowe bboxy do scoringu IoU.
-**Contract**: JSON array `[{position, orientation, bbox:[x1,y1,x2,y2]}]` (0..1), pozycje skorelowane z detekcjami prod gdzie możliwe.
+**File**: `docs/image-analysis/bbox-groundtruth/<photo>.json` ×3
+**Intent**: referencyjne ciasne bboxy widocznych książek do scoringu IoU.
+**Contract**: JSON array `[{position, orientation, surface:"shelf|stack|none", bbox:[x1,y1,x2,y2]}]` (0..1), obrys widocznego obiektu — bez założenia podłoża.
 
 #### 3. Harness IoU
 **File**: `scripts/bbox-iou-benchmark.mjs`
-**Intent**: zmierzyć jakość bbox wariantu promptu vs ground-truth.
-**Contract**: CLI `node scripts/bbox-iou-benchmark.mjs --prompt <v6|plik-wariantu> --photo <A|B|both>` → woła realny vision, dopasowuje detekcje do GT (greedy IoU / pozycja), liczy mean IoU, % identycznych `y2`/`y1` (klastrowanie), liczbę off-frame (`x2≥0.999`), recall detekcji; zapis metryk do `docs/image-analysis/bbox-groundtruth/results.md`.
+**Intent**: zmierzyć jakość bbox wariantu promptu vs ground-truth, per-typ zdjęcia.
+**Contract**: CLI `node scripts/bbox-iou-benchmark.mjs --prompt <v6|plik> --photo <id|all>` → woła realny vision, dopasowuje detekcje do GT (greedy IoU / pozycja), liczy mean IoU, % identycznych `y2`/`y1` (klastrowanie), off-frame, recall detekcji; **wyniki rozbite per-typ** (shelf/stack/none); zapis do `docs/image-analysis/bbox-groundtruth/results.md`.
 
 ### Success Criteria
 
 #### Automated Verification:
-- `node scripts/bbox-iou-benchmark.mjs --prompt v6 --photo both` przechodzi i drukuje baseline (mean IoU, % y2-klastra, recall).
-- Pliki ground-truth JSON istnieją i parsują się (poprawny schemat).
+- `node scripts/bbox-iou-benchmark.mjs --prompt v6 --photo all` przechodzi i drukuje baseline per-typ.
+- 3 pliki ground-truth JSON istnieją i parsują się (poprawny schemat z `surface`).
 - `npm run lint` przechodzi na nowym skrypcie.
 
 #### Manual Verification:
-- Ground-truth agenta wygląda sensownie na zdjęciu (user rzut oka — ramki obejmują właściwe grzbiety).
-- Baseline potwierdza klastrowanie liczbowo (zgodne z analizą prod: wysoki % identycznego y2).
+- Ground-truth agenta sensowne na każdym z 3 zdjęć (user rzut oka).
+- Baseline potwierdza klastrowanie na półce ORAZ pokazuje zachowanie na nie-półkowym (czy halucynuje „deskę").
 
 ---
 
-## Phase 2: Warianty promptu + pomiar
+## Phase 2: Warianty promptu (surface-agnostic) + pomiar
 
 ### Overview
-Napisać 2–3 warianty promptu celujące w bias, zmierzyć każdy benchmarkiem, wybrać zwycięzcę lub udowodnić, że żaden nie pomaga.
+Napisać 2–3 warianty wokół poprawnego niezmiennika, zmierzyć na 3 typach, wybrać zwycięzcę lub udowodnić brak poprawy.
 
 ### Changes Required
 
 #### 1. Warianty promptu
-**File**: `scripts/bbox-variants/v7a-fewshot.txt`, `v7b-antianchor.txt`, `v7c-combined.txt`
-**Intent**: przebić ignorowaną instrukcję v6.
-**Contract**: pełny system-prompt per plik; różnice: (a) few-shot z konkretnymi współrzędnymi per-orientacja, (b) jawny zakaz powielania wartości y między pozycjami (anti-anchoring), (c) kombinacja. Benchmark przyjmuje `--prompt <plik>`.
+**File**: `scripts/bbox-variants/v7a-no-shelf-anchor.txt`, `v7b-fewshot-surface-agnostic.txt`, `v7c-combined.txt`
+**Intent**: usunąć kotwicę „deska", wymusić per-book tight-bound niezależny od podłoża.
+**Contract**: pełny system-prompt per plik. (a) usuwa „deska", dodaje anti-anchoring + zakaz zakładania wspólnej linii; (b) few-shot z przykładami współrzędnych dla pionowej / poziomej / leżącej-na-podłożu; (c) kombinacja. Benchmark przyjmuje `--prompt <plik>`.
 
 #### 2. Przebieg porównawczy
 **File**: `docs/image-analysis/bbox-groundtruth/results.md`
-**Intent**: wybrać zwycięzcę lub stwierdzić brak poprawy.
-**Contract**: tabela metryk per wariant vs baseline (mean IoU, % klastra, recall detekcji); jawne „winner: <wariant>" lub „none beats baseline".
+**Intent**: wybrać zwycięzcę per-typ lub stwierdzić brak poprawy.
+**Contract**: tabela metryk per wariant × per-typ vs baseline (mean IoU, % klastra, recall); jawne „winner" lub „none beats baseline". Zwycięzca musi nie regresować na ŻADNYM typie.
 
 ### Success Criteria
 
 #### Automated Verification:
-- Benchmark zwraca metryki dla wszystkich wariantów na obu zdjęciach.
-- Recall detekcji żadnego wariantu nie spada poniżej baseline v6 (guard regresji wykrywania).
+- Benchmark zwraca metryki dla wszystkich wariantów na 3 zdjęciach.
+- Recall detekcji żadnego wariantu nie spada poniżej baseline v6 (per-typ).
 
 #### Manual Verification:
-- User akceptuje tabelę wyników i wskazanie zwycięzcy (lub zgodę, że żaden nie bije baseline → eskalacja w Fazie 3).
+- User akceptuje tabelę i wskazanie zwycięzcy (lub zgodę na „none beats baseline" → eskalacja w Fazie 3).
 
 ---
 
 ## Phase 3: Wdrożenie zwycięzcy + raport decyzyjny
 
 ### Overview
-Jeśli wariant wygrał — wdrożyć jako v7. Zawsze — napisać raport decyzyjny (czy bias rozwiązany, czy potrzebny dalszy krok). To jest DoD „decision point".
+Jeśli wariant wygrał — wdrożyć jako v7. Zawsze — raport decyzyjny (DoD „decision point").
 
 ### Changes Required
 
 #### 1. Wdrożenie zwycięskiego promptu (warunkowe)
 **File**: `src/lib/vision/prompt.ts`
-**Intent**: dostarczyć lepsze bboxy do prod.
-**Contract**: `VISION_SYSTEM_PROMPT` = treść zwycięzcy; `PROMPT_VERSION='v7'`. `SPINE_COLORS`, `REFINE_*` nietknięte. Jeśli żaden wariant nie wygrał — POMIŃ tę zmianę.
+**Intent**: lepsze, surface-agnostic bboxy do prod.
+**Contract**: `VISION_SYSTEM_PROMPT` = treść zwycięzcy; `PROMPT_VERSION='v7'`. `SPINE_COLORS`, `REFINE_*` nietknięte. Brak zwycięzcy → POMIŃ.
 
 #### 2. Raport decyzyjny
 **File**: `context/changes/bbox-quality-validation/change.md` (sekcja „Wyniki i decyzja")
-**Intent**: jawne go/no-go na post-processing / S-21 / zmianę modelu.
-**Contract**: liczby przed/po + rekomendacja: „prompt wystarczył" / „potrzebny post-processing (osobny slice)" / „potrzebny thinking budget / inny model".
+**Intent**: jawne go/no-go na post-processing / S-21 / model, z liczbami per-typ.
+**Contract**: metryki przed/po + rekomendacja + jawne stwierdzenie czy kotwica „deska" była przyczyną klastrowania.
 
-#### 3. Guard regresji wersji promptu
+#### 3. Guard regresji wersji
 **File**: testy (`tests/unit/**`)
 **Intent**: nie zepsuć testów pinujących `PROMPT_VERSION`.
-**Contract**: `grep -r PROMPT_VERSION tests/` — jeśli test pinuje wersję, zaktualizować do v7; inaczej brak zmian.
+**Contract**: `grep -r PROMPT_VERSION tests/` → zaktualizować do v7 jeśli pinowane.
 
 ### Success Criteria
 
 #### Automated Verification:
 - `npm run typecheck && npm run lint && npm run test && npm run build` zielone.
-- `grep -r "PROMPT_VERSION\|v6" tests/` — żaden test nie pada przez bump wersji.
+- `grep -r "PROMPT_VERSION" tests/` — żaden test nie pada przez bump.
 
 #### Manual Verification:
-- **Bramka demo**: user wgrywa zdjęcie półki → overlay bboxów wizualnie sięga deski, brak widocznego klastrowania (scena-hero akceptowalna).
-- Raport decyzyjny czytelny i jednoznaczny co do następnego kroku.
+- **Bramka demo (2 typy)**: user wgrywa zdjęcie półki ORAZ nie-półkowe → overlay ciasno obrysowuje książki, bez klastrowania, bez halucynacji „deski".
+- Raport decyzyjny jednoznaczny.
 
 ---
 
 ## Testing Strategy
 
 ### Unit Tests:
-- Brak nowej logiki produkcyjnej poza zmianą stałej promptu (string) — testy parsowania `DetectionSchema` pozostają aktualne. Jeśli istnieje test pinujący `PROMPT_VERSION`, zaktualizować.
+- Brak nowej logiki prod poza stałą promptu (string). Jeśli test pinuje `PROMPT_VERSION` — zaktualizować.
 
 ### Integration / Benchmark:
-- `scripts/bbox-iou-benchmark.mjs` to de facto test jakości (manualny, BYOK) — nie w CI (koszt + niedeterminizm vision; zgodnie z koszt-guardrail CLAUDE.md).
+- `scripts/bbox-iou-benchmark.mjs` = test jakości (manualny, BYOK) — nie w CI (koszt + niedeterminizm; koszt-guardrail CLAUDE.md).
 
 ### Manual Testing Steps:
-1. Odpal benchmark v6 → zapamiętaj baseline.
-2. Odpal benchmark dla wariantów → porównaj.
-3. Po wdrożeniu v7: wgraj realne zdjęcie na dev/prod → obejrzyj overlay (deska).
+1. Benchmark v6 na 3 typach → baseline.
+2. Benchmark wariantów → porównaj per-typ.
+3. Po v7: wgraj realne zdjęcie półki I nie-półkowe → overlay.
 
 ## Performance Considerations
 
-Koszt = realne wywołania vision (BYOK): 2 zdjęcia × (1 baseline + 3 warianty) ≈ 8 wywołań Sonnet per pełny przebieg. Akceptowane. Zero wpływu na runtime prod (zmiana to treść promptu).
+Koszt = realne wywołania vision (BYOK): 3 zdjęcia × (1 baseline + 3 warianty) ≈ 12 wywołań Sonnet per pełny przebieg. Akceptowane. Zero wpływu na runtime prod.
 
 ## References
 
-- Change identity + analiza: `context/changes/bbox-quality-validation/change.md`
-- Prompt: `src/lib/vision/prompt.ts:23` (v6, `PROMPT_VERSION`)
+- Change identity + analiza + reframe: `context/changes/bbox-quality-validation/change.md`
+- Prompt: `src/lib/vision/prompt.ts:23` (v6)
 - Prior benchmark: `scripts/bbox-prompt-benchmark.mjs`
-- Pokrewny slice (gated, decyzja po S-40): roadmap S-21 `vision-spine-crop-reocr`
+- Pokrewny slice (decyzja po S-40): roadmap S-21 `vision-spine-crop-reocr`
 
 ## Progress
 
 > Convention: `- [ ]` pending, `- [x]` done. Append ` — <commit sha>` when a step lands. Do not rename step titles.
 
-### Phase 1: Ground-truth + harness IoU
+### Phase 1: Ground-truth (3 typy) + harness IoU
 
 #### Automated
-- [ ] 1.1 Benchmark v6 drukuje baseline (mean IoU, % y2-klastra, recall) na obu zdjęciach
-- [ ] 1.2 Ground-truth JSON (A + B) istnieją i parsują się poprawnie
+- [ ] 1.1 Benchmark v6 drukuje baseline per-typ na 3 zdjęciach
+- [ ] 1.2 3 pliki ground-truth JSON (z `surface`) istnieją i parsują się
 - [ ] 1.3 `npm run lint` przechodzi na `bbox-iou-benchmark.mjs`
 
 #### Manual
-- [ ] 1.4 Ground-truth agenta zweryfikowany wzrokowo przez usera jako sensowny
-- [ ] 1.5 Baseline potwierdza klastrowanie liczbowo
+- [ ] 1.4 Ground-truth agenta zweryfikowany wzrokowo na każdym z 3 zdjęć
+- [ ] 1.5 Baseline pokazuje klastrowanie (półka) + zachowanie na nie-półkowym
 
-### Phase 2: Warianty promptu + pomiar
+### Phase 2: Warianty promptu (surface-agnostic) + pomiar
 
 #### Automated
-- [ ] 2.1 Benchmark zwraca metryki dla wszystkich wariantów na obu zdjęciach
-- [ ] 2.2 Recall detekcji żadnego wariantu nie spada poniżej baseline v6
+- [ ] 2.1 Benchmark zwraca metryki dla wszystkich wariantów na 3 zdjęciach
+- [ ] 2.2 Recall detekcji żadnego wariantu nie spada poniżej baseline (per-typ)
 
 #### Manual
-- [ ] 2.3 User akceptuje tabelę wyników + wskazanie zwycięzcy (lub „none beats baseline")
+- [ ] 2.3 User akceptuje tabelę + zwycięzcę (lub „none beats baseline")
 
 ### Phase 3: Wdrożenie zwycięzcy + raport decyzyjny
 
@@ -191,5 +192,5 @@ Koszt = realne wywołania vision (BYOK): 2 zdjęcia × (1 baseline + 3 warianty)
 - [ ] 3.2 Testy pinujące `PROMPT_VERSION` zaktualizowane (jeśli istnieją)
 
 #### Manual
-- [ ] 3.3 Bramka demo: overlay sięga deski bez klastrowania na realnym zdjęciu
-- [ ] 3.4 Raport decyzyjny jednoznaczny co do następnego kroku
+- [ ] 3.3 Bramka demo: overlay ciasny na półce I nie-półkowym, bez klastra/halucynacji deski
+- [ ] 3.4 Raport decyzyjny jednoznaczny

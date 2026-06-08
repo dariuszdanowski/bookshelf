@@ -63,6 +63,20 @@ SQL na `8c7f62df…` (71 detekcji z bbox): **51/71 ma identyczne `y2=0.5550`** (
    tylko przy poprawie IoU bez regresji).
 5. Decyzja S-21 po wynikach (lepsze bboxy → lepsze cropy → czy re-OCR nadal potrzebny?).
 
+## Reframe (2026-06-08, uwaga usera podczas /10x-plan)
+
+User zakwestionował kotwicę „deska półki" odziedziczoną z promptu v6: zdjęcia bywają
+**nie-półkowe** (książki na kocu, stos na blacie — Flow B „dodaj zakup" to wprost blat).
+Ustalenia:
+- Niezmiennik bbox to **ciasny obrys WIDOCZNEGO obiektu, surface-agnostic, per-book** —
+  NIE „sięgnij deski". „Deska" jest błędnym uogólnieniem i **podejrzanym o samo klastrowanie**
+  (model kotwiczy y2 wszystkich książek do jednej domniemanej linii półki).
+- Non-shelf = **pełnoprawny przypadek**; korpus referencyjny = **3 zdjęcia różnego rodzaju**
+  dostarczone przez usera (półka / stos / koc-blat).
+- Forki: ground-truth = agent anotuje przez Read; DoD = best prompt + decision point.
+
 ## Outcome
 
-(do zdefiniowania w /10x-plan po akceptacji kierunku)
+Bboxy ciasno obrysowujące widoczne książki na każdym typie zdjęcia (półka / stos / nie-półka),
+zmierzone IoU przed/po na 3-zdjęciowym korpusie; najlepszy prompt wdrożony (v7) lub jawny raport,
+że bias wymaga post-processingu/zmiany modelu. Plan: [plan.md](plan.md).
