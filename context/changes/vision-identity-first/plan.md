@@ -361,16 +361,16 @@ Nowe runy v7 dają `bbox null`. `prompt_version` w `vision_runs` rozróżnia run
 
 #### Automated
 
-- [ ] 1.1 Unit: vision client parsuje identity-response (bez bbox) → bbox null
-- [ ] 1.2 Unit: istniejące testy vision (backward-compat z bbox) zielone
-- [ ] 1.3 Typecheck przechodzi
-- [ ] 1.4 Lint przechodzi
-- [ ] 1.5 Build przechodzi
-- [ ] 1.6 `PROMPT_VERSION === 'v7'`; `VISION_SYSTEM_PROMPT` bez słowa `bbox`
+- [x] 1.1 Unit: vision client parsuje identity-response (bez bbox) → bbox null
+- [x] 1.2 Unit: istniejące testy vision (backward-compat z bbox) zielone
+- [x] 1.3 Typecheck przechodzi
+- [x] 1.4 Lint przechodzi
+- [x] 1.5 Build przechodzi
+- [x] 1.6 `PROMPT_VERSION === 'v7'`; `VISION_SYSTEM_PROMPT` bez słowa `bbox`
 
 #### Manual
 
-- [ ] 1.7 (user-only) Realny smoke: detekcje bez bboxów, tytuły matchują, koszt < v6
+- [x] 1.7 (user-only) Realny smoke: detekcje bez bboxów, tytuły matchują, koszt < v6
 
 ### Phase 2: Manualny wpis tożsamości
 

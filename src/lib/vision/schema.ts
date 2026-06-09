@@ -2,7 +2,9 @@ import { z } from 'zod';
 
 import { SPINE_COLORS } from './prompt';
 
-// Best-effort: invalid bbox (out-of-range, wrong length, pixel coords) → null rather than aborting parse
+// identity-first (v7): model nie zwraca bbox — pole jest absent → .default(null) normalizuje do null.
+// Best-effort: invalid bbox (out-of-range, wrong length, pixel coords) → null rather than aborting parse.
+// Backward-compat: historyczne v6-responses z bboxem parsują się normalnie.
 const BboxSchema = z
   .tuple([
     z.number().min(0).max(1),
@@ -12,7 +14,8 @@ const BboxSchema = z
   ])
   .nullable()
   .optional()
-  .catch(null);
+  .catch(null)
+  .default(null);
 
 const DetectionItemSchema = z.object({
   position: z.number().int().positive(),

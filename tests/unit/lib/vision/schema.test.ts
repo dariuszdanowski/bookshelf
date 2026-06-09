@@ -98,9 +98,10 @@ describe('DetectionSchema', () => {
     if (result.success) expect(result.data[0].bbox).toBeNull();
   });
 
-  it('accepts item without bbox field (undefined → optional)', () => {
+  it('normalizes absent bbox to null (identity-first v7: model does not return bbox)', () => {
     const result = DetectionSchema.safeParse([{ ...validItem }]);
     expect(result.success).toBe(true);
+    if (result.success) expect(result.data[0].bbox).toBeNull();
   });
 
   it('strips bbox to null when out-of-range (>1) — best-effort field', () => {
