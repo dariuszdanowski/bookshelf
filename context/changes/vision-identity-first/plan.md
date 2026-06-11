@@ -376,15 +376,15 @@ Nowe runy v7 dają `bbox null`. `prompt_version` w `vision_runs` rozróżnia run
 
 #### Automated
 
-- [x] 2.1 Unit: `POST /detections` z samym `title` → `raw_title` set, `bbox null`
-- [x] 2.2 Unit: `POST /detections` z samym `bbox` (legacy) nadal działa
-- [x] 2.3 Unit: pusty body → 400; bbox `x1>=x2` → 400
-- [x] 2.4 Typecheck / lint / build zielone
-- [x] 2.5 Istniejące E2E bbox-draw nadal zielone
+- [x] 2.1 Unit: `POST /detections` z samym `title` → `raw_title` set, `bbox null` — 433daaf
+- [x] 2.2 Unit: `POST /detections` z samym `bbox` (legacy) nadal działa — 433daaf
+- [x] 2.3 Unit: pusty body → 400; bbox `x1>=x2` → 400 — 433daaf
+- [x] 2.4 Typecheck / lint / build zielone — 433daaf
+- [x] 2.5 Istniejące E2E bbox-draw nadal zielone — 433daaf
 
 #### Manual
 
-- [ ] 2.6 (user-only) „Dodaj pominiętą książkę" → wpis tytułu → karta z kandydatami
+- [x] 2.6 (user-only) „Dodaj pominiętą książkę" → wpis tytułu → karta z kandydatami → Akceptuj → „dodano do katalogu", książka na półce, link „Źródło" działa (verified 2026-06-11). Luka dedup-vs-pending → backlog S-45 — 433daaf
 
 ### Phase 3: Reframe UI
 
