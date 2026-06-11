@@ -130,6 +130,33 @@
       "presentation": { "panel": "dedicated", "reveal": "always", "clear": true },
       "isBackground": true,
       "problemMatcher": []
+    },
+    {
+      "label": "WSL: Supabase keepalive (local dev)",
+      "detail": "Startuje lokalny stack w WSL i trzyma sesję aktywną — WSL VM nie wyłączy się. Otwiera Studio po starcie. Użyj jako preLaunchTask dla dev servera.",
+      "type": "process",
+      "dependsOrder": "sequence",
+      "dependsOn": ["Env: switch to LOCAL (.dev.vars.local → .dev.vars)"],
+      "windows": {
+        "command": "wsl.exe",
+        "args": [
+          "-e",
+          "bash",
+          "-lc",
+          "cd /mnt/c/Projekty/10xDevs/bookshelf && npm run db:start && echo SUPABASE_READY && STUDIO=$(grep -m1 PUBLIC_SUPABASE_URL .dev.vars | cut -d= -f2 | sed 's/:54321/:54323/') && powershell.exe Start-Process \"$STUDIO\"; sleep infinity"
+        ]
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "supabase-keepalive",
+        "pattern": { "regexp": "^(.*)$", "message": 1 },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".",
+          "endsPattern": "SUPABASE_READY"
+        }
+      },
+      "presentation": { "panel": "dedicated", "reveal": "always", "focus": false }
     }
   ]
 }

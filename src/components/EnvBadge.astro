@@ -1,5 +1,10 @@
 ---
-import { detectDbEnvironment, getSupabaseUrl, ENV_LABEL } from '../lib/db/environment';
+import {
+  detectDbEnvironment,
+  getSupabaseUrl,
+  getStudioUrl,
+  ENV_LABEL,
+} from '../lib/db/environment';
 
 interface Props {
   /** M9: 'inline' — statycznie w headerze obok ThemeToggle; 'floating' — róg ekranu (strony anon). */
@@ -9,6 +14,7 @@ interface Props {
 const { variant = 'floating' } = Astro.props;
 const dbEnv = detectDbEnvironment();
 const url = getSupabaseUrl();
+const studioUrl = getStudioUrl();
 
 const styles: Record<typeof dbEnv, string> = {
   local: 'bg-green-600 ring-green-300',
@@ -22,11 +28,27 @@ const placement =
     : 'fixed bottom-2 right-2 z-[9999] rounded-md px-3 py-1.5 text-xs font-bold text-white shadow-lg ring-2';
 ---
 
-<div
-  class={`${placement} ${styles[dbEnv]}`}
-  data-testid="env-badge"
-  data-env={dbEnv}
-  title={`Supabase: ${url || '(brak URL)'}`}
->
-  {ENV_LABEL[dbEnv]}
-</div>
+{
+  studioUrl ? (
+    <a
+      href={studioUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      class={`${placement} ${styles[dbEnv]} cursor-pointer transition-opacity hover:opacity-80`}
+      data-testid="env-badge"
+      data-env={dbEnv}
+      title={`Supabase Studio: ${studioUrl}`}
+    >
+      {ENV_LABEL[dbEnv]}
+    </a>
+  ) : (
+    <div
+      class={`${placement} ${styles[dbEnv]}`}
+      data-testid="env-badge"
+      data-env={dbEnv}
+      title={`Supabase: ${url || '(brak URL)'}`}
+    >
+      {ENV_LABEL[dbEnv]}
+    </div>
+  )
+}

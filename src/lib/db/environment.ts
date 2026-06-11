@@ -35,3 +35,19 @@ export const ENV_LABEL: Record<DbEnvironment, string> = {
   prod: 'PROD DB',
   unknown: 'UNKNOWN DB',
 };
+
+export function getStudioUrl(): string | null {
+  const url = readSupabaseUrl();
+  if (!url) return null;
+  if (LOCAL_HOST_RE.test(url)) {
+    return url.replace(':54321', ':54323');
+  }
+  // prod: https://<ref>.supabase.co → dashboard
+  try {
+    const { hostname } = new URL(url);
+    const ref = hostname.split('.')[0];
+    return `https://supabase.com/dashboard/project/${ref}`;
+  } catch {
+    return null;
+  }
+}
