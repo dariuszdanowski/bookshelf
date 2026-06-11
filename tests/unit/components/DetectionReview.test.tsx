@@ -463,16 +463,16 @@ describe('DetectionReview — web search', () => {
 // ---------------------------------------------------------------------------
 
 describe('DetectionReview — refine', () => {
-  it('pokazuje przycisk Doprecyzuj odczyt także bez bbox', async () => {
+  it('ukrywa przycisk Doprecyzuj odczyt gdy bbox === null (identity-first gating)', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify(makePhotoResponse([detNoMatch])), { status: 200 }),
     );
     render(<DetectionReview photoId={PHOTO_ID} />);
-    await waitFor(() => screen.getByTestId('refine-button'));
-    expect(screen.getByTestId('refine-button')).toBeInTheDocument();
-    expect(screen.getByTestId('refine-button')).toHaveTextContent('Doprecyzuj odczyt');
-    // Info o koszcie (refine = płatna analiza AI) widoczna obok przycisku (S-35)
-    expect(screen.getByTestId('refine-cost-hint')).toBeInTheDocument();
+    // poczekaj aż karta detekcji wyrenderuje się
+    await waitFor(() => screen.getByTestId('detection-card-3'));
+    // refine-button nie powinien być widoczny bez bboxa (identity-first: refine = crop re-OCR)
+    expect(screen.queryByTestId('refine-button')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('refine-cost-hint')).not.toBeInTheDocument();
   });
 
   it('pokazuje przycisk Doprecyzuj odczyt dla detekcji z bbox', async () => {

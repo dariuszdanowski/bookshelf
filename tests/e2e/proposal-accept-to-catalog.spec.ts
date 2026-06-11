@@ -56,20 +56,22 @@ const MOCK_DETECTIONS = [
     spine_color: 'niebieski',
     bbox: null,
     status: 'matched',
-    candidates: [{
-      id: CAND_HIGH,
-      source: 'google_books',
-      externalId: 'gb-1',
-      title: 'Solaris',
-      authors: ['Stanisław Lem'],
-      isbn10: null,
-      isbn13: '9780156027601',
-      publisher: 'Harvest',
-      publishedYear: 1961,
-      coverUrl: null,
-      matchScore: 0.92,
-      rank: 1,
-    }],
+    candidates: [
+      {
+        id: CAND_HIGH,
+        source: 'google_books',
+        externalId: 'gb-1',
+        title: 'Solaris',
+        authors: ['Stanisław Lem'],
+        isbn10: null,
+        isbn13: '9780156027601',
+        publisher: 'Harvest',
+        publishedYear: 1961,
+        coverUrl: null,
+        matchScore: 0.92,
+        rank: 1,
+      },
+    ],
     duplicate: null,
   },
   {
@@ -77,24 +79,26 @@ const MOCK_DETECTIONS = [
     position_index: 2,
     raw_title: 'Diunax',
     raw_author: 'Herbert',
-    vision_confidence: 0.80,
+    vision_confidence: 0.8,
     spine_color: 'brązowy',
     bbox: null,
     status: 'matched',
-    candidates: [{
-      id: CAND_LOW,
-      source: 'google_books',
-      externalId: 'gb-2',
-      title: 'Diuna',
-      authors: ['Frank Herbert'],
-      isbn10: null,
-      isbn13: null,
-      publisher: null,
-      publishedYear: 1965,
-      coverUrl: null,
-      matchScore: 0.60,
-      rank: 1,
-    }],
+    candidates: [
+      {
+        id: CAND_LOW,
+        source: 'google_books',
+        externalId: 'gb-2',
+        title: 'Diuna',
+        authors: ['Frank Herbert'],
+        isbn10: null,
+        isbn13: null,
+        publisher: null,
+        publishedYear: 1965,
+        coverUrl: null,
+        matchScore: 0.6,
+        rank: 1,
+      },
+    ],
     duplicate: null,
   },
   {
@@ -114,24 +118,26 @@ const MOCK_DETECTIONS = [
     position_index: 4,
     raw_title: 'Grzbiet niezidentyfikowany',
     raw_author: null,
-    vision_confidence: 0.50,
+    vision_confidence: 0.5,
     spine_color: 'szary',
     bbox: null,
     status: 'matched',
-    candidates: [{
-      id: '00000000-0000-4000-8000-f05f05f05f22',
-      source: 'open_library',
-      externalId: 'ol-1',
-      title: 'Zły match',
-      authors: [],
-      isbn10: null,
-      isbn13: null,
-      publisher: null,
-      publishedYear: null,
-      coverUrl: null,
-      matchScore: 0.40,
-      rank: 1,
-    }],
+    candidates: [
+      {
+        id: '00000000-0000-4000-8000-f05f05f05f22',
+        source: 'open_library',
+        externalId: 'ol-1',
+        title: 'Zły match',
+        authors: [],
+        isbn10: null,
+        isbn13: null,
+        publisher: null,
+        publishedYear: null,
+        coverUrl: null,
+        matchScore: 0.4,
+        rank: 1,
+      },
+    ],
     duplicate: null,
   },
 ];
@@ -186,11 +192,20 @@ test.describe('S-05 — proposal-accept-to-catalog golden path (mock)', () => {
     });
 
     // Mock POST /api/detections/*/confirm
+    await page.route(`**/api/detections/${DET_HIGH}/confirm`, (route) => {
+      void route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { book_id: BOOK_HIGH, shelf_id: SHELF_ID } }),
+      });
+    });
     await page.route(`**/api/detections/${DET_LOW}/confirm`, (route) => {
       void route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ data: { book_id: '00000000-0000-4000-8000-f05f05f05f51', shelf_id: SHELF_ID } }),
+        body: JSON.stringify({
+          data: { book_id: '00000000-0000-4000-8000-f05f05f05f51', shelf_id: SHELF_ID },
+        }),
       });
     });
 
@@ -199,14 +214,18 @@ test.describe('S-05 — proposal-accept-to-catalog golden path (mock)', () => {
       void route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ data: { book_id: '00000000-0000-4000-8000-f05f05f05f52', shelf_id: SHELF_ID } }),
+        body: JSON.stringify({
+          data: { book_id: '00000000-0000-4000-8000-f05f05f05f52', shelf_id: SHELF_ID },
+        }),
       });
     });
     await page.route(`**/api/detections/${DET_MANUAL}/correct`, (route) => {
       void route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ data: { book_id: '00000000-0000-4000-8000-f05f05f05f53', shelf_id: SHELF_ID } }),
+        body: JSON.stringify({
+          data: { book_id: '00000000-0000-4000-8000-f05f05f05f53', shelf_id: SHELF_ID },
+        }),
       });
     });
 
@@ -221,6 +240,15 @@ test.describe('S-05 — proposal-accept-to-catalog golden path (mock)', () => {
 
     // Mock POST /api/detections/*/unreject (cofnięcie odrzucenia)
     await page.route(`**/api/detections/${DET_REJECT}/unreject`, (route) => {
+      void route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { status: 'matched' } }),
+      });
+    });
+
+    // Mock POST /api/detections/*/unconfirm (cofnięcie akceptacji)
+    await page.route(`**/api/detections/${DET_HIGH}/unconfirm`, (route) => {
       void route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -267,7 +295,9 @@ test.describe('S-05 — proposal-accept-to-catalog golden path (mock)', () => {
     await expect(page.getByTestId('bulk-confirm-button')).toContainText('Akceptuj pre-zaznaczone');
   });
 
-  test('klik bulk-confirm wywołuje /confirm-batch i oznacza detekcję jako zdecydowaną', async ({ page }) => {
+  test('klik bulk-confirm wywołuje /confirm-batch i oznacza detekcję jako zdecydowaną', async ({
+    page,
+  }) => {
     await page.goto(`/photos/${PHOTO_ID}`);
     await page.getByTestId('bulk-confirm-button').click();
     // Po bulk-accept karta DET_HIGH zamienia się na decided (zielona)
@@ -289,7 +319,9 @@ test.describe('S-05 — proposal-accept-to-catalog golden path (mock)', () => {
     await expect(page.getByTestId('correct-form')).toBeVisible();
   });
 
-  test('reject — karta pokazuje „Odrzucono" + Cofnij (nie zielony stan akceptacji)', async ({ page }) => {
+  test('reject — karta pokazuje „Odrzucono" + Cofnij (nie zielony stan akceptacji)', async ({
+    page,
+  }) => {
     await page.goto(`/photos/${PHOTO_ID}`);
     await page.getByTestId('detection-card-4').getByTestId('reject-button').click();
     // Po reject karta przechodzi w stan odrzucenia — odrębny od akceptacji
@@ -310,7 +342,9 @@ test.describe('S-05 — proposal-accept-to-catalog golden path (mock)', () => {
     await expect(page.getByTestId('detection-card-4').getByTestId('reject-button')).toBeVisible();
   });
 
-  test('podgląd szczegówów — klik w okładkę propozycji otwiera modal z danymi', async ({ page }) => {
+  test('podgląd szczegówów — klik w okładkę propozycji otwiera modal z danymi', async ({
+    page,
+  }) => {
     await page.goto(`/photos/${PHOTO_ID}`);
     const coverBtn = page.getByTestId('detection-card-1').getByTestId('candidate-cover-button');
     await expect(coverBtn).toBeVisible();
@@ -379,19 +413,69 @@ test.describe('S-05 — proposal-accept-to-catalog golden path (mock)', () => {
     await expect(toggleBtn).toHaveAttribute('aria-pressed', 'true');
   });
 
-  test('edycja okładki — wklej URL + flaga „URL" → jeden „Zapisz" → PATCH user_cover_url', async ({ page }) => {
+  test('akceptuj → Cofnij — detekcja wraca do „do decyzji" (undo-confirm-button)', async ({
+    page,
+  }) => {
+    await page.goto(`/photos/${PHOTO_ID}`);
+    const card = page.getByTestId('detection-card-1');
+    // Single accept przez przycisk „Akceptuj" w karcie (wywołuje hook lokalny)
+    await card.getByTestId('confirm-button').click();
+    // Karta potwierdzona — widoczny przycisk „Cofnij"
+    await expect(card.getByTestId('undo-confirm-button')).toBeVisible();
+    // Klik „Cofnij"
+    await card.getByTestId('undo-confirm-button').click();
+    // Detekcja wraca do stanu „do decyzji" — przycisk Odrzuć znów dostępny
+    await expect(card.getByTestId('reject-button')).toBeVisible();
+  });
+
+  test('unconfirm 409 — komponent obsługuje gracefully (błąd, brak awarii UI)', async ({
+    page,
+  }) => {
+    // Nadpisz mock unconfirm → 409 dla tego testu (last registered wins w Playwright)
+    await page.route(`**/api/detections/${DET_HIGH}/unconfirm`, (route) => {
+      void route.fulfill({
+        status: 409,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          error: { code: 'CONFLICT', message: 'Detekcja nie jest zaakceptowana.' },
+        }),
+      });
+    });
+    await page.goto(`/photos/${PHOTO_ID}`);
+    const card = page.getByTestId('detection-card-1');
+    await card.getByTestId('confirm-button').click();
+    await expect(card.getByTestId('undo-confirm-button')).toBeVisible();
+    await card.getByTestId('undo-confirm-button').click();
+    // 409 → stan nie zmienił się, karta nadal confirmed, przycisk nadal widoczny
+    await expect(card).toBeVisible();
+    await expect(card.getByTestId('undo-confirm-button')).toBeVisible();
+  });
+
+  test('edycja okładki — wklej URL + flaga „URL" → jeden „Zapisz" → PATCH user_cover_url', async ({
+    page,
+  }) => {
     await page.goto('/shelves');
     const shelfHref = await page.locator('a[href^="/shelves/"]').first().getAttribute('href');
     const realShelfId = shelfHref?.split('/shelves/')[1] ?? '';
 
-    await page.route(`**/api/shelves/${realShelfId}/books`, (route) =>
-      void route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { books: SHELF_BOOKS_AFTER } }) })
+    await page.route(
+      `**/api/shelves/${realShelfId}/books`,
+      (route) =>
+        void route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ data: { books: SHELF_BOOKS_AFTER } }),
+        }),
     );
     let patchBody: Record<string, unknown> | null = null;
     await page.route(`**/api/books/${BOOK_HIGH}`, (route) => {
       if (route.request().method() === 'PATCH') {
         patchBody = route.request().postDataJSON() as Record<string, unknown>;
-        void route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { id: BOOK_HIGH } }) });
+        void route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ data: { id: BOOK_HIGH } }),
+        });
       } else void route.continue();
     });
 
@@ -408,7 +492,9 @@ test.describe('S-05 — proposal-accept-to-catalog golden path (mock)', () => {
     await page.getByTestId('book-modal-save').click();
 
     const readPatch = () => patchBody as Record<string, unknown> | null;
-    await expect.poll(() => readPatch()?.user_cover_url).toBe('https://example.com/moja-okladka.jpg');
+    await expect
+      .poll(() => readPatch()?.user_cover_url)
+      .toBe('https://example.com/moja-okladka.jpg');
     expect(readPatch()?.cover_source).toBe('url');
   });
 });

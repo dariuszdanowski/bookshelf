@@ -15,10 +15,13 @@ const DET_GOOD_ID = '00000000-0000-4000-8000-000000000g01'; // dobre bbox (piono
 const DET_WEAK_ID = '00000000-0000-4000-8000-000000000g02'; // słabe bbox (poziome)
 const DET_NONE_ID = '00000000-0000-4000-8000-000000000g03'; // brak bbox
 
-const TINY_GIF =
-  'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+const TINY_GIF = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 
-function makeDetection(id: string, idx: number, bbox: { x1: number; y1: number; x2: number; y2: number } | null) {
+function makeDetection(
+  id: string,
+  idx: number,
+  bbox: { x1: number; y1: number; x2: number; y2: number } | null,
+) {
   return {
     id,
     position_index: idx,
@@ -42,9 +45,13 @@ async function setupRoutes(page: Page) {
       body: JSON.stringify({
         data: {
           photo: {
-            id: PHOTO_ID, shelf_id: SHELF_ID, status: 'processed',
-            detected_count: 3, error_message: null,
-            vision_cost_usd: 0.01, vision_latency_ms: 2000,
+            id: PHOTO_ID,
+            shelf_id: SHELF_ID,
+            status: 'processed',
+            detected_count: 3,
+            error_message: null,
+            vision_cost_usd: 0.01,
+            vision_latency_ms: 2000,
             created_at: '2026-06-01T10:00:00Z',
           },
           photo_url: TINY_GIF,
@@ -128,7 +135,8 @@ test.describe('force-refine — przycisk Refine dla słabych bboxów', () => {
 
   test('słaby crop — refine wywołuje endpoint i jest aktywny', async ({ page }) => {
     const refinePromise = page.waitForRequest(
-      (req) => req.url().includes(`/api/detections/${DET_WEAK_ID}/refine`) && req.method() === 'POST'
+      (req) =>
+        req.url().includes(`/api/detections/${DET_WEAK_ID}/refine`) && req.method() === 'POST',
     );
 
     const card = page.getByTestId('detection-card-2');
@@ -136,15 +144,14 @@ test.describe('force-refine — przycisk Refine dla słabych bboxów', () => {
     await refinePromise; // bez timeout = test passes gdy request złapany
   });
 
-  // ── Brak bbox → button dla braku bbox ────────────────────────────────────
+  // ── Brak bbox → refine gating (identity-first) ──────────────────────────
 
-  test('brak bbox → refine button widoczny (dla detekcji bez bbox)', async ({ page }) => {
+  test('brak bbox → refine button ukryty (identity-first gating)', async ({ page }) => {
     const card = page.getByTestId('detection-card-3');
     await expect(card).toBeVisible();
 
-    const btn = card.getByTestId('refine-button');
-    await expect(btn).toBeVisible();
-    await expect(btn).toBeEnabled();
+    // refine = crop re-OCR; bez bboxa nie ma co przycinać → button nie istnieje
+    await expect(card.getByTestId('refine-button')).not.toBeAttached();
   });
 
   // ── Tryb list ─────────────────────────────────────────────────────────────

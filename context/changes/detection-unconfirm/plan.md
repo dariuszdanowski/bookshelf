@@ -203,23 +203,23 @@ Brak migracji — operujemy na istniejących tabelach i FK (`on delete cascade` 
 
 #### Automated
 
-- [ ] 1.1 Unit helper: happy-path (entry+book usunięte, status reset, korekty skasowane)
-- [ ] 1.2 Unit helper: guard `not_confirmed` i `not_found`
-- [ ] 1.3 Unit helper: orphan-safety (książka z drugim entry NIE kasowana)
-- [ ] 1.4 Integration RLS: cudza detekcja → 404, brak mutacji
-- [ ] 1.5 Typecheck / lint / build zielone
+- [x] 1.1 Unit helper: happy-path (entry+book usunięte, status reset, korekty skasowane) — acd4314
+- [x] 1.2 Unit helper: guard `not_confirmed` i `not_found` — acd4314
+- [x] 1.3 Unit helper: orphan-safety (książka z drugim entry NIE kasowana) — acd4314
+- [x] 1.4 Integration RLS: cudza detekcja → 404, brak mutacji — acd4314
+- [x] 1.5 Typecheck / lint / build zielone — acd4314
 
 ### Phase 2: UI — przycisk „Cofnij" w widoku potwierdzonym
 
 #### Automated
 
-- [ ] 2.1 `handleUnconfirm` w `useDetectionDecision` + eksport w return
-- [ ] 2.2 Przycisk „Cofnij" (`undo-confirm-button`) w DetectionCard/Row/Tile
-- [ ] 2.3 Typecheck / lint / build / unit zielone
-- [ ] 2.4 E2E: akceptuj → Cofnij → wraca do „do decyzji"
-- [ ] 2.5 E2E: Cofnij przy nie-confirmed/cudzej nie wybucha
+- [x] 2.1 `handleUnconfirm` w `useDetectionDecision` + eksport w return — ca4697c
+- [x] 2.2 Przycisk „Cofnij" (`undo-confirm-button`) w DetectionCard/Row/Tile — ca4697c
+- [x] 2.3 Typecheck / lint / build / unit zielone — ca4697c
+- [x] 2.4 E2E: akceptuj → Cofnij → wraca do „do decyzji" — ca4697c
+- [x] 2.5 E2E: Cofnij przy nie-confirmed/cudzej nie wybucha — ca4697c
 
 #### Manual
 
-- [ ] 2.6 (user-only) Realny flow: Akceptuj → Cofnij → książka znika z półki, detekcja wraca
-- [ ] 2.7 (user-only) Re-akceptacja po cofnięciu nie dubluje wpisu
+- [x] 2.6 (user-only) Realny flow: Akceptuj → Cofnij → książka znika z półki, detekcja wraca — ca4697c
+- [x] 2.7 (user-only) Re-akceptacja po cofnięciu nie dubluje wpisu — ca4697c

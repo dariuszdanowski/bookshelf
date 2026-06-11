@@ -39,6 +39,8 @@ function RefineButton({
   onClick: () => void;
   size?: 'lg' | 'md' | 'sm';
 }) {
+  // identity-first: refine = crop re-OCR; bez bboxa nie ma co przycinać
+  if (bbox === null) return null;
   const isWeak = classifyCropQuality(bbox) === 'uncertain_localization';
   const sizeCls = size === 'lg' ? 'px-3 py-1.5' : size === 'sm' ? 'px-2 py-1' : 'px-2.5 py-1';
   const colorCls = isWeak
@@ -626,6 +628,31 @@ function useDetectionDecision(
     }
   }
 
+  // Cofnięcie akceptacji — usuwa książkę z katalogu i przywraca detekcję do edycji.
+  async function handleUnconfirm() {
+    setBusy(true);
+    setErrorMsg(null);
+    try {
+      const res = await fetch(`/api/detections/${detection.id}/unconfirm`, { method: 'POST' });
+      if (!res.ok) {
+        const json = (await res.json()) as { error?: { message?: string } };
+        if (res.status === 409) {
+          setErrorMsg('Nie jest zaakceptowana.');
+          return;
+        }
+        setErrorMsg(json.error?.message ?? `Błąd (${res.status})`);
+        return;
+      }
+      setDecidedKind(null);
+      setState('pending');
+      onUndecided?.(detection.id);
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : 'Błąd sieci.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleRematch(
     title: string,
     author: string | null,
@@ -750,6 +777,7 @@ function useDetectionDecision(
     handleConfirm,
     handleReject,
     handleUndoReject,
+    handleUnconfirm,
     handleRefine,
     handleRematch,
     handleCorrectSuccess,
@@ -795,6 +823,7 @@ function DetectionCard({
     handleConfirm,
     handleReject,
     handleUndoReject,
+    handleUnconfirm,
     handleRefine,
     handleRematch,
     handleCorrectSuccess,
@@ -847,6 +876,14 @@ function DetectionCard({
         <span className="flex-shrink-0 rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700">
           Dodano do katalogu
         </span>
+        <button
+          data-testid="undo-confirm-button"
+          disabled={busy}
+          onClick={() => void handleUnconfirm()}
+          className="ml-auto flex-shrink-0 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+        >
+          {busy ? 'Cofam...' : 'Cofnij'}
+        </button>
       </div>
     );
   }
@@ -1323,6 +1360,7 @@ export function DetectionRow({
     handleConfirm,
     handleReject,
     handleUndoReject,
+    handleUnconfirm,
     handleRefine,
     handleRematch,
     handleCorrectSuccess,
@@ -1365,9 +1403,17 @@ export function DetectionRow({
             &mdash; {activeCandidate.authors.join(', ')}
           </span>
         ) : null}
-        <span className="ml-auto flex-shrink-0 rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700">
+        <span className="flex-shrink-0 rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700">
           Dodano
         </span>
+        <button
+          data-testid="undo-confirm-button"
+          disabled={busy}
+          onClick={() => void handleUnconfirm()}
+          className="ml-auto flex-shrink-0 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+        >
+          {busy ? 'Cofam...' : 'Cofnij'}
+        </button>
       </div>
     );
   }
@@ -1586,6 +1632,7 @@ export function DetectionTile({
     handleConfirm,
     handleReject,
     handleUndoReject,
+    handleUnconfirm,
     handleRefine,
     handleRematch,
     handleCorrectSuccess,
@@ -1634,6 +1681,14 @@ export function DetectionTile({
         <span className="mt-1 rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700">
           Dodano
         </span>
+        <button
+          data-testid="undo-confirm-button"
+          disabled={busy}
+          onClick={() => void handleUnconfirm()}
+          className="mt-1 rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+        >
+          {busy ? 'Cofam...' : 'Cofnij'}
+        </button>
       </div>
     );
   }
@@ -2337,22 +2392,34 @@ export default function DetectionReview({
           candidates?: BookCandidateDTO[];
           duplicate?: DetectionWithCandidatesDTO['duplicate'];
         };
-        error?: { message?: string };
+        error?: { code?: string; message?: string };
       };
 
-      const finalDet: DetectionWithCandidatesDTO =
-        rematchRes.ok && rematchJson.data
-          ? {
-              ...newDet,
-              ...(rematchJson.data.detection ?? {}),
-              candidates: rematchJson.data.candidates ?? [],
-              duplicate: rematchJson.data.duplicate ?? null,
-            }
-          : newDet;
+      if (rematchRes.status === 429) {
+        setAddMissedErrorMsg('Rate limit — spróbuj za chwilę.');
+        return;
+      }
+      if (rematchRes.status === 403 && rematchJson.error?.code === 'NO_API_KEY') {
+        setAddMissedErrorMsg('Brak klucza API. Dodaj klucz w ustawieniach konta.');
+        return;
+      }
+      if (!rematchRes.ok) {
+        setAddMissedErrorMsg(
+          rematchJson.error?.message ?? `Błąd wyszukiwania (${rematchRes.status})`,
+        );
+        return;
+      }
 
       // S-43: NIE zamykaj modala — przejdź do etapu potwierdzania (karta z kandydatami).
-      // Książka trafia do katalogu dopiero po „Akceptuj"/„Wpisz ręcznie"; przy braku
-      // wyników karta zostaje na ekranie z opcją „Wpisz ręcznie" (dodaj mimo to) lub „Zamknij".
+      // Przy braku wyników karta zostaje z opcją „Wpisz ręcznie" (dodaj mimo to) lub „Zamknij".
+      const finalDet: DetectionWithCandidatesDTO = rematchJson.data
+        ? {
+            ...newDet,
+            ...(rematchJson.data.detection ?? {}),
+            candidates: rematchJson.data.candidates ?? [],
+            duplicate: rematchJson.data.duplicate ?? null,
+          }
+        : newDet;
       setAddMissedDetection(finalDet);
     } catch (e) {
       setAddMissedErrorMsg(e instanceof Error ? e.message : 'Błąd sieci.');

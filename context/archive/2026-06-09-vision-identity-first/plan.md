@@ -376,27 +376,27 @@ Nowe runy v7 dają `bbox null`. `prompt_version` w `vision_runs` rozróżnia run
 
 #### Automated
 
-- [x] 2.1 Unit: `POST /detections` z samym `title` → `raw_title` set, `bbox null`
-- [x] 2.2 Unit: `POST /detections` z samym `bbox` (legacy) nadal działa
-- [x] 2.3 Unit: pusty body → 400; bbox `x1>=x2` → 400
-- [x] 2.4 Typecheck / lint / build zielone
-- [x] 2.5 Istniejące E2E bbox-draw nadal zielone
+- [x] 2.1 Unit: `POST /detections` z samym `title` → `raw_title` set, `bbox null` — 433daaf
+- [x] 2.2 Unit: `POST /detections` z samym `bbox` (legacy) nadal działa — 433daaf
+- [x] 2.3 Unit: pusty body → 400; bbox `x1>=x2` → 400 — 433daaf
+- [x] 2.4 Typecheck / lint / build zielone — 433daaf
+- [x] 2.5 Istniejące E2E bbox-draw nadal zielone — 433daaf
 
 #### Manual
 
-- [ ] 2.6 (user-only) „Dodaj pominiętą książkę" → wpis tytułu → karta z kandydatami
+- [x] 2.6 (user-only) „Dodaj pominiętą książkę" → wpis tytułu → karta z kandydatami → Akceptuj → „dodano do katalogu", książka na półce, link „Źródło" działa (verified 2026-06-11). Luka dedup-vs-pending → backlog S-45 — 433daaf
 
 ### Phase 3: Reframe UI
 
 #### Automated
 
-- [ ] 3.1 E2E: identity golden-path (mock bez bbox) → upload → potwierdź → katalog
-- [ ] 3.2 E2E: „dodaj pominiętą po tytule" zielony
-- [ ] 3.3 E2E: rysowanie ramki jako naprawa nadal zielone
-- [ ] 3.4 Typecheck / lint / build / unit zielone
-- [ ] 3.5 Pełny `npm run test:e2e` deterministyczny
+- [x] 3.1 E2E: identity golden-path (mock bez bbox) → upload → potwierdź → katalog — 4ff1d73
+- [x] 3.2 E2E: „dodaj pominiętą po tytule" zielony — 4ff1d73
+- [x] 3.3 E2E: rysowanie ramki jako naprawa nadal zielone — 4ff1d73
+- [x] 3.4 Typecheck / lint / build / unit zielone — 4ff1d73
+- [x] 3.5 Pełny `npm run test:e2e` deterministyczny — 4ff1d73
 
 #### Manual
 
-- [ ] 3.6 (user-only) UX: karty główne, overlay drugorzędny z CTA rysowania, brak „wymagany bbox"
-- [ ] 3.7 (user-only) Realny smoke pełnego flow na koncie demo
+- [x] 3.6 (user-only) UX: karty główne, overlay drugorzędny z CTA rysowania, brak „wymagany bbox" — 4ff1d73
+- [x] 3.7 (user-only) Realny smoke pełnego flow na koncie demo — 4ff1d73

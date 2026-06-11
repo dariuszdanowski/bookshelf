@@ -1191,6 +1191,19 @@ export default function PhotoDetectionOverlay({
 
   return (
     <div data-testid="photo-overlay" className="mb-4">
+      {!isEditing && withBbox.length === 0 && detections.length > 0 && (
+        <p data-testid="overlay-no-bbox-hint" className="mb-2 text-xs text-gray-500">
+          Rozpoznane pozycje nie mają lokalizacji na zdjęciu — lokalizacja jest opcjonalna.{' '}
+          <button
+            type="button"
+            className="underline hover:text-gray-700"
+            onClick={() => onEditingChange?.(true)}
+          >
+            Narysuj ramki
+          </button>
+          , by umożliwić doprecyzowanie OCR.
+        </p>
+      )}
       {!isEditing && withBbox.length > 0 && (
         <div className="mb-2 space-y-0.5 text-xs text-gray-400">
           <p>Numery ramek odpowiadają pozycjom (#N) na liście poniżej.</p>
