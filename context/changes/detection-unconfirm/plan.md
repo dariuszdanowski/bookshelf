@@ -213,13 +213,13 @@ Brak migracji — operujemy na istniejących tabelach i FK (`on delete cascade` 
 
 #### Automated
 
-- [x] 2.1 `handleUnconfirm` w `useDetectionDecision` + eksport w return
-- [x] 2.2 Przycisk „Cofnij" (`undo-confirm-button`) w DetectionCard/Row/Tile
-- [x] 2.3 Typecheck / lint / build / unit zielone
-- [x] 2.4 E2E: akceptuj → Cofnij → wraca do „do decyzji"
-- [x] 2.5 E2E: Cofnij przy nie-confirmed/cudzej nie wybucha
+- [x] 2.1 `handleUnconfirm` w `useDetectionDecision` + eksport w return — ca4697c
+- [x] 2.2 Przycisk „Cofnij" (`undo-confirm-button`) w DetectionCard/Row/Tile — ca4697c
+- [x] 2.3 Typecheck / lint / build / unit zielone — ca4697c
+- [x] 2.4 E2E: akceptuj → Cofnij → wraca do „do decyzji" — ca4697c
+- [x] 2.5 E2E: Cofnij przy nie-confirmed/cudzej nie wybucha — ca4697c
 
 #### Manual
 
-- [x] 2.6 (user-only) Realny flow: Akceptuj → Cofnij → książka znika z półki, detekcja wraca
-- [x] 2.7 (user-only) Re-akceptacja po cofnięciu nie dubluje wpisu
+- [x] 2.6 (user-only) Realny flow: Akceptuj → Cofnij → książka znika z półki, detekcja wraca — ca4697c
+- [x] 2.7 (user-only) Re-akceptacja po cofnięciu nie dubluje wpisu — ca4697c
