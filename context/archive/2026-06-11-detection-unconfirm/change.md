@@ -1,7 +1,8 @@
 ---
 change_id: detection-unconfirm
 title: "Cofnięcie akceptacji książki (unconfirm) z poziomu review"
-status: impl_reviewed
+status: archived
+archived_at: 2026-06-11T23:24:14Z
 created: 2026-06-11
 updated: 2026-06-12
 ---
