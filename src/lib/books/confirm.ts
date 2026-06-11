@@ -1,6 +1,10 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../db/database.types';
 
+export type UnconfirmResult =
+  | { ok: true; status: 'matched' | 'pending' }
+  | { ok: false; reason: 'not_confirmed' | 'not_found' };
+
 type Supabase = SupabaseClient<Database>;
 
 export type ConfirmBookInput = {
@@ -185,4 +189,88 @@ export async function confirmDetectionToCatalog(
   }
 
   return { ok: true, bookId };
+}
+
+/**
+ * Odwrócenie confirmDetectionToCatalog — usuwa wpis katalogowy i przywraca
+ * detekcję do edycji. Symetria do unreject.ts.
+ *
+ * Kroki (bez transakcji — każdy krok retry-safe):
+ *   0. SELECT detection id,status → not_found / not_confirmed
+ *   1. SELECT shelf_entries WHERE detection_id → zbierz book_ids
+ *   2. DELETE shelf_entries WHERE detection_id (RLS: books.user_id check)
+ *   3. Dla każdego book_id: count pozostałych entries → gdy 0 DELETE books
+ *   4. count book_candidates → UPDATE detections.status = matched/pending
+ *   5. best-effort DELETE corrections (accept/field_edit/manual_entry)
+ */
+export async function unconfirmDetectionFromCatalog(
+  supabase: Supabase,
+  _userId: string,
+  detectionId: string,
+): Promise<UnconfirmResult> {
+  // 0. Guard: detection musi istnieć i mieć status 'confirmed'
+  const { data: detection, error: detError } = await supabase
+    .from('detections')
+    .select('id, status')
+    .eq('id', detectionId)
+    .maybeSingle();
+
+  if (detError) throw detError;
+  if (!detection) return { ok: false, reason: 'not_found' };
+  if (detection.status !== 'confirmed') return { ok: false, reason: 'not_confirmed' };
+
+  // 1. Zbierz book_ids powiązane przez detection_id (bez filtra is_current — S-15 może togglować flagę)
+  const { data: entries, error: entriesSelectError } = await supabase
+    .from('shelf_entries')
+    .select('book_id')
+    .eq('detection_id', detectionId);
+
+  if (entriesSelectError) throw entriesSelectError;
+  const bookIds = (entries ?? []).map((e) => e.book_id);
+
+  // 2. DELETE shelf_entries WHERE detection_id (najpierw — RLS shelf_entries_delete_own sprawdza books.user_id)
+  const { error: entriesDeleteError } = await supabase
+    .from('shelf_entries')
+    .delete()
+    .eq('detection_id', detectionId);
+
+  if (entriesDeleteError) throw entriesDeleteError;
+
+  // 3. Orphan-safety: kasuj książkę tylko gdy nie ma już żadnego shelf_entry
+  for (const bookId of bookIds) {
+    const { count, error: countError } = await supabase
+      .from('shelf_entries')
+      .select('id', { count: 'exact', head: true })
+      .eq('book_id', bookId);
+
+    if (countError) throw countError;
+    if ((count ?? 0) === 0) {
+      await supabase.from('books').delete().eq('id', bookId);
+    }
+  }
+
+  // 4. Status docelowy: matched gdy są kandydaci, pending gdy nie ma
+  const { count: candidateCount, error: candidateCountError } = await supabase
+    .from('book_candidates')
+    .select('id', { count: 'exact', head: true })
+    .eq('detection_id', detectionId);
+
+  if (candidateCountError) throw candidateCountError;
+  const nextStatus = (candidateCount ?? 0) > 0 ? 'matched' : 'pending';
+
+  const { error: updateError } = await supabase
+    .from('detections')
+    .update({ status: nextStatus })
+    .eq('id', detectionId);
+
+  if (updateError) throw updateError;
+
+  // 5. best-effort DELETE corrections telemetrii akceptacji (cofnięte ≠ realne)
+  await supabase
+    .from('corrections')
+    .delete()
+    .eq('detection_id', detectionId)
+    .in('correction_type', ['accept', 'field_edit', 'manual_entry']);
+
+  return { ok: true, status: nextStatus };
 }

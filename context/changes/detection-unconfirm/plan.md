@@ -203,11 +203,11 @@ Brak migracji — operujemy na istniejących tabelach i FK (`on delete cascade` 
 
 #### Automated
 
-- [ ] 1.1 Unit helper: happy-path (entry+book usunięte, status reset, korekty skasowane)
-- [ ] 1.2 Unit helper: guard `not_confirmed` i `not_found`
-- [ ] 1.3 Unit helper: orphan-safety (książka z drugim entry NIE kasowana)
-- [ ] 1.4 Integration RLS: cudza detekcja → 404, brak mutacji
-- [ ] 1.5 Typecheck / lint / build zielone
+- [x] 1.1 Unit helper: happy-path (entry+book usunięte, status reset, korekty skasowane)
+- [x] 1.2 Unit helper: guard `not_confirmed` i `not_found`
+- [x] 1.3 Unit helper: orphan-safety (książka z drugim entry NIE kasowana)
+- [x] 1.4 Integration RLS: cudza detekcja → 404, brak mutacji
+- [x] 1.5 Typecheck / lint / build zielone
 
 ### Phase 2: UI — przycisk „Cofnij" w widoku potwierdzonym
 
