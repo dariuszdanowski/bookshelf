@@ -205,6 +205,7 @@ export async function confirmDetectionToCatalog(
  */
 export async function unconfirmDetectionFromCatalog(
   supabase: Supabase,
+  // _userId: RLS na locals.supabase limituje mutacje do właściciela; parametr zachowany dla symetrii z confirmDetectionToCatalog
   _userId: string,
   detectionId: string,
 ): Promise<UnconfirmResult> {
@@ -237,6 +238,7 @@ export async function unconfirmDetectionFromCatalog(
   if (entriesDeleteError) throw entriesDeleteError;
 
   // 3. Orphan-safety: kasuj książkę tylko gdy nie ma już żadnego shelf_entry
+  // detection → 1 shelf_entry → bookIds.length ≤ 1 (O(1) w praktyce)
   for (const bookId of bookIds) {
     const { count, error: countError } = await supabase
       .from('shelf_entries')
@@ -245,7 +247,14 @@ export async function unconfirmDetectionFromCatalog(
 
     if (countError) throw countError;
     if ((count ?? 0) === 0) {
-      await supabase.from('books').delete().eq('id', bookId);
+      const { error: bookDeleteError } = await supabase.from('books').delete().eq('id', bookId);
+      if (bookDeleteError) {
+        console.error('[unconfirm] orphan book delete failed', {
+          bookId,
+          name: bookDeleteError.name,
+          code: bookDeleteError.code,
+        });
+      }
     }
   }
 

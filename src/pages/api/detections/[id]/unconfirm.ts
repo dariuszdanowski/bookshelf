@@ -32,6 +32,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
   } catch (err) {
     console.error('[api/detections unconfirm] unexpected error', {
       name: err instanceof Error ? err.name : 'unknown',
+      code: (err as { code?: string }).code,
       message: err instanceof Error ? err.message : String(err),
     });
     return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Błąd serwera.' });
