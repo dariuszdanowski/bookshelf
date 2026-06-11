@@ -59,9 +59,33 @@ describe('findBookCandidates — ISBN-first path', () => {
     expect(candidates.length).toBeGreaterThan(0);
   });
 
-  it('rate limited → rateLimited: true', async () => {
+  it('rate limited (wszystkie źródła puste) → rateLimited: true', async () => {
     vi.mocked(searchGoogleBooks).mockResolvedValue({ ok: false, reason: 'rate_limited' });
     const { rateLimited } = await findBookCandidates('', null, ISBN, { isbnOnly: true });
     expect(rateLimited).toBe(true);
+  });
+
+  it('GB rate-limited ale OpenLibrary ma wyniki → zwraca kandydatów, NIE kasuje (rateLimited false)', async () => {
+    vi.mocked(searchGoogleBooks).mockResolvedValue({ ok: false, reason: 'rate_limited' });
+    vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({
+      ok: true,
+      candidates: [{ ...GB_CANDIDATE, source: 'open_library', externalId: 'ol-1' }],
+    });
+    const { candidates, rateLimited } = await findBookCandidates('Solaris', 'Stanisław Lem', null);
+    expect(candidates.length).toBeGreaterThan(0);
+    expect(candidates[0].title).toBe('Solaris');
+    // Fallback dostarczył wyniki → nie blokujemy retry-em mimo GB 429.
+    expect(rateLimited).toBe(false);
+  });
+
+  it('GB rate-limited ale Biblioteka Narodowa ma wyniki → zwraca kandydatów (rateLimited false)', async () => {
+    vi.mocked(searchGoogleBooks).mockResolvedValue({ ok: false, reason: 'rate_limited' });
+    vi.mocked(searchNationalLibrary).mockResolvedValue({
+      ok: true,
+      candidates: [{ ...GB_CANDIDATE, source: 'national_library', externalId: 'bn-1' }],
+    });
+    const { candidates, rateLimited } = await findBookCandidates('Solaris', 'Stanisław Lem', null);
+    expect(candidates.length).toBeGreaterThan(0);
+    expect(rateLimited).toBe(false);
   });
 });
