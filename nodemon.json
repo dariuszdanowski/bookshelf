@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json.schemastore.org/nodemon.json",
+  "watch": [".dev.vars", "astro.config.mjs"],
+  "ext": "vars,mjs",
+  "exec": "astro dev",
+  "delay": 800,
+  "signal": "SIGTERM",
+  "verbose": true
+}

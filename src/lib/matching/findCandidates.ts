@@ -42,10 +42,6 @@ export async function findBookCandidates(
     searchNationalLibrary({ title: rawTitle, author: rawAuthor, isbn: rawIsbn ?? undefined }),
   ]);
 
-  if (!googleResult.ok && googleResult.reason === 'rate_limited') {
-    return { candidates: [], rateLimited: true };
-  }
-
   const allCandidates: BookCandidate[] = [
     ...(googleResult.ok ? googleResult.candidates : []),
     ...(olTitleResult.ok ? olTitleResult.candidates : []),
@@ -65,8 +61,14 @@ export async function findBookCandidates(
     if (olIsbnResult.ok) allCandidates.push(...olIsbnResult.candidates);
   }
 
+  // Rate-limited GB sygnalizujemy TYLKO gdy żadne źródło nie dało kandydatów
+  // (OL/BN też puste) — zachowuje retry. Gdy fallback dostarczył wyniki, pokazujemy
+  // je mimo GB 429 (PRD ryzyko #4: OpenLibrary jako fallback). Spójne z match.ts.
   if (allCandidates.length === 0) {
-    return { candidates: [], rateLimited: false };
+    return {
+      candidates: [],
+      rateLimited: !googleResult.ok && googleResult.reason === 'rate_limited',
+    };
   }
 
   const scored: ScoredCandidate[] = allCandidates.map((c) => ({

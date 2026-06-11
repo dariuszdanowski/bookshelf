@@ -829,7 +829,24 @@ function DetectionCard({
             clipRule="evenodd"
           />
         </svg>
-        <span className="text-sm font-medium text-green-700">{detection.raw_title}</span>
+        <div className="min-w-0 flex-1">
+          {/* Pokazujemy KSIĄŻKĘ z katalogu (zaakceptowany kandydat), nie surowy wpis
+              detekcji — inaczej user nie wie co zatwierdził (S-43 UX). */}
+          <span
+            data-testid="confirmed-title"
+            className="block truncate text-sm font-medium text-green-700"
+          >
+            {activeCandidate?.title ?? detection.raw_title}
+          </span>
+          {activeCandidate?.authors.length ? (
+            <span className="block truncate text-xs text-green-600">
+              {activeCandidate.authors.join(', ')}
+            </span>
+          ) : null}
+        </div>
+        <span className="flex-shrink-0 rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700">
+          Dodano do katalogu
+        </span>
       </div>
     );
   }
@@ -1340,7 +1357,17 @@ export function DetectionRow({
             clipRule="evenodd"
           />
         </svg>
-        <span className="truncate text-sm font-medium text-green-700">{detection.raw_title}</span>
+        <span data-testid="confirmed-title" className="truncate text-sm font-medium text-green-700">
+          {activeCandidate?.title ?? detection.raw_title}
+        </span>
+        {activeCandidate?.authors.length ? (
+          <span className="truncate text-xs text-green-600">
+            &mdash; {activeCandidate.authors.join(', ')}
+          </span>
+        ) : null}
+        <span className="ml-auto flex-shrink-0 rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700">
+          Dodano
+        </span>
       </div>
     );
   }
@@ -1593,8 +1620,19 @@ export function DetectionTile({
             clipRule="evenodd"
           />
         </svg>
-        <span className="mt-1 w-full truncate text-xs font-medium text-green-700">
-          {detection.raw_title}
+        <span
+          data-testid="confirmed-title"
+          className="mt-1 w-full truncate text-xs font-medium text-green-700"
+        >
+          {activeCandidate?.title ?? detection.raw_title}
+        </span>
+        {activeCandidate?.authors.length ? (
+          <span className="w-full truncate text-[10px] text-green-600">
+            {activeCandidate.authors.join(', ')}
+          </span>
+        ) : null}
+        <span className="mt-1 rounded bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700">
+          Dodano
         </span>
       </div>
     );
@@ -1799,6 +1837,120 @@ export function DetectionTile({
 }
 
 // ---------------------------------------------------------------------------
+// AddMissedBookForm — lekki formularz tytułu do ścieżki identity-first
+// (brak rysowania bbox — user wpisuje tytuł → POST /detections → rematch)
+// ---------------------------------------------------------------------------
+
+type AddMissedBookFormProps = {
+  busy: boolean;
+  errorMsg: string | null;
+  onSubmit: (
+    title: string,
+    author: string | null,
+    isbn: string | null,
+    publisher: string | null,
+  ) => void;
+  onCancel: () => void;
+};
+
+function AddMissedBookForm({ busy, errorMsg, onSubmit, onCancel }: AddMissedBookFormProps) {
+  const [title, setTitle] = useState('');
+  const [author, setAuthor] = useState('');
+  const [publisher, setPublisher] = useState('');
+  const [isbn, setIsbn] = useState('');
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!title.trim()) return;
+    onSubmit(title.trim(), author.trim() || null, isbn.trim() || null, publisher.trim() || null);
+  }
+
+  return (
+    <form
+      data-testid="add-missed-book-form"
+      onSubmit={handleSubmit}
+      className="mt-3 space-y-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-emerald-950"
+    >
+      <div>
+        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+          Tytuł
+          <input
+            data-testid="add-missed-title"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            autoFocus
+            className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+            required
+          />
+        </label>
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+          Autor (opcjonalnie)
+          <input
+            data-testid="add-missed-author"
+            value={author}
+            onChange={(e) => setAuthor(e.target.value)}
+            className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+          />
+        </label>
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+          Wydawnictwo (opcjonalnie — gdy widoczne na grzbiecie)
+          <input
+            data-testid="add-missed-publisher"
+            value={publisher}
+            onChange={(e) => setPublisher(e.target.value)}
+            placeholder="np. Nasza Księgarnia"
+            className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 placeholder:text-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500"
+          />
+        </label>
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+          ISBN (opcjonalnie — gdy tytuł nie daje wyników)
+          <input
+            data-testid="add-missed-isbn"
+            value={isbn}
+            onChange={(e) => setIsbn(e.target.value)}
+            placeholder="np. 9788308073087"
+            className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 placeholder:text-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500"
+          />
+        </label>
+      </div>
+      {errorMsg && (
+        <p
+          data-testid="add-missed-error"
+          className="text-xs text-red-600 dark:text-red-400"
+          role="alert"
+        >
+          {errorMsg}
+        </p>
+      )}
+      <div className="flex gap-2">
+        <button
+          data-testid="add-missed-submit"
+          type="submit"
+          disabled={busy || !title.trim()}
+          className="flex-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+        >
+          {busy ? 'Szukam...' : 'Szukaj'}
+        </button>
+        <button
+          data-testid="add-missed-cancel"
+          type="button"
+          onClick={onCancel}
+          className="rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-700"
+        >
+          Anuluj
+        </button>
+      </div>
+    </form>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Typy głównego komponentu
 // ---------------------------------------------------------------------------
 
@@ -1892,6 +2044,14 @@ export default function DetectionReview({
   const [confirmRerunOpen, setConfirmRerunOpen] = useState(false);
   const [isBboxEditing, setIsBboxEditing] = useState(false);
   const [applyingEdits, setApplyingEdits] = useState(false);
+  const [showAddMissedForm, setShowAddMissedForm] = useState(false);
+  const [addMissedBusy, setAddMissedBusy] = useState(false);
+  const [addMissedErrorMsg, setAddMissedErrorMsg] = useState<string | null>(null);
+  // S-43: detekcja utworzona z „Dodaj pominiętą książkę" po wyszukaniu — modal
+  // zostaje otwarty na etapie potwierdzania (karta z kandydatami). null = etap formularza.
+  const [addMissedDetection, setAddMissedDetection] = useState<DetectionWithCandidatesDTO | null>(
+    null,
+  );
   // M20: id potwierdzonych już w DB przy wejściu — odróżnia decyzje sesyjne od historycznych
   const initialDecidedRef = useRef<Set<string>>(new Set());
 
@@ -2141,6 +2301,92 @@ export default function DetectionReview({
     );
   }
 
+  async function handleAddMissedBook(
+    title: string,
+    author: string | null,
+    isbn: string | null,
+    publisher: string | null,
+  ) {
+    setAddMissedBusy(true);
+    setAddMissedErrorMsg(null);
+    try {
+      const createRes = await fetch(`/api/photos/${photoId}/detections`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, ...(author ? { author } : {}) }),
+      });
+      const createJson = (await createRes.json()) as {
+        data?: DetectionWithCandidatesDTO;
+        error?: { message?: string };
+      };
+      if (!createRes.ok) {
+        setAddMissedErrorMsg(createJson.error?.message ?? `Błąd (${createRes.status})`);
+        return;
+      }
+      const newDet = createJson.data!;
+
+      // Rematch to populate candidates immediately
+      const rematchRes = await fetch(`/api/detections/${newDet.id}/rematch`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, author, isbn, publisher }),
+      });
+      const rematchJson = (await rematchRes.json()) as {
+        data?: {
+          detection?: Partial<DetectionWithCandidatesDTO>;
+          candidates?: BookCandidateDTO[];
+          duplicate?: DetectionWithCandidatesDTO['duplicate'];
+        };
+        error?: { message?: string };
+      };
+
+      const finalDet: DetectionWithCandidatesDTO =
+        rematchRes.ok && rematchJson.data
+          ? {
+              ...newDet,
+              ...(rematchJson.data.detection ?? {}),
+              candidates: rematchJson.data.candidates ?? [],
+              duplicate: rematchJson.data.duplicate ?? null,
+            }
+          : newDet;
+
+      // S-43: NIE zamykaj modala — przejdź do etapu potwierdzania (karta z kandydatami).
+      // Książka trafia do katalogu dopiero po „Akceptuj"/„Wpisz ręcznie"; przy braku
+      // wyników karta zostaje na ekranie z opcją „Wpisz ręcznie" (dodaj mimo to) lub „Zamknij".
+      setAddMissedDetection(finalDet);
+    } catch (e) {
+      setAddMissedErrorMsg(e instanceof Error ? e.message : 'Błąd sieci.');
+    } finally {
+      setAddMissedBusy(false);
+    }
+  }
+
+  // S-43: zamknięcie modala „Dodaj pominiętą książkę" — reset obu etapów.
+  function closeAddMissed() {
+    setShowAddMissedForm(false);
+    setAddMissedDetection(null);
+    setAddMissedErrorMsg(null);
+  }
+
+  // S-43: decyzja podjęta na karcie wewnątrz modala. Po potwierdzeniu książka jest
+  // już w katalogu (POST /confirm lub /correct wykonany przez kartę) — dorzucamy
+  // detekcję do listy jako zdecydowaną i zamykamy modal. Odrzucenie tylko zamyka.
+  function finishAddMissed(detectionId: string, kind: DecisionKind) {
+    if (kind === 'confirmed' && addMissedDetection) {
+      const confirmedDet: DetectionWithCandidatesDTO = {
+        ...addMissedDetection,
+        status: 'confirmed',
+      };
+      setDetections((prev) =>
+        prev.some((d) => d.id === confirmedDet.id)
+          ? prev.map((d) => (d.id === confirmedDet.id ? confirmedDet : d))
+          : [...prev, confirmedDet],
+      );
+      handleDecided(detectionId, 'confirmed');
+    }
+    closeAddMissed();
+  }
+
   function handleMarkerContextMenu(detectionId: string) {
     const det = detections.find((d) => d.id === detectionId);
     if (!det) return;
@@ -2372,6 +2618,17 @@ export default function DetectionReview({
             >
               {actionBusy ? 'Dopasowuję...' : 'Ponów match'}
             </button>
+            <button
+              data-testid="add-missed-book-button"
+              disabled={actionBusy || isBboxEditing || applyingEdits}
+              onClick={() => {
+                setShowAddMissedForm(true);
+                setAddMissedErrorMsg(null);
+              }}
+              className="inline-flex items-center rounded-md border border-violet-300 bg-violet-50 px-3 py-1 text-xs font-medium text-violet-700 hover:bg-violet-100 disabled:opacity-50"
+            >
+              + Dodaj pominiętą książkę
+            </button>
           </div>
           {actionMsg && (
             <p data-testid="action-message" className="mt-1 text-xs text-amber-700" role="alert">
@@ -2485,6 +2742,44 @@ export default function DetectionReview({
             </div>
           ))}
         </div>
+      )}
+
+      {/* Modal: Dodaj pominiętą książkę — otwierany z panelu Vision. Dwuetapowy:
+          (1) formularz tytułu → Szukaj; (2) karta z kandydatami → Akceptuj/Wpisz ręcznie.
+          Modal zostaje otwarty przez cały proces (S-43). */}
+      {showAddMissedForm && (
+        <CorrectionModal onClose={closeAddMissed}>
+          {addMissedDetection ? (
+            <div className="space-y-3" data-testid="add-missed-review">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                Potwierdź książkę
+              </p>
+              <DetectionCard
+                detection={addMissedDetection}
+                photoId={photoId}
+                onDecided={finishAddMissed}
+                onRefined={setAddMissedDetection}
+              />
+              <button
+                type="button"
+                data-testid="add-missed-close"
+                onClick={closeAddMissed}
+                className="w-full rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-700"
+              >
+                Zamknij
+              </button>
+            </div>
+          ) : (
+            <AddMissedBookForm
+              busy={addMissedBusy}
+              errorMsg={addMissedErrorMsg}
+              onSubmit={(title, author, isbn, publisher) =>
+                void handleAddMissedBook(title, author, isbn, publisher)
+              }
+              onCancel={closeAddMissed}
+            />
+          )}
+        </CorrectionModal>
       )}
 
       <ConfirmDialog

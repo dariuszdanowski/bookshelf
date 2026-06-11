@@ -11,7 +11,21 @@ type ApiJson = { data?: Record<string, unknown>; error?: { code: string; message
 
 const VALID_BBOX = { x1: 0.1, y1: 0.1, x2: 0.5, y2: 0.9 };
 
-const insertedRow = {
+type MockDetectionRow = {
+  id: string;
+  position_index: number;
+  raw_title: string;
+  raw_author: string | null;
+  vision_confidence: number | null;
+  spine_color: string | null;
+  status: string;
+  bbox_x1: number | null;
+  bbox_y1: number | null;
+  bbox_x2: number | null;
+  bbox_y2: number | null;
+};
+
+const insertedRow: MockDetectionRow = {
   id: NEW_DET_ID,
   position_index: 4,
   raw_title: '',
@@ -33,7 +47,7 @@ function makeContext(opts: {
   visionRuns?: { id: string }[];
   maxPosition?: number | null;
   insertResult?: {
-    data: typeof insertedRow | null;
+    data: MockDetectionRow | null;
     error: { name: string; message: string; code?: string } | null;
   };
 }) {
@@ -163,5 +177,74 @@ describe('POST /api/photos/[id]/detections', () => {
     const ctx = makeContext({});
     const res = await POST(ctx);
     expect(res.headers.get('Cache-Control')).toBe('private, no-store');
+  });
+
+  // Identity-first: title-only path (S-43 Phase 2)
+  it('200 z samym title — raw_title ustawiony, bbox null', async () => {
+    const titleOnlyRow: MockDetectionRow = {
+      ...insertedRow,
+      raw_title: 'Harry Potter',
+      bbox_x1: null,
+      bbox_y1: null,
+      bbox_x2: null,
+      bbox_y2: null,
+    };
+    const ctx = makeContext({
+      body: { title: 'Harry Potter' },
+      insertResult: { data: titleOnlyRow, error: null },
+    });
+    const res = await POST(ctx);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as ApiJson;
+    expect(json.data!.raw_title).toBe('Harry Potter');
+    expect(json.data!.bbox).toBeNull();
+    expect(json.data!.candidates).toEqual([]);
+  });
+
+  it('200 z samym title i autorem — oba pola w DTO', async () => {
+    const rowWithAuthor: MockDetectionRow = {
+      ...insertedRow,
+      raw_title: 'Wiedźmin',
+      raw_author: 'Andrzej Sapkowski',
+      bbox_x1: null,
+      bbox_y1: null,
+      bbox_x2: null,
+      bbox_y2: null,
+    };
+    const ctx = makeContext({
+      body: { title: 'Wiedźmin', author: 'Andrzej Sapkowski' },
+      insertResult: { data: rowWithAuthor, error: null },
+    });
+    const res = await POST(ctx);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as ApiJson;
+    expect(json.data!.raw_title).toBe('Wiedźmin');
+    expect(json.data!.raw_author).toBe('Andrzej Sapkowski');
+    expect(json.data!.bbox).toBeNull();
+  });
+
+  it('200 z samym bbox (legacy path) nadal działa', async () => {
+    const ctx = makeContext({ body: { bbox: VALID_BBOX } });
+    const res = await POST(ctx);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as ApiJson;
+    expect(json.data!.bbox).toEqual(VALID_BBOX);
+    expect(json.data!.raw_title).toBe('');
+  });
+
+  it('400 gdy body jest puste — brak title i bbox', async () => {
+    const ctx = makeContext({ body: {} });
+    const res = await POST(ctx);
+    expect(res.status).toBe(400);
+    const json = (await res.json()) as ApiJson;
+    expect(json.error!.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('400 gdy y1 >= y2', async () => {
+    const ctx = makeContext({ body: { bbox: { x1: 0.1, y1: 0.9, x2: 0.5, y2: 0.3 } } });
+    const res = await POST(ctx);
+    expect(res.status).toBe(400);
+    const json = (await res.json()) as ApiJson;
+    expect(json.error!.code).toBe('VALIDATION_ERROR');
   });
 });

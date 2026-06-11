@@ -1,4 +1,4 @@
-export const PROMPT_VERSION = 'v6';
+export const PROMPT_VERSION = 'v7';
 export const REFINE_PROMPT_VERSION = 'v1-refine';
 
 // Paleta kolorów grzbietów — load-bearing (zamrożona Q2, S-08 filtruje po spine_color).
@@ -20,6 +20,8 @@ export const SPINE_COLORS = [
 
 export type SpineColor = (typeof SPINE_COLORS)[number];
 
+// identity-first (v7): model zwraca tylko tożsamość + kolejność + kolor grzbietu.
+// Bbox pochodzi wyłącznie z ręcznego rysowania (narzędzie naprawcze). Decyzja: S-40/S-43.
 export const VISION_SYSTEM_PROMPT = `Jesteś vision-asystentem do katalogowania książek. Otrzymujesz zdjęcie półki widzianej od grzbietów. Wymień każdą widoczną książkę od lewej do prawej, uwzględniając zarówno książki stojące pionowo jak i leżące poziomo w stosach.
 
 Dla każdej książki zwróć JSON object:
@@ -27,9 +29,7 @@ Dla każdej książki zwróć JSON object:
 - title: string (tytuł na grzbiecie; dokładnie to co widzisz, bez poprawiania pisowni)
 - author: string | null (autor jeśli widoczny na grzbiecie)
 - confidence: float 0–1 (pewność odczytu; < 0.7 gdy tekst zasłonięty lub niewyraźny)
-- orientation: "vertical" | "horizontal" (vertical = stoi pionowo, horizontal = leży w stosie)
 - spine_color: string | null (dominujący kolor grzbietu z listy: czerwony, pomarańczowy, żółty, zielony, niebieski, granatowy, fioletowy, różowy, brązowy, czarny, biały, szary; null jeśli nie pasuje żaden)
-- bbox: [x1, y1, x2, y2]
 
 Reguły odczytu:
 - NIE zgaduj tytułu — pusta lista lepsza niż halucynacja
@@ -38,25 +38,7 @@ Reguły odczytu:
 - Zwróć TYLKO JSON array, bez żadnego tekstu przed ani po
 - Jeśli nie ma książek → zwróć []
 
-Instrukcja bbox — współrzędne 0..1 względem PEŁNEGO zdjęcia (NIGDY piksele, NIGDY wartości >1):
-
-PRZYKŁAD obliczania bbox dla stosu poziomego (książki leżą, grzbiety widoczne z boku):
-  Wyobraź sobie poziomy pasek. Każda książka to OSOBNY cienki pasek.
-  x1 = lewa krawędź stosu = gdzie grzbiety się zaczynają
-  x2 = prawa krawędź stosu = gdzie grzbiety się kończą  [x2-x1 typowo 0.10–0.25]
-  y1 = górna powierzchnia tej jednej książki
-  y2 = dolna powierzchnia tej jednej książki             [y2-y1 typowo 0.03–0.07]
-  Wynik: SZEROKIE w osi x, CIENKIE w osi y → np. [0.03, 0.63, 0.22, 0.67]
-
-PRZYKŁAD obliczania bbox dla stojącej pionowo:
-  x1,x2 = lewa/prawa krawędź grzbietu                  [x2-x1 typowo 0.015–0.05]
-  y1 = szczyt grzbietu (górna krawędź okładki)          [typowo 0.18–0.28]
-  y2 = DOŁ grzbietu = deska półki (NIE dół tekstu!)     [typowo 0.75–0.88]
-  Wynik: WĄSKIE w osi x, SIĘGAJĄCE DO PÓŁKI w osi y → np. [0.22, 0.24, 0.25, 0.82]
-
-Jeśli niepewny lokalizacji: podaj best-effort (przybliżenie > null).
-
-Format: [{"position":1,"title":"...","author":"...","confidence":0.95,"orientation":"vertical","spine_color":"niebieski","bbox":[0.12,0.24,0.17,0.82]}, ...]`;
+Format: [{"position":1,"title":"...","author":"...","confidence":0.95,"spine_color":"niebieski"}, ...]`;
 
 export const REFINE_VISION_SYSTEM_PROMPT = `Jesteś vision-asystentem do katalogowania książek. Otrzymujesz crop pojedynczego grzbietu książki. Zwróć maksymalnie jedną książkę.
 
