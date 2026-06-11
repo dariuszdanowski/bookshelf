@@ -8,24 +8,32 @@ export const prerender = false;
 
 const CreateDetectionSchema = z
   .object({
-    bbox: z.object({
-      x1: z.number().min(0).max(1),
-      y1: z.number().min(0).max(1),
-      x2: z.number().min(0).max(1),
-      y2: z.number().min(0).max(1),
-    }),
+    title: z.string().trim().max(300).optional(),
+    author: z.string().trim().max(200).optional(),
+    bbox: z
+      .object({
+        x1: z.number().min(0).max(1),
+        y1: z.number().min(0).max(1),
+        x2: z.number().min(0).max(1),
+        y2: z.number().min(0).max(1),
+      })
+      .optional(),
   })
-  .refine((d) => d.bbox.x1 < d.bbox.x2 && d.bbox.y1 < d.bbox.y2, {
+  .refine((d) => d.title !== undefined || d.bbox !== undefined, {
+    message: 'Wymagany co najmniej tytuł lub bbox.',
+  })
+  .refine((d) => !d.bbox || (d.bbox.x1 < d.bbox.x2 && d.bbox.y1 < d.bbox.y2), {
     message: 'x1 < x2 i y1 < y2 wymagane',
   });
 
 /**
  * POST /api/photos/[id]/detections
  *
- * Tworzy nową detekcję z bbox narysowaną przez usera.
- * raw_title='', status='pending', vision_run_id z ostatniego vision run foto.
+ * Tworzy nową detekcję ręcznie — przez wpis tytułu (identity-first, bez bbox)
+ * lub przez narysowany bbox (tryb naprawczy). Co najmniej jedno z: title, bbox.
+ * raw_title = title z body (lub '' gdy brak), status='pending'.
  * 200: { data: DetectionWithCandidatesDTO }
- * 400: brak vision_runs dla foto lub nieprawidłowe bbox
+ * 400: brak title i bbox, lub nieprawidłowe bbox coords
  * 401: brak auth
  * 404: foto nie istnieje lub cudze
  */
@@ -61,11 +69,11 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   if (!parsed.success) {
     const flat = z.flattenError(parsed.error);
     const first =
-      flat.formErrors[0] ?? Object.values(flat.fieldErrors)[0]?.[0] ?? 'Nieprawidłowe dane bbox.';
+      flat.formErrors[0] ?? Object.values(flat.fieldErrors)[0]?.[0] ?? 'Nieprawidłowe dane.';
     return apiError({ code: 'VALIDATION_ERROR', status: 400, message: first });
   }
 
-  const { bbox } = parsed.data;
+  const { bbox, title, author } = parsed.data;
 
   // Get latest vision_run_id — lub utwórz manual run jeśli żadnego nie ma
   const { data: visionRuns } = await locals.supabase
@@ -112,15 +120,15 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     .insert({
       photo_id: photoId,
       position_index: nextPosition,
-      raw_title: '',
-      raw_author: null,
+      raw_title: title ?? '',
+      raw_author: author ?? null,
       vision_confidence: null,
       spine_color: null,
       status: 'pending',
-      bbox_x1: bbox.x1,
-      bbox_y1: bbox.y1,
-      bbox_x2: bbox.x2,
-      bbox_y2: bbox.y2,
+      bbox_x1: bbox?.x1 ?? null,
+      bbox_y1: bbox?.y1 ?? null,
+      bbox_x2: bbox?.x2 ?? null,
+      bbox_y2: bbox?.y2 ?? null,
       vision_run_id: visionRunId,
     })
     .select(

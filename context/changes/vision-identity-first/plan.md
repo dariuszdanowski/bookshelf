@@ -376,11 +376,11 @@ Nowe runy v7 dają `bbox null`. `prompt_version` w `vision_runs` rozróżnia run
 
 #### Automated
 
-- [ ] 2.1 Unit: `POST /detections` z samym `title` → `raw_title` set, `bbox null`
-- [ ] 2.2 Unit: `POST /detections` z samym `bbox` (legacy) nadal działa
-- [ ] 2.3 Unit: pusty body → 400; bbox `x1>=x2` → 400
-- [ ] 2.4 Typecheck / lint / build zielone
-- [ ] 2.5 Istniejące E2E bbox-draw nadal zielone
+- [x] 2.1 Unit: `POST /detections` z samym `title` → `raw_title` set, `bbox null`
+- [x] 2.2 Unit: `POST /detections` z samym `bbox` (legacy) nadal działa
+- [x] 2.3 Unit: pusty body → 400; bbox `x1>=x2` → 400
+- [x] 2.4 Typecheck / lint / build zielone
+- [x] 2.5 Istniejące E2E bbox-draw nadal zielone
 
 #### Manual
 
