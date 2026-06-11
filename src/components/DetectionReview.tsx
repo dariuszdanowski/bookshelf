@@ -2339,22 +2339,34 @@ export default function DetectionReview({
           candidates?: BookCandidateDTO[];
           duplicate?: DetectionWithCandidatesDTO['duplicate'];
         };
-        error?: { message?: string };
+        error?: { code?: string; message?: string };
       };
 
-      const finalDet: DetectionWithCandidatesDTO =
-        rematchRes.ok && rematchJson.data
-          ? {
-              ...newDet,
-              ...(rematchJson.data.detection ?? {}),
-              candidates: rematchJson.data.candidates ?? [],
-              duplicate: rematchJson.data.duplicate ?? null,
-            }
-          : newDet;
+      if (rematchRes.status === 429) {
+        setAddMissedErrorMsg('Rate limit — spróbuj za chwilę.');
+        return;
+      }
+      if (rematchRes.status === 403 && rematchJson.error?.code === 'NO_API_KEY') {
+        setAddMissedErrorMsg('Brak klucza API. Dodaj klucz w ustawieniach konta.');
+        return;
+      }
+      if (!rematchRes.ok) {
+        setAddMissedErrorMsg(
+          rematchJson.error?.message ?? `Błąd wyszukiwania (${rematchRes.status})`,
+        );
+        return;
+      }
 
       // S-43: NIE zamykaj modala — przejdź do etapu potwierdzania (karta z kandydatami).
-      // Książka trafia do katalogu dopiero po „Akceptuj"/„Wpisz ręcznie"; przy braku
-      // wyników karta zostaje na ekranie z opcją „Wpisz ręcznie" (dodaj mimo to) lub „Zamknij".
+      // Przy braku wyników karta zostaje z opcją „Wpisz ręcznie" (dodaj mimo to) lub „Zamknij".
+      const finalDet: DetectionWithCandidatesDTO = rematchJson.data
+        ? {
+            ...newDet,
+            ...(rematchJson.data.detection ?? {}),
+            candidates: rematchJson.data.candidates ?? [],
+            duplicate: rematchJson.data.duplicate ?? null,
+          }
+        : newDet;
       setAddMissedDetection(finalDet);
     } catch (e) {
       setAddMissedErrorMsg(e instanceof Error ? e.message : 'Błąd sieci.');
