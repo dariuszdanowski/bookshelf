@@ -1,9 +1,9 @@
 ---
 id: local-supabase-dev-access
 title: Lokalna baza developerska dostępna z Windows + przepięcie dev/E2E na lokal
-status: plan_reviewed
+status: implementing
 created: 2026-06-10
-updated: 2026-06-10
+updated: 2026-06-11
 ---
 
 # local-supabase-dev-access

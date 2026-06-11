@@ -257,15 +257,15 @@ chmury; używaj tylko do debugowania proda, wróć na `npm run env:local`"). Bez
 
 #### Automated
 
-- [ ] 1.1 `node scripts/switch-env.mjs status` raportuje profil `local`
-- [ ] 1.2 Z Windows `Invoke-WebRequest .../auth/v1/health` zwraca HTTP 200
-- [ ] 1.3 `scripts/setup-wsl-firewall.ps1` idempotentny (drugie uruchomienie nie błędzi)
+- [x] 1.1 `node scripts/switch-env.mjs status` raportuje profil `local`
+- [x] 1.2 Z Windows `Invoke-WebRequest .../auth/v1/health` zwraca HTTP 200
+- [x] 1.3 `scripts/setup-wsl-firewall.ps1` idempotentny (drugie uruchomienie nie błędzi)
 
 #### Manual
 
-- [ ] 1.4 (user/admin) skrypt firewall uruchomiony bez odrzucenia przez GPO
-- [ ] 1.5 Reguła widoczna w `Get-NetFirewallHyperVRule -Name 'WSL-Supabase-Local'`
-- [ ] 1.6 Jeśli #1 odrzucone → udokumentowany szczebel kontyngencji, który zadziałał
+- [x] 1.4 (user/admin) skrypt firewall uruchomiony bez odrzucenia przez GPO
+- [x] 1.5 Reguła widoczna w `Get-NetFirewallHyperVRule -Name 'WSL-Supabase-Local'`
+- [x] 1.6 Jeśli #1 odrzucone → udokumentowany szczebel kontyngencji, który zadziałał — N/A: primary fix (szczebel a) zadziałał
 
 ### Phase 2: Przepięcie dev + E2E na lokal + dowód braku egressu
 
