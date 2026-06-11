@@ -39,6 +39,8 @@ function RefineButton({
   onClick: () => void;
   size?: 'lg' | 'md' | 'sm';
 }) {
+  // identity-first: refine = crop re-OCR; bez bboxa nie ma co przycinać
+  if (bbox === null) return null;
   const isWeak = classifyCropQuality(bbox) === 'uncertain_localization';
   const sizeCls = size === 'lg' ? 'px-3 py-1.5' : size === 'sm' ? 'px-2 py-1' : 'px-2.5 py-1';
   const colorCls = isWeak
