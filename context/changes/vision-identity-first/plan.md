@@ -390,13 +390,13 @@ Nowe runy v7 dają `bbox null`. `prompt_version` w `vision_runs` rozróżnia run
 
 #### Automated
 
-- [x] 3.1 E2E: identity golden-path (mock bez bbox) → upload → potwierdź → katalog
-- [x] 3.2 E2E: „dodaj pominiętą po tytule" zielony
-- [x] 3.3 E2E: rysowanie ramki jako naprawa nadal zielone
-- [x] 3.4 Typecheck / lint / build / unit zielone
-- [x] 3.5 Pełny `npm run test:e2e` deterministyczny
+- [x] 3.1 E2E: identity golden-path (mock bez bbox) → upload → potwierdź → katalog — 4ff1d73
+- [x] 3.2 E2E: „dodaj pominiętą po tytule" zielony — 4ff1d73
+- [x] 3.3 E2E: rysowanie ramki jako naprawa nadal zielone — 4ff1d73
+- [x] 3.4 Typecheck / lint / build / unit zielone — 4ff1d73
+- [x] 3.5 Pełny `npm run test:e2e` deterministyczny — 4ff1d73
 
 #### Manual
 
-- [x] 3.6 (user-only) UX: karty główne, overlay drugorzędny z CTA rysowania, brak „wymagany bbox"
-- [x] 3.7 (user-only) Realny smoke pełnego flow na koncie demo
+- [x] 3.6 (user-only) UX: karty główne, overlay drugorzędny z CTA rysowania, brak „wymagany bbox" — 4ff1d73
+- [x] 3.7 (user-only) Realny smoke pełnego flow na koncie demo — 4ff1d73
