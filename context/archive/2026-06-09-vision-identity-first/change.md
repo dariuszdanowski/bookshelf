@@ -1,7 +1,8 @@
 ---
 change_id: vision-identity-first
 title: "S-43: Pivot pipeline vision na identity-first (rozpoznanie > lokalizacja)"
-status: impl_reviewed
+status: archived
+archived_at: 2026-06-11T22:29:04Z
 created: 2026-06-09
 updated: 2026-06-12
 ---
