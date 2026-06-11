@@ -257,23 +257,23 @@ chmury; używaj tylko do debugowania proda, wróć na `npm run env:local`"). Bez
 
 #### Automated
 
-- [x] 1.1 `node scripts/switch-env.mjs status` raportuje profil `local`
-- [x] 1.2 Z Windows `Invoke-WebRequest .../auth/v1/health` zwraca HTTP 200
-- [x] 1.3 `scripts/setup-wsl-firewall.ps1` idempotentny (drugie uruchomienie nie błędzi)
+- [x] 1.1 `node scripts/switch-env.mjs status` raportuje profil `local` — 08ddec1
+- [x] 1.2 Z Windows `Invoke-WebRequest .../auth/v1/health` zwraca HTTP 200 — 08ddec1
+- [x] 1.3 `scripts/setup-wsl-firewall.ps1` idempotentny (drugie uruchomienie nie błędzi) — 08ddec1
 
 #### Manual
 
-- [x] 1.4 (user/admin) skrypt firewall uruchomiony bez odrzucenia przez GPO
-- [x] 1.5 Reguła widoczna w `Get-NetFirewallHyperVRule -Name 'WSL-Supabase-Local'`
-- [x] 1.6 Jeśli #1 odrzucone → udokumentowany szczebel kontyngencji, który zadziałał — N/A: primary fix (szczebel a) zadziałał
+- [x] 1.4 (user/admin) skrypt firewall uruchomiony bez odrzucenia przez GPO — 08ddec1
+- [x] 1.5 Reguła widoczna w `Get-NetFirewallHyperVRule -Name 'WSL-Supabase-Local'` — 08ddec1
+- [x] 1.6 Jeśli #1 odrzucone → udokumentowany szczebel kontyngencji, który zadziałał — N/A: primary fix (szczebel a) zadziałał — 08ddec1
 
 ### Phase 2: Przepięcie dev + E2E na lokal + dowód braku egressu
 
 #### Automated
 
-- [ ] 2.1 `npm run test:e2e` przechodzi w całości na profilu lokalnym
-- [ ] 2.2 `npm run test` + `npm run typecheck` zielone
-- [ ] 2.3 `npm run lint` zielony
+- [x] 2.1 `npm run test:e2e` przechodzi w całości na profilu lokalnym
+- [x] 2.2 `npm run test` + `npm run typecheck` zielone
+- [x] 2.3 `npm run lint` zielony
 
 #### Manual
 
@@ -286,10 +286,10 @@ chmury; używaj tylko do debugowania proda, wróć na `npm run env:local`"). Bez
 
 #### Automated
 
-- [ ] 3.1 `supabase/AGENTS.md` odwołuje się do `scripts/setup-wsl-firewall.ps1`
-- [ ] 3.2 `npm run env:remote` drukuje ostrzeżenie o egressie chmury
-- [ ] 3.3 `npm run lint` / `npm run typecheck` zielone
+- [x] 3.1 `supabase/AGENTS.md` odwołuje się do `scripts/setup-wsl-firewall.ps1`
+- [x] 3.2 `npm run env:remote` drukuje ostrzeżenie o egressie chmury
+- [x] 3.3 `npm run lint` / `npm run typecheck` zielone
 
 #### Manual
 
-- [ ] 3.4 (user) po `wsl --shutdown` + `npm run env:local` połączenie wraca bez dotykania firewalla
+- [x] 3.4 (user) po `wsl --shutdown` + `npm run env:local` połączenie wraca bez dotykania firewalla

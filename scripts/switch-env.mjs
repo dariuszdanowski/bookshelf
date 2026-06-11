@@ -29,7 +29,7 @@ function detectSupabaseHost() {
     if (ip) return ip;
   }
   console.warn(
-    `UWAGA: nie udalo sie wykryc WSL IP (status=${r.status} err=${r.error?.code ?? '-'}); uzywam 127.0.0.1.`
+    `UWAGA: nie udalo sie wykryc WSL IP (status=${r.status} err=${r.error?.code ?? '-'}); uzywam 127.0.0.1.`,
   );
   return '127.0.0.1';
 }
@@ -69,7 +69,9 @@ function status() {
 
 function toLocal() {
   if (!existsSync(LOCAL)) {
-    console.error('Brak .dev.vars.local — najpierw `npm run db:start` i skopiuj output kluczy do pliku.');
+    console.error(
+      'Brak .dev.vars.local — najpierw `npm run db:start` i skopiuj output kluczy do pliku.',
+    );
     process.exit(1);
   }
   const active = detectActive();
@@ -100,6 +102,9 @@ function toRemote() {
   }
   copyFileSync(REMOTE_BAK, ACTIVE);
   console.log('✓ Aktywowano profil remote (.dev.vars.remote.bak → .dev.vars)');
+  console.log('');
+  console.log('  ⚠️  UWAGA: profil REMOTE = egress chmury + MAU prod Supabase.');
+  console.log('  Używaj tylko do debugowania prod. Wróć: npm run env:local');
 }
 
 switch (mode) {

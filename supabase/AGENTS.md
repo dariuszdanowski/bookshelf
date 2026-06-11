@@ -8,6 +8,18 @@ Migracje testujemy zawsze na **lokalnym stacku** zanim trafią do PR. Reguła z 
 
 **Networking**: Astro dev biegnie w Windows (workerd/Cloudflare runtime nie wspiera SQLite SHM na `/mnt/c` NTFS-9P mount, więc nie da się go uruchomić w WSL bez przeniesienia repo do natywnego WSL fs). WSL2 localhost-forwarding nie działa dla portów Dockera, więc Astro nie dosięga `127.0.0.1:54321`. Workaround: `npm run env:local` dynamicznie wykrywa **WSL IP** (`wsl hostname -I`) i podstawia w generowanym `.dev.vars` — Astro w Windows łączy się do Supabase przez `http://192.168.x.x:54321` przez WSL NAT. WSL IP zmienia się po `wsl --shutdown` → należy odpalić `env:local` ponownie po każdym restarcie WSL. Mirrored networking mode próbowane — koliduje z bind portów Dockera (`address already in use`), nie używamy. **`.dev.vars.local` zostaje wzorcem z `127.0.0.1`** — switch-env podmienia host przy aktywacji; nie commituj zmiany.
 
+**Przebicie sieci Windows → WSL (Hyper-V firewall) — jednorazowo na maszynie:**
+
+Problem: `DefaultInboundAction: Block` na WSL VM blokuje ruch Windows→Docker. Fix: scoped reguła Hyper-V firewall na portach 54321–54327. Skrypt w repo (idempotentny, wymaga uruchomienia jako Administrator):
+
+```powershell
+scripts\setup-wsl-firewall.ps1
+```
+
+Reguła jest scoped na VMCreatorId WSL (nie na IP) — przeżywa `wsl --shutdown` i zmianę IP. Po restarcie WSL wystarczy ponowić `npm run env:local` (re-detekcja IP), nie trzeba ponownie puszczać skryptu.
+
+Na tej maszynie (APS00104300) localhost-forwarding (`127.0.0.1`) **działa** dla Docker portów — `npm run env:local` ustawia 127.0.0.1 i Astro dosięga lokalnego stacku bezpośrednio.
+
 **Bootstrap (jednorazowo, ~10 min pull obrazów):**
 
 ```powershell
@@ -44,3 +56,17 @@ Output podaje lokalny API URL (`http://127.0.0.1:54321`), Studio (`http://127.0.
 | `npx supabase db push` | **push do remote prod** — automat w `deploy.yml` po merge; ręcznie tylko fallback/hotfix |
 
 VS Code tasks (Ctrl+Shift+P → Tasks: Run Task) zawijają te komendy przez WSL automatycznie. `Dev: full local stack (env + supabase + astro)` to compound wykonujący `env:local` → `supabase start` → `astro dev` jednym uruchomieniem.
+
+**Migracja danych remote → local (jednorazowo):**
+
+```bash
+# W terminalu WSL (wymaga `npx supabase login` + zainstalowanego postgresql-client)
+npx supabase db dump --linked --data-only -f /tmp/bookshelf-dump.sql
+npx supabase db reset --no-seed
+printf 'SET session_replication_role = replica;\n\\i /tmp/bookshelf-dump.sql\nSET session_replication_role = DEFAULT;\n' > /tmp/restore-wrapper.sql
+psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -f /tmp/restore-wrapper.sql
+# Usuń konta E2E (session_replication_role wyłącza prevent_zakupione_delete trigger)
+psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -c "SET session_replication_role = replica; DELETE FROM auth.users WHERE email LIKE 'e2e-%' OR email LIKE '%@example.com'; SET session_replication_role = DEFAULT;"
+# Jeśli po restore brak grantów dla authenticated (błąd 42501):
+psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -c "GRANT USAGE ON SCHEMA public TO anon, authenticated; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated; GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon;"
+```

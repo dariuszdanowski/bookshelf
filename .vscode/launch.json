@@ -13,6 +13,13 @@
       "request": "launch",
       "type": "node-terminal",
       "preLaunchTask": "Pre-dev: env:local + supabase start"
+    },
+    {
+      "command": "./node_modules/.bin/astro dev",
+      "name": "Dev server + local Supabase keepalive",
+      "request": "launch",
+      "type": "node-terminal",
+      "preLaunchTask": "WSL: Supabase keepalive (local dev)"
     }
   ]
 }
