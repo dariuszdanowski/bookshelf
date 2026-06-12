@@ -16,7 +16,7 @@ type PhotoRow = {
 
 type VisionRunRow = {
   id: string;
-  photo_id: string;
+  photo_id: string | null;
   model: string | null;
   created_at: string;
   cost_usd: number | null;
@@ -129,7 +129,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
   // Keep only the latest (first after ORDER BY created_at DESC) per photo_id
   const latestRunByPhoto = new Map<string, VisionRunRow>();
   for (const run of succeededRuns ?? []) {
-    if (!latestRunByPhoto.has(run.photo_id)) {
+    if (run.photo_id && !latestRunByPhoto.has(run.photo_id)) {
       latestRunByPhoto.set(run.photo_id, run);
     }
   }
@@ -153,6 +153,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
     if (!allRunsRes.error) {
       costsAvailable = true;
       for (const r of allRunsRes.data ?? []) {
+        if (!r.photo_id) continue;
         totalCostByPhoto.set(
           r.photo_id,
           (totalCostByPhoto.get(r.photo_id) ?? 0) + (r.cost_usd ?? 0),

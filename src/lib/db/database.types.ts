@@ -1,10 +1,30 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: '14.5';
+  graphql_public: {
+    Tables: {
+      [_ in never]: never;
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json;
+          operationName?: string;
+          query?: string;
+          variables?: Json;
+        };
+        Returns: Json;
+      };
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
   };
   public: {
     Tables: {
@@ -318,6 +338,7 @@ export type Database = {
         Row: {
           ai_enabled: boolean;
           created_at: string;
+          deleted_at: string | null;
           display_name: string | null;
           id: string;
           is_admin: boolean;
@@ -325,6 +346,7 @@ export type Database = {
         Insert: {
           ai_enabled?: boolean;
           created_at?: string;
+          deleted_at?: string | null;
           display_name?: string | null;
           id: string;
           is_admin?: boolean;
@@ -332,6 +354,7 @@ export type Database = {
         Update: {
           ai_enabled?: boolean;
           created_at?: string;
+          deleted_at?: string | null;
           display_name?: string | null;
           id?: string;
           is_admin?: boolean;
@@ -340,36 +363,46 @@ export type Database = {
       };
       refine_calls: {
         Row: {
+          api_key_id: string | null;
           cost_usd: number | null;
           created_at: string;
-          detection_id: string;
+          detection_id: string | null;
           id: string;
           latency_ms: number | null;
           model: string | null;
-          photo_id: string;
+          photo_id: string | null;
           user_id: string;
         };
         Insert: {
+          api_key_id?: string | null;
           cost_usd?: number | null;
           created_at?: string;
-          detection_id: string;
+          detection_id?: string | null;
           id?: string;
           latency_ms?: number | null;
           model?: string | null;
-          photo_id: string;
+          photo_id?: string | null;
           user_id: string;
         };
         Update: {
+          api_key_id?: string | null;
           cost_usd?: number | null;
           created_at?: string;
-          detection_id?: string;
+          detection_id?: string | null;
           id?: string;
           latency_ms?: number | null;
           model?: string | null;
-          photo_id?: string;
+          photo_id?: string | null;
           user_id?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: 'refine_calls_api_key_id_fkey';
+            columns: ['api_key_id'];
+            isOneToOne: false;
+            referencedRelation: 'user_api_keys';
+            referencedColumns: ['id'];
+          },
           {
             foreignKeyName: 'refine_calls_detection_id_fkey';
             columns: ['detection_id'];
@@ -475,8 +508,51 @@ export type Database = {
         };
         Relationships: [];
       };
+      user_api_keys: {
+        Row: {
+          base_url: string | null;
+          created_at: string | null;
+          encrypted_key: string;
+          id: string;
+          is_active: boolean;
+          label: string;
+          last_test_result: string | null;
+          last_tested_at: string | null;
+          model: string | null;
+          provider: string;
+          user_id: string;
+        };
+        Insert: {
+          base_url?: string | null;
+          created_at?: string | null;
+          encrypted_key: string;
+          id?: string;
+          is_active?: boolean;
+          label: string;
+          last_test_result?: string | null;
+          last_tested_at?: string | null;
+          model?: string | null;
+          provider: string;
+          user_id: string;
+        };
+        Update: {
+          base_url?: string | null;
+          created_at?: string | null;
+          encrypted_key?: string;
+          id?: string;
+          is_active?: boolean;
+          label?: string;
+          last_test_result?: string | null;
+          last_tested_at?: string | null;
+          model?: string | null;
+          provider?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
       vision_runs: {
         Row: {
+          api_key_id: string | null;
           completed_at: string | null;
           cost_usd: number | null;
           created_at: string;
@@ -484,11 +560,13 @@ export type Database = {
           id: string;
           latency_ms: number | null;
           model: string | null;
-          photo_id: string;
+          photo_id: string | null;
           prompt_version: string | null;
           status: string;
+          user_id: string;
         };
         Insert: {
+          api_key_id?: string | null;
           completed_at?: string | null;
           cost_usd?: number | null;
           created_at?: string;
@@ -496,11 +574,13 @@ export type Database = {
           id?: string;
           latency_ms?: number | null;
           model?: string | null;
-          photo_id: string;
+          photo_id?: string | null;
           prompt_version?: string | null;
           status: string;
+          user_id: string;
         };
         Update: {
+          api_key_id?: string | null;
           completed_at?: string | null;
           cost_usd?: number | null;
           created_at?: string;
@@ -508,11 +588,19 @@ export type Database = {
           id?: string;
           latency_ms?: number | null;
           model?: string | null;
-          photo_id?: string;
+          photo_id?: string | null;
           prompt_version?: string | null;
           status?: string;
+          user_id?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: 'vision_runs_api_key_id_fkey';
+            columns: ['api_key_id'];
+            isOneToOne: false;
+            referencedRelation: 'user_api_keys';
+            referencedColumns: ['id'];
+          },
           {
             foreignKeyName: 'vision_runs_photo_id_fkey';
             columns: ['photo_id'];
@@ -522,61 +610,24 @@ export type Database = {
           },
         ];
       };
-      // hand-typed S-32 — regen via 'supabase gen types --linked' after 0016 lands in prod
-      // (local stack AV-blocked, see lessons.md)
-      user_api_keys: {
-        Row: {
-          id: string;
-          user_id: string;
-          label: string;
-          provider: 'anthropic' | 'openai' | 'openrouter' | 'openai_compatible';
-          model: string | null;
-          base_url: string | null;
-          encrypted_key: string;
-          is_active: boolean;
-          last_tested_at: string | null;
-          last_test_result: 'ok' | 'error' | null;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          label: string;
-          provider: 'anthropic' | 'openai' | 'openrouter' | 'openai_compatible';
-          model?: string | null;
-          base_url?: string | null;
-          encrypted_key: string;
-          is_active?: boolean;
-          last_tested_at?: string | null;
-          last_test_result?: 'ok' | 'error' | null;
-          created_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          label?: string;
-          provider?: 'anthropic' | 'openai' | 'openrouter' | 'openai_compatible';
-          model?: string | null;
-          base_url?: string | null;
-          encrypted_key?: string;
-          is_active?: boolean;
-          last_tested_at?: string | null;
-          last_test_result?: 'ok' | 'error' | null;
-          created_at?: string;
-        };
-        Relationships: [
-          {
-            foreignKeyName: 'user_api_keys_user_id_fkey';
-            columns: ['user_id'];
-            isOneToOne: false;
-            referencedRelation: 'users';
-            referencedColumns: ['id'];
-          },
-        ];
-      };
     };
     Views: {
-      [_ in never]: never;
+      cost_events: {
+        Row: {
+          api_key_id: string | null;
+          cost_usd: number | null;
+          created_at: string | null;
+          detection_id: string | null;
+          id: string | null;
+          kind: string | null;
+          latency_ms: number | null;
+          model: string | null;
+          photo_id: string | null;
+          raw_title: string | null;
+          user_id: string | null;
+        };
+        Relationships: [];
+      };
     };
     Functions: {
       books_search_text: {
@@ -714,6 +765,9 @@ export type CompositeTypes<
     : never;
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },

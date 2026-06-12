@@ -377,30 +377,30 @@ Sukces: `apiResponse({ data: { deleted: true } })`.
 
 #### Automated
 
-- [x] 1.1 Typecheck zielony: `npm run typecheck`
-- [x] 1.2 Lint zielony: `npm run lint`
-- [x] 1.3 Testy jednostkowe zielone: `npm run test`
+- [x] 1.1 Typecheck zielony: `npm run typecheck` — 8b92109
+- [x] 1.2 Lint zielony: `npm run lint` — 8b92109
+- [x] 1.3 Testy jednostkowe zielone: `npm run test` — 8b92109
 
 #### Manual
 
-- [x] 1.4 Non-admin na `/admin` → redirect; brak linku "Panel admina"
-- [x] 1.5 Admin widzi link "Panel admina" w headerze, może wejść na `/admin`
-- [x] 1.6 `ai_enabled=false` → AI_DISABLED przy analizie zdjęcia
+- [x] 1.4 Non-admin na `/admin` → redirect; brak linku "Panel admina" — 8b92109
+- [x] 1.5 Admin widzi link "Panel admina" w headerze, może wejść na `/admin` — 8b92109
+- [x] 1.6 `ai_enabled=false` → AI_DISABLED przy analizie zdjęcia — 8b92109
 
 ### Phase 2: User List + AI Toggle
 
 #### Automated
 
-- [ ] 2.0 Migracja 0023 stosuje się czysto lokalnie (supabase db reset + gen types)
-- [ ] 2.1 Typecheck zielony: `npm run typecheck`
-- [ ] 2.2 Lint zielony: `npm run lint`
-- [ ] 2.3 Testy zielone (unit + e2e): `npm run test && npm run test:e2e`
+- [x] 2.0 Migracja 0023 stosuje się czysto lokalnie (supabase db reset + gen types)
+- [x] 2.1 Typecheck zielony: `npm run typecheck`
+- [x] 2.2 Lint zielony: `npm run lint`
+- [x] 2.3 Testy zielone (unit + e2e): `npm run test && npm run test:e2e`
 
 #### Manual
 
-- [ ] 2.4 Admin widzi listę userów z poprawnymi danymi
-- [ ] 2.5 Toggle `ai_enabled` — trwała zmiana widoczna po refresh
-- [ ] 2.6 Soft-deleted usery wyświetlają się z badge "Usunięte" i opacity
+- [x] 2.4 Admin widzi listę userów z poprawnymi danymi
+- [x] 2.5 Toggle `ai_enabled` — trwała zmiana widoczna po refresh
+- [x] 2.6 Soft-deleted usery wyświetlają się z badge "Usunięte" i opacity
 
 ### Phase 3: Impersonation + Soft Delete
 
