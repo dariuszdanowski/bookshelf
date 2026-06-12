@@ -26,7 +26,7 @@ export default defineConfig({
     },
     plugins: [tailwindcss()],
     optimizeDeps: {
-      exclude: ['@cf-wasm/photon'],
+      exclude: ['@cf-wasm/photon', '@supabase/supabase-js'],
     },
   },
 

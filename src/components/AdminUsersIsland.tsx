@@ -17,7 +17,9 @@ type State =
 const PAGE_SIZE = 20;
 
 function isAutomatic(user: UserAdminDTO): boolean {
-  return user.book_count === 0 && user.shelf_count === 0 && !user.display_name;
+  // "Zakupione" shelf is auto-created for every user via trigger — shelf_count is not a useful signal.
+  // A user is "automatic" if they never added books and never set a display name.
+  return user.book_count === 0 && !user.display_name;
 }
 
 function formatDate(iso: string) {
