@@ -391,16 +391,16 @@ Sukces: `apiResponse({ data: { deleted: true } })`.
 
 #### Automated
 
-- [x] 2.0 Migracja 0023 stosuje się czysto lokalnie (supabase db reset + gen types)
-- [x] 2.1 Typecheck zielony: `npm run typecheck`
-- [x] 2.2 Lint zielony: `npm run lint`
-- [x] 2.3 Testy zielone (unit + e2e): `npm run test && npm run test:e2e`
+- [x] 2.0 Migracja 0023 stosuje się czysto lokalnie (supabase db reset + gen types) — 00dae4e
+- [x] 2.1 Typecheck zielony: `npm run typecheck` — 00dae4e
+- [x] 2.2 Lint zielony: `npm run lint` — 00dae4e
+- [x] 2.3 Testy zielone (unit + e2e): `npm run test && npm run test:e2e` — 00dae4e
 
 #### Manual
 
-- [x] 2.4 Admin widzi listę userów z poprawnymi danymi
-- [x] 2.5 Toggle `ai_enabled` — trwała zmiana widoczna po refresh
-- [x] 2.6 Soft-deleted usery wyświetlają się z badge "Usunięte" i opacity
+- [x] 2.4 Admin widzi listę userów z poprawnymi danymi — 00dae4e
+- [x] 2.5 Toggle `ai_enabled` — trwała zmiana widoczna po refresh — 00dae4e
+- [x] 2.6 Soft-deleted usery wyświetlają się z badge "Usunięte" i opacity — 00dae4e
 
 ### Phase 3: Impersonation + Soft Delete
 
