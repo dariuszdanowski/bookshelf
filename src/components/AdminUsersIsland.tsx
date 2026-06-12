@@ -17,9 +17,8 @@ type State =
 const PAGE_SIZE = 20;
 
 function isAutomatic(user: UserAdminDTO): boolean {
-  // "Zakupione" shelf is auto-created for every user via trigger — shelf_count is not a useful signal.
-  // A user is "automatic" if they never added books and never set a display name.
-  return user.book_count === 0 && !user.display_name;
+  // Users with 0 books never used the core feature — treat as automatic regardless of display_name.
+  return user.book_count === 0;
 }
 
 function formatDate(iso: string) {
@@ -39,6 +38,7 @@ export default function AdminUsersIsland({ currentUserId }: Props) {
 
   const [search, setSearch] = useState('');
   const [hideAutomatic, setHideAutomatic] = useState(true);
+  const [hideDeleted, setHideDeleted] = useState(true);
   const [page, setPage] = useState(1);
 
   function loadUsers() {
@@ -65,11 +65,15 @@ export default function AdminUsersIsland({ currentUserId }: Props) {
   // Reset to page 1 when filters change
   useEffect(() => {
     setPage(1);
-  }, [search, hideAutomatic]);
+  }, [search, hideAutomatic, hideDeleted]);
 
   const filteredUsers = useMemo(() => {
     if (state.status !== 'ok') return [];
     let result = state.users;
+
+    if (hideDeleted) {
+      result = result.filter((u) => u.deleted_at === null);
+    }
 
     if (hideAutomatic) {
       result = result.filter((u) => !isAutomatic(u));
@@ -84,12 +88,14 @@ export default function AdminUsersIsland({ currentUserId }: Props) {
     }
 
     return result;
-  }, [state, search, hideAutomatic]);
+  }, [state, search, hideAutomatic, hideDeleted]);
 
   const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const pageUsers = filteredUsers.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
   const automaticCount = state.status === 'ok' ? state.users.filter(isAutomatic).length : 0;
+  const deletedCount =
+    state.status === 'ok' ? state.users.filter((u) => u.deleted_at !== null).length : 0;
   const totalCount = state.status === 'ok' ? state.users.length : 0;
 
   async function handleToggleAi(user: UserAdminDTO) {
@@ -283,6 +289,21 @@ export default function AdminUsersIsland({ currentUserId }: Props) {
               </span>
             )}
           </label>
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+            <input
+              type="checkbox"
+              checked={hideDeleted}
+              onChange={(e) => setHideDeleted(e.target.checked)}
+              data-testid="admin-users-hide-deleted"
+              className="h-4 w-4 cursor-pointer accent-indigo-600"
+            />
+            Ukryj usunięte
+            {deletedCount > 0 && (
+              <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[11px] text-gray-500 dark:bg-gray-700 dark:text-gray-400">
+                {deletedCount}
+              </span>
+            )}
+          </label>
         </div>
 
         {/* Counter */}
@@ -299,11 +320,13 @@ export default function AdminUsersIsland({ currentUserId }: Props) {
                 {firstItem}–{lastItem}
               </strong>{' '}
               z <strong>{filteredUsers.length}</strong>
-              {hideAutomatic && automaticCount > 0 && (
+              {(hideAutomatic && automaticCount > 0) || (hideDeleted && deletedCount > 0) ? (
                 <span className="ml-1 text-gray-400">
-                  (łącznie {totalCount}, ukryto {automaticCount} automatycznych)
+                  (łącznie {totalCount}
+                  {hideAutomatic && automaticCount > 0 && `, ukryto ${automaticCount} auto`}
+                  {hideDeleted && deletedCount > 0 && `, ukryto ${deletedCount} usuniętych`})
                 </span>
-              )}
+              ) : null}
             </>
           )}
         </p>

@@ -89,8 +89,10 @@ test.afterAll(async () => {
 
 async function showAllUsers(page: Page) {
   await expect(page.getByTestId('admin-users-island')).toBeVisible({ timeout: 10_000 });
-  const checkbox = page.getByTestId('admin-users-hide-automatic');
-  if (await checkbox.isChecked()) await checkbox.uncheck();
+  const autoChk = page.getByTestId('admin-users-hide-automatic');
+  if (await autoChk.isChecked()) await autoChk.uncheck();
+  const deletedChk = page.getByTestId('admin-users-hide-deleted');
+  if (await deletedChk.isChecked()) await deletedChk.uncheck();
 }
 
 // ── Phase 1: non-admin access (shared user nie jest adminem na początku) ──────
@@ -303,6 +305,32 @@ test('filter: licznik pokazuje liczbę wyfiltrowanych userów', async ({ page })
   const text = await counter.textContent();
   // Licznik zawiera cyfrę (np. "Użytkownicy: 3")
   expect(text).toMatch(/\d/);
+});
+
+// ── Phase 5: hideDeleted toggle ───────────────────────────────────────────────
+
+test('filter: hideDeleted domyślnie ukrywa soft-deleted usera', async ({ page }) => {
+  if (!targetUserId) {
+    test.skip();
+    return;
+  }
+  // targetUser został soft-deleted w teście Phase 3 (soft delete przez UI)
+  await page.goto('/admin');
+  await expect(page.getByTestId('admin-users-island')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId('admin-users-hide-deleted')).toBeChecked();
+  await expect(page.getByTestId(`admin-user-row-${targetUserId}`)).not.toBeVisible();
+});
+
+test('filter: odznaczenie hideDeleted pokazuje soft-deleted usera z badge', async ({ page }) => {
+  if (!targetUserId) {
+    test.skip();
+    return;
+  }
+  await page.goto('/admin');
+  await showAllUsers(page);
+  await expect(page.getByTestId(`admin-user-deleted-badge-${targetUserId}`)).toBeVisible({
+    timeout: 5_000,
+  });
 });
 
 // Impersonacja OSTATNIA — zmienia sesję przeglądarki na innego użytkownika.
