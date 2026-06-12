@@ -140,3 +140,10 @@
 - **Problem**: `supabase db reset --local` wyczyścił cały lokalny stack zawierający przeniesione dane produkcyjne (zdjęcia, półki, książki, konta). Dane bezpowrotnie utracone; odtworzenie zajęło kilkadziesiąt minut i wymagało pg_dump z produkcji.
 - **Rule**: Nigdy nie uruchamiaj `supabase db reset` bez wyraźnego potwierdzenia usera i dyskusji w jakim celu ma być wywołana. Do aplikowania nowych migracji używaj `supabase migration up` lub `supabase db push --local`.
 - **Applies to**: plan, implement
+
+## Testy przed lub razem z każdą zmianą — unit, API, E2E dla UI
+
+- **Context**: Każda zmiana kodu, UI i API w tym projekcie
+- **Problem**: Impersonacja nie przełączała sesji — bug nie wyszedł w E2E bo test sprawdzał tylko odpowiedź API, a nie pełny flow UI (klik → nawigacja → zmiana sesji). Błąd trafił do manualnej weryfikacji zamiast być złapany automatycznie.
+- **Rule**: Zawsze pisz testy przed lub razem z każdą zmianą — dla logiki unit, dla API integracyjne, dla UI zmiany E2E. Test E2E dla feature UI musi weryfikować pełny user journey (klik + efekt widoczny w UI), nie tylko odpowiedź API.
+- **Applies to**: all

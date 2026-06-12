@@ -1,5 +1,6 @@
 ---
 import '../styles/global.css';
+import ImpersonationBanner from '../components/ImpersonationBanner.tsx';
 import MobileNav from '../components/MobileNav.tsx';
 import UserMenu from '../components/UserMenu.tsx';
 import ThemeToggle from '../components/ThemeToggle.tsx';
@@ -172,6 +173,7 @@ function navCls(href: string) {
         </a>
       </div>
     </header>
+    {user && <ImpersonationBanner client:load />}
     <slot />
   </body>
 </html>
