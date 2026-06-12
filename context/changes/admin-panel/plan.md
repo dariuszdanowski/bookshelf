@@ -406,13 +406,13 @@ Sukces: `apiResponse({ data: { deleted: true } })`.
 
 #### Automated
 
-- [x] 3.1 Typecheck zielony: `npm run typecheck`
-- [x] 3.2 Lint zielony: `npm run lint`
-- [x] 3.3 Testy zielone: `npm run test && npm run test:e2e`
+- [x] 3.1 Typecheck zielony: `npm run typecheck` — 34fa3e3
+- [x] 3.2 Lint zielony: `npm run lint` — 34fa3e3
+- [x] 3.3 Testy zielone: `npm run test && npm run test:e2e` — 34fa3e3
 
 #### Manual
 
-- [x] 3.4 Impersonacja: magic link otwiera się, loguje jako inny user
-- [x] 3.5 Soft delete: user oznaczony jako "Usunięte"; logowanie starym emailem → fail
+- [x] 3.4 Impersonacja: magic link otwiera się, loguje jako inny user — 34fa3e3
+- [x] 3.5 Soft delete: user oznaczony jako "Usunięte"; logowanie starym emailem → fail — 34fa3e3
 - [ ] 3.6 SITE_URL w Supabase Dashboard = workers prod URL; magic link redirectuje na właściwą domenę (nie localhost)
-- [x] 3.7 Soft-deleted user nadal widoczny w adminpanelu z datą usunięcia i badge "Usunięte"
+- [x] 3.7 Soft-deleted user nadal widoczny w adminpanelu z datą usunięcia i badge "Usunięte" — 34fa3e3

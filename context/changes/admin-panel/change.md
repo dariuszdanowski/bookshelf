@@ -1,7 +1,7 @@
 ---
 id: admin-panel
 title: Panel administracyjny
-status: implementing
+status: implemented
 created: 2026-06-12
 updated: 2026-06-12
 roadmap_id: S-26
