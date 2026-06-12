@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -86,6 +87,14 @@ test.afterAll(async () => {
   }
 });
 
+async function showAllUsers(page: Page) {
+  await expect(page.getByTestId('admin-users-island')).toBeVisible({ timeout: 10_000 });
+  const autoChk = page.getByTestId('admin-users-hide-automatic');
+  if (await autoChk.isChecked()) await autoChk.uncheck();
+  const deletedChk = page.getByTestId('admin-users-hide-deleted');
+  if (await deletedChk.isChecked()) await deletedChk.uncheck();
+}
+
 // ── Phase 1: non-admin access (shared user nie jest adminem na początku) ──────
 
 test('non-admin: /admin → redirect na /', async ({ page }) => {
@@ -132,7 +141,7 @@ test('admin może wejść na /admin', async ({ page }) => {
 
 test('admin widzi listę userów na /admin', async ({ page }) => {
   await page.goto('/admin');
-  await expect(page.getByTestId('admin-users-island')).toBeVisible({ timeout: 10_000 });
+  await showAllUsers(page);
   if (sharedUserId) {
     await expect(page.getByTestId(`admin-user-row-${sharedUserId}`)).toBeVisible({
       timeout: 10_000,
@@ -147,7 +156,7 @@ test('toggle ai_enabled — optimistic update + trwała zmiana', async ({ page }
   }
 
   await page.goto('/admin');
-  await expect(page.getByTestId('admin-users-island')).toBeVisible({ timeout: 10_000 });
+  await showAllUsers(page);
 
   const toggle = page.getByTestId(`admin-user-ai-toggle-${targetUserId}`);
   await expect(toggle).toBeVisible({ timeout: 10_000 });
@@ -167,7 +176,7 @@ test('toggle ai_enabled — optimistic update + trwała zmiana', async ({ page }
 
   // Reload — sprawdzamy trwałość
   await page.reload();
-  await expect(page.getByTestId('admin-users-island')).toBeVisible({ timeout: 10_000 });
+  await showAllUsers(page);
   const toggleAfter = page.getByTestId(`admin-user-ai-toggle-${targetUserId}`);
   await expect(toggleAfter).toBeVisible({ timeout: 10_000 });
   await expect(toggleAfter).not.toBeChecked();
@@ -191,7 +200,7 @@ test('soft-deleted user wyświetla się z badge "Usunięte" (manual DB)', async 
     .eq('id', targetUserId);
 
   await page.goto('/admin');
-  await expect(page.getByTestId('admin-users-island')).toBeVisible({ timeout: 10_000 });
+  await showAllUsers(page);
   await expect(page.getByTestId(`admin-user-deleted-badge-${targetUserId}`)).toBeVisible({
     timeout: 10_000,
   });
@@ -209,7 +218,7 @@ test('soft delete przez UI — przycisk "Usuń konto" + dialog + badge', async (
   }
 
   await page.goto('/admin');
-  await expect(page.getByTestId('admin-users-island')).toBeVisible({ timeout: 10_000 });
+  await showAllUsers(page);
 
   const deleteBtn = page.getByTestId(`admin-user-delete-${targetUserId}`);
   await expect(deleteBtn).toBeVisible({ timeout: 10_000 });
@@ -229,9 +238,98 @@ test('soft delete przez UI — przycisk "Usuń konto" + dialog + badge', async (
   ]);
 
   // Lista się przeładowuje — badge "Usunięte" pojawia się
-  await expect(page.getByTestId('admin-users-island')).toBeVisible({ timeout: 10_000 });
+  await showAllUsers(page);
   await expect(page.getByTestId(`admin-user-deleted-badge-${targetUserId}`)).toBeVisible({
     timeout: 10_000,
+  });
+});
+
+// ── Phase 4: filtrowanie + wyszukiwanie + paginacja ──────────────────────────
+
+test('filter: domyślnie ukrywa automatycznych userów (impersonateUser niewidoczny)', async ({
+  page,
+}) => {
+  // impersonateTargetId nie był soft-deleted → display_name jest null → jest "automatyczny"
+  if (!impersonateTargetId) {
+    test.skip();
+    return;
+  }
+
+  await page.goto('/admin');
+  await expect(page.getByTestId('admin-users-island')).toBeVisible({ timeout: 10_000 });
+  // checkbox domyślnie zaznaczony — impersonateUser (bez aktywności) nie powinien być widoczny
+  await expect(page.getByTestId('admin-users-hide-automatic')).toBeChecked();
+  await expect(page.getByTestId(`admin-user-row-${impersonateTargetId}`)).not.toBeVisible();
+});
+
+test('filter: odznaczenie checkbox pokazuje automatycznych userów', async ({ page }) => {
+  if (!impersonateTargetId) {
+    test.skip();
+    return;
+  }
+
+  await page.goto('/admin');
+  await showAllUsers(page);
+  await expect(page.getByTestId(`admin-user-row-${impersonateTargetId}`)).toBeVisible({
+    timeout: 5_000,
+  });
+});
+
+test('filter: wyszukiwarka filtruje po emailu', async ({ page }) => {
+  if (!impersonateTargetId) {
+    test.skip();
+    return;
+  }
+
+  await page.goto('/admin');
+  await showAllUsers(page);
+
+  // Wyszukaj po fragmencie emaila impersonateUser
+  await page.getByTestId('admin-users-search').fill('e2e-admin-impersonate-');
+  await expect(page.getByTestId(`admin-user-row-${impersonateTargetId}`)).toBeVisible({
+    timeout: 5_000,
+  });
+
+  // Wyczyść — wiersz nadal widoczny
+  await page.getByTestId('admin-users-search').clear();
+  await expect(page.getByTestId(`admin-user-row-${impersonateTargetId}`)).toBeVisible({
+    timeout: 5_000,
+  });
+});
+
+test('filter: licznik pokazuje liczbę wyfiltrowanych userów', async ({ page }) => {
+  await page.goto('/admin');
+  await expect(page.getByTestId('admin-users-island')).toBeVisible({ timeout: 10_000 });
+  const counter = page.getByTestId('admin-users-counter');
+  await expect(counter).toBeVisible({ timeout: 5_000 });
+  const text = await counter.textContent();
+  // Licznik zawiera cyfrę (np. "Użytkownicy: 3")
+  expect(text).toMatch(/\d/);
+});
+
+// ── Phase 5: hideDeleted toggle ───────────────────────────────────────────────
+
+test('filter: hideDeleted domyślnie ukrywa soft-deleted usera', async ({ page }) => {
+  if (!targetUserId) {
+    test.skip();
+    return;
+  }
+  // targetUser został soft-deleted w teście Phase 3 (soft delete przez UI)
+  await page.goto('/admin');
+  await expect(page.getByTestId('admin-users-island')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId('admin-users-hide-deleted')).toBeChecked();
+  await expect(page.getByTestId(`admin-user-row-${targetUserId}`)).not.toBeVisible();
+});
+
+test('filter: odznaczenie hideDeleted pokazuje soft-deleted usera z badge', async ({ page }) => {
+  if (!targetUserId) {
+    test.skip();
+    return;
+  }
+  await page.goto('/admin');
+  await showAllUsers(page);
+  await expect(page.getByTestId(`admin-user-deleted-badge-${targetUserId}`)).toBeVisible({
+    timeout: 5_000,
   });
 });
 
@@ -244,7 +342,7 @@ test('impersonacja przez UI — klik + zmiana sesji na innego usera', async ({ p
   }
 
   await page.goto('/admin');
-  await expect(page.getByTestId('admin-users-island')).toBeVisible({ timeout: 10_000 });
+  await showAllUsers(page);
 
   const impersonateBtn = page.getByTestId(`admin-user-impersonate-${impersonateTargetId}`);
   await expect(impersonateBtn).toBeVisible({ timeout: 10_000 });
