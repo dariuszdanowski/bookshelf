@@ -1,9 +1,10 @@
 ---
 id: admin-panel
 title: Panel administracyjny
-status: implemented
+status: archived
 created: 2026-06-12
 updated: 2026-06-12
+archived_at: 2026-06-12T21:35:19Z
 roadmap_id: S-26
 branch: change/admin-panel
 ---
