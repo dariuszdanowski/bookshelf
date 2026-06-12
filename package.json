@@ -56,7 +56,8 @@
     "zod": "^4.4.3"
   },
   "overrides": {
-    "vite": "^7"
+    "vite": "^7",
+    "esbuild": ">=0.28.1"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.9",
