@@ -19,9 +19,11 @@ const LINKS = [
 export default function MobileNav({
   email,
   currentPath = '',
+  isAdmin = false,
 }: {
   email: string;
   currentPath?: string;
+  isAdmin?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -89,6 +91,18 @@ export default function MobileNav({
                 </a>
               </li>
             ))}
+            {isAdmin && (
+              <li>
+                <a
+                  href="/admin"
+                  data-testid="mobile-nav-admin"
+                  aria-current={isActive('/admin') ? 'page' : undefined}
+                  className={`block rounded px-2 py-2 ${isActive('/admin') ? 'bg-indigo-50 font-semibold text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400' : 'font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100'}`}
+                >
+                  Panel admina
+                </a>
+              </li>
+            )}
           </ul>
           <div className="mt-3 flex items-center justify-between gap-3 border-t border-gray-200 pt-3">
             <span data-testid="mobile-user-email" className="truncate text-xs text-gray-500">

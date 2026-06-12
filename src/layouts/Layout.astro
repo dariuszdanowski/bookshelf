@@ -17,13 +17,15 @@ const titleWithEnv = `[${ENV_LABEL[dbEnv]}] ${title}`;
 const currentPath = Astro.url.pathname;
 
 let displayName: string | null = null;
+let isAdmin = false;
 if (user) {
   const { data: profile } = await Astro.locals.supabase
     .from('profiles')
-    .select('display_name')
+    .select('display_name, is_admin')
     .eq('id', user.id)
     .single();
   displayName = profile?.display_name ?? null;
+  isAdmin = profile?.is_admin ?? false;
 }
 
 function navCls(href: string) {
@@ -77,7 +79,16 @@ function navCls(href: string) {
         BookShelf
       </a>
       {/* S-28: hamburger < md; tylko dla zalogowanych */}
-      {user && <MobileNav client:load email={user.email ?? ''} currentPath={currentPath} />}
+      {
+        user && (
+          <MobileNav
+            client:load
+            email={user.email ?? ''}
+            currentPath={currentPath}
+            isAdmin={isAdmin}
+          />
+        )
+      }
       {
         user && (
           <nav class="hidden items-center gap-4 md:flex" aria-label="Nawigacja główna">
@@ -121,7 +132,12 @@ function navCls(href: string) {
             <span class="sr-only" data-testid="user-email">
               {user.email}
             </span>
-            <UserMenu client:load email={user.email ?? ''} displayName={displayName} />
+            <UserMenu
+              client:load
+              email={user.email ?? ''}
+              displayName={displayName}
+              isAdmin={isAdmin}
+            />
           </nav>
         )
       }

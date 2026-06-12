@@ -3,9 +3,10 @@ import { useEffect, useRef, useState } from 'react';
 type Props = {
   displayName: string | null;
   email: string;
+  isAdmin: boolean;
 };
 
-export default function UserMenu({ displayName, email }: Props) {
+export default function UserMenu({ displayName, email, isAdmin }: Props) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -74,6 +75,30 @@ export default function UserMenu({ displayName, email }: Props) {
               {email}
             </div>
             <div className="my-1 border-t border-gray-100 dark:border-gray-700" />
+            {isAdmin && (
+              <a
+                href="/admin"
+                role="menuitem"
+                data-testid="user-menu-admin"
+                className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-gray-700"
+                onClick={() => setOpen(false)}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+                Panel admina
+              </a>
+            )}
             <a
               href="/account"
               role="menuitem"
