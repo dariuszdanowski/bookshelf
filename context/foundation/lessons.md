@@ -133,3 +133,17 @@
 - **Problem**: Odkryte w S-43 smoke (2026-06-09): `match.ts` używa własnej kaskady (Google Books + BN równolegle → opcjonalnie OpenLibrary jako ISBN-enrichment), a `rematch.ts` używa `findBookCandidates()` z `src/lib/matching/findCandidates.ts` (Google Books + **OpenLibrary po tytule** + BN równolegle). „Pożeracze Książek" (Jennifer Bertman) nie jest dobrze indeksowane w Google Books — GB zwrócił wyniki < 0.55, brak ISBN → OpenLibrary nie był wołany w auto-match → puste kandydaci na UI. Dopiero ręczny rematch przez `findCandidates` (który woła `searchOpenLibraryByTitle`) zwrócił wynik 1.000. Symptom: user widzi karty bez propozycji i musi klikać „Szukaj po tytule" dla polskich/niszowych książek nie pokrytych przez GB.
 - **Rule**: `match.ts` i `rematch.ts` muszą używać **tej samej** funkcji wyszukiwania — `findBookCandidates()` z `src/lib/matching/findCandidates.ts`. Duplikacja kaskady w `match.ts` jest źródłem rozbieżności coverage. Migracja `match.ts` → `findCandidates` to osobny slice (nie wymaga zmian schematu DB; tylko refactor endpointu).
 - **Applies to**: plan, plan-review, implement, impl-review
+
+## Nigdy nie uruchamiaj supabase db reset bez jawnego potwierdzenia usera
+
+- **Context**: Lokalny Supabase / migracje — każda faza implementacji dotykająca migracji lub konfiguracji lokalnego stacku
+- **Problem**: `supabase db reset --local` wyczyścił cały lokalny stack zawierający przeniesione dane produkcyjne (zdjęcia, półki, książki, konta). Dane bezpowrotnie utracone; odtworzenie zajęło kilkadziesiąt minut i wymagało pg_dump z produkcji.
+- **Rule**: Nigdy nie uruchamiaj `supabase db reset` bez wyraźnego potwierdzenia usera i dyskusji w jakim celu ma być wywołana. Do aplikowania nowych migracji używaj `supabase migration up` lub `supabase db push --local`.
+- **Applies to**: plan, implement
+
+## Testy przed lub razem z każdą zmianą — unit, API, E2E dla UI
+
+- **Context**: Każda zmiana kodu, UI i API w tym projekcie
+- **Problem**: Impersonacja nie przełączała sesji — bug nie wyszedł w E2E bo test sprawdzał tylko odpowiedź API, a nie pełny flow UI (klik → nawigacja → zmiana sesji). Błąd trafił do manualnej weryfikacji zamiast być złapany automatycznie.
+- **Rule**: Zawsze pisz testy przed lub razem z każdą zmianą — dla logiki unit, dla API integracyjne, dla UI zmiany E2E. Test E2E dla feature UI musi weryfikować pełny user journey (klik + efekt widoczny w UI), nie tylko odpowiedź API.
+- **Applies to**: all

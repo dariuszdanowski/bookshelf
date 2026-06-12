@@ -34,7 +34,7 @@ export async function getActiveProviderConfig(
   }
 
   return {
-    provider: row.provider,
+    provider: row.provider as VisionProviderConfig['provider'],
     apiKey,
     model: row.model,
     baseUrl: row.base_url,

@@ -17,7 +17,8 @@ export type ApiErrorCode =
   | 'CONFLICT'
   | 'DUPLICATE_PHOTO'
   | 'AI_DISABLED'
-  | 'NO_API_KEY';
+  | 'NO_API_KEY'
+  | 'ADMIN_REQUIRED';
 
 const DEFAULT_HEADERS = {
   'Content-Type': 'application/json',
@@ -82,11 +83,7 @@ const FALLBACK_BODY = JSON.stringify({
   },
 });
 
-function buildResponse(
-  body: unknown,
-  status: number,
-  headers?: HeadersInit
-): Response {
+function buildResponse(body: unknown, status: number, headers?: HeadersInit): Response {
   let bodyString: string;
   let actualStatus = status;
   try {

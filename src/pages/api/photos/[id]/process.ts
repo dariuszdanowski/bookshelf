@@ -124,6 +124,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
     model: VISION_MODEL,
     prompt_version: PROMPT_VERSION,
     status: 'running',
+    user_id: locals.user!.id,
   };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let runInsertResult = await (locals.supabase as any)

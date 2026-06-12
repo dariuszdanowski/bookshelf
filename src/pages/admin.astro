@@ -1,0 +1,26 @@
+---
+import Layout from '../layouts/Layout.astro';
+import AdminUsersIsland from '../components/AdminUsersIsland.tsx';
+
+export const prerender = false;
+
+// Middleware blokuje anonimów; dodatkowe sprawdzenie is_admin dla defense-in-depth.
+const user = Astro.locals.user!;
+
+const { data: profile } = await Astro.locals.supabase
+  .from('profiles')
+  .select('is_admin')
+  .eq('id', user.id)
+  .single();
+
+if (!profile?.is_admin) {
+  return Astro.redirect('/');
+}
+---
+
+<Layout title="Panel administratora">
+  <main class="mx-auto max-w-5xl p-4 sm:p-8">
+    <h1 class="mb-6 text-3xl font-bold">Panel administratora</h1>
+    <AdminUsersIsland currentUserId={user.id} client:load />
+  </main>
+</Layout>

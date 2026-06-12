@@ -89,7 +89,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   } else {
     const { data: newRun, error: runErr } = await locals.supabase
       .from('vision_runs')
-      .insert({ photo_id: photoId, model: 'manual', status: 'succeeded' })
+      .insert({ photo_id: photoId, model: 'manual', status: 'succeeded', user_id: locals.user!.id })
       .select('id')
       .single();
     if (runErr || !newRun) {
