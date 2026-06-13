@@ -16,20 +16,8 @@ type State =
 
 const PAGE_SIZE = 20;
 
-// Known prefixes for test/technical accounts — matched against email.
-const TECHNICAL_EMAIL_PREFIXES = [
-  'e2e-',
-  'ux-verify-',
-  'debug-vision-',
-  'rls-test-',
-  'auth-trigger-',
-];
-
 function isAutomatic(user: UserAdminDTO): boolean {
-  const email = user.email.toLowerCase();
-  if (TECHNICAL_EMAIL_PREFIXES.some((p) => email.startsWith(p))) return true;
-  // Also hide accounts with zero books and no display name (never used the app, anonymous).
-  return user.book_count === 0 && !user.display_name;
+  return user.is_technical;
 }
 
 function formatDate(iso: string) {
@@ -43,6 +31,7 @@ function formatDate(iso: string) {
 export default function AdminUsersIsland({ currentUserId }: Props) {
   const [state, setState] = useState<State>({ status: 'loading' });
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [togglingTechnicalId, setTogglingTechnicalId] = useState<string | null>(null);
   const [loadingImpersonateId, setLoadingImpersonateId] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -108,6 +97,52 @@ export default function AdminUsersIsland({ currentUserId }: Props) {
   const deletedCount =
     state.status === 'ok' ? state.users.filter((u) => u.deleted_at !== null).length : 0;
   const totalCount = state.status === 'ok' ? state.users.length : 0;
+
+  async function handleToggleTechnical(user: UserAdminDTO) {
+    if (togglingTechnicalId) return;
+    setTogglingTechnicalId(user.id);
+
+    setState((prev) => {
+      if (prev.status !== 'ok') return prev;
+      return {
+        status: 'ok',
+        users: prev.users.map((u) =>
+          u.id === user.id ? { ...u, is_technical: !u.is_technical } : u,
+        ),
+      };
+    });
+
+    try {
+      const res = await fetch(`/api/admin/users/${user.id}/technical`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_technical: !user.is_technical }),
+      });
+      if (!res.ok) {
+        setState((prev) => {
+          if (prev.status !== 'ok') return prev;
+          return {
+            status: 'ok',
+            users: prev.users.map((u) =>
+              u.id === user.id ? { ...u, is_technical: user.is_technical } : u,
+            ),
+          };
+        });
+      }
+    } catch {
+      setState((prev) => {
+        if (prev.status !== 'ok') return prev;
+        return {
+          status: 'ok',
+          users: prev.users.map((u) =>
+            u.id === user.id ? { ...u, is_technical: user.is_technical } : u,
+          ),
+        };
+      });
+    } finally {
+      setTogglingTechnicalId(null);
+    }
+  }
 
   async function handleToggleAi(user: UserAdminDTO) {
     if (togglingId) return;
@@ -358,6 +393,9 @@ export default function AdminUsersIsland({ currentUserId }: Props) {
                 <th className="px-4 py-2 text-center font-semibold text-gray-700 dark:text-gray-300">
                   AI
                 </th>
+                <th className="px-4 py-2 text-center font-semibold text-gray-700 dark:text-gray-300">
+                  Tech
+                </th>
                 <th className="px-4 py-2 text-right font-semibold text-gray-700 dark:text-gray-300">
                   Książki
                 </th>
@@ -376,7 +414,7 @@ export default function AdminUsersIsland({ currentUserId }: Props) {
               {pageUsers.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={9}
                     className="px-4 py-6 text-center text-gray-400 dark:text-gray-500"
                     data-testid="admin-users-empty"
                   >
@@ -422,6 +460,17 @@ export default function AdminUsersIsland({ currentUserId }: Props) {
                           checked={user.ai_enabled}
                           disabled={!!user.deleted_at || togglingId === user.id}
                           onChange={() => handleToggleAi(user)}
+                          className="h-4 w-4 cursor-pointer accent-indigo-600 disabled:cursor-not-allowed"
+                        />
+                      </td>
+                      <td className="px-4 py-2 text-center">
+                        <input
+                          type="checkbox"
+                          aria-label={`Tech dla ${user.email}`}
+                          data-testid={`admin-user-technical-toggle-${user.id}`}
+                          checked={user.is_technical}
+                          disabled={!!user.deleted_at || togglingTechnicalId === user.id}
+                          onChange={() => handleToggleTechnical(user)}
                           className="h-4 w-4 cursor-pointer accent-indigo-600 disabled:cursor-not-allowed"
                         />
                       </td>

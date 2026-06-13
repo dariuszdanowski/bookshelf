@@ -228,27 +228,27 @@ Upraszcza `isAutomatic()` do jednej linii, dodaje kolumnę „Tech" z checkboxem
 
 #### Automated
 
-- [x] 1.1 Migracja aplikuje się bez błędów: `supabase migration up`
-- [x] 1.2 TypeScript kompiluje się: `npm run typecheck`
-- [x] 1.3 Lint zielony: `npm run lint`
-- [x] 1.4 Unit testy zielone: `npm run test:unit`
+- [x] 1.1 Migracja aplikuje się bez błędów: `supabase migration up` — aefcfa5
+- [x] 1.2 TypeScript kompiluje się: `npm run typecheck` — aefcfa5
+- [x] 1.3 Lint zielony: `npm run lint` — aefcfa5
+- [x] 1.4 Unit testy zielone: `npm run test:unit` — aefcfa5
 
 #### Manual
 
-- [x] 1.5 GET /api/admin/users zwraca is_technical: true dla kont e2e-
-- [x] 1.6 PATCH /api/admin/users/:id/technical zwraca 200 i aktualizuje pole
+- [x] 1.5 GET /api/admin/users zwraca is_technical: true dla kont e2e- — aefcfa5
+- [x] 1.6 PATCH /api/admin/users/:id/technical zwraca 200 i aktualizuje pole — aefcfa5
 
 ### Phase 2: Frontend + E2E testy
 
 #### Automated
 
-- [ ] 2.1 TypeScript kompiluje się: `npm run typecheck`
-- [ ] 2.2 Lint zielony: `npm run lint`
-- [ ] 2.3 Unit testy zielone: `npm run test:unit`
-- [ ] 2.4 E2E testy zielone: `npm run test:e2e`
+- [x] 2.1 TypeScript kompiluje się: `npm run typecheck`
+- [x] 2.2 Lint zielony: `npm run lint`
+- [x] 2.3 Unit testy zielone: `npm run test:unit`
+- [x] 2.4 E2E testy zielone: `npm run test:e2e`
 
 #### Manual
 
-- [ ] 2.5 Kolumna Tech widoczna w panelu admina, toggle działa i persistuje
-- [ ] 2.6 Filtr hideAutomatic działa na podstawie flagi DB (nie heurystyki)
-- [ ] 2.7 Konto z book_count=0 i is_technical=false pojawia się na liście (fallback usunięty)
+- [x] 2.5 Kolumna Tech widoczna w panelu admina, toggle działa i persistuje
+- [x] 2.6 Filtr hideAutomatic działa na podstawie flagi DB (nie heurystyki)
+- [x] 2.7 Konto z book_count=0 i is_technical=false pojawia się na liście (fallback usunięty)

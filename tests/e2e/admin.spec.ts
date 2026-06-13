@@ -71,7 +71,11 @@ test.beforeAll(async () => {
     password: 'E2eAdminImpersonate!23',
     email_confirm: true,
   });
-  if (impersonateData.user) impersonateTargetId = impersonateData.user.id;
+  if (impersonateData.user) {
+    impersonateTargetId = impersonateData.user.id;
+    // Ustawiamy is_technical=true — symuluje backfill dla kont e2e- (nowe konta nie są backfillowane)
+    await admin.from('profiles').update({ is_technical: true }).eq('id', impersonateTargetId);
+  }
 });
 
 test.afterAll(async () => {
@@ -82,7 +86,7 @@ test.afterAll(async () => {
   if (sharedUserId) {
     await admin
       .from('profiles')
-      .update({ is_admin: false, ai_enabled: true })
+      .update({ is_admin: false, ai_enabled: true, is_technical: false })
       .eq('id', sharedUserId);
   }
 });
@@ -182,6 +186,73 @@ test('toggle ai_enabled — optimistic update + trwała zmiana', async ({ page }
   await expect(toggleAfter).not.toBeChecked();
 });
 
+test('toggle is_technical — optimistic update + trwała zmiana', async ({ page }) => {
+  if (!targetUserId) {
+    test.skip();
+    return;
+  }
+
+  await page.goto('/admin');
+  await showAllUsers(page);
+
+  const toggle = page.getByTestId(`admin-user-technical-toggle-${targetUserId}`);
+  await expect(toggle).toBeVisible({ timeout: 10_000 });
+
+  // is_technical domyślnie false dla nowych kont — klikamy aby włączyć
+  await expect(toggle).not.toBeChecked();
+  await Promise.all([
+    page.waitForResponse(
+      (r) =>
+        r.url().includes(`/api/admin/users/${targetUserId}/technical`) &&
+        r.request().method() === 'PATCH',
+    ),
+    toggle.click(),
+  ]);
+
+  await expect(toggle).toBeChecked({ timeout: 5_000 });
+
+  // Reload — sprawdzamy trwałość
+  await page.reload();
+  await showAllUsers(page);
+  const toggleAfter = page.getByTestId(`admin-user-technical-toggle-${targetUserId}`);
+  await expect(toggleAfter).toBeVisible({ timeout: 10_000 });
+  await expect(toggleAfter).toBeChecked();
+
+  // Toggle z powrotem na false
+  await Promise.all([
+    page.waitForResponse(
+      (r) =>
+        r.url().includes(`/api/admin/users/${targetUserId}/technical`) &&
+        r.request().method() === 'PATCH',
+    ),
+    toggleAfter.click(),
+  ]);
+  await expect(toggleAfter).not.toBeChecked({ timeout: 5_000 });
+});
+
+test('filter hideAutomatic: user z is_technical=true ukryty, z is_technical=false widoczny', async ({
+  page,
+}) => {
+  // impersonateTargetId ma is_technical=true → ukryty przy hideAutomatic=true
+  // targetUserId ma is_technical=false (przywrócone wyżej) → widoczny przy hideAutomatic=true
+  if (!impersonateTargetId || !targetUserId) {
+    test.skip();
+    return;
+  }
+
+  await page.goto('/admin');
+  await expect(page.getByTestId('admin-users-island')).toBeVisible({ timeout: 10_000 });
+  // hideAutomatic domyślnie zaznaczony
+  await expect(page.getByTestId('admin-users-hide-automatic')).toBeChecked();
+  await expect(page.getByTestId(`admin-user-row-${impersonateTargetId}`)).not.toBeVisible();
+
+  // Odznaczamy — impersonateTargetId pojawia się
+  await page.getByTestId('admin-users-hide-automatic').uncheck();
+  await expect(page.getByTestId(`admin-user-row-${impersonateTargetId}`)).toBeVisible({
+    timeout: 5_000,
+  });
+});
+
 test('soft-deleted user wyświetla się z badge "Usunięte" (manual DB)', async ({ page }) => {
   if (!targetUserId) {
     test.skip();
@@ -249,7 +320,7 @@ test('soft delete przez UI — przycisk "Usuń konto" + dialog + badge', async (
 test('filter: domyślnie ukrywa automatycznych userów (impersonateUser niewidoczny)', async ({
   page,
 }) => {
-  // impersonateTargetId nie był soft-deleted → display_name jest null → jest "automatyczny"
+  // impersonateTargetId ma is_technical=true (ustawione w beforeAll) → jest "automatyczny"
   if (!impersonateTargetId) {
     test.skip();
     return;
