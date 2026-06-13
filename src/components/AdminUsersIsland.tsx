@@ -16,9 +16,20 @@ type State =
 
 const PAGE_SIZE = 20;
 
+// Known prefixes for test/technical accounts — matched against email.
+const TECHNICAL_EMAIL_PREFIXES = [
+  'e2e-',
+  'ux-verify-',
+  'debug-vision-',
+  'rls-test-',
+  'auth-trigger-',
+];
+
 function isAutomatic(user: UserAdminDTO): boolean {
-  // Users with 0 books never used the core feature — treat as automatic regardless of display_name.
-  return user.book_count === 0;
+  const email = user.email.toLowerCase();
+  if (TECHNICAL_EMAIL_PREFIXES.some((p) => email.startsWith(p))) return true;
+  // Also hide accounts with zero books and no display name (never used the app, anonymous).
+  return user.book_count === 0 && !user.display_name;
 }
 
 function formatDate(iso: string) {
