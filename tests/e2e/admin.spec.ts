@@ -74,7 +74,11 @@ test.beforeAll(async () => {
   if (impersonateData.user) {
     impersonateTargetId = impersonateData.user.id;
     // Ustawiamy is_technical=true — symuluje backfill dla kont e2e- (nowe konta nie są backfillowane)
-    await admin.from('profiles').update({ is_technical: true }).eq('id', impersonateTargetId);
+    const { error: techErr } = await admin
+      .from('profiles')
+      .update({ is_technical: true })
+      .eq('id', impersonateTargetId);
+    if (techErr) console.warn('[beforeAll] is_technical backfill failed', techErr.message);
   }
 });
 

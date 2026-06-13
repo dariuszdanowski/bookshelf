@@ -242,13 +242,13 @@ Upraszcza `isAutomatic()` do jednej linii, dodaje kolumnę „Tech" z checkboxem
 
 #### Automated
 
-- [x] 2.1 TypeScript kompiluje się: `npm run typecheck`
-- [x] 2.2 Lint zielony: `npm run lint`
-- [x] 2.3 Unit testy zielone: `npm run test:unit`
-- [x] 2.4 E2E testy zielone: `npm run test:e2e`
+- [x] 2.1 TypeScript kompiluje się: `npm run typecheck` — 214b9c5
+- [x] 2.2 Lint zielony: `npm run lint` — 214b9c5
+- [x] 2.3 Unit testy zielone: `npm run test:unit` — 214b9c5
+- [x] 2.4 E2E testy zielone: `npm run test:e2e` — 214b9c5
 
 #### Manual
 
-- [x] 2.5 Kolumna Tech widoczna w panelu admina, toggle działa i persistuje
-- [x] 2.6 Filtr hideAutomatic działa na podstawie flagi DB (nie heurystyki)
-- [x] 2.7 Konto z book_count=0 i is_technical=false pojawia się na liście (fallback usunięty)
+- [x] 2.5 Kolumna Tech widoczna w panelu admina, toggle działa i persistuje — 214b9c5
+- [x] 2.6 Filtr hideAutomatic działa na podstawie flagi DB (nie heurystyki) — 214b9c5
+- [x] 2.7 Konto z book_count=0 i is_technical=false pojawia się na liście (fallback usunięty) — 214b9c5
