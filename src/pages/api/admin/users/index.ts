@@ -12,6 +12,7 @@ export type UserAdminDTO = {
   display_name: string | null;
   is_admin: boolean;
   ai_enabled: boolean;
+  is_technical: boolean;
   deleted_at: string | null;
   created_at: string;
   book_count: number;
@@ -51,7 +52,7 @@ export const GET: APIRoute = async ({ locals }) => {
   const [profilesResult, bookCountsResult, shelfCountsResult] = await Promise.all([
     adminClient
       .from('profiles')
-      .select('id, display_name, is_admin, ai_enabled, deleted_at, created_at'),
+      .select('id, display_name, is_admin, ai_enabled, is_technical, deleted_at, created_at'),
     adminClient.from('books').select('user_id'),
     adminClient.from('shelves').select('user_id'),
   ]);
@@ -89,6 +90,7 @@ export const GET: APIRoute = async ({ locals }) => {
         display_name: profile?.display_name ?? null,
         is_admin: profile?.is_admin ?? false,
         ai_enabled: profile?.ai_enabled ?? true,
+        is_technical: profile?.is_technical ?? false,
         deleted_at: profile?.deleted_at ?? null,
         created_at: authUser.created_at,
         book_count: bookCountMap.get(authUser.id) ?? 0,
