@@ -39,6 +39,12 @@ export const GET: APIRoute = async ({ url, locals }) => {
     color: rawColor,
     shelf_ids: shelfIds.length > 0 ? shelfIds : undefined,
     read: rawRead,
+    purchase_event: sp.get('purchase_event') ?? undefined,
+    purchase_city: sp.get('purchase_city') ?? undefined,
+    purchase_date_from: sp.get('purchase_date_from') ?? undefined,
+    purchase_date_to: sp.get('purchase_date_to') ?? undefined,
+    purchase_price_min: sp.get('purchase_price_min') ?? undefined,
+    purchase_price_max: sp.get('purchase_price_max') ?? undefined,
   });
   if (!parsed.success) {
     return apiError({
@@ -48,7 +54,18 @@ export const GET: APIRoute = async ({ url, locals }) => {
       details: z.flattenError(parsed.error),
     });
   }
-  const { q, color, shelf_ids, read } = parsed.data;
+  const {
+    q,
+    color,
+    shelf_ids,
+    read,
+    purchase_event,
+    purchase_city,
+    purchase_date_from,
+    purchase_date_to,
+    purchase_price_min,
+    purchase_price_max,
+  } = parsed.data;
 
   // 1. Aktualne wpisy półkowe (RLS-scoped przez book ownership); opcjonalny filtr półek
   let entriesQuery = locals.supabase
@@ -102,11 +119,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
     return apiResponse({ data: { books: [], total: 0 } });
   }
 
-  // 2. books filtrowane przez book_ids z aktualnych placementów + search/color/read
+  // 2. books filtrowane przez book_ids z aktualnych placementów + search/color/read/purchase
   let booksQuery = locals.supabase
     .from('books')
     .select(
-      'id, title, authors, cover_url, published_year, is_read, spine_color, isbn_13, isbn_10, publisher, user_cover_url, cover_photo_url, cover_source',
+      'id, title, authors, cover_url, published_year, is_read, spine_color, isbn_13, isbn_10, publisher, user_cover_url, cover_photo_url, cover_source, purchase_date, purchase_price, purchase_city, purchase_event',
     )
     .in('id', bookIds);
 
@@ -123,6 +140,19 @@ export const GET: APIRoute = async ({ url, locals }) => {
   }
   if (read === 'read') booksQuery = booksQuery.eq('is_read', true);
   else if (read === 'unread') booksQuery = booksQuery.eq('is_read', false);
+
+  // Filtry zakupowe (book-purchase-metadata).
+  if (purchase_event) booksQuery = booksQuery.eq('purchase_event', purchase_event);
+  if (purchase_city) {
+    const escaped = purchase_city.replace(/[\\%_]/g, (m) => `\\${m}`);
+    booksQuery = booksQuery.ilike('purchase_city', `%${escaped}%`);
+  }
+  if (purchase_date_from) booksQuery = booksQuery.gte('purchase_date', purchase_date_from);
+  if (purchase_date_to) booksQuery = booksQuery.lte('purchase_date', purchase_date_to);
+  if (purchase_price_min !== undefined)
+    booksQuery = booksQuery.gte('purchase_price', purchase_price_min);
+  if (purchase_price_max !== undefined)
+    booksQuery = booksQuery.lte('purchase_price', purchase_price_max);
 
   const { data: books, error: booksError } = await booksQuery.order('title', { ascending: true });
 
@@ -156,6 +186,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
       user_cover_url: b.user_cover_url,
       cover_photo_url: b.cover_photo_url,
       cover_source: (b.cover_source ?? 'auto') as CoverSource,
+      purchase_date: b.purchase_date ?? null,
+      purchase_price: b.purchase_price ?? null,
+      purchase_city: b.purchase_city ?? null,
+      purchase_event: b.purchase_event ?? null,
     };
   });
 

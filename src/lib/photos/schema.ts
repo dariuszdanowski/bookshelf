@@ -12,10 +12,18 @@ export const RecordPhotoSchema = z.object({
 
 export type RecordPhotoInput = z.infer<typeof RecordPhotoSchema>;
 
-// PATCH /api/photos/:id — przeniesienie zdjęcia na inną półkę. `photos` nie ma
-// kolumny title/caption, więc jedyne edytowalne metadane to shelf_id (S-29).
+// PATCH /api/photos/:id — przeniesienie zdjęcia na inną półkę lub aktualizacja
+// metadanych zakupu (book-purchase-metadata). Każde pole opcjonalne; pusty PATCH
+// = no-op, 200 bez efektu (brak .refine — REST PATCH semantics).
 export const UpdatePhotoSchema = z.object({
-  shelf_id: z.uuid(),
+  shelf_id: z.string().uuid().optional(),
+  purchase_date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data w formacie YYYY-MM-DD')
+    .nullable()
+    .optional(),
+  purchase_city: z.string().max(200).nullable().optional(),
+  purchase_event: z.string().max(200).nullable().optional(),
 });
 
 export type UpdatePhotoInput = z.infer<typeof UpdatePhotoSchema>;

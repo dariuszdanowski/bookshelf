@@ -146,15 +146,16 @@ describe('PATCH /api/photos/:id', () => {
     expect(json.error.code).toBe('NOT_FOUND');
   });
 
-  it('returns 400 for missing shelf_id', async () => {
+  it('returns 200 no-op dla pustego body (shelf_id jest opcjonalne)', async () => {
     const { context } = makePatchContext({
       body: {},
       updateResult: { data: null, error: null },
     });
     const res = await PATCH(context as never);
-    expect(res.status).toBe(400);
-    const json = (await res.json()) as { error: { code: string } };
-    expect(json.error.code).toBe('VALIDATION_ERROR');
+    // Pusty PATCH = no-op (REST PATCH semantics; shelf_id i purchase fields opcjonalne).
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { data: unknown };
+    expect(json.data).toBeDefined();
   });
 
   it('returns 400 for invalid JSON body', async () => {

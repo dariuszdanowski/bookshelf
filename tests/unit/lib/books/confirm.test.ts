@@ -101,6 +101,9 @@ const BASE_BOOK = {
   source_external_id: 'gb-123',
   spine_color: 'niebieski',
   description: null,
+  purchase_date: null,
+  purchase_city: null,
+  purchase_event: null,
 };
 
 beforeEach(() => vi.clearAllMocks());
@@ -286,11 +289,9 @@ describe('confirmDetectionToCatalog — write_failed rollback', () => {
         }
         if (table === 'shelf_entries') {
           return {
-            insert: vi
-              .fn()
-              .mockResolvedValue({
-                error: { code: '23503', name: 'PostgrestError', message: 'fk fail' },
-              }),
+            insert: vi.fn().mockResolvedValue({
+              error: { code: '23503', name: 'PostgrestError', message: 'fk fail' },
+            }),
           };
         }
         return {};

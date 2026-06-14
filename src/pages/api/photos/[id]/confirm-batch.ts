@@ -50,10 +50,10 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
 
   const { items } = parsed.data;
 
-  // Pobierz zdjęcie (RLS scoped)
+  // Pobierz zdjęcie + purchase info (RLS scoped)
   const { data: photo, error: photoError } = await locals.supabase
     .from('photos')
-    .select('id, shelf_id')
+    .select('id, shelf_id, purchase_date, purchase_city, purchase_event')
     .eq('id', photoId)
     .maybeSingle();
 
@@ -150,6 +150,9 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
           source_external_id: candidate.external_id,
           spine_color: detection.spine_color,
           description: candidate.description,
+          purchase_date: photo.purchase_date ?? null,
+          purchase_city: photo.purchase_city ?? null,
+          purchase_event: photo.purchase_event ?? null,
         },
         correctionType: 'accept',
       });

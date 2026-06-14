@@ -507,29 +507,29 @@ PATCH /api/books/[id], GET /api/books/search (z `page.route`). Scenariusze:
 
 #### Automated
 
-- [x] 1.1 `npm run typecheck` przechodzi po ręcznej edycji database.types.ts
-- [x] 1.2 `npm run lint` zielony
-- [x] 1.3 `npm run test` zielony (brak regresji)
-- [x] 1.4 Plik `supabase/migrations/0026_book_purchase_metadata.sql` istnieje i jest poprawny SQL (review)
+- [x] 1.1 `npm run typecheck` przechodzi po ręcznej edycji database.types.ts — 236d782
+- [x] 1.2 `npm run lint` zielony — 236d782
+- [x] 1.3 `npm run test` zielony (brak regresji) — 236d782
+- [x] 1.4 Plik `supabase/migrations/0026_book_purchase_metadata.sql` istnieje i jest poprawny SQL (review) — 236d782
 
 #### Manual
 
-- [x] 1.5 (user) `supabase migration up --local` bez błędu; SELECT purchase_price FROM books i purchase_date FROM photos bez błędu
+- [x] 1.5 (user) `supabase migration up --local` bez błędu; SELECT purchase_price FROM books i purchase_date FROM photos bez błędu — 236d782
 
 ### Phase 2: Warstwa API
 
 #### Automated
 
-- [ ] 2.1 `npm run typecheck` — brak błędów typów
-- [ ] 2.2 `npm run lint` — zielony
-- [ ] 2.3 `npm run test` — unit testy search/books API zielone
-- [ ] 2.4 GET /api/books/purchase-hints?type=event na dev zwraca `{ data: { hints: [] } }`
+- [x] 2.1 `npm run typecheck` — brak błędów typów
+- [x] 2.2 `npm run lint` — zielony
+- [x] 2.3 `npm run test` — unit testy search/books API zielone
+- [x] 2.4 GET /api/books/purchase-hints?type=event na dev zwraca `{ data: { hints: [] } }`
 
 #### Manual
 
-- [ ] 2.5 (user) PATCH /api/books/[id] z purchase_price + purchase_city → Studio pokazuje wartości
-- [ ] 2.6 (user) PATCH /api/photos/[id] z purchase_city + purchase_event → photos row zaktualizowany
-- [ ] 2.7 (user) Confirm detekcji → books.purchase_city skopiowane ze zdjęcia
+- [x] 2.5 (user) PATCH /api/books/[id] z purchase_price + purchase_city → Studio pokazuje wartości
+- [x] 2.6 (user) PATCH /api/photos/[id] z purchase_city + purchase_event → photos row zaktualizowany
+- [x] 2.7 (user) Confirm detekcji → books.purchase_city skopiowane ze zdjęcia
 
 ### Phase 3: BookModal purchase section
 

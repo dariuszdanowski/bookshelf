@@ -70,10 +70,10 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     return apiError({ code: 'NOT_FOUND', status: 404, message: 'Nie znaleziono detekcji.' });
   }
 
-  // Pobierz shelf_id z photo (RLS: photo.user_id = auth.uid())
+  // Pobierz shelf_id + purchase info z photo (RLS: photo.user_id = auth.uid())
   const { data: photo, error: photoError } = await locals.supabase
     .from('photos')
-    .select('shelf_id')
+    .select('shelf_id, purchase_date, purchase_city, purchase_event')
     .eq('id', detection.photo_id)
     .maybeSingle();
 
@@ -132,6 +132,9 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       source_external_id: candidate.external_id,
       spine_color: detection.spine_color,
       description: candidate.description,
+      purchase_date: photo.purchase_date ?? null,
+      purchase_city: photo.purchase_city ?? null,
+      purchase_event: photo.purchase_event ?? null,
     },
     correctionType: 'accept',
   });
