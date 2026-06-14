@@ -201,6 +201,10 @@ export default function BookCard({
         isbn10: book.isbn_10,
         photoId: book.photo_id,
         spineColor: spineColor ?? null,
+        purchase_date: book.purchase_date,
+        purchase_price: book.purchase_price,
+        purchase_city: book.purchase_city,
+        purchase_event: book.purchase_event,
       }}
       onSaved={() => onBookSaved?.()}
       onClose={() => setShowDetail(false)}

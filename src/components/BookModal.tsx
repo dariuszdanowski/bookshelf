@@ -4,6 +4,7 @@ import type { CoverSource } from '../lib/books/schema';
 import BookFields from './book/BookFields';
 import type { BookFieldValues } from './book/BookFields';
 import CoverEditor, { type CoverEditorPatch } from './book/CoverEditor';
+import PurchaseSection from './PurchaseSection';
 import { useBodyScrollLock } from './useBodyScrollLock';
 
 /** Efektywna okładka wg wybranego slotu źródła (+ fallback do dowolnego niepustego). */
@@ -39,6 +40,10 @@ export type BookModalBook = {
   source?: string | null;
   matchScore?: number | null;
   spineColor?: string | null;
+  purchase_date?: string | null;
+  purchase_price?: number | null;
+  purchase_city?: string | null;
+  purchase_event?: string | null;
 };
 
 export type BookModalProps = {
@@ -466,6 +471,14 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
     undefined,
   );
 
+  // Purchase fields state
+  const [purchaseDate, setPurchaseDate] = useState<string | null>(book?.purchase_date ?? null);
+  const [purchasePrice, setPurchasePrice] = useState<number | null>(book?.purchase_price ?? null);
+  const [purchaseCity, setPurchaseCity] = useState<string | null>(book?.purchase_city ?? null);
+  const [purchaseEvent, setPurchaseEvent] = useState<string | null>(book?.purchase_event ?? null);
+  const [cityHints, setCityHints] = useState<string[]>([]);
+  const [eventHints, setEventHints] = useState<string[]>([]);
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose();
@@ -473,6 +486,22 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
+
+  useEffect(() => {
+    if (mode === 'propose') return;
+    void fetch('/api/books/purchase-hints?type=city')
+      .then((r) => r.json() as Promise<{ data?: { hints: string[] } }>)
+      .then((j) => {
+        if (j.data?.hints) setCityHints(j.data.hints);
+      })
+      .catch(() => undefined);
+    void fetch('/api/books/purchase-hints?type=event')
+      .then((r) => r.json() as Promise<{ data?: { hints: string[] } }>)
+      .then((j) => {
+        if (j.data?.hints) setEventHints(j.data.hints);
+      })
+      .catch(() => undefined);
+  }, [mode]);
 
   function handleField(field: keyof BookFieldValues, value: string) {
     setFields((prev) => ({ ...prev, [field]: value }));
@@ -535,6 +564,10 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
             ...coverFields,
             // S-17: opis tylko gdy pochodzi z wybranego kandydata (null/undefined odfiltruje się niżej).
             description: candidateDescription ?? null,
+            purchase_date: purchaseDate,
+            purchase_price: purchasePrice,
+            purchase_city: purchaseCity,
+            purchase_event: purchaseEvent,
           }).filter(([, v]) => v !== null),
         );
         res = await fetch('/api/books', {
@@ -560,6 +593,10 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
           // kandydat bez opisu (null, OL/BN) → wysyłamy null = wyczyść stary opis
           // (impl-review F1: re-identyfikacja nie może zostawić opisu innej książki).
           ...(candidateDescription !== undefined ? { description: candidateDescription } : {}),
+          purchase_date: purchaseDate,
+          purchase_price: purchasePrice,
+          purchase_city: purchaseCity,
+          purchase_event: purchaseEvent,
         };
         res = await fetch(`/api/books/${book.id}`, {
           method: 'PATCH',
@@ -707,6 +744,25 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
                     initialAuthor={fields.authors}
                     hideForm={canEdit}
                     onSelect={handleCandidateSelect}
+                  />
+                )}
+
+                {/* Sekcja informacji o zakupie (add + edit) */}
+                {canEdit && (
+                  <PurchaseSection
+                    purchaseDate={purchaseDate}
+                    purchasePrice={purchasePrice}
+                    purchaseCity={purchaseCity}
+                    purchaseEvent={purchaseEvent}
+                    cityHints={cityHints}
+                    eventHints={eventHints}
+                    disabled={busy}
+                    onChange={(patch) => {
+                      if (patch.purchaseDate !== undefined) setPurchaseDate(patch.purchaseDate);
+                      if (patch.purchasePrice !== undefined) setPurchasePrice(patch.purchasePrice);
+                      if (patch.purchaseCity !== undefined) setPurchaseCity(patch.purchaseCity);
+                      if (patch.purchaseEvent !== undefined) setPurchaseEvent(patch.purchaseEvent);
+                    }}
                   />
                 )}
 

@@ -98,6 +98,9 @@ export type PhotoListItemDTO = {
   /** M26: pełny koszt AI zdjęcia (wszystkie vision_runs + refine_calls);
    *  null gdy suma niedostępna (degrade) — UI fallbackuje do latest runu. */
   total_cost_usd?: number | null;
+  purchase_date: string | null;
+  purchase_city: string | null;
+  purchase_event: string | null;
 };
 
 export type ShelfPhotosResponse = {

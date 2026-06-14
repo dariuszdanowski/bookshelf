@@ -520,24 +520,24 @@ PATCH /api/books/[id], GET /api/books/search (z `page.route`). Scenariusze:
 
 #### Automated
 
-- [x] 2.1 `npm run typecheck` — brak błędów typów
-- [x] 2.2 `npm run lint` — zielony
-- [x] 2.3 `npm run test` — unit testy search/books API zielone
-- [x] 2.4 GET /api/books/purchase-hints?type=event na dev zwraca `{ data: { hints: [] } }`
+- [x] 2.1 `npm run typecheck` — brak błędów typów — 612eb7d
+- [x] 2.2 `npm run lint` — zielony — 612eb7d
+- [x] 2.3 `npm run test` — unit testy search/books API zielone — 612eb7d
+- [x] 2.4 GET /api/books/purchase-hints?type=event na dev zwraca `{ data: { hints: [] } }` — 612eb7d
 
 #### Manual
 
-- [x] 2.5 (user) PATCH /api/books/[id] z purchase_price + purchase_city → Studio pokazuje wartości
-- [x] 2.6 (user) PATCH /api/photos/[id] z purchase_city + purchase_event → photos row zaktualizowany
-- [x] 2.7 (user) Confirm detekcji → books.purchase_city skopiowane ze zdjęcia
+- [x] 2.5 (user) PATCH /api/books/[id] z purchase_price + purchase_city → Studio pokazuje wartości — 612eb7d
+- [x] 2.6 (user) PATCH /api/photos/[id] z purchase_city + purchase_event → photos row zaktualizowany — 612eb7d
+- [x] 2.7 (user) Confirm detekcji → books.purchase_city skopiowane ze zdjęcia — 612eb7d
 
 ### Phase 3: BookModal purchase section
 
 #### Automated
 
-- [ ] 3.1 `npm run typecheck` — BookModal.tsx bez błędów
-- [ ] 3.2 `npm run lint` — zielony
-- [ ] 3.3 `npm run test` — brak regresji
+- [x] 3.1 `npm run typecheck` — BookModal.tsx bez błędów
+- [x] 3.2 `npm run lint` — zielony
+- [x] 3.3 `npm run test` — brak regresji
 
 #### Manual
 

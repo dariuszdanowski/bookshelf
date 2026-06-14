@@ -21,6 +21,9 @@ function makePhoto(
     latest_vision_run: null,
     has_running_run: false,
     legacy_no_hash: false,
+    purchase_date: null,
+    purchase_city: null,
+    purchase_event: null,
     ...overrides,
   };
 }
