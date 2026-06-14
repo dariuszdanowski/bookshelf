@@ -191,8 +191,8 @@ nowy endpoint purchase-hints, filtry search.
   purchase_city:     z.string().max(200).optional()
   purchase_date_from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()
   purchase_date_to:   z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()
-  purchase_price_min: z.number().min(0).optional()
-  purchase_price_max: z.number().min(0).optional()
+  purchase_price_min: z.coerce.number().min(0).optional()
+  purchase_price_max: z.coerce.number().min(0).optional()
   ```
 
 #### 2. Schemat photos — purchase fields
@@ -209,7 +209,8 @@ purchase_date:  z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional()
 purchase_city:  z.string().max(200).nullable().optional()
 purchase_event: z.string().max(200).nullable().optional()
 ```
-Uwaga: walidacja że co najmniej jedno pole musi być podane (`.refine` lub osobne ścieżki).
+Uwaga: empty PATCH (żadne pole nie podane) = no-op, 200 bez efektu — brak `.refine`. Zgodne
+z REST PATCH semantics i prostsze w obsłudze po stronie klienta.
 
 #### 3. PATCH /api/books/[id] — pass-through nowych pól
 
@@ -228,8 +229,17 @@ z pól które są defined. Dodać nowe pola do tego object-building wzorca (iden
 **Intent**: Rozszerzyć PATCH endpoint o przyjmowanie i zapis purchase_date/city/event
 na wierszu photos.
 
-**Contract**: Dodać `purchase_date`, `purchase_city`, `purchase_event` do UPDATE photos query
-gdy podane w body. Istniejący guard „auth + photo ownership" (RLS) bez zmian.
+**Contract**: Handler w photos/[id].ts:366 hardkoduje `.update({ shelf_id: parsed.data.shelf_id })`.
+Gdy shelf_id opcjonalne, musi być dynamiczne budowanie update object:
+```ts
+const patch: Record<string, unknown> = {};
+if (parsed.data.shelf_id !== undefined) patch.shelf_id = parsed.data.shelf_id;
+if (parsed.data.purchase_date !== undefined) patch.purchase_date = parsed.data.purchase_date;
+if (parsed.data.purchase_city !== undefined) patch.purchase_city = parsed.data.purchase_city;
+if (parsed.data.purchase_event !== undefined) patch.purchase_event = parsed.data.purchase_event;
+```
+Null w polu → czyści wartość w DB. Undefined (pole nie przesłane) → nie dotyka. Istniejący
+guard „auth + photo ownership" (RLS) bez zmian.
 
 #### 5. Confirm/batch/correct — propagacja purchase info ze zdjęcia
 
@@ -408,6 +418,9 @@ breadcrumb + header a `<DetectionReview>`. Props: `photoId`, `initialPurchaseDat
   `purchaseDateTo: string`, `purchasePriceMin: string`, `purchasePriceMax: string`.
 - Fetch hints `event` na mount → `eventHints[]` do dropdown `<select>` (+ opcja pusta „Wszystkie").
 - Budowanie URL: dodać nowe query params do `URLSearchParams` przy każdej zmianie filtra.
+- **useEffect deps**: dodać wszystkie 6 nowych state vars (`purchaseEvent`, `purchaseCity`,
+  `purchaseDateFrom`, `purchaseDateTo`, `purchasePriceMin`, `purchasePriceMax`) do dependency
+  array efektu `runSearch` — bez tego zmiana filtra nie wywoła search.
 - UI: nowa sekcja „Zakup" pod istniejącymi filtrami (zamykana `<details>`) — Wydarzenie
   dropdown, Miasto text, Data od/do (date inputs), Cena min-max (number inputs).
 
@@ -494,14 +507,14 @@ PATCH /api/books/[id], GET /api/books/search (z `page.route`). Scenariusze:
 
 #### Automated
 
-- [ ] 1.1 `npm run typecheck` przechodzi po ręcznej edycji database.types.ts
-- [ ] 1.2 `npm run lint` zielony
-- [ ] 1.3 `npm run test` zielony (brak regresji)
-- [ ] 1.4 Plik `supabase/migrations/0026_book_purchase_metadata.sql` istnieje i jest poprawny SQL (review)
+- [x] 1.1 `npm run typecheck` przechodzi po ręcznej edycji database.types.ts
+- [x] 1.2 `npm run lint` zielony
+- [x] 1.3 `npm run test` zielony (brak regresji)
+- [x] 1.4 Plik `supabase/migrations/0026_book_purchase_metadata.sql` istnieje i jest poprawny SQL (review)
 
 #### Manual
 
-- [ ] 1.5 (user) `supabase migration up --local` bez błędu; SELECT purchase_price FROM books i purchase_date FROM photos bez błędu
+- [x] 1.5 (user) `supabase migration up --local` bez błędu; SELECT purchase_price FROM books i purchase_date FROM photos bez błędu
 
 ### Phase 2: Warstwa API
 
