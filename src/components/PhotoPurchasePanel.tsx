@@ -29,13 +29,14 @@ export default function PhotoPurchasePanel({
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Fetch hints on mount
+  // Fetch hints on mount — AbortController zapobiega setState po unmount (F2)
   useEffect(() => {
+    const ctrl = new AbortController();
     const fetchHints = async () => {
       try {
         const [cityRes, eventRes] = await Promise.all([
-          fetch('/api/books/purchase-hints?type=city'),
-          fetch('/api/books/purchase-hints?type=event'),
+          fetch('/api/books/purchase-hints?type=city', { signal: ctrl.signal }),
+          fetch('/api/books/purchase-hints?type=event', { signal: ctrl.signal }),
         ]);
         if (cityRes.ok) {
           const json = (await cityRes.json()) as { data?: { hints: string[] } };
@@ -46,10 +47,19 @@ export default function PhotoPurchasePanel({
           if (json.data?.hints) setEventHints(json.data.hints);
         }
       } catch {
-        /* hints są opcjonalne — cisza */
+        /* hints są opcjonalne — cisza (w tym AbortError przy unmount) */
       }
     };
     void fetchHints();
+    return () => ctrl.abort();
+  }, []);
+
+  // Cleanup timerów przy unmount — zapobiega wyciekowi i setState po unmount (F1)
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+    };
   }, []);
 
   const savePatch = useCallback(
@@ -71,6 +81,8 @@ export default function PhotoPurchasePanel({
               setSavedMsg(true);
               if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
               savedTimerRef.current = setTimeout(() => setSavedMsg(false), 2000);
+            } else {
+              console.error('[PhotoPurchasePanel] PATCH failed', res.status);
             }
           } catch {
             /* silent — UI nie blokuje edycji przy chwilowym braku sieci */
