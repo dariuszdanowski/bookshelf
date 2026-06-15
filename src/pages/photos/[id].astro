@@ -4,6 +4,7 @@ export const prerender = false;
 import Breadcrumb from '../../components/Breadcrumb.astro';
 import Layout from '../../layouts/Layout.astro';
 import DetectionReview from '../../components/DetectionReview.tsx';
+import PhotoPurchasePanel from '../../components/PhotoPurchasePanel.tsx';
 import { parseUuidParam } from '../../lib/http/response';
 
 // Protected path: middleware ensures locals.user is non-null (redirect to /login for anon).
@@ -27,7 +28,7 @@ let shelfName: string | null = null;
 
 const { data: photo } = await Astro.locals.supabase
   .from('photos')
-  .select('shelf_id')
+  .select('shelf_id, purchase_date, purchase_city, purchase_event')
   .eq('id', photoId)
   .maybeSingle();
 
@@ -69,6 +70,13 @@ const breadcrumbItems = [
     <p class="mb-6 text-sm text-gray-600">
       Przejrzyj dopasowania. Zielone — wysoka pewność. Żółte — sprawdź przed akceptacją.
     </p>
+    <PhotoPurchasePanel
+      client:load
+      photoId={photoId}
+      initialPurchaseDate={photo?.purchase_date ?? null}
+      initialCity={photo?.purchase_city ?? null}
+      initialEvent={photo?.purchase_event ?? null}
+    />
     <DetectionReview client:load photoId={photoId} initialFocusedDetectionId={focusedDetectionId} />
   </main>
 </Layout>

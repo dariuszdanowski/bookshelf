@@ -28,6 +28,15 @@ export default function CatalogSearchIsland() {
   const [selectedShelfIds, setSelectedShelfIds] = useState<string[]>([]);
   const [read, setRead] = useState<ReadFilter>('all');
 
+  // Filtry zakupowe
+  const [purchaseEvent, setPurchaseEvent] = useState('');
+  const [purchaseCity, setPurchaseCity] = useState('');
+  const [purchaseDateFrom, setPurchaseDateFrom] = useState('');
+  const [purchaseDateTo, setPurchaseDateTo] = useState('');
+  const [purchasePriceMin, setPurchasePriceMin] = useState('');
+  const [purchasePriceMax, setPurchasePriceMax] = useState('');
+  const [eventHints, setEventHints] = useState<string[]>([]);
+
   const [books, setBooks] = useState<CatalogBookDTO[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
@@ -48,6 +57,20 @@ export default function CatalogSearchIsland() {
     })();
   }, []);
 
+  // Hints dla dropdown wydarzeń zakupowych
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/books/purchase-hints?type=event');
+        if (!res.ok) return;
+        const json = (await res.json()) as { data?: { hints: string[] } };
+        if (json.data?.hints) setEventHints(json.data.hints);
+      } catch {
+        /* hints opcjonalne */
+      }
+    })();
+  }, []);
+
   // Wyszukiwanie z debounce przy każdej zmianie kryteriów
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
@@ -59,7 +82,18 @@ export default function CatalogSearchIsland() {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, color, selectedShelfIds, read]);
+  }, [
+    q,
+    color,
+    selectedShelfIds,
+    read,
+    purchaseEvent,
+    purchaseCity,
+    purchaseDateFrom,
+    purchaseDateTo,
+    purchasePriceMin,
+    purchasePriceMax,
+  ]);
 
   async function runSearch() {
     setLoading(true);
@@ -70,6 +104,12 @@ export default function CatalogSearchIsland() {
       if (color) params.set('color', color);
       if (read !== 'all') params.set('read', read);
       for (const id of selectedShelfIds) params.append('shelf', id);
+      if (purchaseEvent) params.set('purchase_event', purchaseEvent);
+      if (purchaseCity.trim()) params.set('purchase_city', purchaseCity.trim());
+      if (purchaseDateFrom) params.set('purchase_date_from', purchaseDateFrom);
+      if (purchaseDateTo) params.set('purchase_date_to', purchaseDateTo);
+      if (purchasePriceMin) params.set('purchase_price_min', purchasePriceMin);
+      if (purchasePriceMax) params.set('purchase_price_max', purchasePriceMax);
 
       const res = await fetch(`/api/books/search?${params.toString()}`);
       const json = (await res.json()) as SearchResponse;
@@ -166,7 +206,16 @@ export default function CatalogSearchIsland() {
   }
 
   const hasCriteria =
-    q.trim() !== '' || color !== '' || selectedShelfIds.length > 0 || read !== 'all';
+    q.trim() !== '' ||
+    color !== '' ||
+    selectedShelfIds.length > 0 ||
+    read !== 'all' ||
+    purchaseEvent !== '' ||
+    purchaseCity.trim() !== '' ||
+    purchaseDateFrom !== '' ||
+    purchaseDateTo !== '' ||
+    purchasePriceMin !== '' ||
+    purchasePriceMax !== '';
 
   return (
     <div data-testid="catalog-search">
@@ -239,6 +288,99 @@ export default function CatalogSearchIsland() {
           ))}
         </div>
       )}
+
+      {/* Filtry zakupowe */}
+      <details className="mt-3">
+        <summary className="cursor-pointer text-xs text-gray-500 select-none hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 [&::-webkit-details-marker]:hidden">
+          Filtruj po zakupie ▾
+        </summary>
+        <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {/* Wydarzenie */}
+          <label className="col-span-2 flex flex-col gap-0.5 text-xs text-gray-600 sm:col-span-1 dark:text-gray-400">
+            Wydarzenie
+            <select
+              data-testid="filter-purchase-event"
+              value={purchaseEvent}
+              onChange={(e) => setPurchaseEvent(e.target.value)}
+              className="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+            >
+              <option value="">Wszystkie</option>
+              {eventHints.map((h) => (
+                <option key={h} value={h}>
+                  {h}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {/* Miasto */}
+          <label className="col-span-2 flex flex-col gap-0.5 text-xs text-gray-600 sm:col-span-1 dark:text-gray-400">
+            Miasto
+            <input
+              type="text"
+              data-testid="filter-purchase-city"
+              value={purchaseCity}
+              onChange={(e) => setPurchaseCity(e.target.value)}
+              placeholder="np. Kraków"
+              className="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+            />
+          </label>
+
+          {/* Data od */}
+          <label className="flex flex-col gap-0.5 text-xs text-gray-600 dark:text-gray-400">
+            Data zakupu od
+            <input
+              type="date"
+              data-testid="filter-purchase-date-from"
+              value={purchaseDateFrom}
+              onChange={(e) => setPurchaseDateFrom(e.target.value)}
+              className="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+            />
+          </label>
+
+          {/* Data do */}
+          <label className="flex flex-col gap-0.5 text-xs text-gray-600 dark:text-gray-400">
+            Data zakupu do
+            <input
+              type="date"
+              data-testid="filter-purchase-date-to"
+              value={purchaseDateTo}
+              onChange={(e) => setPurchaseDateTo(e.target.value)}
+              className="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+            />
+          </label>
+
+          {/* Cena min */}
+          <label className="flex flex-col gap-0.5 text-xs text-gray-600 dark:text-gray-400">
+            Cena min (zł)
+            <input
+              type="number"
+              data-testid="filter-purchase-price-min"
+              min="0"
+              step="0.01"
+              value={purchasePriceMin}
+              onChange={(e) => setPurchasePriceMin(e.target.value)}
+              placeholder="0"
+              className="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+            />
+          </label>
+
+          {/* Cena max */}
+          <label className="flex flex-col gap-0.5 text-xs text-gray-600 dark:text-gray-400">
+            Cena max (zł)
+            <input
+              type="number"
+              data-testid="filter-purchase-price-max"
+              min="0"
+              step="0.01"
+              value={purchasePriceMax}
+              onChange={(e) => setPurchasePriceMax(e.target.value)}
+              placeholder="999"
+              className="rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
+            />
+          </label>
+        </div>
+      </details>
 
       {/* Wyniki */}
       <div className="mt-6">
