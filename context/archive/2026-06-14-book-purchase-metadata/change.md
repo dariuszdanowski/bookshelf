@@ -1,10 +1,10 @@
 ---
 change_id: book-purchase-metadata
 title: "Metadane zakupu książki: cena/miasto/wydarzenie + propagacja ze zdjęcia + filtry biblioteki"
-status: implemented
+status: archived
 created: 2026-06-14
 updated: 2026-06-16
-archived_at: null
+archived_at: 2026-06-16T00:00:00Z
 ---
 
 ## Notes
