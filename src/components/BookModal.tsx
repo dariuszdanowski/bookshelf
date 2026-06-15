@@ -489,18 +489,20 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
 
   useEffect(() => {
     if (mode === 'propose') return;
-    void fetch('/api/books/purchase-hints?type=city')
+    const ctrl = new AbortController();
+    void fetch('/api/books/purchase-hints?type=city', { signal: ctrl.signal })
       .then((r) => r.json() as Promise<{ data?: { hints: string[] } }>)
       .then((j) => {
         if (j.data?.hints) setCityHints(j.data.hints);
       })
       .catch(() => undefined);
-    void fetch('/api/books/purchase-hints?type=event')
+    void fetch('/api/books/purchase-hints?type=event', { signal: ctrl.signal })
       .then((r) => r.json() as Promise<{ data?: { hints: string[] } }>)
       .then((j) => {
         if (j.data?.hints) setEventHints(j.data.hints);
       })
       .catch(() => undefined);
+    return () => ctrl.abort();
   }, [mode]);
 
   function handleField(field: keyof BookFieldValues, value: string) {

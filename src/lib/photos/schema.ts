@@ -24,6 +24,7 @@ export const UpdatePhotoSchema = z.object({
     .optional(),
   purchase_city: z.string().max(200).nullable().optional(),
   purchase_event: z.string().max(200).nullable().optional(),
+  // purchase_price jest per-książka (nie per-zdjęcie) — celowo nieobecne tu
 });
 
 export type UpdatePhotoInput = z.infer<typeof UpdatePhotoSchema>;

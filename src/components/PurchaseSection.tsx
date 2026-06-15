@@ -61,7 +61,8 @@ export default function PurchaseSection({
               disabled={disabled}
               onChange={(e) => {
                 const val = e.target.value;
-                onChange({ purchasePrice: val === '' ? null : parseFloat(val) });
+                const p = parseFloat(val);
+                onChange({ purchasePrice: val === '' || isNaN(p) ? null : p });
               }}
               className={`${INPUT_CLS} pr-6`}
             />

@@ -49,17 +49,18 @@ const CANDIDATE = {
   matchScore: 0.88,
 };
 
-/** Tworzy nowy Response per call (body ReadableStream konsumuje się raz). */
+/** Tworzy nowy Response per call (body ReadableStream konsumuje się raz).
+ *  URL routing: purchase-hints → hintsBody (default empty), wszystko inne → body. */
 function mockFetch(
   body: object,
   status = 200,
-  hintsBody: object = { data: { hints: [] } },
+  { hintsBody = { data: { hints: [] } } }: { hintsBody?: object } = {},
 ): ReturnType<typeof vi.spyOn> {
   return vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
-    const isHints = typeof url === 'string' && url.includes('/api/books/purchase-hints');
-    return Promise.resolve(
-      new Response(JSON.stringify(isHints ? hintsBody : body), { status: isHints ? 200 : status }),
-    );
+    if (typeof url === 'string' && url.includes('/api/books/purchase-hints')) {
+      return Promise.resolve(new Response(JSON.stringify(hintsBody), { status: 200 }));
+    }
+    return Promise.resolve(new Response(JSON.stringify(body), { status }));
   });
 }
 
@@ -201,6 +202,26 @@ describe('BookModal — tryb add', () => {
     expect(body.cover_source).toBe('url');
   });
 
+  it('POST zawiera purchase fields gdy ustawione', async () => {
+    const onSaved = vi.fn();
+    mockFetch({ data: { id: BOOK_ID } });
+    render(<BookModal mode="add" shelfId={SHELF_ID} onSaved={onSaved} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByTestId('book-field-title'), { target: { value: 'Test zakup' } });
+    fireEvent.change(screen.getByTestId('purchase-price'), { target: { value: '29.99' } });
+    fireEvent.change(screen.getByTestId('purchase-city'), { target: { value: 'Kraków' } });
+    fireEvent.click(screen.getByTestId('book-modal-save'));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    const fetchSpy = globalThis.fetch as ReturnType<typeof vi.fn>;
+    const postCall = fetchSpy.mock.calls.find(([url]) => url === '/api/books') as
+      | [string, RequestInit]
+      | undefined;
+    expect(postCall).toBeDefined();
+    const body = JSON.parse((postCall![1] as { body: string }).body);
+    expect(body.purchase_price).toBe(29.99);
+    expect(body.purchase_city).toBe('Kraków');
+  });
+
   it('błąd 409 wyświetla komunikat o duplikacie', async () => {
     mockFetch({ error: { code: 'CONFLICT', message: 'Masz już tę książkę.' } }, 409);
     render(<BookModal mode="add" shelfId={SHELF_ID} onClose={vi.fn()} />);
@@ -274,6 +295,26 @@ describe('BookModal — tryb edit', () => {
     ];
     expect(patchCall2).toBeDefined();
     expect((patchCall2[1] as { method: string }).method).toBe('PATCH');
+  });
+
+  it('PATCH zawiera purchase fields gdy zmienione', async () => {
+    const onSaved = vi.fn();
+    mockFetch({ data: { id: BOOK_ID } });
+    render(<BookModal mode="edit" book={BASE_BOOK} onSaved={onSaved} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByTestId('purchase-date'), { target: { value: '2026-06-01' } });
+    fireEvent.change(screen.getByTestId('purchase-event'), { target: { value: 'Targi Książki' } });
+    fireEvent.click(screen.getByTestId('book-modal-save'));
+
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+    const fetchSpy = globalThis.fetch as ReturnType<typeof vi.fn>;
+    const patchCall = fetchSpy.mock.calls.find(([url]) => url === `/api/books/${BOOK_ID}`) as [
+      string,
+      RequestInit,
+    ];
+    expect(patchCall).toBeDefined();
+    const body = JSON.parse((patchCall[1] as { body: string }).body);
+    expect(body.purchase_date).toBe('2026-06-01');
+    expect(body.purchase_event).toBe('Targi Książki');
   });
 
   it('prefill z kandydata w edit mode — bez zdublowanych pól (hideForm)', async () => {
