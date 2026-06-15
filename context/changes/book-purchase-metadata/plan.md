@@ -549,14 +549,14 @@ PATCH /api/books/[id], GET /api/books/search (z `page.route`). Scenariusze:
 
 #### Automated
 
-- [x] 4.1 `npm run typecheck` — zielony
-- [x] 4.2 `npm run lint` — zielony
-- [x] 4.3 `npm run test` — brak regresji
-- [x] 4.4 `npm run test:e2e` — book-purchase.spec.ts 5/5 zielone
+- [x] 4.1 `npm run typecheck` — zielony — 123e924
+- [x] 4.2 `npm run lint` — zielony — 123e924
+- [x] 4.3 `npm run test` — brak regresji — 123e924
+- [x] 4.4 `npm run test:e2e` — book-purchase.spec.ts 5/5 zielone — 123e924
 
 #### Manual
 
-- [x] 4.5 (user) Panel na /photos/[id] widoczny; wpis miasto → Studio pokazuje photo.purchase_city
-- [x] 4.6 (user) Confirm ze zdjęcia → books.purchase_city propagowane
-- [x] 4.7 (user) /library filter Wydarzenie dropdown ładuje unikalne wartości
-- [x] 4.8 (user) /library filtry miasto/daty/ceny filtrują poprawnie
+- [x] 4.5 (user) Panel na /photos/[id] widoczny; wpis miasto → Studio pokazuje photo.purchase_city — 123e924
+- [x] 4.6 (user) Confirm ze zdjęcia → books.purchase_city propagowane — 123e924
+- [x] 4.7 (user) /library filter Wydarzenie dropdown ładuje unikalne wartości — 123e924
+- [x] 4.8 (user) /library filtry miasto/daty/ceny filtrują poprawnie — 123e924
