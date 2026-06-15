@@ -535,15 +535,15 @@ PATCH /api/books/[id], GET /api/books/search (z `page.route`). Scenariusze:
 
 #### Automated
 
-- [x] 3.1 `npm run typecheck` — BookModal.tsx bez błędów
-- [x] 3.2 `npm run lint` — zielony
-- [x] 3.3 `npm run test` — brak regresji
+- [x] 3.1 `npm run typecheck` — BookModal.tsx bez błędów — b3381d8
+- [x] 3.2 `npm run lint` — zielony — b3381d8
+- [x] 3.3 `npm run test` — brak regresji — b3381d8
 
 #### Manual
 
-- [ ] 3.4 (user) BookModal edit pokazuje sekcję z 4 polami; autocomplete podpowiada wartości
-- [ ] 3.5 (user) Zapis w BookModal → books.purchase_price/city/event w Studio
-- [ ] 3.6 (user) Add mode z ceną/miastem → wiersz books z tymi polami
+- [x] 3.4 (user) BookModal edit pokazuje sekcję z 4 polami; autocomplete podpowiada wartości — b3381d8
+- [x] 3.5 (user) Zapis w BookModal → books.purchase_price/city/event w Studio — b3381d8
+- [x] 3.6 (user) Add mode z ceną/miastem → wiersz books z tymi polami — b3381d8
 
 ### Phase 4: Photo review panel + filtry biblioteki + E2E
 
