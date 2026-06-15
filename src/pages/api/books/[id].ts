@@ -52,7 +52,7 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
   }
 
   // Tylko obecne pola (undefined pominięte; null = wyczyść). search_text jest
-  // GENERATED z (title, authors, publisher) — nie ustawiamy go ręcznie.
+  // GENERATED z (title, authors, publisher, purchase_city, purchase_event) — nie ustawiamy ręcznie.
   const update: {
     is_read?: boolean;
     cover_url?: string | null;
@@ -66,6 +66,10 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
     isbn_13?: string | null;
     isbn_10?: string | null;
     description?: string | null;
+    purchase_date?: string | null;
+    purchase_price?: number | null;
+    purchase_city?: string | null;
+    purchase_event?: string | null;
   } = {};
   const d = parsed.data;
   if (d.is_read !== undefined) update.is_read = d.is_read;
@@ -81,13 +85,18 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
   if (d.isbn_10 !== undefined) update.isbn_10 = d.isbn_10;
   // S-17: opis z kandydata (BookModal edit = per-book backfill) → search_text.
   if (d.description !== undefined) update.description = d.description;
+  // Metadane zakupu (book-purchase-metadata).
+  if (d.purchase_date !== undefined) update.purchase_date = d.purchase_date;
+  if (d.purchase_price !== undefined) update.purchase_price = d.purchase_price;
+  if (d.purchase_city !== undefined) update.purchase_city = d.purchase_city;
+  if (d.purchase_event !== undefined) update.purchase_event = d.purchase_event;
 
   const { data, error } = await locals.supabase
     .from('books')
     .update(update)
     .eq('id', id)
     .select(
-      'id, is_read, title, authors, publisher, published_year, isbn_13, isbn_10, cover_url, user_cover_url, cover_photo_url, cover_source',
+      'id, is_read, title, authors, publisher, published_year, isbn_13, isbn_10, cover_url, user_cover_url, cover_photo_url, cover_source, purchase_date, purchase_price, purchase_city, purchase_event',
     )
     .single();
 
@@ -129,6 +138,10 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
       user_cover_url: data.user_cover_url,
       cover_photo_url: data.cover_photo_url,
       cover_source: data.cover_source,
+      purchase_date: data.purchase_date,
+      purchase_price: data.purchase_price,
+      purchase_city: data.purchase_city,
+      purchase_event: data.purchase_event,
     },
   });
 };

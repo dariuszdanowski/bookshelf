@@ -85,6 +85,11 @@ export type ShelfBookDTO = {
   user_cover_url: string | null;
   cover_photo_url: string | null;
   cover_source: CoverSource;
+  // Metadane zakupu (book-purchase-metadata).
+  purchase_date: string | null;
+  purchase_price: number | null;
+  purchase_city: string | null;
+  purchase_event: string | null;
 };
 
 // DTO dla wyników wyszukiwarki katalogu (S-08) — ShelfBookDTO + nazwa półki + kolor
@@ -100,6 +105,19 @@ export const SearchBooksQuerySchema = z.object({
   color: z.enum(SPINE_COLORS).optional(),
   shelf_ids: z.array(z.uuid()).optional(),
   read: z.enum(['read', 'unread', 'all']).optional(),
+  // Filtry zakupowe (book-purchase-metadata).
+  purchase_event: z.string().max(200).optional(),
+  purchase_city: z.string().max(200).optional(),
+  purchase_date_from: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data w formacie YYYY-MM-DD')
+    .optional(),
+  purchase_date_to: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data w formacie YYYY-MM-DD')
+    .optional(),
+  purchase_price_min: z.coerce.number().min(0).optional(),
+  purchase_price_max: z.coerce.number().min(0).optional(),
 });
 export type SearchBooksQuery = z.infer<typeof SearchBooksQuerySchema>;
 
@@ -210,6 +228,15 @@ export const UpdateBookSchema = z
     // S-17: opis z wybranego kandydata (BookModal edit = ręczny per-book backfill
     // starych książek); bez kontrolki UI — payload dołącza go tylko z kandydata.
     description: z.string().max(2000).nullable().optional(),
+    // Metadane zakupu (book-purchase-metadata). null = wyczyść.
+    purchase_date: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data w formacie YYYY-MM-DD')
+      .nullable()
+      .optional(),
+    purchase_price: z.number().min(0).max(99999.99).nullable().optional(),
+    purchase_city: z.string().max(200).nullable().optional(),
+    purchase_event: z.string().max(200).nullable().optional(),
   })
   .strict()
   .refine((v) => Object.keys(v).length > 0, { message: 'Podaj co najmniej jedno pole.' });

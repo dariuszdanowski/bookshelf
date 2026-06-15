@@ -21,6 +21,10 @@ export type ConfirmBookInput = {
   spine_color: string | null;
   /** Krótki opis z kandydata (S-17) → books.description → search_text; null dla manual. */
   description: string | null;
+  /** Metadane zakupu skopiowane z photo row (book-purchase-metadata); null gdy nie ustawione. */
+  purchase_date: string | null;
+  purchase_city: string | null;
+  purchase_event: string | null;
 };
 
 export type ConfirmDetectionArgs = {
@@ -105,6 +109,10 @@ export async function confirmDetectionToCatalog(
       source_external_id: book.source_external_id,
       spine_color: book.spine_color,
       description: book.description,
+      // Metadane zakupu z photo row — null gdy photo nie ma ustawionych wartości.
+      purchase_date: book.purchase_date,
+      purchase_city: book.purchase_city,
+      purchase_event: book.purchase_event,
     })
     .select('id')
     .single();

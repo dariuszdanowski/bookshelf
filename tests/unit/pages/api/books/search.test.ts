@@ -44,6 +44,10 @@ const bookRows = [
     user_cover_url: 'https://user.jpg',
     cover_photo_url: null,
     cover_source: 'url',
+    purchase_date: '2024-05-15',
+    purchase_price: 49.99,
+    purchase_city: 'Kraków',
+    purchase_event: 'Targi Książki',
   },
   {
     id: BOOK_2,
@@ -59,6 +63,10 @@ const bookRows = [
     user_cover_url: null,
     cover_photo_url: null,
     cover_source: 'auto',
+    purchase_date: null,
+    purchase_price: null,
+    purchase_city: null,
+    purchase_event: null,
   },
 ];
 
@@ -70,7 +78,7 @@ const bookRows = [
  */
 function chain(resolved: { data: unknown; error: unknown }) {
   const obj: Record<string, unknown> = {};
-  for (const m of ['select', 'eq', 'in', 'ilike', 'order']) {
+  for (const m of ['select', 'eq', 'in', 'ilike', 'gte', 'lte', 'not', 'order']) {
     obj[m] = vi.fn(() => obj);
   }
   // await na obiekcie → resolved (thenable)
@@ -161,5 +169,40 @@ describe('GET /api/books/search', () => {
       makeContext({ books: { data: null, error: { name: 'E', message: 'x', code: 'XX' } } }),
     );
     expect(res.status).toBe(500);
+  });
+
+  it('200 → wyniki zawierają purchase fields', async () => {
+    const res = await GET(makeContext({}));
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as ApiJson;
+    expect(json.data!.books[0]).toMatchObject({
+      purchase_date: '2024-05-15',
+      purchase_price: 49.99,
+      purchase_city: 'Kraków',
+      purchase_event: 'Targi Książki',
+    });
+    expect(json.data!.books[1]).toMatchObject({
+      purchase_date: null,
+      purchase_price: null,
+      purchase_city: null,
+      purchase_event: null,
+    });
+  });
+
+  it('400 gdy purchase_date_from nie jest datą YYYY-MM-DD', async () => {
+    const res = await GET(makeContext({ params: '?purchase_date_from=15-05-2024' }));
+    expect(res.status).toBe(400);
+    const json = (await res.json()) as ApiJson;
+    expect(json.error!.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('akceptuje filtry zakupowe → 200 (purchase_event, city, daty, ceny)', async () => {
+    const res = await GET(
+      makeContext({
+        params:
+          '?purchase_event=Targi+Ksi%C4%85%C5%BCki&purchase_city=Krak%C3%B3w&purchase_date_from=2024-01-01&purchase_date_to=2024-12-31&purchase_price_min=10&purchase_price_max=100',
+      }),
+    );
+    expect(res.status).toBe(200);
   });
 });

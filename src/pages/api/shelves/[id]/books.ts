@@ -49,7 +49,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
   const { data: rows, error } = await locals.supabase
     .from('shelf_entries')
     .select(
-      'position_index, photo_id, detection_id, books(id, title, authors, cover_url, published_year, is_read, isbn_13, isbn_10, publisher, user_cover_url, cover_photo_url, cover_source)',
+      'position_index, photo_id, detection_id, books(id, title, authors, cover_url, published_year, is_read, isbn_13, isbn_10, publisher, user_cover_url, cover_photo_url, cover_source, purchase_date, purchase_price, purchase_city, purchase_event)',
     )
     .eq('shelf_id', shelfId)
     .eq('is_current', true)
@@ -84,6 +84,10 @@ export const GET: APIRoute = async ({ params, locals }) => {
         user_cover_url: string | null;
         cover_photo_url: string | null;
         cover_source: 'auto' | 'url' | 'photo';
+        purchase_date: string | null;
+        purchase_price: number | null;
+        purchase_city: string | null;
+        purchase_event: string | null;
       };
       return {
         id: b.id,
@@ -101,6 +105,10 @@ export const GET: APIRoute = async ({ params, locals }) => {
         user_cover_url: b.user_cover_url,
         cover_photo_url: b.cover_photo_url,
         cover_source: b.cover_source ?? 'auto',
+        purchase_date: b.purchase_date ?? null,
+        purchase_price: b.purchase_price ?? null,
+        purchase_city: b.purchase_city ?? null,
+        purchase_event: b.purchase_event ?? null,
       };
     });
 

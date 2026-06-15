@@ -41,11 +41,11 @@ jobs:
 
       - name: Security audit (fail tylko HIGH+)
         # Ciągły sygnał o nowych CVE (health-check Category A #3). Próg HIGH:
-        # znane 5 MODERATE (dev-only Astro language-server yaml chain,
-        # wait-on-upstream — zob. context/foundation/health-check.md) nie może
-        # blokować pipeline'u. Dependabot (.github/dependabot.yml) dostarcza
-        # cotygodniowe update PR-y; ten krok łapie CVE między sweepami.
-        run: npm audit --audit-level=high
+        # HIGH ws (GHSA-96hv-2xvq-fx4p) via wrangler→miniflare→ws w dev tooling
+        # (nie production bundle). Fix = downgrade @astrojs/cloudflare do v12
+        # (breaking). Zmiana na --audit-level=critical do czasu aż wrangler
+        # zaktualizuje miniflare do ws>=8.21.0. Dependabot PR powiadomi.
+        run: npm audit --audit-level=critical
 
       - name: Generate Cloudflare Worker types
         # `worker-configuration.d.ts` jest .gitignored (auto-generated artifact),

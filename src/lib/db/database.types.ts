@@ -80,7 +80,10 @@ export type Database = {
           notes: string | null;
           published_year: number | null;
           publisher: string | null;
+          purchase_city: string | null; // ręczna edycja — regeneruj po db push
           purchase_date: string | null;
+          purchase_event: string | null; // ręczna edycja — regeneruj po db push
+          purchase_price: number | null; // ręczna edycja — regeneruj po db push
           search_text: string | null;
           source: string | null;
           source_external_id: string | null;
@@ -103,7 +106,10 @@ export type Database = {
           notes?: string | null;
           published_year?: number | null;
           publisher?: string | null;
+          purchase_city?: string | null;
           purchase_date?: string | null;
+          purchase_event?: string | null;
+          purchase_price?: number | null;
           search_text?: string | null;
           source?: string | null;
           source_external_id?: string | null;
@@ -126,7 +132,10 @@ export type Database = {
           notes?: string | null;
           published_year?: number | null;
           publisher?: string | null;
+          purchase_city?: string | null;
           purchase_date?: string | null;
+          purchase_event?: string | null;
+          purchase_price?: number | null;
           search_text?: string | null;
           source?: string | null;
           source_external_id?: string | null;
@@ -258,6 +267,9 @@ export type Database = {
           file_hash_sha256: string | null;
           id: string;
           processed_at: string | null;
+          purchase_city: string | null; // ręczna edycja — regeneruj po db push
+          purchase_date: string | null; // ręczna edycja — regeneruj po db push
+          purchase_event: string | null; // ręczna edycja — regeneruj po db push
           shelf_id: string;
           status: string;
           storage_path: string;
@@ -274,6 +286,9 @@ export type Database = {
           file_hash_sha256?: string | null;
           id?: string;
           processed_at?: string | null;
+          purchase_city?: string | null;
+          purchase_date?: string | null;
+          purchase_event?: string | null;
           shelf_id: string;
           status?: string;
           storage_path: string;
@@ -290,6 +305,9 @@ export type Database = {
           file_hash_sha256?: string | null;
           id?: string;
           processed_at?: string | null;
+          purchase_city?: string | null;
+          purchase_date?: string | null;
+          purchase_event?: string | null;
           shelf_id?: string;
           status?: string;
           storage_path?: string;

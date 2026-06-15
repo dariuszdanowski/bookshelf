@@ -361,9 +361,26 @@ export const PATCH: APIRoute = async ({ request, params, locals }) => {
     });
   }
 
+  // Dynamicznie buduj obiekt update — undefined pola = nie dotykaj; null = wyczyść.
+  const patch: {
+    shelf_id?: string;
+    purchase_date?: string | null;
+    purchase_city?: string | null;
+    purchase_event?: string | null;
+  } = {};
+  if (parsed.data.shelf_id !== undefined) patch.shelf_id = parsed.data.shelf_id;
+  if (parsed.data.purchase_date !== undefined) patch.purchase_date = parsed.data.purchase_date;
+  if (parsed.data.purchase_city !== undefined) patch.purchase_city = parsed.data.purchase_city;
+  if (parsed.data.purchase_event !== undefined) patch.purchase_event = parsed.data.purchase_event;
+
+  // Pusty PATCH = no-op; zwracamy 200 bez uderzenia w DB.
+  if (Object.keys(patch).length === 0) {
+    return apiResponse({ data: { photo: null } });
+  }
+
   const { data, error } = await locals.supabase
     .from('photos')
-    .update({ shelf_id: parsed.data.shelf_id })
+    .update(patch)
     .eq('id', id)
     .select(
       'id, shelf_id, status, detected_count, error_message, vision_cost_usd, vision_latency_ms, created_at',

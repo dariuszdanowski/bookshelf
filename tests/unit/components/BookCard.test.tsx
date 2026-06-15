@@ -21,6 +21,10 @@ const baseBook: ShelfBookDTO = {
   user_cover_url: null,
   cover_photo_url: null,
   cover_source: 'auto',
+  purchase_date: null,
+  purchase_price: null,
+  purchase_city: null,
+  purchase_event: null,
 };
 
 describe('BookCard', () => {
