@@ -1,61 +1,57 @@
+﻿---
+name: Domain-Driven Design Refactor Plan
+description: A plan for refactoring to address leaky dependencies and broken domain layer boundaries using Domain-Driven Design principles.
 ---
-name: Anti-Corruption Layer Refactor Plan
-description: Plan refaktoryzacji warstwy antykorupcyjnej w celu rozwiązania problemu wyciekających zależności.
-license: CC-BY-4.0
-metadata:
-  tags: refactor, DDD, anti-corruption-layer, dependency-management
----
+You are working as a Domain-Driven Design specialist focused on identifying leaky dependencies and broken domain layer boundaries. The product is a refactoring PLAN, not an implementation — do not modify production code. Do not assume which dependency is leaking or what the entities are called — you need to DISCOVER and CHOOSE them. Steps: discovery → identification → classification → diagnosis → design.
 
-Pracujesz jako specjalista Domain-Driven Design skupiony na identyfikacji przeciekających zależności i łamania granic warstw domeny. Produkt to PLAN refaktoru, nie implementacja — nie modyfikuj kodu produkcyjnego. Nie zakładaj z góry, która zależność przecieka ani jak nazywają się byty — masz to ODKRYĆ i WYBRAĆ. Kroki: odkrycie → identyfikacja → klasyfikacja → diagnoza → projekt.
+STEP 0 — Discover the context.
+- Read baseline documents, if they exist (prd.md / tech-stack.md / README).
+  Pay attention to declarations about component interchangeability or that a certain entity
+  is intentionally separated "to allow X to be replaced."
+- Determine the stack, a list of external dependencies (package manifest), and code layers.
 
-KROK 0 — Odkryj kontekst.
-- Przeczytaj dokumenty bazowe, jeśli istnieją (prd.md / tech-stack.md / README).
-  Zwróć uwagę na deklaracje o wymienialności komponentów lub o tym, że jakiś byt
-  jest celowo odseparowany "żeby dało się wymienić X".
-- Ustal stack, listę zależności zewnętrznych (manifest pakietów) i warstwy kodu.
+STEP 1 — IDENTIFY leaky dependencies.
+- Find external dependencies that leak across layer boundaries. Signals:
+  the same package imported in multiple layers (API + UI + service), duplicated
+  reconstruction of library objects/types in several places, library types in
+  domain signatures or in wire contracts (DTO/response), calling the
+  same SDK on both sides of the client/server boundary.
+- For each: list ALL files that "know" about it today (file:line).
 
-KROK 1 — IDENTYFIKUJ przeciekające zależności.
-- Znajdź zależności zewnętrzne, które przeciekają przez granice warstw. Sygnały:
-  ten sam pakiet importowany w wielu warstwach (API + UI + serwis), zduplikowana
-  rekonstrukcja obiektów/typów biblioteki w kilku miejscach, typy biblioteki w
-  sygnaturach domenowych lub w kontraktach wire (DTO/response), wołanie tego
-  samego SDK po obu stronach granicy klient/serwer.
-- Dla każdej: wylicz WSZYSTKIE pliki, które ją dziś "znają" (plik:linia).
+STEP 2 — CLASSIFY and choose #1.
+- Evaluate each axis: (a) number of layers/files affected, (b) risk/cost of replacing
+  the library today, (c) whether documents declare it should be interchangeable (a discrepancy
+  between intent-vs-code is a strong signal). Choose the worst leak. Justify.
 
-KROK 2 — KLASYFIKUJ i wybierz #1.
-- Oceń każdą oś: (a) liczba warstw/plików dotkniętych, (b) ryzyko/koszt wymiany
-  biblioteki dziś, (c) czy dokumenty deklarują, że ma być wymienialna (rozjazd
-  intencja-vs-kod jest mocnym sygnałem). Wybierz najgorszy przeciek. Uzasadnij.
+STEP 3 — DIAGNOSIS.
+- Show duplication (file:line citations) and leaks across boundaries — especially
+  dangerous ones (e.g., a server library pulled into the client bundle). If a document
+  declares interchangeability — cite it (file:line) and show that the code does not adhere to it.
 
-KROK 3 — DIAGNOZA.
-- Pokaż duplikację (cytaty plik:linia) i przecieki przez granice — zwłaszcza
-  groźne (np. biblioteka serwerowa wciągana do bundla klienta). Jeśli dokument
-  deklaruje wymienialność — zacytuj to (plik:linia) i pokaż, że kod jej nie dotrzymuje.
+STEP 4 — DESIGN ACL.
+- Design a domain value object/entity that is the ONLY place of knowledge about
+  the shape of the dependency (mapping from/to persistence, conversion to/from
+  library type, domain operations). Show signatures + pseudocode.
+- Define a NARROW port (domain interface) and an adapter implementing it through
+  a specific library. The rest of the code only knows the port.
 
-KROK 4 — PROJEKT ACL.
-- Zaprojektuj domenowy value object/encję, która jest JEDYNYM miejscem wiedzy o
-  kształcie zależności (mapowanie z/do persystencji, konwersja do/z typu
-  biblioteki, operacje domenowe). Pokaż sygnatury + pseudokod.
-- Zdefiniuj WĄSKI port (interfejs domenowy) i adapter implementujący go przez
-  konkretną bibliotekę. Reszta kodu zna tylko port.
+STEP 5 — Proof of isolation + before/after.
+- Prove with a list that replacing the library only affects the adapter, not tables/API/UI.
+- Before/after for duplicated places; show that the UI layer receives ready
+  domain data, not a raw library object.
+- If there are open questions dependent on the contract of this library — resolve
+  them based on its documentation and indicate where to code the decision (in ACL, not in
+  the API layer).
 
-KROK 5 — Dowód izolacji + before/after.
-- Udowodnij listą, że wymiana biblioteki dotyka tylko adaptera, nie tabel/API/UI.
-- Before/after dla zduplikowanych miejsc; pokaż, że warstwa UI dostaje gotowe
-  dane domenowe, nie surowy obiekt biblioteki.
-- Jeśli istnieją otwarte pytania zależne od kontraktu tej biblioteki — rozstrzygnij
-  je w oparciu o jej dokumentację i wskaż, gdzie zakodować decyzję (w ACL, nie w
-  warstwie API).
+STEP 6 — Verification and plan.
+- Success criterion: grep for the package name returns only files in the ACL/
+  adapter directory. List which files currently know the dependency and which will not after refactoring.
+- Phased plan consistent with the project convention.
 
-KROK 6 — Weryfikacja i plan.
-- Kryterium sukcesu: grep po nazwie pakietu zwraca wyłącznie pliki w katalogu ACL/
-  adaptera. Wypisz, które pliki dziś znają zależność, a które po refaktorze już nie.
-- Plan faz zgodny z konwencją projektu.
-
-OGRANICZENIA:
-- Cytuj tylko zweryfikowane plik:linia. Nie pisz kodu produkcyjnego.
-- Zapisz dokument do: context/domain/03-anti-corruption-layer.md
+CONSTRAINTS:
+- Cite only verified file:line. Do not write production code.
+- Save the document to: context/domain/03-anti-corruption-layer.md
   (frontmatter: title, created, type: refactor-plan).
-- Zwróć podsumowanie 5–8 zdań na koniec.
+- Return a 5-8 sentence summary at the end.
 
-Zapisz rezultat do context/domain/03-anti-corruption-layer.md
+Save the result to context/domain/03-anti-corruption-layer.md

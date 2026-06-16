@@ -1,10 +1,10 @@
-```yaml
-name: Mapa kontrybutorów — kto wie co i o co go zapytać (git)
+﻿name: Mapa kontrybutorów — kto wie co i o co go zapytać (git)
 description: Seria promptów opartych o historię commitów. Uruchamiaj po wcześniejszych artefaktach; wynik zapisz do `context/map/artifact-3-contributors.md`.
 license: CC0-1.0
 metadata:
-  tags: git, contributors, knowledge-map, support, code-ownership
-  version: 1.0.0
+  tags: git, contributors, knowledge-map, support, project-management
+  version: 0.1.0
+  author: ai-assistants
 ```
 
 # Mapa kontrybutorów — kto wie co i o co go zapytać (git)
@@ -29,4 +29,3 @@ Dla każdej osoby sklasyfikuj aktywności pogrupowane tematycznie, które mogą 
 
 ```text
 Zapisz wyniki do context/map/artifact-3-contributors.md
-```

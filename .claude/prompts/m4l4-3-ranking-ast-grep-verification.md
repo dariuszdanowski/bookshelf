@@ -1,4 +1,4 @@
----
+﻿---
 name: Refactor Opportunities Research
 description: Research into refactoring opportunities in the codebase.
 license: CC-BY-4.0

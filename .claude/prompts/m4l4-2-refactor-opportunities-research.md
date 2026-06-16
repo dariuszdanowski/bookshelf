@@ -1,35 +1,27 @@
-```markdown
+﻿---
+name: refactor-opportunities
+description: Analyze technical debt and structural risks, then propose refactoring opportunities.
 ---
-name: 10x-research refactor-opportunities
-description: Przeczytaj analizę: context/changes/{change-id}/research.md - zapis długu technicznego i ryzyk strukturalnych tego repozytorium. Traktuj jej ustalenia jako zebrane dowody: nie wyprowadzaj ich na nowo, buduj na nich. Jeśli odwołuje się do innych artefaktów (mapa repo, wcześniejszy research), przeczytaj je również jako priory.
+Przeczytaj analizę:
+context/changes/{change-id}/research.md - zapis długu technicznego
+i ryzyka strukturalnego tego repozytorium.
+Traktuj jej ustalenia jako zebrane dowody: nie wyprowadzaj ich ponownie, buduj na nich. Jeśli odnosi się do innych artefaktów (mapa repozytorium, poprzednie badania), przeczytaj je priorytetowo.
 
-Wypisz każdy problem, który raport odnotowuje, niezależnie od etykiety (dług, ryzyko, hotspot, znalezisko).
-Sklasyfikuj każdy: KANDYDAT to problem, którego naprawa zmieniłaby strukturę kodu; wszystko inne (np. brakujący test, luka w dokumentacji) nie jest kandydatem - zachowaj to jako wejście do oceny wykonalności i kosztu.
-Wypisz listę i klasyfikację kandydatów na początku wyniku, żebym mógł ją zaudytować. Następnie zbadaj każdego kandydata trzema sub-agentami; wszystkie pracują w trybie eksploracji, bez wprowadzania zmian:
+Wymień każdy problem odnotowany w raporcie, niezależnie od jego etykiety (dług, ryzyko, hotspot, znalezisko).
+Sklasyfikuj każdy z nich: KANDYDAT to problem, którego naprawa zmieniłaby strukturę kodu; wszystko inne (np. brakujący test, luka w dokumentacji) nie jest kandydatem – zachowaj to jako dane wejściowe do oceny wykonalności i kosztów.
+Wymień i sklasyfikuj kandydatów na początku wyniku, abym mógł je zweryfikować. Następnie zbadaj każdego kandydata za pomocą trzech podagentów; wszyscy pracują w trybie eksploracji, bez wprowadzania zmian:
 
-1. Obecny kształt - potwierdź w kodzie, jaki kształt kandydat ma dziś: gdzie żyje logika, jak mieszają się odpowiedzialności, jakie abstrakcje lub powiązania już istnieją. Cytuj plik:linia. Oznacz każde twierdzenie jako evidence / inference / unknown.
+1. Bieżący kształt – potwierdź w kodzie, jaki kształt ma kandydat dzisiaj: gdzie znajduje się logika, jak mieszają się obowiązki, jakie abstrakcje lub zależności już istnieją. Cytuj plik:linia. Oznacz każde stwierdzenie jako dowód / wnioskowanie / nieznane.
 
-2. Historia i intencjonalność - ustal, DLACZEGO kod ma taki kształt: ADR-y i dokumenty projektowe, jeśli istnieją; w przeciwnym razie archeologia gita (git log -L, blame, uzasadnienia w commitach i PR-ach). Werdykt per kandydat: świadome ograniczenie (decyzja nośna) vs przypadkowa złożoność - albo uczciwie oznacz jako unknown, jeżeli ciężko to określić.
-3. Wykonalność migracji - czego wymagałaby inkrementalna, odwracalna ścieżka (istniejąca abstrakcja vs nowa abstrakcja), co wynika z danych o blast radius z raportu, jakie osłony i testy już istnieją wokół (sprawdź konfigurację CI) i jaki byłby pierwszy krok-prerekwizyt.
+2. Historia i intencjonalność – określ, DLACZEGO kod ma taki kształt: ADR i dokumenty projektowe, jeśli istnieją; w przeciwnym razie archeologia git (git log -L, blame, uzasadnienia w commitach i PR). Werdykt dla każdego kandydata: świadome ograniczenie (decyzja fundamentalna) vs przypadkowa złożoność – lub szczerze oznacz jako nieznane, jeśli trudno to określić.
+3. Wykonalność migracji – czego wymagałaby przyrostowa, odwracalna ścieżka (istniejąca abstrakcja vs nowa abstrakcja), co wynika z danych o promieniu rażenia z raportu, jakie zabezpieczenia i testy już istnieją wokół niej (sprawdź konfigurację CI) i jaki byłby pierwszy krok wstępny.
 
 Twarde granice:
-- Żadnych zmian w kodzie. Żadnego refaktoru. Dowody przed interpretacją.
-- Nie projektuj docelowej architektury
-- poza nazwaniem adekwatnego docelowego kształtu per kandydat.
-- Jeśli prawdziwa naprawa kandydata to przeprojektowanie pojęć biznesowych, a nie struktury kodu - powiedz to i zatrzymaj się - to przedmiot do innej, późniejszej analizy.
-- Gdzie brakuje danych, napisz unknown - nie wypełniaj luk wiarygodnymi domysłami.
-Synteza (po raportach wszystkich trzech subagentów): zapisz research.md w folderze tej zmiany. Per kandydat: obecny kształt (z dowodami), werdykt intencjonalności, notatki o wykonalności.
-Zamknij sekcją "Refactor opportunities" z 2-3 najmocniejszymi kandydatami w rankingu - dla każdego: obecny → docelowy kształt, czemu zasługuje na to miejsce (koszt długu vs koszt zmiany), blast radius, szkic inkrementalnej ścieżki, pierwszy krok-prerekwizyt. Wypisz też kandydatów rozważonych i odrzuconych, z krótkim podsumowaniem dlaczego. Oceniaj na podstawie dowodów. NIE proś mnie o wybór, potwierdzenie ani zgodę - zakończ zapisaniem gotowego raportu.
-Ranking to propozycja dla osobnej sesji planowania, która odbędzie się po mojej lekturze.
-license: apache-2.0
-metadata:
-  authors:
-    - 10x.engineer
-  tags:
-    - research
-    - refactoring
-    - technical-debt
-    - code-analysis
-    - architecture
----
-```
+- Brak zmian w kodzie. Brak refaktoryzacji. Dowody przed interpretacją.
+- Nie projektuj architektury docelowej
+- poza nazwaniem odpowiedniego kształtu docelowego dla każdego kandydata.
+- Jeśli prawdziwą poprawką dla kandydata jest przeprojektowanie koncepcji biznesowych, a nie struktury kodu – stwierdź to i zatrzymaj się – jest to temat do innej, późniejszej analizy.
+- Tam, gdzie brakuje danych, napisz nieznane – nie wypełniaj luk prawdopodobnymi domysłami.
+Synteza (po raportach wszystkich trzech podagentów): zapisz research.md w folderze tej zmiany. Dla każdego kandydata: bieżący kształt (z dowodami), werdykt intencjonalności, uwagi dotyczące wykonalności.
+Zakończ sekcją „Możliwości refaktoryzacji” z 2-3 najsilniejszymi kandydatami w rankingu – dla każdego: bieżący → docelowy kształt, dlaczego zasługuje na to miejsce (koszt długu vs koszt zmiany), promień rażenia, szkic ścieżki przyrostowej, pierwszy krok wstępny. Wymień również rozważanych i odrzuconych kandydatów, z krótkim podsumowaniem, dlaczego. Oceniaj na podstawie dowodów. NIE proś mnie o wybór, potwierdzenie ani zatwierdzenie – zakończ, zapisując kompletny raport.
+Ranking jest propozycją na osobną sesję planowania, która odbędzie się po mojej recenzji.

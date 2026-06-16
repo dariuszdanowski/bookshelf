@@ -1,5 +1,4 @@
-```markdown
----
+﻿---
 title: Plan refaktoryzacji agregatu niezmiennika
 created: 2023-11-15
 type: refactor-plan
@@ -60,4 +59,3 @@ OGRANICZENIA:
 - Zwróć podsumowanie 5–8 zdań na koniec.
 
 Zapisz rezultat do context/domain/02-invariant-aggregate-refactor.md
-```

@@ -1,4 +1,4 @@
-# Mapa terytorium — gdzie projekt żyje (historia gita)
+﻿# Mapa terytorium — gdzie projekt żyje (historia gita)
 
 Seria promptów do Wide Scan opartego o historię gita. Uruchamiaj po kolei w jednej sesji, a wynik zapisz do `context/map/artifact-1-territory.md`.
 
@@ -26,12 +26,12 @@ Jakie pary lub trójki katalogów najczęściej pojawiają się w tych samych co
 ```
 
 ```text
-Jeszcze dwie rzeczy przy okazji tych współzmien:
+Jeszcze dwie rzeczy przy okazji tych współzmian:
 
 - Czy jest jakiś pojedynczy plik, który zmienia się razem z wieloma różnymi
   obszarami naraz? Myślę o czymś wspólnym dla całego repo — plik z tłumaczeniami,
   config, coś generowanego. Ciekawi mnie, czy poza podziałem na foldery jest
-  jakiś taki "wspólny mianownik".
+  taki "wspólny mianownik".
 - I sprawdź, czy pliki, które wyszły jako mocno sprzężone, na pewno nadal są
   w repo. To historia, więc coś mogło dużo się zmieniać, a potem zostać usunięte
   albo przeniesione — nie chcę później opierać analizy na pliku, którego już nie ma.

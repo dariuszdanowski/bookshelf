@@ -1,11 +1,20 @@
----
+﻿---
 name: Structural Map - How it's built (dependency-cruiser)
 description: A series of prompts to analyze the dependency graph in a new session, starting from `context/map/artifact-1-territory.md`. The result is saved to `context/map/artifact-2-structure.md`.
 license: CC BY-NC-SA 4.0
 metadata:
-  tags: dependency-cruiser, legacy code, technical debt, architecture, refactoring
-  authors: ai-assistant
----
+  technologies:
+    - dependency-cruiser
+  ai_tools:
+    - claude-code
+    - cursor
+    - copilot
+  skill_level: advanced
+  repo_url: https://github.com/example/repo
+  relevant_files:
+    - context/map/artifact-1-territory.md
+    - context/map/artifact-2-structure.md
+```
 
 # Mapa strukturalna — jak to jest zbudowane (dependency-cruiser)
 
