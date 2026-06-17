@@ -6,6 +6,7 @@ import { deriveWorkingCopy } from '../../../../lib/images/resize';
 import { PROMPT_VERSION } from '../../../../lib/vision/prompt';
 import { type PhotoDTO, type DetectionDTO } from '../../../../lib/photos/schema';
 import { apiError, apiResponse, parseUuidParam } from '../../../../lib/http/response';
+import { findBookCandidates } from '../../../../lib/matching/findCandidates';
 
 export const prerender = false;
 
@@ -280,26 +281,31 @@ export const POST: APIRoute = async ({ params, locals }) => {
   }
 
   // 6. Insert detections with vision_run_id (append-only; no DELETE per photo_id)
+  let insertedDetections: { id: string; raw_title: string | null; raw_author: string | null }[] =
+    [];
   if (visionResult.detections.length > 0) {
-    const { error: insertError } = await locals.supabase.from('detections').insert(
-      visionResult.detections.map((d) => {
-        const bbox = sanitizeBbox(d.bbox);
-        return {
-          photo_id: id,
-          vision_run_id: runId,
-          position_index: d.position,
-          raw_title: d.title,
-          raw_author: d.author ?? null,
-          vision_confidence: d.confidence,
-          spine_color: d.spine_color ?? null,
-          status: 'pending',
-          bbox_x1: bbox?.[0] ?? null,
-          bbox_y1: bbox?.[1] ?? null,
-          bbox_x2: bbox?.[2] ?? null,
-          bbox_y2: bbox?.[3] ?? null,
-        };
-      }),
-    );
+    const { data: detInserted, error: insertError } = await locals.supabase
+      .from('detections')
+      .insert(
+        visionResult.detections.map((d) => {
+          const bbox = sanitizeBbox(d.bbox);
+          return {
+            photo_id: id,
+            vision_run_id: runId,
+            position_index: d.position,
+            raw_title: d.title,
+            raw_author: d.author ?? null,
+            vision_confidence: d.confidence,
+            spine_color: d.spine_color ?? null,
+            status: 'pending',
+            bbox_x1: bbox?.[0] ?? null,
+            bbox_y1: bbox?.[1] ?? null,
+            bbox_x2: bbox?.[2] ?? null,
+            bbox_y2: bbox?.[3] ?? null,
+          };
+        }),
+      )
+      .select('id, raw_title, raw_author');
 
     if (insertError) {
       await locals.supabase
@@ -320,6 +326,66 @@ export const POST: APIRoute = async ({ params, locals }) => {
         status: 500,
         message: 'Nie udało się zapisać detekcji.',
       });
+    }
+    insertedDetections = detInserted ?? [];
+  }
+
+  // 6.5 Auto-match: wyszukaj kandydatów równolegle dla wszystkich detekcji.
+  // Non-fatal — vision jest już zapisany; błąd matchingu nie psuje pipeline'u.
+  if (insertedDetections.length > 0) {
+    const matchResults = await Promise.allSettled(
+      insertedDetections.map(async (det) => {
+        const { candidates } = await findBookCandidates(
+          det.raw_title ?? '',
+          det.raw_author ?? null,
+          null,
+        );
+        return { detectionId: det.id, candidates };
+      }),
+    );
+
+    const candidateRows = matchResults.flatMap((r) => {
+      if (r.status !== 'fulfilled' || r.value.candidates.length === 0) return [];
+      return r.value.candidates.map((c, idx) => ({
+        detection_id: r.value.detectionId,
+        source: c.source,
+        external_id: c.externalId,
+        title: c.title,
+        authors: c.authors,
+        isbn_10: c.isbn10 ?? null,
+        isbn_13: c.isbn13 ?? null,
+        publisher: c.publisher ?? null,
+        published_year: c.publishedYear ?? null,
+        cover_url: c.coverUrl ?? null,
+        description: c.description ?? null,
+        match_score: c.matchScore,
+        rank: idx + 1,
+      }));
+    });
+
+    if (candidateRows.length > 0) {
+      const { error: candInsertError } = await locals.supabase
+        .from('book_candidates')
+        .insert(candidateRows);
+      if (candInsertError) {
+        console.error('[api/photos/process POST] book_candidates insert failed', {
+          name: candInsertError.name,
+          message: candInsertError.message,
+          code: candInsertError.code,
+        });
+      }
+    }
+
+    const matchedIds = matchResults
+      .filter((r) => r.status === 'fulfilled' && r.value.candidates.length > 0)
+      .map(
+        (r) =>
+          (r as PromiseFulfilledResult<{ detectionId: string; candidates: unknown[] }>).value
+            .detectionId,
+      );
+
+    if (matchedIds.length > 0) {
+      await locals.supabase.from('detections').update({ status: 'matched' }).in('id', matchedIds);
     }
   }
 
@@ -388,7 +454,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
   const { data: detRows } = await locals.supabase
     .from('detections')
     .select(
-      'position_index, raw_title, raw_author, vision_confidence, spine_color, bbox_x1, bbox_y1, bbox_x2, bbox_y2',
+      'id, position_index, raw_title, raw_author, vision_confidence, spine_color, status, bbox_x1, bbox_y1, bbox_x2, bbox_y2',
     )
     .eq('vision_run_id', runId)
     .order('position_index', { ascending: true });
@@ -405,11 +471,13 @@ export const POST: APIRoute = async ({ params, locals }) => {
   };
 
   const detections: DetectionDTO[] = (detRows ?? []).map((row) => ({
+    id: row.id,
     position_index: row.position_index,
     raw_title: row.raw_title ?? '',
     raw_author: row.raw_author,
     vision_confidence: row.vision_confidence,
     spine_color: row.spine_color,
+    status: row.status,
     bbox:
       row.bbox_x1 != null && row.bbox_y1 != null && row.bbox_x2 != null && row.bbox_y2 != null
         ? { x1: row.bbox_x1, y1: row.bbox_y1, x2: row.bbox_x2, y2: row.bbox_y2 }

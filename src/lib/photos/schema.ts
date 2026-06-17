@@ -69,12 +69,14 @@ export type BboxEditSet = {
 };
 
 export type DetectionDTO = {
+  id: string;
   position_index: number;
   raw_title: string;
   raw_author: string | null;
   vision_confidence: number | null;
   spine_color: string | null;
   bbox: BboxCoords | null;
+  status: string;
 };
 
 export type PhotoListItemDTO = {

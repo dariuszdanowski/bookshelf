@@ -20,14 +20,40 @@ W jednym zdaniu: **zdjęcie → detekcja → match → dedup → ranking → pot
 
 ## Screenshots
 
+### Autentykacja i półki
+
 | | |
 |---|---|
-| ![Logowanie](docs/screenshots/01-login.png) | ![Lista półek](docs/screenshots/02-shelves.png) |
-| *Strona logowania* | *Lista półek użytkownika* |
-| ![Upload zdjęcia](docs/screenshots/03-upload.png) | ![Overlay detekcji](docs/screenshots/04-detection-overlay.png) |
-| *Upload zdjęcia półki* | *Numerowane ramki detekcji na zdjęciu* |
-| ![Propozycje matchu](docs/screenshots/05-proposals.png) | ![Katalog](docs/screenshots/06-library.png) |
-| *Propozycje z Google Books / OpenLibrary* | *Katalog z wyszukiwarką i filtrami* |
+| ![Logowanie](docs/screenshots/01-login.png) | ![Moje półki](docs/screenshots/02-shelves.png) |
+| *Logowanie — Supabase Auth (email + hasło)* | *Moje półki — CRUD, lokalizacja w domu; półka „Zakupione" tworzy się automatycznie przy rejestracji* |
+
+### Skanowanie półki
+
+| | |
+|---|---|
+| ![Dodaj zdjęcie](docs/screenshots/03-upload.png) | ![Zdjęcia na półce](docs/screenshots/08-photos-on-shelv.png) |
+| *Dodaj zdjęcie — wybór półki, opcja „Analizuj od razu" (vision + auto-match w jednym kroku)* | *Zdjęcia na półce — status per zdjęcie (wykryto · dopasowano · zatwierdzono), koszt, akcje: ponów vision / match* |
+
+### Detekcja AI i auto-matching
+
+| | |
+|---|---|
+| ![Overlay detekcji](docs/screenshots/04-detection-overlay.png) | ![Propozycje matchu](docs/screenshots/05-proposals.png) |
+| *Claude Sonnet 4.6 (multimodal) — wykryte tytuły i autorzy z grzbietów na realnym zdjęciu półki* | *Auto-matching po vision — kandydaci z Google Books / OpenLibrary, score (pre-zaznaczone ≥ 75%), ISBN, alternatywy; Akceptuj / Odrzuć / Popraw* |
+
+### Katalog i wyszukiwanie
+
+| | |
+|---|---|
+| ![Półka z książkami](docs/screenshots/06-shelv-library.png) | ![Biblioteka globalna](docs/screenshots/06-library.png) |
+| *Półka „Zakupione" — karty z okładkami, statystyki (wykryto / skatalogowano), przenoszenie między półkami* | *Biblioteka — pełnotekstowe wyszukiwanie po tytule / autorze / wydawnictwie, filtry: półka, kolor grzbietu, cena i data zakupu* |
+
+### Zarządzanie książką i profil
+
+| | |
+|---|---|
+| ![Edycja książki](docs/screenshots/06-library-book-definition.png) | ![Klucze API i koszty](docs/screenshots/07-profil-keys.png) |
+| *Edycja wpisu — tytuł, autor, ISBN-13/10, okładka (auto / URL / własne zdjęcie), dane zakupu* | *Profil — BYOK klucze API (Anthropic / OpenAI / OpenRouter), monitoring kosztów vision per analiza* |
 
 ## Stack
 
