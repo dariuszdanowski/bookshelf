@@ -1,7 +1,7 @@
 ---
 id: upgrade-actions-node20
 title: Upgrade actions/checkout + actions/setup-node z v4 (Node 20) na v5 (Node 24) w impl-review.yml
-status: implementing
+status: archived
 created: 2026-06-17
 updated: 2026-06-17
 ---
