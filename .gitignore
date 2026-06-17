@@ -174,8 +174,9 @@ tests/e2e/.auth/
 .claude/settings.local.json
 
 # Płatna treść kursu 10xDevs — gitignored (pliki zostają na dysku, regenerowalne przez 10x-cli)
-# Tracked tylko własne: .claude/hooks/ + .claude/settings.json
-.claude/skills/
+# Tracked tylko własne: .claude/hooks/ + .claude/settings.json + CI skill (load-bearing dla impl-review.yml)
+.claude/skills/*
+!.claude/skills/10x-impl-review-ci
 .claude/prompts/
 .claude/.10x-cli-manifest.json
 
