@@ -19,6 +19,10 @@ import img05Proposals from '../assets/help/05-proposals.png';
 import img05ProposalsDark from '../assets/help/05-proposals-dark.png';
 import img06Library from '../assets/help/06-library.png';
 import img06LibraryDark from '../assets/help/06-library-dark.png';
+import img07Keys from '../assets/help/07-profil-keys.png';
+import img07KeysDark from '../assets/help/07-profil-keys-dark.png';
+import img08Shelf from '../assets/help/08-shelf.png';
+import img08ShelfDark from '../assets/help/08-shelf-dark.png';
 
 const steps = [
   {
@@ -30,35 +34,49 @@ const steps = [
   },
   {
     title: '2. Utwórz półkę',
-    desc: 'Na stronie Moje półki dodaj pierwszą półkę (np. "Salon", "Sypialnia"). Możesz też wpisać lokalizację w domu.',
+    desc: 'Na stronie Moje półki dodaj pierwszą półkę (np. "Salon", "Sypialnia"). Możesz też wpisać lokalizację w domu. Półka "Zakupione" tworzy się automatycznie.',
     img: img02Shelves,
     imgDark: img02ShelvesDark,
     alt: 'Lista półek',
   },
   {
-    title: '3. Wgraj zdjęcie półki',
-    desc: 'Przejdź do Skanuj półkę, wybierz zdjęcie i kliknij Wgraj. Zaznacz "Analizuj od razu", żeby AI od razu rozpoznało grzbiety.',
+    title: '3. Dodaj klucz API',
+    desc: 'Przed pierwszą analizą przejdź do Moje konto i dodaj klucz API (BYOK). Obsługiwane: Anthropic, OpenAI, OpenRouter, OpenAI-compatible. Aktywuj klucz — bez tego przycisk Analizuj jest niedostępny.',
+    img: img07Keys,
+    imgDark: img07KeysDark,
+    alt: 'Panel kluczy API i kosztów',
+  },
+  {
+    title: '4. Wgraj zdjęcie półki',
+    desc: 'Przejdź do Skanuj półkę, wybierz półkę i wgraj zdjęcie. Zaznacz "Analizuj od razu", żeby AI wykryło tytuły i automatycznie dopasowało je do baz książek.',
     img: img03Upload,
     imgDark: img03UploadDark,
     alt: 'Uploader zdjęcia',
   },
   {
-    title: '4. Sprawdź detekcje na zdjęciu',
-    desc: 'Po analizie widzisz zaznaczone grzbiety. Klikaj ramki, żeby przejść do konkretnej propozycji dopasowania.',
+    title: '5. Sprawdź wyniki analizy',
+    desc: 'Po analizie system wyświetla wykryte tytuły i autorów z grzbietów widocznych na zdjęciu.',
     img: img04Overlay,
     imgDark: img04OverlayDark,
-    alt: 'Overlay detekcji na zdjęciu',
+    alt: 'Wyniki detekcji na zdjęciu',
   },
   {
-    title: '5. Akceptuj lub koryguj propozycje',
-    desc: 'Dla każdej wykrytej książki aplikacja proponuje dopasowanie z Google Books. Zielona ramka = wysoka pewność (≥75%). Akceptuj, odrzuć lub wpisz ręcznie.',
+    title: '6. Akceptuj lub koryguj propozycje',
+    desc: 'Dla każdej wykrytej książki aplikacja proponuje dopasowanie z Google Books i OpenLibrary. Zielona ramka = wysoka pewność (≥75%), pre-zaznaczone do akceptacji. Akceptuj, odrzuć, wybierz alternatywę lub wpisz ręcznie.',
     img: img05Proposals,
     imgDark: img05ProposalsDark,
     alt: 'Propozycje dopasowania',
   },
   {
-    title: '6. Przeglądaj katalog',
-    desc: 'Zaakceptowane książki trafiają do katalogu. Wyszukuj po tytule, autorze, kolorze grzbietu lub filtruj po półce.',
+    title: '7. Przeglądaj półkę',
+    desc: 'Zaakceptowane książki trafiają na wybraną półkę. Widoki Karty / Lista / Kafelki, przenoszenie między półkami, edycja metadanych (tytuł, autor, ISBN, okładka).',
+    img: img08Shelf,
+    imgDark: img08ShelfDark,
+    alt: 'Półka z książkami',
+  },
+  {
+    title: '8. Wyszukuj w bibliotece',
+    desc: 'Biblioteka gromadzi wszystkie Twoje książki z wszystkich półek. Wyszukuj po tytule, autorze, wydawnictwie; filtruj po kolorze grzbietu, półce, cenie i dacie zakupu.',
     img: img06Library,
     imgDark: img06LibraryDark,
     alt: 'Katalog książek',
