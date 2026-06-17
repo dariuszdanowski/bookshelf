@@ -3,6 +3,11 @@ name: Deploy
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - '.claude/**'
+      - 'context/**'
+      - 'docs/**'
 
 concurrency:
   group: deploy-${{ github.ref }}
