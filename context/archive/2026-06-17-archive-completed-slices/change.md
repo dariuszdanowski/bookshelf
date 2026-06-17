@@ -1,9 +1,10 @@
 ---
 id: archive-completed-slices
 title: Archiwizacja zakończonych zmian — local-supabase-dev-access + upgrade-actions-node20
-status: impl_reviewed
+status: archived
 created: 2026-06-17
 updated: 2026-06-17
+archived: 2026-06-17
 ---
 
 # archive-completed-slices

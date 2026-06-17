@@ -1,7 +1,8 @@
 ---
 id: archive-dependency-sweep
 title: Archiwizacja dependency-sweep
-status: impl_reviewed
+status: archived
+archived: 2026-06-17
 created: 2026-06-17
 updated: 2026-06-17
 ---

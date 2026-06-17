@@ -1,9 +1,10 @@
 ---
 id: admin-technical-account-flag
 title: "S-47: Admin — flaga is_technical w DB"
-status: impl_reviewed
+status: archived
 created: 2026-06-13
-updated: 2026-06-13
+updated: 2026-06-17
+archived: 2026-06-13
 roadmap_id: S-47
 ---
 
