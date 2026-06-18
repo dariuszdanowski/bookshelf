@@ -83,8 +83,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   if (error) {
     console.warn('[api/photos/upload-thumbnail POST] storage upload failed', error.message);
-    // best-effort — nie blokujemy głównego flow, zwracamy 204
+    // best-effort — nie blokujemy głównego flow
   }
 
-  return apiResponse({ data: null, status: 204 });
+  return apiResponse({ data: null, status: 200 });
 };

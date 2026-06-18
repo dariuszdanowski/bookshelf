@@ -45,7 +45,11 @@ test('M15a: upload wgrywa oryginał + miniaturę .thumb.jpg do Storage', async (
   let uploadThumbnailCallCount = 0;
   await page.route('**/api/photos/upload-thumbnail', (route) => {
     uploadThumbnailCallCount++;
-    void route.fulfill({ status: 204, body: JSON.stringify({ data: null }) });
+    void route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: null }),
+    });
   });
 
   let recordedShelfId = '';
