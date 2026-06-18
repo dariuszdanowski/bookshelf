@@ -21,6 +21,7 @@ declare namespace Cloudflare {
     SUPABASE_SERVICE_ROLE_KEY: string;
     ANTHROPIC_API_KEY: string;
     USER_KEYS_ENCRYPTION_KEY: string;
+    GITHUB_TOKEN: string;
     GOOGLE_BOOKS_API_KEY?: string;
   }
 }
