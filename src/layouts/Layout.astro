@@ -1,6 +1,7 @@
 ---
 import '../styles/global.css';
 import ImpersonationBanner from '../components/ImpersonationBanner.tsx';
+import BugReportModal from '../components/BugReportModal.tsx';
 import MobileNav from '../components/MobileNav.tsx';
 import UserMenu from '../components/UserMenu.tsx';
 import ThemeToggle from '../components/ThemeToggle.tsx';
@@ -171,6 +172,7 @@ function navCls(href: string) {
           </svg>
           <span class="hidden sm:inline">Pomoc</span>
         </a>
+        {user && <BugReportModal client:load />}
       </div>
     </header>
     {user && <ImpersonationBanner client:load />}

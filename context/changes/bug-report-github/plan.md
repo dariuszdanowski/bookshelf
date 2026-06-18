@@ -243,8 +243,8 @@ Fine-grained PAT: github.com/settings/tokens → Fine-grained → Repository acc
 
 #### Automatyczne
 
-- [x] 1.1 Typecheck przechodzi: `npm run typecheck`
-- [x] 1.2 Lint przechodzi: `npm run lint`
+- [x] 1.1 Typecheck przechodzi: `npm run typecheck` — ed69c13
+- [x] 1.2 Lint przechodzi: `npm run lint` — ed69c13
 
 #### Ręczne
 
@@ -256,8 +256,8 @@ Fine-grained PAT: github.com/settings/tokens → Fine-grained → Repository acc
 
 #### Automatyczne
 
-- [ ] 2.1 Typecheck przechodzi: `npm run typecheck`
-- [ ] 2.2 Lint przechodzi: `npm run lint`
+- [x] 2.1 Typecheck przechodzi: `npm run typecheck`
+- [x] 2.2 Lint przechodzi: `npm run lint`
 
 #### Ręczne
 
