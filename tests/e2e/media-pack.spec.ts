@@ -28,11 +28,24 @@ test('M15a: upload wgrywa oryginał + miniaturę .thumb.jpg do Storage', async (
   await expect(page.getByTestId('photo-uploader')).toBeVisible();
   await expect(page.getByTestId('shelf-select')).toBeVisible({ timeout: 10_000 });
 
-  // Zarejestruj KAŻDY storage upload (oryginał + thumb)
-  const storageUploads: string[] = [];
-  await page.route('**/storage/v1/object/shelf-photos/**', (route) => {
-    storageUploads.push(route.request().url());
-    void route.fulfill({ status: 200, body: JSON.stringify({ Key: 'shelf-photos/mock.jpg' }) });
+  // Oryginał uploadowany przez API (serwer → Storage) — przechwytujemy upload-file
+  const MOCK_STORAGE_PATH = 'mock-user-id/mock-photo.jpg';
+  let uploadFileCallCount = 0;
+  await page.route('**/api/photos/upload-file', (route) => {
+    uploadFileCallCount++;
+    void route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { storagePath: MOCK_STORAGE_PATH, sha256: 'abc123' } }),
+    });
+  });
+
+  // Miniatura uploadowana przez API (serwer → Storage) — przechwytujemy upload-thumbnail
+  // Architektura po fix: telefon/przeglądarka NIE dotyka Supabase Storage bezpośrednio.
+  let uploadThumbnailCallCount = 0;
+  await page.route('**/api/photos/upload-thumbnail', (route) => {
+    uploadThumbnailCallCount++;
+    void route.fulfill({ status: 204, body: JSON.stringify({ data: null }) });
   });
 
   let recordedShelfId = '';
@@ -74,10 +87,10 @@ test('M15a: upload wgrywa oryginał + miniaturę .thumb.jpg do Storage', async (
 
   await page.waitForURL('**/shelves/*?tab=photos', { timeout: 15_000 });
 
-  // Dwa uploady: najpierw oryginał, potem miniatura z suffixem .thumb.jpg
-  expect(storageUploads).toHaveLength(2);
-  expect(storageUploads[0]).not.toContain('.thumb.jpg');
-  expect(storageUploads[1]).toContain('.thumb.jpg');
+  // Weryfikacja: oryginał przez upload-file, miniatura przez upload-thumbnail API
+  // (żaden z uploadów NIE trafia bezpośrednio do Supabase Storage z przeglądarki)
+  expect(uploadFileCallCount).toBe(1);
+  expect(uploadThumbnailCallCount).toBe(1);
 });
 
 function mockPhotoList() {
