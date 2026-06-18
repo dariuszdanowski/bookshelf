@@ -1,7 +1,6 @@
 import type { APIRoute } from 'astro';
 
 import { type PhotoListItemDTO, type ShelfPhotosResponse } from '../../../../lib/photos/schema';
-import { THUMB_SUFFIX } from '../../../../lib/photos/thumb';
 import { apiError, apiResponse, parseUuidParam } from '../../../../lib/http/response';
 
 export const prerender = false;
@@ -225,20 +224,10 @@ export const GET: APIRoute = async ({ params, locals }) => {
     }
   }
 
-  // Batch signed thumbnail URLs — M15: preferuj miniaturę (<path>.thumb.jpg,
-  // generowana przy uploadzie), fallback do oryginału dla legacy zdjęć bez
-  // miniatury. Jeden batch call na 2N ścieżek; nieistniejące wpisy wracają
-  // z error + signedUrl=null i wypadają z mapy.
-  const storagePaths = photoRows.map((p) => p.storage_path);
-  const thumbPaths = photoRows.map((p) => `${p.storage_path}${THUMB_SUFFIX}`);
-  const { data: signedUrls } = await locals.supabase.storage
-    .from('shelf-photos')
-    .createSignedUrls([...thumbPaths, ...storagePaths], 3600);
-
-  const urlByPath = new Map<string, string>();
-  for (const entry of signedUrls ?? []) {
-    if (entry.signedUrl && entry.path) urlByPath.set(entry.path, entry.signedUrl);
-  }
+  // M15: miniatura serwowana przez proxy `/api/photos/:id/image?thumb=1` (URL
+  // względny, ten sam host co aplikacja) — signed URL wskazywałby na WSL IP,
+  // nieosiągalny z telefonu w LAN. Proxy robi fallback do oryginału, gdy
+  // miniatury brak (legacy / HEIC), więc thumbnail_url jest zawsze poprawny.
 
   // Assemble response
   const resultPhotos: PhotoListItemDTO[] = photoRows.map((p) => {
@@ -264,8 +253,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
       status: p.status,
       stage,
       created_at: p.created_at,
-      thumbnail_url:
-        urlByPath.get(`${p.storage_path}${THUMB_SUFFIX}`) ?? urlByPath.get(p.storage_path) ?? null,
+      thumbnail_url: `/api/photos/${p.id}/image?thumb=1`,
       detected_count: counts.total,
       matched_count: counts.matched,
       confirmed_count: counts.confirmed,

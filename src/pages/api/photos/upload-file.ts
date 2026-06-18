@@ -1,6 +1,8 @@
 import type { APIRoute } from 'astro';
 
 import { apiError, apiResponse } from '../../../lib/http/response';
+import { deriveThumbnail } from '../../../lib/images/resize';
+import { THUMB_SUFFIX } from '../../../lib/photos/thumb';
 
 export const prerender = false;
 
@@ -98,6 +100,28 @@ export const POST: APIRoute = async ({ request, locals }) => {
       status: 500,
       message: `Nie udało się wgrać pliku: ${upErr.message}`,
     });
+  }
+
+  // M15: miniatura generowana server-side z już posiadanego buffer (photon),
+  // zapisywana obok oryginału jako `<storagePath>.thumb.jpg`. Best-effort —
+  // błąd generowania/uploadu (np. HEIC nie-dekodowalny przez photon) NIE blokuje
+  // sukcesu uploadu oryginału; lista fallbackuje do oryginału.
+  try {
+    const thumbBytes = await deriveThumbnail(buffer);
+    const { error: thumbErr } = await locals.supabase.storage
+      .from('shelf-photos')
+      .upload(`${storagePath}${THUMB_SUFFIX}`, thumbBytes, {
+        contentType: 'image/jpeg',
+        upsert: false,
+      });
+    if (thumbErr) {
+      console.warn('[api/photos/upload-file POST] thumbnail upload failed', thumbErr.message);
+    }
+  } catch (err) {
+    console.warn(
+      '[api/photos/upload-file POST] thumbnail generation failed',
+      err instanceof Error ? err.message : String(err),
+    );
   }
 
   return apiResponse({ data: { storagePath, sha256 }, status: 201 });

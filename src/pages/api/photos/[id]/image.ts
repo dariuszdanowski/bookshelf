@@ -1,11 +1,12 @@
 import type { APIRoute } from 'astro';
 
 import { apiError, parseUuidParam } from '../../../../lib/http/response';
+import { THUMB_SUFFIX } from '../../../../lib/photos/thumb';
 
 export const prerender = false;
 
 /**
- * GET /api/photos/[id]/image
+ * GET /api/photos/[id]/image[?thumb=1]
  *
  * Proxy dla pliku zdjęcia: pobiera z Supabase Storage po stronie serwera
  * i serwuje bajtami do klienta. Rozwiązuje problem z dostępem do zdjęć na
@@ -13,10 +14,15 @@ export const prerender = false;
  * (127.0.0.1:54321 lub WSL2), niedostępny z telefonu; ten endpoint jest
  * zawsze dostępny pod tym samym hostem co aplikacja.
  *
+ * `?thumb=1` serwuje miniaturę `<path>.thumb.jpg` (generowaną przy uploadzie),
+ * z fallbackiem do oryginału gdy miniatury brak (legacy / HEIC nie-dekodowalny
+ * przez photon). Miniatury też muszą iść przez proxy — inaczej signed URL na
+ * WSL IP nie ładuje się na telefonie (pełne zdjęcie już proxy'owane).
+ *
  * Cache-Control: private, max-age=3600 — agresywny cache po stronie klienta
  * (1h), bo URL zawiera UUID zdjęcia, który się nie zmienia.
  */
-export const GET: APIRoute = async ({ params, locals }) => {
+export const GET: APIRoute = async ({ params, request, locals }) => {
   if (!locals.user) {
     return apiError({ code: 'UNAUTHENTICATED', status: 401, message: 'Authentication required.' });
   }
@@ -46,6 +52,20 @@ export const GET: APIRoute = async ({ params, locals }) => {
       status: 500,
       message: 'Nie udało się pobrać zdjęcia.',
     });
+  }
+
+  // Wariant miniatury: spróbuj `<path>.thumb.jpg`; brak (legacy / HEIC) → spadamy
+  // do serwowania oryginału poniżej.
+  if (new URL(request.url).searchParams.has('thumb')) {
+    const { data: thumbBlob } = await locals.supabase.storage
+      .from('shelf-photos')
+      .download(`${data.storage_path}${THUMB_SUFFIX}`);
+    if (thumbBlob) {
+      return new Response(await thumbBlob.arrayBuffer(), {
+        status: 200,
+        headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'private, max-age=3600' },
+      });
+    }
   }
 
   const { data: blob, error: dlError } = await locals.supabase.storage
