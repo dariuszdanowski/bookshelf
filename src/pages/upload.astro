@@ -4,8 +4,6 @@ import Layout from '../layouts/Layout.astro';
 import PhotoUploader from '../components/PhotoUploader.tsx';
 import { parseUuidParam } from '../lib/http/response';
 
-// Protected path: middleware ensures locals.user is non-null (redirect to /login for anon).
-const userId = Astro.locals.user!.id;
 // Flow B „Dodaj zakup → zdjęcie" / link z półki linkuje z ?shelf=<id>; preset preselektuje półkę.
 const rawShelfId = Astro.url.searchParams.get('shelf');
 const presetShelfId = parseUuidParam(rawShelfId ?? '') ?? undefined;
@@ -36,6 +34,6 @@ const breadcrumbItems = [
       Wybierz półkę, a następnie wgraj zdjęcie — system wykryje tytuły i autorów grzbietów
       widocznych na zdjęciu.
     </p>
-    <PhotoUploader client:load userId={userId} presetShelfId={presetShelfId} />
+    <PhotoUploader client:load presetShelfId={presetShelfId} />
   </main>
 </Layout>

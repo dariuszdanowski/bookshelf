@@ -23,20 +23,6 @@ const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15 MB cap (photon pamięć Work
 // S-36: preferencja „Analizuj od razu" — kontrola kosztu vision per user.
 const AUTO_PROCESS_STORAGE_KEY = 'bookshelf:upload-auto-process';
 
-// crypto.randomUUID and crypto.subtle both require a secure context (HTTPS / localhost).
-// On plain HTTP (e.g. LAN dev via IP), fall back to random strings so the flow
-// completes without crashing. Dedup is skipped in those cases.
-function safeRandomId(): string {
-  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
-  return (
-    Date.now().toString(16) +
-    '-' +
-    Math.random().toString(36).slice(2) +
-    '-' +
-    Math.random().toString(36).slice(2)
-  );
-}
-
 async function computeSha256(file: File): Promise<string> {
   if (!crypto.subtle) {
     // Non-secure context (HTTP over LAN): return a random 64-char hex that passes
@@ -50,13 +36,7 @@ async function computeSha256(file: File): Promise<string> {
     .join('');
 }
 
-export default function PhotoUploader({
-  userId,
-  presetShelfId,
-}: {
-  userId: string;
-  presetShelfId?: string;
-}) {
+export default function PhotoUploader({ presetShelfId }: { presetShelfId?: string }) {
   const [hasActiveKey, setHasActiveKey] = useState<boolean | null>(null);
   const [shelves, setShelves] = useState<ShelfDTO[]>([]);
   const [selectedShelfId, setSelectedShelfId] = useState('');
@@ -245,19 +225,44 @@ export default function PhotoUploader({
 
   // Core upload logic — called after duplicate check passes (or user forces upload).
   const doUpload = useCallback(
-    async (file: File, sha256: string) => {
+    async (file: File) => {
       setStage('uploading');
-      const supabase = createBrowserSupabaseClient();
-      const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg';
-      const storagePath = `${userId}/${safeRandomId()}.${ext}`;
-      const { error: upErr } = await supabase.storage
-        .from('shelf-photos')
-        .upload(storagePath, file, { contentType: file.type || 'image/jpeg', upsert: false });
-      if (upErr) throw new Error(upErr.message);
 
-      // M15: miniatura (canvas, max 640px) obok oryginału — lista zdjęć nie musi
-      // ściągać wielomegabajtowych oryginałów. Best-effort: błąd NIE blokuje uploadu.
+      // Upload przez serwer (proxy) — przeglądarka wysyła plik na /api/photos/upload-file,
+      // serwer widzi Supabase Storage niezależnie od urządzenia (telefon/komputer/LAN).
+      const uploadForm = new FormData();
+      uploadForm.append('file', file);
+      const uploadRes = await fetch('/api/photos/upload-file', {
+        method: 'POST',
+        body: uploadForm,
+      });
+      const uploadJson = (await uploadRes.json().catch(() => ({}))) as {
+        data?: { storagePath: string; sha256: string };
+        error?: {
+          code?: string;
+          message?: string;
+          details?: { photo?: { id: string; shelf_id: string; created_at: string } };
+        };
+      };
+
+      // Serwer wykrył duplikat (autorytatywny dedup — działa też w http LAN bez crypto.subtle).
+      if (uploadRes.status === 409 && uploadJson.error?.code === 'DUPLICATE_PHOTO') {
+        setDuplicatePhotoId(uploadJson.error.details?.photo?.id ?? null);
+        setDuplicateCreatedAt(uploadJson.error.details?.photo?.created_at ?? null);
+        setStage('duplicate');
+        return;
+      }
+
+      if (!uploadRes.ok || !uploadJson.data) {
+        throw new Error(uploadJson.error?.message ?? `Błąd uploadu (${uploadRes.status})`);
+      }
+      const { storagePath, sha256: serverSha256 } = uploadJson.data;
+
+      // M15: miniatura — best-effort po stronie klienta; błąd NIE blokuje uploadu.
+      // Thumbnail uploadujemy nadal przez Supabase browser client (dodatkowe żądanie
+      // które może nie dojść z urządzeń bez dostępu do storage URL — graceful degradation).
       try {
+        const supabase = createBrowserSupabaseClient();
         const thumb = await makeThumbnailBlob(file);
         if (thumb) {
           const { error: thumbErr } = await supabase.storage
@@ -279,7 +284,7 @@ export default function PhotoUploader({
         body: JSON.stringify({
           shelf_id: selectedShelfId,
           storage_path: storagePath,
-          file_hash_sha256: sha256,
+          file_hash_sha256: serverSha256,
         }),
       });
       const recJson = (await recRes.json()) as {
@@ -316,7 +321,7 @@ export default function PhotoUploader({
       await processPhoto(photoId);
       setStage('done'); // redirect happens inside processPhoto; this line is reached only in tests
     },
-    [selectedShelfId, userId, processPhoto, autoProcess],
+    [selectedShelfId, processPhoto, autoProcess],
   );
 
   const handleFile = useCallback(
@@ -345,22 +350,24 @@ export default function PhotoUploader({
           throw new Error(`Plik jest za duży (max 15 MB). Wybierz mniejsze zdjęcie.`);
         }
 
-        // SHA-256 in browser before Storage upload — zero cost when duplicate detected
-        const sha256 = await computeSha256(file);
-
-        // Check for existing photo with this hash (per user)
-        const checkRes = await fetch(`/api/photos/check-hash?hash=${sha256}`);
-        const checkJson = (await checkRes.json()) as {
-          data?: { photo: { id: string; shelf_id: string; created_at: string } | null };
-        };
-        if (checkJson.data?.photo) {
-          setDuplicatePhotoId(checkJson.data.photo.id);
-          setDuplicateCreatedAt(checkJson.data.photo.created_at);
-          setStage('duplicate');
-          return;
+        // Wczesny dedup po stronie klienta — tylko w secure context (HTTPS/localhost),
+        // gdzie crypto.subtle jest dostępne i zwraca prawdziwy SHA-256.
+        // Na HTTP LAN pomijamy (serwer w upload-file i tak zrobi autorytatywny dedup).
+        if (crypto.subtle) {
+          const sha256 = await computeSha256(file);
+          const checkRes = await fetch(`/api/photos/check-hash?hash=${sha256}`);
+          const checkJson = (await checkRes.json()) as {
+            data?: { photo: { id: string; shelf_id: string; created_at: string } | null };
+          };
+          if (checkJson.data?.photo) {
+            setDuplicatePhotoId(checkJson.data.photo.id);
+            setDuplicateCreatedAt(checkJson.data.photo.created_at);
+            setStage('duplicate');
+            return;
+          }
         }
 
-        await doUpload(file, sha256);
+        await doUpload(file);
       } catch (err) {
         setErrorMsg(err instanceof Error ? err.message : 'Nieznany błąd');
         setStage('error');

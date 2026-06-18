@@ -55,7 +55,7 @@ describe('HelpTip', () => {
 
 describe('HelpTip — wpięcie auto-process w PhotoUploader', () => {
   it('help-tip-auto-process jest wyrenderowany w formularzu uploadu', () => {
-    render(<PhotoUploader userId="user-1" />);
+    render(<PhotoUploader />);
     expect(screen.getByTestId('help-tip-auto-process')).toBeInTheDocument();
   });
 });
