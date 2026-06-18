@@ -3,7 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // Mock vision client — hoisted so it's available in the mock factory
 const mockDetectSpines = vi.hoisted(() => vi.fn());
 const mockDeriveWorkingCopy = vi.hoisted(() =>
-  vi.fn().mockResolvedValue({ bytes: new Uint8Array([0xff, 0xd8, 0xff]), mediaType: 'image/jpeg' as const })
+  vi
+    .fn()
+    .mockResolvedValue({
+      bytes: new Uint8Array([0xff, 0xd8, 0xff]),
+      mediaType: 'image/jpeg' as const,
+    }),
 );
 const mockGetActiveProviderConfig = vi.hoisted(() => vi.fn());
 
@@ -28,34 +33,68 @@ const STORAGE_PATH = `${USER_ID}/photo.jpg`;
 
 type PhotoSelectRow = { id: string; storage_path: string; status: string };
 type PhotoFinalRow = {
-  id: string; shelf_id: string; status: string; detected_count: number | null;
-  error_message: string | null; vision_cost_usd: number | null; vision_latency_ms: number | null; created_at: string;
+  id: string;
+  shelf_id: string;
+  status: string;
+  detected_count: number | null;
+  error_message: string | null;
+  vision_cost_usd: number | null;
+  vision_latency_ms: number | null;
+  created_at: string;
 };
 type DetRow = {
-  position_index: number; raw_title: string | null; raw_author: string | null;
-  vision_confidence: number | null; spine_color: string | null;
-  bbox_x1: number | null; bbox_y1: number | null; bbox_x2: number | null; bbox_y2: number | null;
+  position_index: number;
+  raw_title: string | null;
+  raw_author: string | null;
+  vision_confidence: number | null;
+  spine_color: string | null;
+  bbox_x1: number | null;
+  bbox_y1: number | null;
+  bbox_x2: number | null;
+  bbox_y2: number | null;
 };
 
-const photoSelectRow: PhotoSelectRow = { id: PHOTO_ID, storage_path: STORAGE_PATH, status: 'uploaded' };
+const photoSelectRow: PhotoSelectRow = {
+  id: PHOTO_ID,
+  storage_path: STORAGE_PATH,
+  status: 'uploaded',
+};
 const photoFinalRow: PhotoFinalRow = {
-  id: PHOTO_ID, shelf_id: '00000000-0000-4000-8000-000000000002', status: 'processed',
-  detected_count: 1, error_message: null, vision_cost_usd: 0.005, vision_latency_ms: 5000,
+  id: PHOTO_ID,
+  shelf_id: '00000000-0000-4000-8000-000000000002',
+  status: 'processed',
+  detected_count: 1,
+  error_message: null,
+  vision_cost_usd: 0.005,
+  vision_latency_ms: 5000,
   created_at: '2026-05-27T10:00:00Z',
 };
 const detectionRows: DetRow[] = [
   {
-    position_index: 1, raw_title: 'Solaris', raw_author: 'Stanisław Lem', vision_confidence: 0.95, spine_color: 'niebieski',
-    bbox_x1: 0.1, bbox_y1: 0.05, bbox_x2: 0.25, bbox_y2: 0.95,
+    position_index: 1,
+    raw_title: 'Solaris',
+    raw_author: 'Stanisław Lem',
+    vision_confidence: 0.95,
+    spine_color: 'niebieski',
+    bbox_x1: 0.1,
+    bbox_y1: 0.05,
+    bbox_x2: 0.25,
+    bbox_y2: 0.95,
   },
 ];
 
 const validVisionResult = {
   ok: true as const,
-  detections: [{
-    position: 1, title: 'Solaris', author: 'Stanisław Lem', confidence: 0.95,
-    spine_color: 'niebieski' as const, bbox: [0.1, 0.05, 0.25, 0.95] as [number, number, number, number],
-  }],
+  detections: [
+    {
+      position: 1,
+      title: 'Solaris',
+      author: 'Stanisław Lem',
+      confidence: 0.95,
+      spine_color: 'niebieski' as const,
+      bbox: [0.1, 0.05, 0.25, 0.95] as [number, number, number, number],
+    },
+  ],
   model: 'claude-sonnet-4-6',
   costUsd: 0.005,
   latencyMs: 5000,
@@ -66,7 +105,10 @@ function makeBlob(content = 'fake-image-data') {
 }
 
 function makeSupabase(opts: {
-  photoSelectResult?: { data: PhotoSelectRow | null; error: { code?: string; message?: string; name?: string } | null };
+  photoSelectResult?: {
+    data: PhotoSelectRow | null;
+    error: { code?: string; message?: string; name?: string } | null;
+  };
   downloadResult?: { data: Blob | null; error: { message?: string } | null };
   photoFinalResult?: { data: PhotoFinalRow | null; error: null };
   detFinalResult?: { data: DetRow[] | null; error: null };
@@ -122,11 +164,13 @@ function makeSupabase(opts: {
       return {
         insert: vi.fn(() => ({
           select: vi.fn(() => ({
-            single: vi.fn().mockResolvedValue(
-              visionRunInsertError
-                ? { data: null, error: visionRunInsertError }
-                : { data: { id: RUN_ID }, error: null }
-            ),
+            single: vi
+              .fn()
+              .mockResolvedValue(
+                visionRunInsertError
+                  ? { data: null, error: visionRunInsertError }
+                  : { data: { id: RUN_ID }, error: null },
+              ),
           })),
         })),
         update: vi.fn(() => ({
@@ -139,7 +183,9 @@ function makeSupabase(opts: {
       return {
         insert: vi.fn((rows: unknown[]) => {
           if (trackInsertions) trackInsertions.detections.push(rows);
-          return Promise.resolve({ error: null });
+          return {
+            select: vi.fn().mockResolvedValue({ error: null }),
+          };
         }),
         select: vi.fn(() => ({
           eq: vi.fn(() => ({
@@ -165,10 +211,7 @@ function makeSupabase(opts: {
   };
 }
 
-function makeContext(
-  supabase: ReturnType<typeof makeSupabase>['supabase'],
-  photoId = PHOTO_ID
-) {
+function makeContext(supabase: ReturnType<typeof makeSupabase>['supabase'], photoId = PHOTO_ID) {
   return {
     params: { id: photoId },
     locals: {
@@ -183,7 +226,10 @@ const activeProviderConfig = { provider: 'anthropic' as const, apiKey: 'sk-test'
 beforeEach(() => {
   vi.clearAllMocks();
   mockDetectSpines.mockResolvedValue(validVisionResult);
-  mockDeriveWorkingCopy.mockResolvedValue({ bytes: new Uint8Array([0xff, 0xd8, 0xff]), mediaType: 'image/jpeg' as const });
+  mockDeriveWorkingCopy.mockResolvedValue({
+    bytes: new Uint8Array([0xff, 0xd8, 0xff]),
+    mediaType: 'image/jpeg' as const,
+  });
   mockGetActiveProviderConfig.mockResolvedValue(activeProviderConfig);
 });
 
@@ -222,7 +268,9 @@ describe('POST /api/photos/[id]/process', () => {
     const { supabase } = makeSupabase({});
     const res = await POST(makeContext(supabase) as never);
     expect(res.status).toBe(403);
-    const json = (await res.json()) as { error: { code: string; details: { account_url: string } } };
+    const json = (await res.json()) as {
+      error: { code: string; details: { account_url: string } };
+    };
     expect(json.error.code).toBe('NO_API_KEY');
     expect(json.error.details.account_url).toBe('/account');
   });
@@ -236,7 +284,10 @@ describe('POST /api/photos/[id]/process', () => {
 
   it('returns 404 when photo PGRST116 (not found or RLS)', async () => {
     const { supabase } = makeSupabase({
-      photoSelectResult: { data: null, error: { code: 'PGRST116', message: 'no rows', name: 'Err' } },
+      photoSelectResult: {
+        data: null,
+        error: { code: 'PGRST116', message: 'no rows', name: 'Err' },
+      },
     });
     const res = await POST(makeContext(supabase) as never);
     expect(res.status).toBe(404);
@@ -267,7 +318,10 @@ describe('POST /api/photos/[id]/process', () => {
     expect(res.status).toBe(200);
 
     const json = (await res.json()) as {
-      data: { photo: { status: string; detected_count: number | null }; detections: { raw_title: string }[] };
+      data: {
+        photo: { status: string; detected_count: number | null };
+        detections: { raw_title: string }[];
+      };
     };
     expect(json.data.photo.status).toBe('processed');
     expect(json.data.photo.detected_count).toBe(1);
@@ -291,7 +345,9 @@ describe('POST /api/photos/[id]/process', () => {
     await POST(makeContext(supabase) as never);
 
     // No delete should have been called on detections table
-    const detectionsMock = fromFn.mock.results.find((_, i) => fromFn.mock.calls[i]?.[0] === 'detections')?.value;
+    const detectionsMock = fromFn.mock.results.find(
+      (_, i) => fromFn.mock.calls[i]?.[0] === 'detections',
+    )?.value;
     // If delete was called on detections, the mock would expose it; ensure no delete key in detections mock
     // Since makeSupabase doesn't provide a delete on detections, any call would throw or not be tracked
     // Simply verify the test passes — the new process.ts has no delete on detections
@@ -334,7 +390,7 @@ describe('POST /api/photos/[id]/process', () => {
 
     const res = await POST(makeContext(supabase) as never);
     expect(res.status).toBe(429);
-    expect((await res.json() as { error: { code: string } }).error.code).toBe('RATE_LIMITED');
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBe('RATE_LIMITED');
   });
 
   it('returns 500 on Storage download failure', async () => {
@@ -354,12 +410,24 @@ describe('POST /api/photos/[id]/process', () => {
 
     mockDetectSpines.mockResolvedValueOnce({
       ...validVisionResult,
-      detections: [{ ...validVisionResult.detections[0], bbox: [0.1, 0.05, 0.25, 0.95] as [number, number, number, number] }],
+      detections: [
+        {
+          ...validVisionResult.detections[0],
+          bbox: [0.1, 0.05, 0.25, 0.95] as [number, number, number, number],
+        },
+      ],
     });
 
     await POST(makeContext(supabase) as never);
     expect(trackInsertions.detections).toHaveLength(1);
-    const row = (trackInsertions.detections[0] as { bbox_x1: number; bbox_y1: number; bbox_x2: number; bbox_y2: number }[])[0];
+    const row = (
+      trackInsertions.detections[0] as {
+        bbox_x1: number;
+        bbox_y1: number;
+        bbox_x2: number;
+        bbox_y2: number;
+      }[]
+    )[0];
     expect(row.bbox_x1).toBeCloseTo(0.1);
     expect(row.bbox_y1).toBeCloseTo(0.05);
     expect(row.bbox_x2).toBeCloseTo(0.25);
@@ -398,7 +466,14 @@ describe('POST /api/photos/[id]/process', () => {
 
     await POST(makeContext(supabase) as never);
     expect(trackInsertions.detections).toHaveLength(1);
-    const row = (trackInsertions.detections[0] as { bbox_x1: unknown; bbox_y1: unknown; bbox_x2: unknown; bbox_y2: unknown }[])[0];
+    const row = (
+      trackInsertions.detections[0] as {
+        bbox_x1: unknown;
+        bbox_y1: unknown;
+        bbox_x2: unknown;
+        bbox_y2: unknown;
+      }[]
+    )[0];
     expect(row.bbox_x1).toBeNull();
     expect(row.bbox_y1).toBeNull();
     expect(row.bbox_x2).toBeNull();
@@ -417,10 +492,12 @@ describe('POST /api/photos/[id]/process', () => {
     // Horizontal book (e.g. SYBIRPUNK): width=0.186, height=0.050 — old code rejected h<0.08
     mockDetectSpines.mockResolvedValueOnce({
       ...validVisionResult,
-      detections: [{
-        ...validVisionResult.detections[0],
-        bbox: [0.014, 0.817, 0.200, 0.867] as [number, number, number, number],
-      }],
+      detections: [
+        {
+          ...validVisionResult.detections[0],
+          bbox: [0.014, 0.817, 0.2, 0.867] as [number, number, number, number],
+        },
+      ],
     });
 
     await POST(makeContext(supabase) as never);
@@ -437,10 +514,12 @@ describe('POST /api/photos/[id]/process', () => {
     // Tiny noise box — both dims < 0.012
     mockDetectSpines.mockResolvedValueOnce({
       ...validVisionResult,
-      detections: [{
-        ...validVisionResult.detections[0],
-        bbox: [0.5, 0.5, 0.508, 0.509] as [number, number, number, number], // w=0.008, h=0.009
-      }],
+      detections: [
+        {
+          ...validVisionResult.detections[0],
+          bbox: [0.5, 0.5, 0.508, 0.509] as [number, number, number, number], // w=0.008, h=0.009
+        },
+      ],
     });
 
     await POST(makeContext(supabase) as never);
@@ -455,10 +534,12 @@ describe('POST /api/photos/[id]/process', () => {
     // Vertical book: narrow width, tall height
     mockDetectSpines.mockResolvedValueOnce({
       ...validVisionResult,
-      detections: [{
-        ...validVisionResult.detections[0],
-        bbox: [0.12, 0.28, 0.16, 0.85] as [number, number, number, number], // w=0.04, h=0.57
-      }],
+      detections: [
+        {
+          ...validVisionResult.detections[0],
+          bbox: [0.12, 0.28, 0.16, 0.85] as [number, number, number, number], // w=0.04, h=0.57
+        },
+      ],
     });
 
     await POST(makeContext(supabase) as never);
