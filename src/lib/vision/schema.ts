@@ -20,11 +20,11 @@ const BboxSchema = z
 const DetectionItemSchema = z.object({
   position: z.number().int().positive(),
   title: z.string().min(1).max(300),
-  author: z.string().max(200).nullable(),
+  author: z.string().max(200).nullable().catch(null),
   confidence: z.number().min(0).max(1),
   // v4: orientation field — best-effort, optional for backward compat
-  orientation: z.enum(['vertical', 'horizontal']).optional(),
-  spine_color: z.enum(SPINE_COLORS).nullable(),
+  orientation: z.enum(['vertical', 'horizontal']).optional().catch(undefined),
+  spine_color: z.enum(SPINE_COLORS).nullable().catch(null),
   bbox: BboxSchema,
 });
 

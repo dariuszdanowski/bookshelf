@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { createBrowserSupabaseClient } from '../lib/db/supabase.browser';
 import { makeThumbnailBlob } from '../lib/images/browserThumb';
 import type { PhotoDTO } from '../lib/photos/schema';
-import { THUMB_SUFFIX } from '../lib/photos/thumb';
 import type { ShelfDTO } from '../lib/shelves/schema';
 import CameraPreview from './CameraPreview';
 import HelpTip from './HelpTip';
@@ -258,23 +256,23 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
       }
       const { storagePath, sha256: serverSha256 } = uploadJson.data;
 
-      // M15: miniatura — best-effort po stronie klienta; błąd NIE blokuje uploadu.
-      // Thumbnail uploadujemy nadal przez Supabase browser client (dodatkowe żądanie
-      // które może nie dojść z urządzeń bez dostępu do storage URL — graceful degradation).
+      // M15: miniatura — best-effort; błąd NIE blokuje głównego flow.
+      // Generujemy w przeglądarce (canvas), ale uploadujemy przez API serwera
+      // zamiast bezpośrednio do Supabase Storage — telefon nie ma dostępu do
+      // WSL2/lokalnego storage URL.
       try {
-        const supabase = createBrowserSupabaseClient();
         const thumb = await makeThumbnailBlob(file);
         if (thumb) {
-          const { error: thumbErr } = await supabase.storage
-            .from('shelf-photos')
-            .upload(`${storagePath}${THUMB_SUFFIX}`, thumb, {
-              contentType: 'image/jpeg',
-              upsert: false,
-            });
-          if (thumbErr) console.warn('[PhotoUploader] thumb upload failed', thumbErr.message);
+          const thumbForm = new FormData();
+          thumbForm.append('thumb', thumb, 'thumb.jpg');
+          thumbForm.append('storagePath', storagePath);
+          await fetch('/api/photos/upload-thumbnail', {
+            method: 'POST',
+            body: thumbForm,
+          });
         }
       } catch (thumbEx) {
-        console.warn('[PhotoUploader] thumb generation failed', thumbEx);
+        console.warn('[PhotoUploader] thumb generation/upload failed', thumbEx);
       }
 
       setStage('recording');
