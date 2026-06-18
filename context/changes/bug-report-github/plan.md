@@ -269,5 +269,5 @@ Fine-grained PAT: github.com/settings/tokens → Fine-grained → Repository acc
 
 #### Automatyczne
 
-- [x] 3.1 `npm run test:e2e -- --grep "bug-report"` — 3 testy zielone
-- [ ] 3.2 Pełny `npm run test:e2e` bez regresji
+- [x] 3.1 `npm run test:e2e -- --grep "bug-report"` — 3 testy zielone — f272ad1
+- [x] 3.2 Pełny `npm run test:e2e` bez regresji — f272ad1

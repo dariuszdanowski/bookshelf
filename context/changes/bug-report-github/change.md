@@ -1,6 +1,6 @@
 # bug-report-github
 
-**Status:** implementing
+**Status:** implemented
 **Updated:** 2026-06-18
 
 ## Opis
