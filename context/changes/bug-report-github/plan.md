@@ -256,8 +256,8 @@ Fine-grained PAT: github.com/settings/tokens → Fine-grained → Repository acc
 
 #### Automatyczne
 
-- [x] 2.1 Typecheck przechodzi: `npm run typecheck`
-- [x] 2.2 Lint przechodzi: `npm run lint`
+- [x] 2.1 Typecheck przechodzi: `npm run typecheck` — a8c64a0
+- [x] 2.2 Lint przechodzi: `npm run lint` — a8c64a0
 
 #### Ręczne
 
@@ -269,5 +269,5 @@ Fine-grained PAT: github.com/settings/tokens → Fine-grained → Repository acc
 
 #### Automatyczne
 
-- [ ] 3.1 `npm run test:e2e -- --grep "bug-report"` — 3 testy zielone
+- [x] 3.1 `npm run test:e2e -- --grep "bug-report"` — 3 testy zielone
 - [ ] 3.2 Pełny `npm run test:e2e` bez regresji
