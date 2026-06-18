@@ -66,9 +66,14 @@ function activeKeyMock() {
 const originalLocation = window.location;
 
 const NO_DUPLICATE_RESPONSE = { data: { photo: null } };
+const STORAGE_PATH = `${USER_ID}/${MOCK_UUID}.jpg`;
 
 function checkHashMock() {
   return jsonResponse(NO_DUPLICATE_RESPONSE);
+}
+
+function uploadFileMock() {
+  return jsonResponse({ data: { storagePath: STORAGE_PATH, sha256: '0'.repeat(64) } }, 201);
 }
 
 beforeEach(() => {
@@ -109,7 +114,7 @@ describe('PhotoUploader', () => {
     vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(activeKeyMock()) // keys check
       .mockResolvedValueOnce(jsonResponse({ data: { shelves: mockShelves } })); // shelves
-    render(<PhotoUploader userId={USER_ID} />);
+    render(<PhotoUploader />);
     await waitFor(() => expect(screen.getByTestId('shelf-select')).toBeInTheDocument());
     expect(screen.getByTestId('drop-zone')).toBeInTheDocument();
   });
@@ -118,7 +123,7 @@ describe('PhotoUploader', () => {
     vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(jsonResponse({ data: { keys: [] } })) // keys: none
       .mockResolvedValueOnce(jsonResponse({ data: { shelves: mockShelves } })); // shelves
-    render(<PhotoUploader userId={USER_ID} />);
+    render(<PhotoUploader />);
     await waitFor(() =>
       expect(screen.getByTestId('photo-uploader-no-key-warning')).toBeInTheDocument(),
     );
@@ -133,6 +138,7 @@ describe('PhotoUploader', () => {
       .mockResolvedValueOnce(activeKeyMock()) // keys check
       .mockResolvedValueOnce(jsonResponse({ data: { shelves: mockShelves } })) // shelves
       .mockResolvedValueOnce(checkHashMock()) // check-hash → no dup
+      .mockResolvedValueOnce(uploadFileMock()) // upload-file proxy
       .mockResolvedValueOnce(
         jsonResponse({ data: { photo: { ...mockPhoto, status: 'uploaded' } } }, 201),
       )
@@ -141,7 +147,7 @@ describe('PhotoUploader', () => {
       )
       .mockResolvedValueOnce(jsonResponse(mockMatchResult));
 
-    render(<PhotoUploader userId={USER_ID} />);
+    render(<PhotoUploader />);
     await waitFor(() => expect(screen.getByTestId('shelf-select')).toBeInTheDocument());
 
     await triggerFileUpload(new File(['fake'], 'shelf.jpg', { type: 'image/jpeg' }));
@@ -153,17 +159,13 @@ describe('PhotoUploader', () => {
       { timeout: 5000 },
     );
 
-    // Sequence: keys, shelves, check-hash, record POST, process POST, match POST
-    expect(fetchMock).toHaveBeenCalledTimes(6);
-    expect(fetchMock.mock.calls[3][0]).toBe('/api/photos');
-    expect(fetchMock.mock.calls[4][0]).toMatch(/\/api\/photos\/.+\/process/);
-    expect(fetchMock.mock.calls[5][0]).toMatch(/\/api\/photos\/.+\/match/);
+    // Sequence: keys, shelves, check-hash, upload-file, record POST, process POST, match POST
+    expect(fetchMock).toHaveBeenCalledTimes(7);
+    expect(fetchMock.mock.calls[4][0]).toBe('/api/photos');
+    expect(fetchMock.mock.calls[5][0]).toMatch(/\/api\/photos\/.+\/process/);
+    expect(fetchMock.mock.calls[6][0]).toMatch(/\/api\/photos\/.+\/match/);
 
-    expect(mockUpload).toHaveBeenCalledWith(
-      `${USER_ID}/${MOCK_UUID}.jpg`,
-      expect.any(File),
-      expect.objectContaining({ contentType: 'image/jpeg' }),
-    );
+    expect(mockUpload).not.toHaveBeenCalled();
   });
 
   it('retry button re-triggers process+match (no re-upload)', async () => {
@@ -172,6 +174,7 @@ describe('PhotoUploader', () => {
       .mockResolvedValueOnce(activeKeyMock()) // keys check
       .mockResolvedValueOnce(jsonResponse({ data: { shelves: mockShelves } })) // shelves
       .mockResolvedValueOnce(checkHashMock()) // check-hash → no dup
+      .mockResolvedValueOnce(uploadFileMock()) // upload-file proxy
       .mockResolvedValueOnce(
         jsonResponse({ data: { photo: { ...mockPhoto, status: 'uploaded' } } }, 201),
       )
@@ -183,7 +186,7 @@ describe('PhotoUploader', () => {
       )
       .mockResolvedValueOnce(jsonResponse(mockMatchResult));
 
-    render(<PhotoUploader userId={USER_ID} />);
+    render(<PhotoUploader />);
     await waitFor(() => expect(screen.getByTestId('shelf-select')).toBeInTheDocument());
 
     await triggerFileUpload(new File(['fake'], 'shelf.jpg', { type: 'image/jpeg' }));
@@ -201,11 +204,11 @@ describe('PhotoUploader', () => {
       { timeout: 5000 },
     );
 
-    // 7 calls: keys, shelves, check-hash, record, process (fail), process (retry), match (retry)
-    expect(fetchMock).toHaveBeenCalledTimes(7);
-    expect(fetchMock.mock.calls[5][0]).toMatch(/\/api\/photos\/.+\/process/);
-    expect(fetchMock.mock.calls[6][0]).toMatch(/\/api\/photos\/.+\/match/);
-    expect(mockUpload).toHaveBeenCalledTimes(1);
+    // 8 calls: keys, shelves, check-hash, upload-file, record, process (fail), process (retry), match (retry)
+    expect(fetchMock).toHaveBeenCalledTimes(8);
+    expect(fetchMock.mock.calls[6][0]).toMatch(/\/api\/photos\/.+\/process/);
+    expect(fetchMock.mock.calls[7][0]).toMatch(/\/api\/photos\/.+\/match/);
+    expect(mockUpload).not.toHaveBeenCalled();
   });
 
   it('match-only retry: vision succeeded but match failed → retry re-runs match only (no re-process)', async () => {
@@ -214,6 +217,7 @@ describe('PhotoUploader', () => {
       .mockResolvedValueOnce(activeKeyMock()) // keys check
       .mockResolvedValueOnce(jsonResponse({ data: { shelves: mockShelves } })) // shelves
       .mockResolvedValueOnce(checkHashMock()) // check-hash → no dup
+      .mockResolvedValueOnce(uploadFileMock()) // upload-file proxy
       .mockResolvedValueOnce(
         jsonResponse({ data: { photo: { ...mockPhoto, status: 'uploaded' } } }, 201),
       )
@@ -225,7 +229,7 @@ describe('PhotoUploader', () => {
       )
       .mockResolvedValueOnce(jsonResponse(mockMatchResult));
 
-    render(<PhotoUploader userId={USER_ID} />);
+    render(<PhotoUploader />);
     await waitFor(() => expect(screen.getByTestId('shelf-select')).toBeInTheDocument());
 
     await triggerFileUpload(new File(['fake'], 'shelf.jpg', { type: 'image/jpeg' }));
@@ -245,12 +249,12 @@ describe('PhotoUploader', () => {
     );
 
     // 7 calls: keys, shelves, check-hash, record, process (OK), match (fail), match (retry)
-    expect(fetchMock).toHaveBeenCalledTimes(7);
+    expect(fetchMock).toHaveBeenCalledTimes(8);
     const processCalls = fetchMock.mock.calls.filter((c) => /\/process$/.test(String(c[0])));
     const matchCalls = fetchMock.mock.calls.filter((c) => /\/match$/.test(String(c[0])));
     expect(processCalls).toHaveLength(1);
     expect(matchCalls).toHaveLength(2);
-    expect(mockUpload).toHaveBeenCalledTimes(1);
+    expect(mockUpload).not.toHaveBeenCalled();
   });
 
   it('process 403 NO_API_KEY — shows error with link to /account', async () => {
@@ -258,6 +262,7 @@ describe('PhotoUploader', () => {
       .mockResolvedValueOnce(activeKeyMock()) // keys check
       .mockResolvedValueOnce(jsonResponse({ data: { shelves: mockShelves } })) // shelves
       .mockResolvedValueOnce(checkHashMock()) // check-hash → no dup
+      .mockResolvedValueOnce(uploadFileMock()) // upload-file proxy
       .mockResolvedValueOnce(
         jsonResponse({ data: { photo: { ...mockPhoto, status: 'uploaded' } } }, 201),
       )
@@ -265,7 +270,7 @@ describe('PhotoUploader', () => {
         jsonResponse({ error: { code: 'NO_API_KEY', message: 'Brak klucza API' } }, 403),
       );
 
-    render(<PhotoUploader userId={USER_ID} />);
+    render(<PhotoUploader />);
     await waitFor(() => expect(screen.getByTestId('shelf-select')).toBeInTheDocument());
 
     await triggerFileUpload(new File(['fake'], 'shelf.jpg', { type: 'image/jpeg' }));
@@ -293,7 +298,7 @@ describe('PhotoUploader', () => {
       ) // process POST
       .mockResolvedValueOnce(jsonResponse(mockMatchResult)); // match POST
 
-    render(<PhotoUploader userId={USER_ID} />);
+    render(<PhotoUploader />);
     await waitFor(() => expect(window.location.href).toBe(`/photos/${STALE_ID}`), {
       timeout: 5000,
     });
@@ -301,13 +306,15 @@ describe('PhotoUploader', () => {
   });
 
   it('shows error area on storage upload failure (no retry-button, back button shown)', async () => {
-    mockUpload.mockResolvedValue({ error: { message: 'Storage error' } });
     vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(activeKeyMock()) // keys check
       .mockResolvedValueOnce(jsonResponse({ data: { shelves: mockShelves } })) // shelves
-      .mockResolvedValueOnce(checkHashMock()); // check-hash → no dup
+      .mockResolvedValueOnce(checkHashMock()) // check-hash -> no dup
+      .mockResolvedValueOnce(
+        jsonResponse({ error: { code: 'INTERNAL_ERROR', message: 'Storage error' } }, 500),
+      ); // upload-file fails
 
-    render(<PhotoUploader userId={USER_ID} />);
+    render(<PhotoUploader />);
     await waitFor(() => expect(screen.getByTestId('shelf-select')).toBeInTheDocument());
 
     await triggerFileUpload(new File(['x'], 'img.jpg', { type: 'image/jpeg' }));
@@ -357,7 +364,7 @@ describe('PhotoUploader — reload recovery', () => {
       ) // process POST
       .mockResolvedValueOnce(jsonResponse(mockMatchResult)); // match POST
 
-    render(<PhotoUploader userId={USER_ID} />);
+    render(<PhotoUploader />);
     await waitFor(() => expect(window.location.href).toBe(`/photos/${PHOTO_ID}`), {
       timeout: 5000,
     });
@@ -373,7 +380,7 @@ describe('PhotoUploader — reload recovery', () => {
         jsonResponse({ data: { photo: { id: PHOTO_ID, status: 'failed' }, detections: [] } }),
       );
 
-    render(<PhotoUploader userId={USER_ID} />);
+    render(<PhotoUploader />);
     await waitFor(() => expect(screen.getByTestId('error-area')).toBeInTheDocument(), {
       timeout: 5000,
     });
@@ -396,7 +403,7 @@ describe('PhotoUploader — reload recovery', () => {
       )
       .mockResolvedValueOnce(jsonResponse(mockMatchResult));
 
-    render(<PhotoUploader userId={USER_ID} />);
+    render(<PhotoUploader />);
     await waitFor(() => expect(window.location.href).toBe(`/photos/${PHOTO_ID}`), {
       timeout: 5000,
     });
@@ -416,7 +423,7 @@ describe('PhotoUploader — reload recovery', () => {
         }),
       );
 
-    render(<PhotoUploader userId={USER_ID} />);
+    render(<PhotoUploader />);
     await waitFor(() => expect(window.location.href).toBe(`/photos/${PHOTO_ID}`), {
       timeout: 5000,
     });
@@ -429,7 +436,7 @@ describe('PhotoUploader — reload recovery', () => {
       .mockResolvedValueOnce(activeKeyMock()) // keys check
       .mockResolvedValueOnce(jsonResponse({ data: { shelves: [] } })); // shelves
 
-    render(<PhotoUploader userId={USER_ID} />);
+    render(<PhotoUploader />);
     await waitFor(() => expect(screen.getByTestId('drop-zone')).toBeInTheDocument());
     // 2 fetch calls (keys + shelves), no recovery fetch
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -452,7 +459,7 @@ describe('PhotoUploader — skip process (S-36)', () => {
     vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(activeKeyMock())
       .mockResolvedValueOnce(jsonResponse({ data: { shelves: mockShelves } }));
-    render(<PhotoUploader userId={USER_ID} />);
+    render(<PhotoUploader />);
     await waitFor(() => expect(screen.getByTestId('auto-process-checkbox')).toBeInTheDocument());
     expect(screen.getByTestId('auto-process-checkbox')).toBeChecked();
   });
@@ -463,11 +470,12 @@ describe('PhotoUploader — skip process (S-36)', () => {
       .mockResolvedValueOnce(activeKeyMock()) // keys
       .mockResolvedValueOnce(jsonResponse({ data: { shelves: mockShelves } })) // shelves
       .mockResolvedValueOnce(checkHashMock()) // check-hash
+      .mockResolvedValueOnce(uploadFileMock()) // upload-file proxy
       .mockResolvedValueOnce(
         jsonResponse({ data: { photo: { ...mockPhoto, status: 'uploaded' } } }, 201),
       ); // record
 
-    render(<PhotoUploader userId={USER_ID} />);
+    render(<PhotoUploader />);
     await waitFor(() => expect(screen.getByTestId('auto-process-checkbox')).toBeInTheDocument());
 
     fireEvent.click(screen.getByTestId('auto-process-checkbox')); // odznacz
@@ -495,7 +503,7 @@ describe('PhotoUploader — skip process (S-36)', () => {
     vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(activeKeyMock())
       .mockResolvedValueOnce(jsonResponse({ data: { shelves: mockShelves } }));
-    render(<PhotoUploader userId={USER_ID} />);
+    render(<PhotoUploader />);
     await waitFor(() => expect(screen.getByTestId('auto-process-checkbox')).not.toBeChecked());
   });
 
@@ -505,6 +513,7 @@ describe('PhotoUploader — skip process (S-36)', () => {
       .mockResolvedValueOnce(activeKeyMock())
       .mockResolvedValueOnce(jsonResponse({ data: { shelves: mockShelves } }))
       .mockResolvedValueOnce(checkHashMock())
+      .mockResolvedValueOnce(uploadFileMock()) // upload-file proxy
       .mockResolvedValueOnce(
         jsonResponse({ data: { photo: { ...mockPhoto, status: 'uploaded' } } }, 201),
       )
@@ -513,7 +522,7 @@ describe('PhotoUploader — skip process (S-36)', () => {
       )
       .mockResolvedValueOnce(jsonResponse(mockMatchResult));
 
-    render(<PhotoUploader userId={USER_ID} />);
+    render(<PhotoUploader />);
     await waitFor(() => expect(screen.getByTestId('shelf-select')).toBeInTheDocument());
     await triggerFileUpload(new File(['fake'], 'shelf.jpg', { type: 'image/jpeg' }));
 
