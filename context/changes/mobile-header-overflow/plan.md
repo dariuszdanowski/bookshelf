@@ -137,6 +137,6 @@ Ukrycie EnvBadge poniżej `sm`, zwężenie gapu mobilnego, odkwarantannowanie te
 
 #### Ręczne
 
-- [ ] 1.4 375px bez poziomego scrolla na `/library`, `/shelves`, `/upload`, `/account`, `/help`
-- [ ] 1.5 Desktop (≥ sm) — EnvBadge widoczny/klikalny, spacing niezmieniony
-- [ ] 1.6 Pille icon-only na mobile, z tekstem na desktopie
+- [x] 1.4 375px bez poziomego scrolla na `/library`, `/shelves`, `/upload`, `/account`, `/help`
+- [x] 1.5 Desktop (≥ sm) — EnvBadge widoczny/klikalny, spacing niezmieniony
+- [x] 1.6 Pille icon-only na mobile, z tekstem na desktopie
