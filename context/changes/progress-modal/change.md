@@ -1,7 +1,7 @@
 ---
 id: progress-modal
 title: Progress modal dla długich operacji (vision, rematch)
-status: implementing
+status: implemented
 created: 2026-06-19
 updated: 2026-06-19
 ---
