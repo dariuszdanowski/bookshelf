@@ -6,6 +6,7 @@ import { classifyCropQuality } from '../lib/matching/fallbackPolicy';
 import BookModal, { type BookModalBook } from './BookModal';
 import ConfirmDialog from './ConfirmDialog';
 import CostPanel from './CostPanel';
+import ProgressModal from './ProgressModal';
 import HelpTip from './HelpTip';
 import PhotoDetectionOverlay from './PhotoDetectionOverlay';
 import Skeleton from './Skeleton';
@@ -550,6 +551,7 @@ function useDetectionDecision(
     initiallyConfirmed ? 'confirmed' : null,
   );
   const [busy, setBusy] = useState(false);
+  const [busyLabel, setBusyLabel] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const top = detection.candidates[0] ?? null;
@@ -659,6 +661,7 @@ function useDetectionDecision(
     isbn: string | null,
     publisher: string | null = null, // M22
   ): Promise<boolean> {
+    setBusyLabel('Szukam kandydatów w bazach książek...');
     setBusy(true);
     setErrorMsg(null);
     try {
@@ -699,11 +702,13 @@ function useDetectionDecision(
       setErrorMsg(e instanceof Error ? e.message : 'Błąd sieci.');
       return false;
     } finally {
+      setBusyLabel(null);
       setBusy(false);
     }
   }
 
   async function handleRefine() {
+    setBusyLabel('Analiza vision (ponowne skanowanie grzbietu)...');
     setBusy(true);
     setErrorMsg(null);
     try {
@@ -751,6 +756,7 @@ function useDetectionDecision(
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : 'Błąd sieci.');
     } finally {
+      setBusyLabel(null);
       setBusy(false);
     }
   }
@@ -769,6 +775,7 @@ function useDetectionDecision(
     state,
     decidedKind,
     busy,
+    busyLabel,
     errorMsg,
     top,
     alts,
@@ -815,6 +822,7 @@ function DetectionCard({
     state,
     decidedKind,
     busy,
+    busyLabel,
     errorMsg,
     top,
     alts,
@@ -1248,6 +1256,8 @@ function DetectionCard({
           onClose={() => setShowCandidateDetail(false)}
         />
       )}
+
+      <ProgressModal open={busyLabel !== null} label={busyLabel ?? ''} />
     </div>
   );
 }
@@ -1353,6 +1363,7 @@ export function DetectionRow({
     state,
     decidedKind,
     busy,
+    busyLabel,
     errorMsg,
     top,
     activeCandidateId,
@@ -1590,6 +1601,8 @@ export function DetectionRow({
           }}
         />
       )}
+
+      <ProgressModal open={busyLabel !== null} label={busyLabel ?? ''} />
     </div>
   );
 }
@@ -1625,6 +1638,7 @@ export function DetectionTile({
     state,
     decidedKind,
     busy,
+    busyLabel,
     errorMsg,
     top,
     activeCandidateId,
@@ -1887,6 +1901,8 @@ export function DetectionTile({
           }}
         />
       )}
+
+      <ProgressModal open={busyLabel !== null} label={busyLabel ?? ''} />
     </div>
   );
 }
@@ -2090,6 +2106,7 @@ export default function DetectionReview({
   // M26: pełny koszt zdjęcia (vision + OCR) z API — etykieta przycisku kosztów
   const [costsTotalUsd, setCostsTotalUsd] = useState<number | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
+  const [actionBusyLabel, setActionBusyLabel] = useState<string | null>(null);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
   const [decidedIds, setDecidedIds] = useState<Set<string>>(new Set());
   const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
@@ -2262,6 +2279,7 @@ export default function DetectionReview({
   }
 
   async function runRerunVision() {
+    setActionBusyLabel('Analiza vision (może zająć ~10s)...');
     setActionBusy(true);
     setActionMsg(null);
     try {
@@ -2297,6 +2315,7 @@ export default function DetectionReview({
     } catch (err) {
       setActionMsg(err instanceof Error ? err.message : 'Błąd sieci.');
     } finally {
+      setActionBusyLabel(null);
       setActionBusy(false);
     }
   }
@@ -2316,6 +2335,7 @@ export default function DetectionReview({
   const rerunConfirmMessage = `Uruchomimy nowy vision run. Poprzednie wyniki zostaną w historii. Szacowany koszt: ${formatCostEstimate(estimatedCost)} i czas: ${formatDurationEstimate(estimatedLatencyMs)} (${estimateSource}).`;
 
   async function handleRerunMatch() {
+    setActionBusyLabel('Dopasowywanie do baz książek...');
     setActionBusy(true);
     setActionMsg(null);
     try {
@@ -2333,6 +2353,7 @@ export default function DetectionReview({
     } catch (err) {
       setActionMsg(err instanceof Error ? err.message : 'Błąd sieci.');
     } finally {
+      setActionBusyLabel(null);
       setActionBusy(false);
     }
   }
@@ -2862,6 +2883,8 @@ export default function DetectionReview({
           void runRerunVision();
         }}
       />
+
+      <ProgressModal open={actionBusyLabel !== null} label={actionBusyLabel ?? ''} />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import type { PhotoDTO } from '../lib/photos/schema';
 import type { ShelfDTO } from '../lib/shelves/schema';
 import CameraPreview from './CameraPreview';
 import HelpTip from './HelpTip';
+import ProgressModal from './ProgressModal';
 
 type UploadStage =
   | 'idle'
@@ -676,6 +677,11 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
           )}
         </div>
       )}
+
+      <ProgressModal
+        open={stage === 'processing' || stage === 'matching'}
+        label={stageLabel[stage] ?? ''}
+      />
     </div>
   );
 }

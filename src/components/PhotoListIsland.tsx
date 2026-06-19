@@ -4,6 +4,7 @@ import type { PhotoListItemDTO } from '../lib/photos/schema';
 import type { ShelfDTO } from '../lib/shelves/schema';
 import ConfirmDialog from './ConfirmDialog';
 import CostPanel from './CostPanel';
+import ProgressModal from './ProgressModal';
 import Skeleton from './Skeleton';
 
 type Props = {
@@ -48,6 +49,7 @@ export default function PhotoListIsland({ shelfId }: Props) {
   const [pendingRerunPhotoId, setPendingRerunPhotoId] = useState<string | null>(null);
   const [pendingDeletePhotoId, setPendingDeletePhotoId] = useState<string | null>(null);
   const [shelves, setShelves] = useState<ShelfDTO[]>([]);
+  const [busyOpLabel, setBusyOpLabel] = useState<string | null>(null);
 
   const fetchPhotos = useCallback(async () => {
     try {
@@ -97,6 +99,7 @@ export default function PhotoListIsland({ shelfId }: Props) {
 
   const runVision = useCallback(
     async (photoId: string) => {
+      setBusyOpLabel('Analiza vision (może zająć ~10s)...');
       patchRow(photoId, { busy: true, toast: null });
       try {
         const res = await fetch(`/api/photos/${photoId}/process`, {
@@ -130,6 +133,7 @@ export default function PhotoListIsland({ shelfId }: Props) {
           toast: err instanceof Error ? err.message : 'Błąd sieci.',
         });
       } finally {
+        setBusyOpLabel(null);
         patchRow(photoId, { busy: false });
       }
     },
@@ -138,6 +142,7 @@ export default function PhotoListIsland({ shelfId }: Props) {
 
   const runMatch = useCallback(
     async (photoId: string) => {
+      setBusyOpLabel('Dopasowywanie do baz książek...');
       patchRow(photoId, { busy: true, toast: null });
       try {
         const res = await fetch(`/api/photos/${photoId}/match`, {
@@ -171,6 +176,7 @@ export default function PhotoListIsland({ shelfId }: Props) {
           toast: err instanceof Error ? err.message : 'Błąd sieci.',
         });
       } finally {
+        setBusyOpLabel(null);
         patchRow(photoId, { busy: false });
       }
     },
@@ -555,6 +561,8 @@ export default function PhotoListIsland({ shelfId }: Props) {
           void deletePhoto(nextPhotoId);
         }}
       />
+
+      <ProgressModal open={busyOpLabel !== null} label={busyOpLabel ?? ''} />
     </>
   );
 }

@@ -44,8 +44,20 @@ const MOCK_PROCESS_RESPONSE = {
       created_at: new Date().toISOString(),
     },
     detections: [
-      { position_index: 1, raw_title: 'Solaris', raw_author: 'Stanisław Lem', vision_confidence: 0.95, spine_color: 'niebieski' },
-      { position_index: 2, raw_title: 'Dune', raw_author: 'Frank Herbert', vision_confidence: 0.88, spine_color: 'brązowy' },
+      {
+        position_index: 1,
+        raw_title: 'Solaris',
+        raw_author: 'Stanisław Lem',
+        vision_confidence: 0.95,
+        spine_color: 'niebieski',
+      },
+      {
+        position_index: 2,
+        raw_title: 'Dune',
+        raw_author: 'Frank Herbert',
+        vision_confidence: 0.88,
+        spine_color: 'brązowy',
+      },
     ],
   },
 };
@@ -125,7 +137,81 @@ const MOCK_PHOTO_GET_RESPONSE = {
   },
 };
 
-test('upload flow: /upload → wybór półki → upload → redirect → propozycje widoczne', async ({ page }) => {
+test('progress modal: widoczny podczas analizy vision w PhotoUploader', async ({ page }) => {
+  let resolveProcess!: () => void;
+  const processHeld = new Promise<void>((r) => {
+    resolveProcess = r;
+  });
+
+  await page.goto('/upload');
+  await page.waitForLoadState('networkidle');
+
+  await page.evaluate(() => {
+    const TINY_PNG =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    URL.createObjectURL = () => TINY_PNG;
+    URL.revokeObjectURL = () => {};
+  });
+  await expect(page.getByTestId('shelf-select')).toBeVisible({ timeout: 5_000 });
+
+  await page.route('**/api/photos/check-hash**', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { duplicate: null } }),
+    }),
+  );
+  await page.route('**/storage/v1/object/shelf-photos/**', (route) =>
+    route.fulfill({ status: 200, body: JSON.stringify({ Key: 'shelf-photos/mock.jpg' }) }),
+  );
+  await page.route('**/api/photos', (route) =>
+    route.request().method() === 'POST'
+      ? route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify(MOCK_RECORD_RESPONSE),
+        })
+      : route.continue(),
+  );
+  await page.route(`**/api/photos/${PHOTO_ID}/process`, async (route) => {
+    await processHeld;
+    void route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(MOCK_PROCESS_RESPONSE),
+    });
+  });
+  await page.route(`**/api/photos/${PHOTO_ID}/match`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(MOCK_MATCH_RESPONSE),
+    }),
+  );
+  await page.route(`**/api/photos/${PHOTO_ID}`, (route) =>
+    route.request().method() === 'GET'
+      ? route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify(MOCK_PHOTO_GET_RESPONSE),
+        })
+      : route.continue(),
+  );
+
+  await page.getByTestId('file-input').setInputFiles('tests/fixtures/test-shelf.jpg');
+
+  // Modal powinien się pojawić podczas trzymanego requestu process
+  await expect(page.getByTestId('progress-modal')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId('progress-modal-label')).toContainText('Analiza vision');
+
+  // Zwolnij route → match → redirect
+  resolveProcess();
+  await page.waitForURL(`/photos/${PHOTO_ID}`, { timeout: 10_000 });
+});
+
+test('upload flow: /upload → wybór półki → upload → redirect → propozycje widoczne', async ({
+  page,
+}) => {
   // Sesja z współdzielonego storageState — od razu na /upload (bez signup per-test)
   await page.goto('/upload');
   await page.waitForLoadState('networkidle');
@@ -134,7 +220,8 @@ test('upload flow: /upload → wybór półki → upload → redirect → propoz
   // Override URL.createObjectURL in the live page so the Image.onload always
   // fires with a valid tiny PNG, regardless of the test blob content.
   await page.evaluate(() => {
-    const TINY_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    const TINY_PNG =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
     URL.createObjectURL = () => TINY_PNG;
     URL.revokeObjectURL = () => {};
   });
@@ -144,7 +231,10 @@ test('upload flow: /upload → wybór półki → upload → redirect → propoz
 
   // 4. Intercept Storage upload to avoid real bucket dependency
   await page.route('**/storage/v1/object/shelf-photos/**', (route) => {
-    void route.fulfill({ status: 200, body: JSON.stringify({ Key: 'shelf-photos/mock-path.jpg' }) });
+    void route.fulfill({
+      status: 200,
+      body: JSON.stringify({ Key: 'shelf-photos/mock-path.jpg' }),
+    });
   });
 
   // 5. Intercept /api/photos (record)
