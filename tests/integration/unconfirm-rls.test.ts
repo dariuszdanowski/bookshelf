@@ -86,7 +86,7 @@ if (!hasEnv) {
       // vision_run wymagany jako FK w detections (user_id derywowany przez trigger z photos)
       const { data: visionRun, error: vrErr } = await admin
         .from('vision_runs')
-        .insert({ photo_id: photo.id, status: 'completed', user_id: userAId })
+        .insert({ photo_id: photo.id, status: 'succeeded', user_id: userAId })
         .select('id')
         .single();
       if (vrErr) throw vrErr;
