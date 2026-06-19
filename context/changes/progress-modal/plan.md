@@ -365,8 +365,8 @@ Brak — `ProgressModal` nie ma logiki biznesowej. Coverage przez E2E.
 
 #### Ręczne
 
-- [x] 2.4 Modal widoczny podczas processing/matching, niewidoczny podczas uploading/recording
-- [x] 2.5 Kliknięcie linku nawigacyjnego podczas modalu nie powoduje nawigacji
+- [x] 2.4 Modal widoczny podczas processing/matching, niewidoczny podczas uploading/recording — a7802b8
+- [x] 2.5 Kliknięcie linku nawigacyjnego podczas modalu nie powoduje nawigacji — a7802b8
 
 ### Faza 3: Integracja z DetectionReview
 
@@ -378,9 +378,9 @@ Brak — `ProgressModal` nie ma logiki biznesowej. Coverage przez E2E.
 
 #### Ręczne
 
-- [x] 3.4 Modal widoczny podczas rematch, niewidoczny po zakończeniu
-- [x] 3.5 Modal widoczny podczas refine, niewidoczny po zakończeniu
-- [x] 3.6 Confirm/reject nie triggeruje modalu
+- [x] 3.4 Modal widoczny podczas rematch, niewidoczny po zakończeniu — a7802b8
+- [x] 3.5 Modal widoczny podczas refine, niewidoczny po zakończeniu — a7802b8
+- [x] 3.6 Confirm/reject nie triggeruje modalu — a7802b8
 
 ### Faza 4: Testy E2E
 
