@@ -1,0 +1,43 @@
+---
+change_id: thumbnail-server-side
+title: "Miniatura zdjęcia server-side (photon, upload-file)"
+status: archived
+archived_at: 2026-06-19T08:04:44Z
+created: 2026-06-19
+updated: 2026-06-19
+---
+
+# thumbnail-server-side
+
+## Opis
+
+Przeniesienie generowania miniatury zdjęcia z przeglądarki (canvas) na serwer
+(`upload-file.ts`, photon). Po wprowadzeniu proxy uploadu serwer już trzyma pełny
+`buffer` pliku — robienie miniatury na kliencie to przeżytek sprzed proxy, który
+na iOS Safari (HTTP LAN) wywraca kartę przez `createImageBitmap` na pełnym obrazie
+i zostawia osierocone obiekty w storage bez wiersza w `photos`.
+
+## Zakres
+
+- Server-side helper `deriveThumbnail` w `src/lib/images/resize.ts` (photon, 640px, JPEG)
+- Wpięcie best-effort generowania miniatury w `POST /api/photos/upload-file`
+- Usunięcie kroku canvas z `PhotoUploader.tsx` (browserThumb + fetch upload-thumbnail)
+- Usunięcie `src/lib/images/browserThumb.ts` + jej unit testu
+- Usunięcie endpointu `src/pages/api/photos/upload-thumbnail.ts`
+- Aktualizacja E2E `media-pack.spec.ts` (znika drugi request)
+
+> **Aneks (impl-review 2026-06-19) — odkryty zakres w commicie p1 (`c9d3f6a`).**
+> Faza 1 dorzuciła kod spoza pierwotnego planu: nowy moduł `src/lib/images/exif.ts`
+> (odczyt + przepisanie tagu orientacji EXIF — realnie konsumowany przez
+> `deriveThumbnail`, bo photon nie obraca pikseli) oraz zmiany w endpointach
+> serwujących obraz `src/pages/api/photos/[id]/image.ts` i
+> `src/pages/api/shelves/[id]/photos.ts` (proxy `?thumb=1`, koncepcyjnie należące do
+> vision-schema-photo-proxy). Kod poprawny i pokryty testami; odnotowane dla
+> traceability plan↔diff (atomic-commit-per-faza zalecało osobne touched-sety).
+
+## Poza zakresem
+
+- Scalenie `POST /api/photos` w upload-file (pełna atomowość storage+wiersz) — follow-up
+- Wsparcie dekodowania HEIC server-side (photon nie obsługuje; fallback do oryginału)
+- Zmiana kontraktu ścieżki miniatury (`<path>.thumb.jpg` zostaje)
+- Sprzątanie istniejących osieroconych obiektów w storage (osobna czynność operacyjna)

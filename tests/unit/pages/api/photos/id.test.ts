@@ -96,7 +96,10 @@ const detectionRows: DetectionRow[] = [
     raw_author: 'Stanisław Lem',
     vision_confidence: 0.95,
     spine_color: 'niebieski',
-    bbox_x1: 0.1, bbox_y1: 0.1, bbox_x2: 0.2, bbox_y2: 0.9,
+    bbox_x1: 0.1,
+    bbox_y1: 0.1,
+    bbox_x2: 0.2,
+    bbox_y2: 0.9,
     status: 'matched',
   },
   {
@@ -106,7 +109,10 @@ const detectionRows: DetectionRow[] = [
     raw_author: null,
     vision_confidence: 0.8,
     spine_color: 'brązowy',
-    bbox_x1: null, bbox_y1: null, bbox_x2: null, bbox_y2: null,
+    bbox_x1: null,
+    bbox_y1: null,
+    bbox_x2: null,
+    bbox_y2: null,
     status: 'pending',
   },
 ];
@@ -128,15 +134,38 @@ const candidateRow: CandidateRow = {
 };
 
 function makeSupabase(opts: {
-  photoResult: { data: PhotoRow | null; error: { code?: string; message?: string; name?: string } | null };
-  latestRunResult?: { data: VisionRunRow | null; error: { code?: string; message?: string; name?: string } | null };
-  detectionResult?: { data: DetectionRow[] | null; error: { code?: string; message?: string; name?: string } | null };
-  candidatesResult?: { data: CandidateRow[] | null; error: { code?: string; message?: string; name?: string } | null };
-  booksResult?: {
-    data: { id: string; title: string; authors: string[]; isbn_13: string | null; isbn_10: string | null }[] | null;
+  photoResult: {
+    data: PhotoRow | null;
     error: { code?: string; message?: string; name?: string } | null;
   };
-  storageResult?: { data: { signedUrl: string } | null; error: { name: string; message: string } | null };
+  latestRunResult?: {
+    data: VisionRunRow | null;
+    error: { code?: string; message?: string; name?: string } | null;
+  };
+  detectionResult?: {
+    data: DetectionRow[] | null;
+    error: { code?: string; message?: string; name?: string } | null;
+  };
+  candidatesResult?: {
+    data: CandidateRow[] | null;
+    error: { code?: string; message?: string; name?: string } | null;
+  };
+  booksResult?: {
+    data:
+      | {
+          id: string;
+          title: string;
+          authors: string[];
+          isbn_13: string | null;
+          isbn_10: string | null;
+        }[]
+      | null;
+    error: { code?: string; message?: string; name?: string } | null;
+  };
+  storageResult?: {
+    data: { signedUrl: string } | null;
+    error: { name: string; message: string } | null;
+  };
 }) {
   const {
     photoResult,
@@ -214,7 +243,7 @@ function makeSupabase(opts: {
 
 function makeContext(
   params: { id: string | undefined },
-  supabase: ReturnType<typeof makeSupabase>
+  supabase: ReturnType<typeof makeSupabase>,
 ) {
   return {
     params,
@@ -244,7 +273,10 @@ describe('GET /api/photos/[id]', () => {
 
   it('returns 404 on PGRST116 (photo not found or RLS scoped out)', async () => {
     const supabase = makeSupabase({
-      photoResult: { data: null, error: { code: 'PGRST116', message: 'no rows', name: 'PostgrestError' } },
+      photoResult: {
+        data: null,
+        error: { code: 'PGRST116', message: 'no rows', name: 'PostgrestError' },
+      },
     });
     const res = await GET(makeContext({ id: PHOTO_ID }, supabase) as never);
     expect(res.status).toBe(404);
@@ -357,7 +389,10 @@ describe('GET /api/photos/[id]', () => {
 
   it('returns 500 INTERNAL_ERROR on unexpected supabase error', async () => {
     const supabase = makeSupabase({
-      photoResult: { data: null, error: { code: '99999', message: 'db error', name: 'PostgrestError' } },
+      photoResult: {
+        data: null,
+        error: { code: '99999', message: 'db error', name: 'PostgrestError' },
+      },
     });
     const res = await GET(makeContext({ id: PHOTO_ID }, supabase) as never);
     expect(res.status).toBe(500);
@@ -368,7 +403,10 @@ describe('GET /api/photos/[id]', () => {
   it('returns 500 when detections fetch fails', async () => {
     const supabase = makeSupabase({
       photoResult: { data: processedRow, error: null },
-      detectionResult: { data: null, error: { code: '99999', message: 'det error', name: 'PostgrestError' } },
+      detectionResult: {
+        data: null,
+        error: { code: '99999', message: 'det error', name: 'PostgrestError' },
+      },
     });
     const res = await GET(makeContext({ id: PHOTO_ID }, supabase) as never);
     expect(res.status).toBe(500);
@@ -378,34 +416,24 @@ describe('GET /api/photos/[id]', () => {
     const supabase = makeSupabase({
       photoResult: { data: processedRow, error: null },
       detectionResult: { data: detectionRows, error: null },
-      candidatesResult: { data: null, error: { code: '99999', message: 'cand error', name: 'PostgrestError' } },
+      candidatesResult: {
+        data: null,
+        error: { code: '99999', message: 'cand error', name: 'PostgrestError' },
+      },
       booksResult: { data: [], error: null },
     });
     const res = await GET(makeContext({ id: PHOTO_ID }, supabase) as never);
     expect(res.status).toBe(500);
   });
 
-  it('returns photo_url as signed URL string in happy path', async () => {
+  it('returns photo_url as proxy URL (always accessible from LAN/mobile)', async () => {
     const supabase = makeSupabase({
       photoResult: { data: uploadedRow, error: null },
       latestRunResult: { data: null, error: null },
-      storageResult: { data: { signedUrl: 'https://example.com/signed-photo.jpg' }, error: null },
     });
     const res = await GET(makeContext({ id: PHOTO_ID }, supabase) as never);
     expect(res.status).toBe(200);
     const json = (await res.json()) as { data: { photo_url: string | null } };
-    expect(json.data.photo_url).toBe('https://example.com/signed-photo.jpg');
-  });
-
-  it('returns photo_url as null when storage createSignedUrl returns error', async () => {
-    const supabase = makeSupabase({
-      photoResult: { data: uploadedRow, error: null },
-      latestRunResult: { data: null, error: null },
-      storageResult: { data: null, error: { name: 'StorageError', message: 'bucket not found' } },
-    });
-    const res = await GET(makeContext({ id: PHOTO_ID }, supabase) as never);
-    expect(res.status).toBe(200);
-    const json = (await res.json()) as { data: { photo_url: string | null } };
-    expect(json.data.photo_url).toBeNull();
+    expect(json.data.photo_url).toBe(`/api/photos/${PHOTO_ID}/image`);
   });
 });

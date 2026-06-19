@@ -3,9 +3,10 @@ import { expect, test } from '@playwright/test';
 /**
  * E2E dla Pakietu B2 (media, M15+M16):
  *
- *  - M15a: upload wysyła do Storage DWA obiekty — oryginał + miniaturę
- *    `<path>.thumb.jpg` (canvas browser-side; best-effort, ale w chromium
- *    na realnym JPEG zawsze się udaje)
+ *  - M15a: upload wysyła oryginał JEDNYM requestem (`upload-file`); miniatura
+ *    `<path>.thumb.jpg` powstaje server-side (photon) — klient nie woła już
+ *    `upload-thumbnail`. E2E mockuje `upload-file`, więc weryfikuje TYLKO że
+ *    klient przestał słać drugi request (server-side photon poza zasięgiem mocka).
  *  - M15b: lista zdjęć renderuje <img loading="lazy">
  *  - M16: desktop (sm+) pokazuje podgląd bez kadrowania (object-contain),
  *    mobile zostaje przy object-cover pełnej szerokości (S-28)
@@ -22,17 +23,22 @@ const PNG_1PX = Buffer.from(
   'base64',
 );
 
-test('M15a: upload wgrywa oryginał + miniaturę .thumb.jpg do Storage', async ({ page }) => {
+test('M15a: upload wgrywa oryginał przez upload-file (miniatura server-side)', async ({ page }) => {
   await page.goto('/upload');
   await page.waitForLoadState('networkidle');
   await expect(page.getByTestId('photo-uploader')).toBeVisible();
   await expect(page.getByTestId('shelf-select')).toBeVisible({ timeout: 10_000 });
 
-  // Zarejestruj KAŻDY storage upload (oryginał + thumb)
-  const storageUploads: string[] = [];
-  await page.route('**/storage/v1/object/shelf-photos/**', (route) => {
-    storageUploads.push(route.request().url());
-    void route.fulfill({ status: 200, body: JSON.stringify({ Key: 'shelf-photos/mock.jpg' }) });
+  // Oryginał uploadowany przez API (serwer → Storage) — przechwytujemy upload-file
+  const MOCK_STORAGE_PATH = 'mock-user-id/mock-photo.jpg';
+  let uploadFileCallCount = 0;
+  await page.route('**/api/photos/upload-file', (route) => {
+    uploadFileCallCount++;
+    void route.fulfill({
+      status: 201,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { storagePath: MOCK_STORAGE_PATH, sha256: 'abc123' } }),
+    });
   });
 
   let recordedShelfId = '';
@@ -74,10 +80,9 @@ test('M15a: upload wgrywa oryginał + miniaturę .thumb.jpg do Storage', async (
 
   await page.waitForURL('**/shelves/*?tab=photos', { timeout: 15_000 });
 
-  // Dwa uploady: najpierw oryginał, potem miniatura z suffixem .thumb.jpg
-  expect(storageUploads).toHaveLength(2);
-  expect(storageUploads[0]).not.toContain('.thumb.jpg');
-  expect(storageUploads[1]).toContain('.thumb.jpg');
+  // Weryfikacja: oryginał przez upload-file (jeden request); miniatura powstaje
+  // server-side w upload-file — klient nie wykonuje już osobnego requestu thumb.
+  expect(uploadFileCallCount).toBe(1);
 });
 
 function mockPhotoList() {

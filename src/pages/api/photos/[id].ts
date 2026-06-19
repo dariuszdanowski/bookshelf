@@ -77,24 +77,9 @@ export const GET: APIRoute = async ({ params, locals }) => {
     created_at: data.created_at,
   };
 
-  let photo_url: string | null = null;
-  try {
-    const { data: signed, error: signedError } = await locals.supabase.storage
-      .from('shelf-photos')
-      .createSignedUrl(data.storage_path, 3600);
-    if (signedError) {
-      console.error('[api/photos GET] createSignedUrl failed', {
-        name: signedError.name,
-        message: signedError.message,
-      });
-    } else {
-      photo_url = signed?.signedUrl ?? null;
-    }
-  } catch (err) {
-    console.error('[api/photos GET] createSignedUrl threw', {
-      message: err instanceof Error ? err.message : String(err),
-    });
-  }
+  // Proxy URL zamiast signed URL — eliminuje problem dostępu do zdjęć
+  // z urządzeń mobilnych w LAN (signed URL wskazuje na 127.0.0.1:54321).
+  const photo_url = `/api/photos/${id}/image`;
 
   // M26: pełny koszt zdjęcia (WSZYSTKIE vision_runs + refine_calls — ta sama
   // suma co dropdown CostPanel/endpoint /costs) + per-detekcja koszt OCR.

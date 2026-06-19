@@ -45,6 +45,39 @@ function isPublicPath(pathname: string): boolean {
 }
 
 /**
+ * Per-request access log dla `/api/*`: kiedy (ISO), kto (user id + email),
+ * co (metoda + ścieżka + query), wynik (status) i czas obsługi.
+ *
+ * Query z redakcją wrażliwych kluczy (token/code/secret/key/...). Ciała
+ * requestów CELOWO nielogowane: (a) konsumpcja body zepsułaby downstream
+ * endpoint, (b) ryzyko wycieku sekretów (klucz BYOK w POST /api/account/keys,
+ * hasło w /api/auth/*). Logujemy tylko `/api/*` — strony/assety pomijamy (szum).
+ */
+const SENSITIVE_QUERY_KEY = /token|code|secret|password|key|jwt/i;
+function redactQuery(search: string): string {
+  if (!search) return '';
+  const parts: string[] = [];
+  for (const [k, v] of new URLSearchParams(search)) {
+    parts.push(`${k}=${SENSITIVE_QUERY_KEY.test(k) ? '[redacted]' : v}`);
+  }
+  return parts.length ? `?${parts.join('&')}` : '';
+}
+
+function logApiRequest(
+  context: APIContext,
+  user: AuthUser | null,
+  status: number,
+  startedAt: number,
+): void {
+  const ms = Date.now() - startedAt;
+  const who = user ? `${user.id} <${user.email ?? '?'}>` : 'anon';
+  console.log(
+    `[api] ${new Date().toISOString()} ${context.request.method} ${context.url.pathname}` +
+      `${redactQuery(context.url.search)} user=${who} -> ${status} (${ms}ms)`,
+  );
+}
+
+/**
  * Core middleware logic — wydzielona z `src/middleware.ts` żeby była testowalna
  * w izolacji. `src/middleware.ts` to thin wrapper z `defineMiddleware`
  * (`astro:middleware` to virtual module dostępny tylko w Astro build/dev —
@@ -52,6 +85,8 @@ function isPublicPath(pathname: string): boolean {
  */
 export async function handleRequest(context: APIContext, next: MiddlewareNext): Promise<Response> {
   logEnvBannerOnce();
+  const startedAt = Date.now();
+  const isApi = context.url.pathname.startsWith('/api/');
 
   // Bootstrap może paść przy missing env (createServerSupabaseClient rzuca
   // czytelnym Error'em). Bez catch raw 500 omija envelope contract dla /api/.
@@ -65,7 +100,8 @@ export async function handleRequest(context: APIContext, next: MiddlewareNext): 
       path: context.url.pathname,
       err: err instanceof Error ? err.message : String(err),
     });
-    if (context.url.pathname.startsWith('/api/')) {
+    if (isApi) {
+      logApiRequest(context, null, 500, startedAt);
       return apiError({
         code: 'INTERNAL_ERROR',
         status: 500,
@@ -100,12 +136,9 @@ export async function handleRequest(context: APIContext, next: MiddlewareNext): 
   context.locals.supabase = supabase;
   context.locals.user = user;
 
-  if (isPublicPath(context.url.pathname)) {
-    return next();
-  }
-
-  if (!user) {
-    if (context.url.pathname.startsWith('/api/')) {
+  if (!isPublicPath(context.url.pathname) && !user) {
+    if (isApi) {
+      logApiRequest(context, null, 401, startedAt);
       return apiError({
         code: 'UNAUTHENTICATED',
         status: 401,
@@ -115,5 +148,7 @@ export async function handleRequest(context: APIContext, next: MiddlewareNext): 
     return context.redirect('/login');
   }
 
-  return next();
+  const response = await next();
+  if (isApi) logApiRequest(context, user, response.status, startedAt);
+  return response;
 }

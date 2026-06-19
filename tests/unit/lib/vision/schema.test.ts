@@ -56,9 +56,17 @@ describe('DetectionSchema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('rejects spine_color not in palette', () => {
+  it('coerces unknown spine_color to null (resilient — model may return unexpected values)', () => {
     const result = DetectionSchema.safeParse([{ ...validItem, spine_color: 'purple' }]);
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data[0].spine_color).toBeNull();
+  });
+
+  it('coerces missing author to null (resilient — model may omit field)', () => {
+    const { author: _omit, ...withoutAuthor } = validItem as typeof validItem & { author: unknown };
+    const result = DetectionSchema.safeParse([withoutAuthor]);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data[0].author).toBeNull();
   });
 
   it('rejects non-integer position', () => {

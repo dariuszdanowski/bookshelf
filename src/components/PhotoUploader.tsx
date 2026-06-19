@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { createBrowserSupabaseClient } from '../lib/db/supabase.browser';
-import { makeThumbnailBlob } from '../lib/images/browserThumb';
 import type { PhotoDTO } from '../lib/photos/schema';
-import { THUMB_SUFFIX } from '../lib/photos/thumb';
 import type { ShelfDTO } from '../lib/shelves/schema';
 import CameraPreview from './CameraPreview';
 import HelpTip from './HelpTip';
@@ -258,24 +255,8 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
       }
       const { storagePath, sha256: serverSha256 } = uploadJson.data;
 
-      // M15: miniatura — best-effort po stronie klienta; błąd NIE blokuje uploadu.
-      // Thumbnail uploadujemy nadal przez Supabase browser client (dodatkowe żądanie
-      // które może nie dojść z urządzeń bez dostępu do storage URL — graceful degradation).
-      try {
-        const supabase = createBrowserSupabaseClient();
-        const thumb = await makeThumbnailBlob(file);
-        if (thumb) {
-          const { error: thumbErr } = await supabase.storage
-            .from('shelf-photos')
-            .upload(`${storagePath}${THUMB_SUFFIX}`, thumb, {
-              contentType: 'image/jpeg',
-              upsert: false,
-            });
-          if (thumbErr) console.warn('[PhotoUploader] thumb upload failed', thumbErr.message);
-        }
-      } catch (thumbEx) {
-        console.warn('[PhotoUploader] thumb generation failed', thumbEx);
-      }
+      // M15 (thumbnail-server-side): miniatura powstaje server-side w upload-file
+      // (photon, best-effort) obok oryginału — klient nie dotyka już canvasu.
 
       setStage('recording');
       const recRes = await fetch('/api/photos', {

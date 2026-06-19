@@ -271,48 +271,20 @@ describe('GET /api/shelves/[id]/photos', () => {
     expect(json.data.photos[0].latest_vision_run).toBeNull();
   });
 
-  it('includes signed thumbnail_url from storage (fallback do oryginału bez miniatury — M15)', async () => {
+  // M15: miniatura serwowana przez proxy `/api/photos/:id/image?thumb=1` (URL
+  // względny). Wcześniej batch signed URL — host wskazywał WSL IP, nieosiągalny
+  // z telefonu. Fallback thumb→oryginał żyje teraz w endpoincie proxy, nie tu.
+  it('thumbnail_url to proxy URL z wariantem ?thumb (M15 — proxy zamiast signed URL)', async () => {
     const { supabase } = makeSupabase({});
     const res = await GET(makeContext(supabase) as never);
     const json = (await res.json()) as { data: { photos: { thumbnail_url: string | null }[] } };
-    expect(json.data.photos[0].thumbnail_url).toBe('https://signed.url/photo1.jpg');
+    expect(json.data.photos[0].thumbnail_url).toBe(`/api/photos/${PHOTO_ID_1}/image?thumb=1`);
   });
 
-  // M15: lista preferuje miniaturę <storage_path>.thumb.jpg nad oryginałem
-  it('M15: preferuje signed URL miniatury, gdy thumb istnieje w Storage', async () => {
-    const { supabase } = makeSupabase({
-      signedUrlsResult: {
-        data: [
-          { path: `${STORAGE_PATH_1}.thumb.jpg`, signedUrl: 'https://signed.url/photo1.thumb.jpg' },
-          { path: STORAGE_PATH_1, signedUrl: 'https://signed.url/photo1.jpg' },
-        ],
-        error: null,
-      },
-    });
-    const res = await GET(makeContext(supabase) as never);
-    const json = (await res.json()) as { data: { photos: { thumbnail_url: string | null }[] } };
-    expect(json.data.photos[0].thumbnail_url).toBe('https://signed.url/photo1.thumb.jpg');
-  });
-
-  it('M15: batch sign zawiera ścieżki miniatur PRZED oryginałami (2N paths)', async () => {
+  it('NIE woła storage.createSignedUrls — miniatury idą przez proxy', async () => {
     const { supabase, mockStorage } = makeSupabase({});
     await GET(makeContext(supabase) as never);
-    const fromResult = mockStorage.from.mock.results[0]!.value as {
-      createSignedUrls: ReturnType<typeof vi.fn>;
-    };
-    expect(fromResult.createSignedUrls).toHaveBeenCalledWith(
-      [`${STORAGE_PATH_1}.thumb.jpg`, STORAGE_PATH_1],
-      3600,
-    );
-  });
-
-  it('thumbnail_url is null when storage returns no signed url for path', async () => {
-    const { supabase } = makeSupabase({
-      signedUrlsResult: { data: [], error: null },
-    });
-    const res = await GET(makeContext(supabase) as never);
-    const json = (await res.json()) as { data: { photos: { thumbnail_url: string | null }[] } };
-    expect(json.data.photos[0].thumbnail_url).toBeNull();
+    expect(mockStorage.from).not.toHaveBeenCalled();
   });
 
   it('legacy_no_hash=false when file_hash_sha256 present', async () => {

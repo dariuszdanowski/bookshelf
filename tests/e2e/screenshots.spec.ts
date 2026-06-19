@@ -15,12 +15,20 @@ import { expect, test, type Page } from '@playwright/test';
  * Uruchomienie pojedynczo:
  *   npx playwright test screenshots.spec.ts --project=chromium
  *
+ * Katalog wyjściowy: domyślnie gitignorowany scratch `test-results/screenshots/`,
+ * żeby rutynowy `npm run test:e2e` NIE nadpisywał committed zrzutów README
+ * (te są importowane do bundle'a przez /help — muszą zostać stabilne w VCS).
+ * Regeneracja kanonicznego setu README = świadomy opt-in przez SHOT_OUT:
+ *   SHOT_OUT=docs/screenshots npx playwright test screenshots.spec.ts --project=chromium
+ *
  * Auth: współdzielona sesja z auth.setup.ts (storageState). Ekran logowania
  * świadomie nadpisuje storageState na pusty (guard /login przekierowuje
  * zalogowanych na /).
  */
 
-const OUT = 'docs/screenshots';
+// Domyślnie scratch (test-results/ jest w .gitignore); docs/screenshots tylko
+// przy świadomej regeneracji README przez SHOT_OUT (zob. docstring wyżej).
+const OUT = process.env.SHOT_OUT ?? 'test-results/screenshots';
 test.use({ viewport: { width: 1280, height: 900 } });
 
 // Motyw sterowany env. Domyślnie DARK — to wersja kanoniczna w README, więc
@@ -255,7 +263,11 @@ async function mockPhoto(page: Page) {
   });
   // CostPanel per-detekcja może bić po koszt — odpowiadamy pustym, by nie 404.
   await page.route('**/api/photos/*/cost*', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: {} }) })
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: {} }),
+    }),
   );
 }
 
@@ -263,10 +275,46 @@ async function mockPhoto(page: Page) {
 // Mock: lista półek (02-shelves, picker w 03-upload, filtr w 06-library)
 // ---------------------------------------------------------------------------
 const SHELVES = [
-  { id: SHELF_ID, name: 'Zakupione', location: null, position_index: 0, is_system: true, book_count: 3, photo_count: 1, created_at: '2026-05-20T10:00:00Z' },
-  { id: '00000000-0000-4000-8000-5c5e5e5e5e21', name: 'Salon — beletrystyka', location: 'Salon', position_index: 1, is_system: false, book_count: 12, photo_count: 3, created_at: '2026-05-21T10:00:00Z' },
-  { id: '00000000-0000-4000-8000-5c5e5e5e5e22', name: 'Fantastyka', location: 'Gabinet', position_index: 2, is_system: false, book_count: 8, photo_count: 2, created_at: '2026-05-22T10:00:00Z' },
-  { id: '00000000-0000-4000-8000-5c5e5e5e5e23', name: 'Klasyka', location: 'Sypialnia', position_index: 3, is_system: false, book_count: 15, photo_count: 4, created_at: '2026-05-23T10:00:00Z' },
+  {
+    id: SHELF_ID,
+    name: 'Zakupione',
+    location: null,
+    position_index: 0,
+    is_system: true,
+    book_count: 3,
+    photo_count: 1,
+    created_at: '2026-05-20T10:00:00Z',
+  },
+  {
+    id: '00000000-0000-4000-8000-5c5e5e5e5e21',
+    name: 'Salon — beletrystyka',
+    location: 'Salon',
+    position_index: 1,
+    is_system: false,
+    book_count: 12,
+    photo_count: 3,
+    created_at: '2026-05-21T10:00:00Z',
+  },
+  {
+    id: '00000000-0000-4000-8000-5c5e5e5e5e22',
+    name: 'Fantastyka',
+    location: 'Gabinet',
+    position_index: 2,
+    is_system: false,
+    book_count: 8,
+    photo_count: 2,
+    created_at: '2026-05-22T10:00:00Z',
+  },
+  {
+    id: '00000000-0000-4000-8000-5c5e5e5e5e23',
+    name: 'Klasyka',
+    location: 'Sypialnia',
+    position_index: 3,
+    is_system: false,
+    book_count: 15,
+    photo_count: 4,
+    created_at: '2026-05-23T10:00:00Z',
+  },
 ];
 
 async function mockShelves(page: Page) {
@@ -284,14 +332,102 @@ async function mockShelves(page: Page) {
 // Mock: wyniki wyszukiwarki katalogu (06-library)
 // ---------------------------------------------------------------------------
 const CATALOG = [
-  { id: 'b1', title: 'Solaris', authors: ['Stanisław Lem'], cover_url: null, published_year: 1961, position_index: 1, is_read: true, shelf_id: SHELVES[1].id, shelf_name: 'Salon — beletrystyka', spine_color: 'niebieski' },
-  { id: 'b2', title: 'Lalka', authors: ['Bolesław Prus'], cover_url: null, published_year: 1890, position_index: 2, is_read: false, shelf_id: SHELVES[1].id, shelf_name: 'Salon — beletrystyka', spine_color: 'czerwony' },
-  { id: 'b3', title: 'Ostatnie życzenie', authors: ['Andrzej Sapkowski'], cover_url: null, published_year: 1993, position_index: 1, is_read: true, shelf_id: SHELVES[2].id, shelf_name: 'Fantastyka', spine_color: 'zielony' },
-  { id: 'b4', title: 'Diuna', authors: ['Frank Herbert'], cover_url: null, published_year: 1965, position_index: 2, is_read: false, shelf_id: SHELVES[2].id, shelf_name: 'Fantastyka', spine_color: 'brązowy' },
-  { id: 'b5', title: 'Rok 1984', authors: ['George Orwell'], cover_url: null, published_year: 1949, position_index: 3, is_read: true, shelf_id: SHELVES[1].id, shelf_name: 'Salon — beletrystyka', spine_color: 'szary' },
-  { id: 'b6', title: 'Zbrodnia i kara', authors: ['Fiodor Dostojewski'], cover_url: null, published_year: 1866, position_index: 1, is_read: false, shelf_id: SHELVES[3].id, shelf_name: 'Klasyka', spine_color: 'czarny' },
-  { id: 'b7', title: 'Mistrz i Małgorzata', authors: ['Michaił Bułhakow'], cover_url: null, published_year: 1967, position_index: 2, is_read: true, shelf_id: SHELVES[3].id, shelf_name: 'Klasyka', spine_color: 'czerwony' },
-  { id: 'b8', title: 'Hobbit', authors: ['J.R.R. Tolkien'], cover_url: null, published_year: 1937, position_index: 3, is_read: false, shelf_id: SHELVES[2].id, shelf_name: 'Fantastyka', spine_color: 'zielony' },
+  {
+    id: 'b1',
+    title: 'Solaris',
+    authors: ['Stanisław Lem'],
+    cover_url: null,
+    published_year: 1961,
+    position_index: 1,
+    is_read: true,
+    shelf_id: SHELVES[1].id,
+    shelf_name: 'Salon — beletrystyka',
+    spine_color: 'niebieski',
+  },
+  {
+    id: 'b2',
+    title: 'Lalka',
+    authors: ['Bolesław Prus'],
+    cover_url: null,
+    published_year: 1890,
+    position_index: 2,
+    is_read: false,
+    shelf_id: SHELVES[1].id,
+    shelf_name: 'Salon — beletrystyka',
+    spine_color: 'czerwony',
+  },
+  {
+    id: 'b3',
+    title: 'Ostatnie życzenie',
+    authors: ['Andrzej Sapkowski'],
+    cover_url: null,
+    published_year: 1993,
+    position_index: 1,
+    is_read: true,
+    shelf_id: SHELVES[2].id,
+    shelf_name: 'Fantastyka',
+    spine_color: 'zielony',
+  },
+  {
+    id: 'b4',
+    title: 'Diuna',
+    authors: ['Frank Herbert'],
+    cover_url: null,
+    published_year: 1965,
+    position_index: 2,
+    is_read: false,
+    shelf_id: SHELVES[2].id,
+    shelf_name: 'Fantastyka',
+    spine_color: 'brązowy',
+  },
+  {
+    id: 'b5',
+    title: 'Rok 1984',
+    authors: ['George Orwell'],
+    cover_url: null,
+    published_year: 1949,
+    position_index: 3,
+    is_read: true,
+    shelf_id: SHELVES[1].id,
+    shelf_name: 'Salon — beletrystyka',
+    spine_color: 'szary',
+  },
+  {
+    id: 'b6',
+    title: 'Zbrodnia i kara',
+    authors: ['Fiodor Dostojewski'],
+    cover_url: null,
+    published_year: 1866,
+    position_index: 1,
+    is_read: false,
+    shelf_id: SHELVES[3].id,
+    shelf_name: 'Klasyka',
+    spine_color: 'czarny',
+  },
+  {
+    id: 'b7',
+    title: 'Mistrz i Małgorzata',
+    authors: ['Michaił Bułhakow'],
+    cover_url: null,
+    published_year: 1967,
+    position_index: 2,
+    is_read: true,
+    shelf_id: SHELVES[3].id,
+    shelf_name: 'Klasyka',
+    spine_color: 'czerwony',
+  },
+  {
+    id: 'b8',
+    title: 'Hobbit',
+    authors: ['J.R.R. Tolkien'],
+    cover_url: null,
+    published_year: 1937,
+    position_index: 3,
+    is_read: false,
+    shelf_id: SHELVES[2].id,
+    shelf_name: 'Fantastyka',
+    spine_color: 'zielony',
+  },
 ];
 
 async function mockCatalog(page: Page) {
@@ -300,7 +436,7 @@ async function mockCatalog(page: Page) {
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({ data: { books: CATALOG, total: CATALOG.length } }),
-    })
+    }),
   );
 }
 
@@ -362,7 +498,9 @@ test.describe('readme screenshots — authenticated', () => {
     await expect(page.getByTestId('detection-card-1')).toBeVisible();
     await expect(page.getByTestId('bulk-confirm-button')).toBeVisible();
     await cleanChrome(page);
-    await page.getByTestId('detection-review').screenshot({ path: `${OUT}/05-proposals${SUFFIX}.png` });
+    await page
+      .getByTestId('detection-review')
+      .screenshot({ path: `${OUT}/05-proposals${SUFFIX}.png` });
   });
 
   test('06-library', async ({ page }) => {
