@@ -93,12 +93,7 @@ test.describe('S-38: strona /help', () => {
     await expect(page.getByTestId('help-faq')).toBeVisible();
   });
 
-  // QUARANTINE (2026-06-19): realny bug responsywności na main — prawa strona
-  // headera (Layout.astro:147 → EnvBadge + pille „Pomoc"/„Zgłoś błąd") rozpycha
-  // viewport na 375px (scrollWidth ~427 > 375). Ujawniony po uwolnieniu e2e w CI
-  // (wcześniej e2e biegał tylko workflow_dispatch). Fix headera = osobny change
-  // (/10x-plan „mobile-header-overflow"); zdjąć .fixme po naprawie.
-  test.fixme('375px: /help renderuje się bez poziomego scrolla', async ({ page }) => {
+  test('375px: /help renderuje się bez poziomego scrolla', async ({ page }) => {
     await page.setViewportSize(MOBILE);
     await page.goto('/help');
     await expect(page.getByTestId('help-page')).toBeVisible({ timeout: 10_000 });
@@ -135,10 +130,7 @@ test.describe('S-38: strona /help', () => {
   });
 });
 
-// QUARANTINE (2026-06-19): ten sam bug overflow headera na 375px co przy teście
-// „/help bez poziomego scrolla" wyżej. Cały blok .fixme do czasu fixa headera
-// (osobny change „mobile-header-overflow", /10x-plan); zdjąć .fixme po naprawie.
-test.describe.fixme('S-28: brak poziomego scrolla na 375px', () => {
+test.describe('S-28: brak poziomego scrolla na 375px', () => {
   test.use({ viewport: MOBILE });
 
   for (const route of ['/library', '/shelves', '/upload', '/account']) {
