@@ -131,9 +131,9 @@ Ukrycie EnvBadge poniżej `sm`, zwężenie gapu mobilnego, odkwarantannowanie te
 
 #### Automatyczne
 
-- [x] 1.1 Lint przechodzi: `npm run lint`
-- [x] 1.2 Typecheck przechodzi: `npm run typecheck`
-- [x] 1.3 Pełny E2E przechodzi (6 odkwarantannowanych testów zielone): `npm run test:e2e`
+- [x] 1.1 Lint przechodzi: `npm run lint` — f7268ec
+- [x] 1.2 Typecheck przechodzi: `npm run typecheck` — f7268ec
+- [x] 1.3 Pełny E2E przechodzi (6 odkwarantannowanych testów zielone): `npm run test:e2e` — f7268ec
 
 #### Ręczne
 

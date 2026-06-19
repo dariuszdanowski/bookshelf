@@ -1,7 +1,7 @@
 ---
 change_id: mobile-header-overflow
 title: "Fix: header rozpycha viewport na 375px (poziomy scroll)"
-status: implementing
+status: implemented
 created: 2026-06-19
 updated: 2026-06-19
 archived_at: null
