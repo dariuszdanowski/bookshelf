@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { makeThumbnailBlob } from '../lib/images/browserThumb';
 import type { PhotoDTO } from '../lib/photos/schema';
 import type { ShelfDTO } from '../lib/shelves/schema';
 import CameraPreview from './CameraPreview';
@@ -256,24 +255,8 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
       }
       const { storagePath, sha256: serverSha256 } = uploadJson.data;
 
-      // M15: miniatura — best-effort; błąd NIE blokuje głównego flow.
-      // Generujemy w przeglądarce (canvas), ale uploadujemy przez API serwera
-      // zamiast bezpośrednio do Supabase Storage — telefon nie ma dostępu do
-      // WSL2/lokalnego storage URL.
-      try {
-        const thumb = await makeThumbnailBlob(file);
-        if (thumb) {
-          const thumbForm = new FormData();
-          thumbForm.append('thumb', thumb, 'thumb.jpg');
-          thumbForm.append('storagePath', storagePath);
-          await fetch('/api/photos/upload-thumbnail', {
-            method: 'POST',
-            body: thumbForm,
-          });
-        }
-      } catch (thumbEx) {
-        console.warn('[PhotoUploader] thumb generation/upload failed', thumbEx);
-      }
+      // M15 (thumbnail-server-side): miniatura powstaje server-side w upload-file
+      // (photon, best-effort) obok oryginału — klient nie dotyka już canvasu.
 
       setStage('recording');
       const recRes = await fetch('/api/photos', {

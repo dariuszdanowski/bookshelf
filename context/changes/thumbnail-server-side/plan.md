@@ -271,25 +271,25 @@ w tym slice.
 
 #### Automatyczne
 
-- [x] 1.1 Unit testy `deriveThumbnail` przechodzą (`npm run test:unit`)
-- [x] 1.2 Typecheck (`npm run typecheck`)
-- [x] 1.3 Lint (`npm run lint`)
-- [x] 1.4 Build (`npm run build`)
+- [x] 1.1 Unit testy `deriveThumbnail` przechodzą (`npm run test:unit`) — c9d3f6a
+- [x] 1.2 Typecheck (`npm run typecheck`) — c9d3f6a
+- [x] 1.3 Lint (`npm run lint`) — c9d3f6a
+- [x] 1.4 Build (`npm run build`) — c9d3f6a
 
 #### Ręczne
 
-- [x] 1.5 Upload desktop → oryginał + `<path>.thumb.jpg` w storage, miniatura widoczna
-- [x] 1.6 Upload telefon (HTTP LAN) → wiersz w `photos`, miniatura widoczna
+- [x] 1.5 Upload desktop → oryginał + `<path>.thumb.jpg` w storage, miniatura widoczna — c9d3f6a
+- [x] 1.6 Upload telefon (HTTP LAN) → wiersz w `photos`, miniatura widoczna — c9d3f6a
 
 ### Faza 2: Usunięcie ścieżki klienckiej i martwego kodu
 
 #### Automatyczne
 
-- [ ] 2.1 Grep/lint: brak referencji `browserThumb` / `upload-thumbnail` w `src/`
-- [ ] 2.2 Unit suite zielony bez usuniętego testu (`npm run test:unit`)
-- [ ] 2.3 E2E zielone lokalnie (`npm run test:e2e`)
-- [ ] 2.4 Typecheck + build (`npm run typecheck && npm run build`)
+- [x] 2.1 Grep/lint: brak referencji `browserThumb` / `upload-thumbnail` w `src/`
+- [x] 2.2 Unit suite zielony bez usuniętego testu (`npm run test:unit`)
+- [x] 2.3 E2E zielone lokalnie (`npm run test:e2e`)
+- [x] 2.4 Typecheck + build (`npm run typecheck && npm run build`)
 
 #### Ręczne
 
-- [ ] 2.5 Pełny upload (desktop + telefon) end-to-end, miniatura widoczna, brak nowych sierot
+- [x] 2.5 Pełny upload (desktop + telefon) end-to-end, miniatura widoczna, brak nowych sierot
