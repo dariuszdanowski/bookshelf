@@ -10,11 +10,11 @@ on:
       - '.claude/**'
       - 'context/**'
       - 'docs/**'
-  # Pełny E2E + integracje RLS + bramka migracji — odpalane RĘCZNIE:
-  #   Actions → „Run workflow"  albo  `gh workflow run ci.yml --ref <branch>`
-  # REGUŁA (CLAUDE.md § Testy): odpalaj przed KAŻDYM wrzuceniem zmiany do PR.
-  # Trigger `push: [main]` usunięty — post-merge waliduje deploy.yml (build + smoke);
-  # PR przeszedł verify przed merge → bez redundantnego drugiego runu.
+  # Pełny E2E + integracje RLS + bramka migracji — biega AUTOMATYCZNIE na każdym PR
+  # (od 2026-06-19: nielimitowane minuty Actions po przejściu repo na public).
+  # Dostępny też ręcznie: Actions → „Run workflow" / `gh workflow run ci.yml --ref <branch>`
+  # (np. gate na main przed certyfikacją). Trigger `push: [main]` świadomie pominięty —
+  # post-merge waliduje deploy.yml (build + smoke).
   workflow_dispatch:
 
 # Oszczędność minut Actions: anuluj poprzedni, niezakończony run dla tego samego
@@ -69,13 +69,11 @@ jobs:
 
   e2e:
     # Pełny gate browser-level + integracje RLS + walidacja migracji.
-    # ODPALANY WYŁĄCZNIE RĘCZNIE (workflow_dispatch) — oszczędność minut Actions
-    # (decyzja 2026-06-08). NIE biega na każdym PR. Reguła zespołu: odpalaj go
-    # przed każdym wrzuceniem do PR (lokalnie `npm run test:e2e` i/lub ten run),
-    # oraz przed oddaniem certyfikacyjnym (ręczny run na main).
+    # Biega AUTOMATYCZNIE na każdym PR (od 2026-06-19: nielimitowane minuty Actions
+    # po przejściu repo na public; wcześniej workflow_dispatch dla oszczędności minut).
+    # Dostępny też ręcznie (workflow_dispatch) — np. gate na main przed certyfikacją.
     # Vision/match/storage mockowane browser-side (page.route) → bez ANTHROPIC_API_KEY,
     # bez kosztu LLM. `supabase start` aplikuje migracje + seed = gate walidacji migracji.
-    if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
