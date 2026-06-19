@@ -110,7 +110,7 @@ export default function ThemeToggle() {
   return (
     <>
       {/* Mobile: pojedynczy przycisk z ikoną aktywnego trybu + popover wyboru */}
-      <div className="relative sm:hidden" ref={popoverRef} data-testid="theme-toggle">
+      <div className="relative sm:hidden" ref={popoverRef} data-testid="theme-toggle-mobile">
         <button
           type="button"
           aria-label={`Motyw: ${MODE_LABEL[mode]}`}

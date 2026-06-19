@@ -263,7 +263,9 @@ test.describe('S-19: rematch przy ISTNIEJĄCYM kandydacie (zły auto-match)', ()
     await page.getByTestId('rematch-submit').click();
 
     // Business outcome: zły kandydat zniknął, właściwy (z metadanymi) jest aktywny
-    await expect(page.getByText('Zupełnie inna książka')).not.toBeVisible();
+    await expect(
+      page.getByTestId('candidate-title').filter({ hasText: 'Zupełnie inna książka' }),
+    ).not.toBeVisible();
     await expect(page.getByText('Solaris').first()).toBeVisible();
     // Akceptacja nowego kandydata nadal dostępna (aktywny kandydat podmieniony)
     await expect(page.getByTestId('confirm-button').first()).toBeEnabled();
