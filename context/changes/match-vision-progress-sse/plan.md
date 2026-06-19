@@ -357,8 +357,8 @@ await page.route('**/api/photos/*/match-stream', route => route.abort());
 
 #### Automatyczne
 
-- [x] 1.1 Lint: `npm run lint` — brak nowych błędów (runner.ts + match-stream.ts)
-- [x] 1.2 Typecheck: `npm run typecheck` — oba callery runMatchingConcurrent poprawne
+- [x] 1.1 Lint: `npm run lint` — brak nowych błędów (runner.ts + match-stream.ts) — 733289a
+- [x] 1.2 Typecheck: `npm run typecheck` — oba callery runMatchingConcurrent poprawne — 733289a
 
 #### Ręczne
 
@@ -369,8 +369,8 @@ await page.route('**/api/photos/*/match-stream', route => route.abort());
 
 #### Automatyczne
 
-- [ ] 2.1 Typecheck: nowe props bez `any`, istniejące callery bez TS errors
-- [ ] 2.2 Lint: brak nowych błędów
+- [x] 2.1 Typecheck: nowe props bez `any`, istniejące callery bez TS errors
+- [x] 2.2 Lint: brak nowych błędów
 
 #### Ręczne
 
