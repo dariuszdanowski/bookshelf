@@ -285,11 +285,11 @@ w tym slice.
 
 #### Automatyczne
 
-- [x] 2.1 Grep/lint: brak referencji `browserThumb` / `upload-thumbnail` w `src/`
-- [x] 2.2 Unit suite zielony bez usuniętego testu (`npm run test:unit`)
-- [x] 2.3 E2E zielone lokalnie (`npm run test:e2e`)
-- [x] 2.4 Typecheck + build (`npm run typecheck && npm run build`)
+- [x] 2.1 Grep/lint: brak referencji `browserThumb` / `upload-thumbnail` w `src/` — cad1781
+- [x] 2.2 Unit suite zielony bez usuniętego testu (`npm run test:unit`) — cad1781
+- [x] 2.3 E2E zielone lokalnie (`npm run test:e2e`) — cad1781
+- [x] 2.4 Typecheck + build (`npm run typecheck && npm run build`) — cad1781
 
 #### Ręczne
 
-- [x] 2.5 Pełny upload (desktop + telefon) end-to-end, miniatura widoczna, brak nowych sierot
+- [x] 2.5 Pełny upload (desktop + telefon) end-to-end, miniatura widoczna, brak nowych sierot — cad1781

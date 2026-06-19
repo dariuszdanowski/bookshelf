@@ -1,6 +1,6 @@
 # thumbnail-server-side
 
-**Status:** implementing
+**Status:** implemented
 **Updated:** 2026-06-19
 
 ## Opis
