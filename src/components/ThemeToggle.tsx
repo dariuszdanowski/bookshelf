@@ -116,7 +116,7 @@ export default function ThemeToggle() {
           aria-label={`Motyw: ${MODE_LABEL[mode]}`}
           title={`Motyw: ${MODE_LABEL[mode]}`}
           aria-expanded={popoverOpen}
-          data-testid={`theme-mode-${mode}`}
+          data-testid="theme-toggle-compact"
           onClick={() => setPopoverOpen((o) => !o)}
           className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-gray-300 bg-white text-gray-600 hover:border-violet-400 hover:text-violet-700 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-violet-400 dark:hover:text-violet-400"
         >
