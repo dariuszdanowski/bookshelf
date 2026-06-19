@@ -79,7 +79,7 @@ export default function BugReportModal() {
         type="button"
         data-testid="bug-report-trigger"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 rounded-full bg-rose-600 px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-rose-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600 dark:bg-rose-500 dark:hover:bg-rose-400"
+        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-rose-600 text-xs font-semibold text-white shadow-sm hover:bg-rose-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-600 sm:h-auto sm:w-auto sm:gap-1.5 sm:px-2.5 sm:py-1.5 dark:bg-rose-500 dark:hover:bg-rose-400"
         aria-label="Zgłoś błąd"
       >
         <svg

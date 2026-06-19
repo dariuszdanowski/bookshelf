@@ -70,7 +70,10 @@ function navCls(href: string) {
   </head>
   <body>
     {/* S-38: header zawsze widoczny — Pomoc i logo dostępne też na ekranie logowania */}
-    <header class="relative flex items-center gap-4 p-3 text-sm sm:p-4" data-testid="auth-header">
+    <header
+      class="relative flex items-center gap-2 p-3 text-sm sm:gap-4 sm:p-4"
+      data-testid="auth-header"
+    >
       {/* Logo — link do strony głównej, zawsze widoczny */}
       <a
         href="/library"
@@ -146,12 +149,17 @@ function navCls(href: string) {
       {/* Prawa strona — zawsze widoczna (auth i non-auth) */}
       <div class="ml-auto flex flex-shrink-0 items-center gap-2">
         <ThemeToggle client:only="react" />
-        {/* M9: badge środowiska */}
-        <EnvBadge variant="inline" />
+        {/* M9: badge środowiska — dot na mobile, pełny label na sm+ */}
+        <span class="sm:hidden" aria-hidden="true">
+          <EnvBadge variant="compact" />
+        </span>
+        <span class="hidden sm:inline-flex">
+          <EnvBadge variant="inline" />
+        </span>
         {/* S-38: Pomoc — indigo pill dostępna na każdej stronie, w tym na logowaniu */}
         <a
           href="/help"
-          class="inline-flex items-center gap-1.5 rounded-full bg-indigo-600 px-2.5 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+          class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 sm:h-auto sm:w-auto sm:gap-1.5 sm:px-2.5 sm:py-1.5 dark:bg-indigo-500 dark:hover:bg-indigo-400"
           aria-current={currentPath === '/help' ? 'page' : undefined}
           data-testid="nav-help"
         >

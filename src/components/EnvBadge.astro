@@ -7,8 +7,8 @@ import {
 } from '../lib/db/environment';
 
 interface Props {
-  /** M9: 'inline' — statycznie w headerze obok ThemeToggle; 'floating' — róg ekranu (strony anon). */
-  variant?: 'floating' | 'inline';
+  /** M9: 'inline' — statycznie w headerze obok ThemeToggle; 'floating' — róg ekranu (strony anon); 'compact' — kolorowy dot (mobile). */
+  variant?: 'floating' | 'inline' | 'compact';
 }
 
 const { variant = 'floating' } = Astro.props;
@@ -22,10 +22,14 @@ const styles: Record<typeof dbEnv, string> = {
   unknown: 'bg-yellow-500 ring-yellow-300',
 };
 
+const COMPACT_LABEL: Record<typeof dbEnv, string> = { local: 'L', prod: 'P', unknown: '?' };
+
 const placement =
   variant === 'inline'
-    ? 'rounded-md px-2 py-1 text-[10px] font-bold text-white ring-2'
-    : 'fixed bottom-2 right-2 z-[9999] rounded-md px-3 py-1.5 text-xs font-bold text-white shadow-lg ring-2';
+    ? 'rounded-full px-2.5 py-1.5 text-xs font-semibold text-white'
+    : variant === 'compact'
+      ? 'inline-flex h-8 w-8 items-center justify-center rounded-full text-[10px] font-bold text-white'
+      : 'fixed bottom-2 right-2 z-[9999] rounded-md px-3 py-1.5 text-xs font-bold text-white shadow-lg ring-2';
 ---
 
 {
@@ -39,7 +43,7 @@ const placement =
       data-env={dbEnv}
       title={`Supabase Studio: ${studioUrl}`}
     >
-      {ENV_LABEL[dbEnv]}
+      {variant === 'compact' ? COMPACT_LABEL[dbEnv] : ENV_LABEL[dbEnv]}
     </a>
   ) : (
     <div
@@ -48,7 +52,7 @@ const placement =
       data-env={dbEnv}
       title={`Supabase: ${url || '(brak URL)'}`}
     >
-      {ENV_LABEL[dbEnv]}
+      {variant === 'compact' ? COMPACT_LABEL[dbEnv] : ENV_LABEL[dbEnv]}
     </div>
   )
 }
