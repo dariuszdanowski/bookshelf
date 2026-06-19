@@ -372,9 +372,9 @@ Brak — `ProgressModal` nie ma logiki biznesowej. Coverage przez E2E.
 
 #### Automatyczne
 
-- [x] 3.1 `npm run typecheck` zielony
-- [x] 3.2 `npm run lint` zielony
-- [x] 3.3 `npm run test:e2e` zielony — manual-rematch bez regresji
+- [x] 3.1 `npm run typecheck` zielony — 9c8d7ca
+- [x] 3.2 `npm run lint` zielony — 9c8d7ca
+- [x] 3.3 `npm run test:e2e` zielony — manual-rematch bez regresji — 9c8d7ca
 
 #### Ręczne
 
@@ -386,6 +386,6 @@ Brak — `ProgressModal` nie ma logiki biznesowej. Coverage przez E2E.
 
 #### Automatyczne
 
-- [x] 4.1 Nowe testy upload-flow (modal visibility) zielone
-- [x] 4.2 Nowe testy manual-rematch (modal visibility) zielone
-- [x] 4.3 `npm run test:e2e` — pełny suite zielony
+- [x] 4.1 Nowe testy upload-flow (modal visibility) zielone — 9c8d7ca
+- [x] 4.2 Nowe testy manual-rematch (modal visibility) zielone — 9c8d7ca
+- [x] 4.3 `npm run test:e2e` — pełny suite zielony — 9c8d7ca
