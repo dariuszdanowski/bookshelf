@@ -348,20 +348,20 @@ Brak — `ProgressModal` nie ma logiki biznesowej. Coverage przez E2E.
 
 #### Automatyczne
 
-- [x] 1.1 `npm run typecheck` zielony po dodaniu `ProgressModal.tsx`
-- [x] 1.2 `npm run lint` zielony
+- [x] 1.1 `npm run typecheck` zielony po dodaniu `ProgressModal.tsx` — d7a0430
+- [x] 1.2 `npm run lint` zielony — d7a0430
 
 #### Ręczne
 
-- [x] 1.3 ProgressModal renderuje overlay i blokuje zamknięcie przez Escape/backdrop
+- [x] 1.3 ProgressModal renderuje overlay i blokuje zamknięcie przez Escape/backdrop — d7a0430
 
 ### Faza 2: Integracja z PhotoUploader
 
 #### Automatyczne
 
-- [ ] 2.1 `npm run typecheck` zielony
-- [ ] 2.2 `npm run lint` zielony
-- [ ] 2.3 `npm run test:e2e` zielony — upload-flow, camera-capture, photo-dedup bez regresji
+- [x] 2.1 `npm run typecheck` zielony
+- [x] 2.2 `npm run lint` zielony
+- [x] 2.3 `npm run test:e2e` zielony — upload-flow, camera-capture, photo-dedup bez regresji
 
 #### Ręczne
 
@@ -372,9 +372,9 @@ Brak — `ProgressModal` nie ma logiki biznesowej. Coverage przez E2E.
 
 #### Automatyczne
 
-- [ ] 3.1 `npm run typecheck` zielony
-- [ ] 3.2 `npm run lint` zielony
-- [ ] 3.3 `npm run test:e2e` zielony — manual-rematch bez regresji
+- [x] 3.1 `npm run typecheck` zielony
+- [x] 3.2 `npm run lint` zielony
+- [x] 3.3 `npm run test:e2e` zielony — manual-rematch bez regresji
 
 #### Ręczne
 
@@ -386,6 +386,6 @@ Brak — `ProgressModal` nie ma logiki biznesowej. Coverage przez E2E.
 
 #### Automatyczne
 
-- [ ] 4.1 Nowe testy upload-flow (modal visibility) zielone
-- [ ] 4.2 Nowe testy manual-rematch (modal visibility) zielone
-- [ ] 4.3 `npm run test:e2e` — pełny suite zielony
+- [x] 4.1 Nowe testy upload-flow (modal visibility) zielone
+- [x] 4.2 Nowe testy manual-rematch (modal visibility) zielone
+- [x] 4.3 `npm run test:e2e` — pełny suite zielony

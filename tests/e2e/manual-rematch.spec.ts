@@ -149,6 +149,68 @@ test.describe('manual rematch — szukaj po tytule', () => {
     await expect(page.getByTestId('rematch-form')).not.toBeVisible();
     expect(rematchCalled).toBe(false);
   });
+
+  test('progress modal: widoczny podczas rematch detekcji', async ({ page }) => {
+    let resolveRematch!: () => void;
+    const rematchHeld = new Promise<void>((r) => {
+      resolveRematch = r;
+    });
+
+    await page.route(`**/api/detections/${DET_ID}/rematch`, async (route) => {
+      await rematchHeld;
+      void route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            applied: false,
+            detection: { id: DET_ID, status: 'pending', raw_title: 'test', raw_author: null },
+            candidates: [],
+            duplicate: null,
+          },
+        }),
+      });
+    });
+
+    await page.getByTestId('rematch-button').first().click();
+    await page.getByTestId('rematch-title').fill('test');
+    await page.getByTestId('rematch-submit').click();
+
+    // Modal powinien się pojawić podczas trzymanego requestu rematch
+    await expect(page.getByTestId('progress-modal')).toBeVisible({ timeout: 3_000 });
+    await expect(page.getByTestId('progress-modal-label')).toContainText('Szukam kandydatów');
+
+    resolveRematch();
+    await expect(page.getByTestId('progress-modal')).not.toBeVisible({ timeout: 5_000 });
+  });
+
+  test('progress modal: widoczny podczas toolbar rerun match', async ({ page }) => {
+    let resolveMatch!: () => void;
+    const matchHeld = new Promise<void>((r) => {
+      resolveMatch = r;
+    });
+
+    await page.route(`**/api/photos/${PHOTO_ID}/match`, async (route) => {
+      await matchHeld;
+      void route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { matched: 0, rate_limited: 0 } }),
+      });
+    });
+
+    await expect(page.getByTestId('rerun-match-button')).toBeVisible({ timeout: 5_000 });
+    await page.getByTestId('rerun-match-button').click();
+
+    // Modal powinien się pojawić podczas trzymanego requestu match
+    await expect(page.getByTestId('progress-modal')).toBeVisible({ timeout: 3_000 });
+    await expect(page.getByTestId('progress-modal-label')).toContainText('Dopasowywanie');
+
+    resolveMatch();
+    // Po sukcesie window.location.reload() — czekamy na załadowanie strony
+    await page.waitForLoadState('networkidle', { timeout: 10_000 });
+    await expect(page.getByTestId('progress-modal')).not.toBeVisible();
+  });
 });
 
 // ---------------------------------------------------------------------------
