@@ -1,7 +1,13 @@
-# thumbnail-server-side
+---
+change_id: thumbnail-server-side
+title: "Miniatura zdjęcia server-side (photon, upload-file)"
+status: archived
+archived_at: 2026-06-19T08:04:44Z
+created: 2026-06-19
+updated: 2026-06-19
+---
 
-**Status:** impl_reviewed
-**Updated:** 2026-06-19
+# thumbnail-server-side
 
 ## Opis
 
