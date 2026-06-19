@@ -263,6 +263,24 @@ w tym slice.
 - Konwencja ścieżki: `src/lib/photos/thumb.ts:8` (`THUMB_SUFFIX`)
 - Dowód buga: osierocone obiekty w lokalnym `storage.objects` (2026-06-18)
 
+## Aneks — odkryty zakres (impl-review 2026-06-19)
+
+Commit fazy 1 (`c9d3f6a`, „miniatura server-side + EXIF + proxy serwowania") objął
+poza zaplanowanymi `resize.ts` + `upload-file.ts` także:
+
+- **`src/lib/images/exif.ts`** (nowy) — odczyt i przepisanie tagu orientacji EXIF.
+  Odkryta konieczność: photon nie obraca pikseli (a jego `rotate` psuje obraz), więc
+  `deriveThumbnail` przepisuje tag orientacji do miniatury, by przeglądarka obróciła
+  ją przy wyświetlaniu. Stąd `deriveThumbnail` robi więcej niż „czysty resize→JPEG"
+  z kontraktu fazy 1 (sygnatura i intent zachowane).
+- **`src/pages/api/photos/[id]/image.ts`** i **`src/pages/api/shelves/[id]/photos.ts`**
+  — zmiany proxy serwowania (`?thumb=1` z fallbackiem do oryginału). Koncepcyjnie
+  bliższe zmianie vision-schema-photo-proxy; spakowane tutaj.
+
+Kod poprawny, bezpieczny (auth-before-fetch + RLS + 404-privacy zweryfikowane) i
+pokryty testami unit. Odnotowane wyłącznie dla traceability plan↔diff —
+atomic-commit-per-faza zalecało osobne touched-sety per zmiana.
+
 ## Postęp
 
 > Konwencja: `- [ ]` oczekujące, `- [x]` wykonane. Dołącz ` — <commit sha>` po zakończeniu kroku.

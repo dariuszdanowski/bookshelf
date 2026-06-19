@@ -1,6 +1,6 @@
 # thumbnail-server-side
 
-**Status:** implemented
+**Status:** impl_reviewed
 **Updated:** 2026-06-19
 
 ## Opis
@@ -19,6 +19,15 @@ i zostawia osierocone obiekty w storage bez wiersza w `photos`.
 - Usunięcie `src/lib/images/browserThumb.ts` + jej unit testu
 - Usunięcie endpointu `src/pages/api/photos/upload-thumbnail.ts`
 - Aktualizacja E2E `media-pack.spec.ts` (znika drugi request)
+
+> **Aneks (impl-review 2026-06-19) — odkryty zakres w commicie p1 (`c9d3f6a`).**
+> Faza 1 dorzuciła kod spoza pierwotnego planu: nowy moduł `src/lib/images/exif.ts`
+> (odczyt + przepisanie tagu orientacji EXIF — realnie konsumowany przez
+> `deriveThumbnail`, bo photon nie obraca pikseli) oraz zmiany w endpointach
+> serwujących obraz `src/pages/api/photos/[id]/image.ts` i
+> `src/pages/api/shelves/[id]/photos.ts` (proxy `?thumb=1`, koncepcyjnie należące do
+> vision-schema-photo-proxy). Kod poprawny i pokryty testami; odnotowane dla
+> traceability plan↔diff (atomic-commit-per-faza zalecało osobne touched-sety).
 
 ## Poza zakresem
 
