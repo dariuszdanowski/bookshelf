@@ -520,18 +520,20 @@ export default function PhotoListIsland({ shelfId }: Props) {
                   {photo.stage === 'uploaded' && (
                     <button
                       data-testid={`run-vision-${photo.id}`}
-                      disabled={rowState.busy}
+                      disabled={rowState.busy || isLocked}
+                      title={isLocked ? 'Trwa analiza, poczekaj na zakończenie' : undefined}
                       onClick={() => handleRunVision(photo.id, false)}
                       className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                     >
-                      {rowState.busy ? 'Uruchamiam...' : 'Uruchom vision'}
+                      {rowState.busy || isLocked ? 'Uruchamiam...' : 'Uruchom vision'}
                     </button>
                   )}
 
                   {isRerun && (
                     <button
                       data-testid={`rerun-vision-${photo.id}`}
-                      disabled={rowState.busy}
+                      disabled={rowState.busy || isLocked}
+                      title={isLocked ? 'Trwa analiza, poczekaj na zakończenie' : undefined}
                       onClick={() => handleRunVision(photo.id, true)}
                       className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                     >
@@ -542,7 +544,8 @@ export default function PhotoListIsland({ shelfId }: Props) {
                   {photo.stage === 'vision_done' && (
                     <button
                       data-testid={`run-match-${photo.id}`}
-                      disabled={rowState.busy}
+                      disabled={rowState.busy || isLocked}
+                      title={isLocked ? 'Trwa analiza, poczekaj na zakończenie' : undefined}
                       onClick={() => handleRunMatch(photo.id)}
                       className="inline-flex items-center rounded-md border border-blue-300 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
                     >
@@ -553,7 +556,8 @@ export default function PhotoListIsland({ shelfId }: Props) {
                   {(photo.stage === 'match_done' || photo.stage === 'confirmed') && (
                     <button
                       data-testid={`rerun-match-${photo.id}`}
-                      disabled={rowState.busy}
+                      disabled={rowState.busy || isLocked}
+                      title={isLocked ? 'Trwa analiza, poczekaj na zakończenie' : undefined}
                       onClick={() => handleRunMatch(photo.id)}
                       className="inline-flex items-center rounded-md border border-blue-300 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
                     >

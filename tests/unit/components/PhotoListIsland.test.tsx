@@ -426,6 +426,21 @@ describe('PhotoListIsland', () => {
     expect(screen.queryByTestId('legacy-hash-badge-fresh')).not.toBeInTheDocument();
   });
 
+  it('disabled-guard: run-vision wyłączony gdy stage=uploaded + has_running_run=true', async () => {
+    mockFetch({
+      photosList: () =>
+        jsonResponse({
+          data: {
+            photos: [makePhoto({ id: PHOTO_ID, stage: 'uploaded', has_running_run: true })],
+          },
+        }),
+    });
+    render(<PhotoListIsland shelfId={SHELF_ID} shelfName="Salon" />);
+    await waitFor(() => expect(screen.getByTestId(`run-vision-${PHOTO_ID}`)).toBeInTheDocument());
+    expect(screen.getByTestId(`run-vision-${PHOTO_ID}`)).toBeDisabled();
+    expect(screen.getByTestId(`run-vision-${PHOTO_ID}`)).toHaveTextContent('Uruchamiam...');
+  });
+
   it('disabled-guard: Usuń/Przenieś wyłączone gdy has_running_run', async () => {
     mockFetch({
       shelves: () =>
