@@ -369,8 +369,8 @@ await page.route('**/api/photos/*/match-stream', route => route.abort());
 
 #### Automatyczne
 
-- [x] 2.1 Typecheck: nowe props bez `any`, istniejące callery bez TS errors
-- [x] 2.2 Lint: brak nowych błędów
+- [x] 2.1 Typecheck: nowe props bez `any`, istniejące callery bez TS errors — f951826
+- [x] 2.2 Lint: brak nowych błędów — f951826
 
 #### Ręczne
 
@@ -381,9 +381,9 @@ await page.route('**/api/photos/*/match-stream', route => route.abort());
 
 #### Automatyczne
 
-- [ ] 3.1 Typecheck: nowe state vars poprawnie typowane (PhotoUploader + PhotoListIsland)
-- [ ] 3.2 Lint: brak nowych błędów
-- [ ] 3.3 E2E z mock SSE: `npm run test:e2e` → upload-flow zielony
+- [x] 3.1 Typecheck: nowe state vars poprawnie typowane (PhotoUploader + PhotoListIsland)
+- [x] 3.2 Lint: brak nowych błędów
+- [x] 3.3 E2E z mock SSE: `npm run test:e2e` → upload-flow zielony
 
 #### Ręczne
 

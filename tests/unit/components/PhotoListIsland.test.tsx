@@ -4,6 +4,49 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import PhotoListIsland from '../../../src/components/PhotoListIsland';
 import type { PhotoListItemDTO } from '../../../src/lib/photos/schema';
 
+// ─── EventSource mock ─────────────────────────────────────────────────────────
+// jsdom doesn't ship EventSource; we mock it so the SSE match-stream path works.
+// let (not const) — individual tests may override before firing EventSource.
+let _eseDonePayload: { matched: number; rate_limited: number } = { matched: 0, rate_limited: 0 };
+let _eseErrorCount = 0;
+
+class MockEventSource {
+  url: string;
+  _listeners: Record<string, ((e: MessageEvent) => void)[]> = {};
+  onerror: ((e: Event) => void) | null = null;
+
+  constructor(url: string) {
+    this.url = url;
+    const errors = _eseErrorCount;
+    if (errors > 0) {
+      let count = 0;
+      const fire = () => {
+        queueMicrotask(() => {
+          count++;
+          this.onerror?.(new Event('error'));
+          if (count < errors) fire();
+        });
+      };
+      fire();
+    } else {
+      const payload = { ..._eseDonePayload };
+      queueMicrotask(() => {
+        (this._listeners['done'] ?? []).forEach((h) =>
+          h(new MessageEvent('done', { data: JSON.stringify(payload) })),
+        );
+      });
+    }
+  }
+
+  addEventListener(type: string, handler: (e: MessageEvent) => void) {
+    if (!this._listeners[type]) this._listeners[type] = [];
+    this._listeners[type].push(handler);
+  }
+
+  close() {}
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 const SHELF_ID = '00000000-0000-4000-8000-000000000001';
 const PHOTO_ID = '00000000-0000-4000-8000-000000000002';
 const OTHER_SHELF_ID = '00000000-0000-4000-8000-000000000099';
@@ -87,7 +130,16 @@ function mockFetch(routes: {
 }
 
 describe('PhotoListIsland', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    _eseDonePayload = { matched: 0, rate_limited: 0 };
+    _eseErrorCount = 0;
+    Object.defineProperty(global, 'EventSource', {
+      configurable: true,
+      writable: true,
+      value: MockEventSource,
+    });
+  });
   afterEach(() => vi.restoreAllMocks());
 
   it('shows loading skeletons then renders empty state when no photos', async () => {
@@ -417,15 +469,17 @@ describe('PhotoListIsland', () => {
   });
 
   // S-39: toast gdy match ścięty limitem GB mimo retry
-  it('toast „N pozycji wstrzymał limit" gdy /match zwraca rate_limited > 0', async () => {
+  // SSE path: done event z rate_limited > 0 → toast; nie używamy sync /match fallback.
+  it('toast „N pozycji wstrzymał limit" gdy SSE done zwraca rate_limited > 0', async () => {
     mockFetch({
       photosList: () =>
         jsonResponse({ data: { photos: [makePhoto({ id: PHOTO_ID, stage: 'vision_done' })] } }),
-      match: () => jsonResponse({ data: { matched: 5, rate_limited: 9, detections: [] } }),
     });
     render(<PhotoListIsland shelfId={SHELF_ID} shelfName="Salon" />);
     await waitFor(() => expect(screen.getByTestId(`run-match-${PHOTO_ID}`)).toBeInTheDocument());
 
+    // Set payload before click so MockEventSource captures it at construction time.
+    _eseDonePayload = { matched: 5, rate_limited: 9 };
     fireEvent.click(screen.getByTestId(`run-match-${PHOTO_ID}`));
 
     await waitFor(() =>

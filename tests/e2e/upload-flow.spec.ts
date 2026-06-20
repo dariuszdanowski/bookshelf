@@ -181,6 +181,18 @@ test('progress modal: widoczny podczas analizy vision w PhotoUploader', async ({
       body: JSON.stringify(MOCK_PROCESS_RESPONSE),
     });
   });
+  // Mock SSE match-stream → immediate done (2 detections matched).
+  await page.route(`**/api/photos/${PHOTO_ID}/match-stream`, (route) =>
+    route.fulfill({
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+      body: [
+        'event: progress\ndata: {"index":1,"total":2,"title":"Solaris","detectionId":"det-1"}\n\n',
+        'event: progress\ndata: {"index":2,"total":2,"title":"Dune","detectionId":"det-2"}\n\n',
+        'event: done\ndata: {"matched":2,"rate_limited":0}\n\n',
+      ].join(''),
+    }),
+  );
   await page.route(`**/api/photos/${PHOTO_ID}/match`, (route) =>
     route.fulfill({
       status: 200,
@@ -259,7 +271,20 @@ test('upload flow: /upload → wybór półki → upload → redirect → propoz
     });
   });
 
-  // 7. Intercept /api/photos/*/match
+  // 7. Intercept /api/photos/*/match-stream (SSE) — immediate done
+  await page.route(`**/api/photos/${PHOTO_ID}/match-stream`, (route) => {
+    void route.fulfill({
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+      body: [
+        'event: progress\ndata: {"index":1,"total":2,"title":"Solaris","detectionId":"det-1"}\n\n',
+        'event: progress\ndata: {"index":2,"total":2,"title":"Dune","detectionId":"det-2"}\n\n',
+        'event: done\ndata: {"matched":2,"rate_limited":0}\n\n',
+      ].join(''),
+    });
+  });
+
+  // 7b. Intercept /api/photos/*/match (sync POST — SSE fallback path)
   await page.route(`**/api/photos/${PHOTO_ID}/match`, (route) => {
     void route.fulfill({
       status: 200,
