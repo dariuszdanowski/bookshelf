@@ -59,6 +59,15 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
   const [matchProgress, setMatchProgress] = useState<{ current: number; total: number } | null>(
     null,
   );
+  const [matchStats, setMatchStats] = useState<{ matched: number; unmatched: number }>({
+    matched: 0,
+    unmatched: 0,
+  });
+  const [currentMatchItem, setCurrentMatchItem] = useState<{
+    title: string;
+    authors?: string[];
+    matched?: boolean;
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const matchSourceRef = useRef<EventSource | null>(null);
@@ -147,6 +156,8 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
     setStage('matching');
     setMatchTitles([]);
     setMatchProgress(null);
+    setMatchStats({ matched: 0, unmatched: 0 });
+    setCurrentMatchItem(null);
 
     await new Promise<void>((resolve, reject) => {
       let settled = false;
@@ -160,9 +171,21 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
           index: number;
           total: number;
           title: string;
+          matched: boolean;
+          candidateTitle?: string;
+          candidateAuthors?: string[];
         };
         setMatchTitles((prev) => [...prev, d.title]);
         setMatchProgress({ current: d.index, total: d.total });
+        setMatchStats((prev) => ({
+          matched: prev.matched + (d.matched ? 1 : 0),
+          unmatched: prev.unmatched + (d.matched ? 0 : 1),
+        }));
+        setCurrentMatchItem({
+          title: d.candidateTitle ?? d.title,
+          authors: d.candidateAuthors,
+          matched: d.matched,
+        });
       });
 
       source.addEventListener('done', () => {
@@ -730,9 +753,21 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
 
       <ProgressModal
         open={stage === 'processing' || stage === 'matching'}
-        label={stageLabel[stage] ?? ''}
+        label="Przetwarzanie zdjęcia"
+        steps={[
+          {
+            label: 'Analiza obrazu',
+            status: stage === 'processing' ? 'active' : 'done',
+          },
+          {
+            label: 'Dopasowywanie do baz książek',
+            status: stage === 'processing' ? 'pending' : 'active',
+          },
+        ]}
         titles={stage === 'matching' ? matchTitles : undefined}
         progress={stage === 'matching' ? (matchProgress ?? undefined) : undefined}
+        stats={stage === 'matching' && matchProgress !== null ? matchStats : null}
+        currentItem={stage === 'matching' ? currentMatchItem : null}
       />
     </div>
   );

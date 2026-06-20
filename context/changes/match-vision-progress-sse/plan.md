@@ -381,9 +381,9 @@ await page.route('**/api/photos/*/match-stream', route => route.abort());
 
 #### Automatyczne
 
-- [x] 3.1 Typecheck: nowe state vars poprawnie typowane (PhotoUploader + PhotoListIsland)
-- [x] 3.2 Lint: brak nowych błędów
-- [x] 3.3 E2E z mock SSE: `npm run test:e2e` → upload-flow zielony
+- [x] 3.1 Typecheck: nowe state vars poprawnie typowane (PhotoUploader + PhotoListIsland) — 25849f4
+- [x] 3.2 Lint: brak nowych błędów — 25849f4
+- [x] 3.3 E2E z mock SSE: `npm run test:e2e` → upload-flow zielony — 25849f4
 
 #### Ręczne
 
@@ -395,8 +395,8 @@ await page.route('**/api/photos/*/match-stream', route => route.abort());
 
 #### Automatyczne
 
-- [ ] 4.1 `npm run test:e2e` — nowe SSE progress testy zielone
-- [ ] 4.2 Brak regresji w photo-crud, manual-rematch
+- [x] 4.1 `npm run test:e2e` — nowe SSE progress testy zielone
+- [x] 4.2 Brak regresji w photo-crud, manual-rematch
 
 #### Ręczne
 

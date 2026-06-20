@@ -248,6 +248,9 @@ export const GET: APIRoute = async ({ params, locals }) => {
                   total: evt.total,
                   title: evt.title,
                   detectionId: evt.detectionId,
+                  matched: evt.matched,
+                  candidateTitle: evt.candidateTitle,
+                  candidateAuthors: evt.candidateAuthors,
                 })}\n\n`,
               ),
             );
@@ -277,8 +280,12 @@ export const GET: APIRoute = async ({ params, locals }) => {
           if (!rateLimited) allRateLimited = false;
 
           if (rateLimited) {
-            rateLimitedCount++;
-            continue;
+            const existingForDet = existingByDetection.get(det.id) ?? [];
+            if (existingForDet.length === 0) {
+              rateLimitedCount++;
+              continue;
+            }
+            // Existing candidates available — fall through to shouldKeepExisting.
           }
 
           const existingRowsForDetection = existingByDetection.get(det.id) ?? [];

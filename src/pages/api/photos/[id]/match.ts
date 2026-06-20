@@ -278,19 +278,23 @@ export const POST: APIRoute = async ({ params, locals }) => {
     const { candidates, duplicate, rateLimited } = result.value;
     if (!rateLimited) allRateLimited = false;
 
-    // Rate-limited → leave detection at current status (retriable)
+    // Rate-limited → fall back to existing candidates if available; else leave retriable.
     if (rateLimited) {
-      rateLimitedCount++;
-      responseDetections.push({
-        id: det.id,
-        raw_title: det.raw_title ?? '',
-        raw_author: det.raw_author,
-        position_index: det.position_index,
-        status: det.status,
-        candidates: [],
-        duplicate: null,
-      });
-      continue;
+      const existingForDet = existingByDetection.get(det.id) ?? [];
+      if (existingForDet.length === 0) {
+        rateLimitedCount++;
+        responseDetections.push({
+          id: det.id,
+          raw_title: det.raw_title ?? '',
+          raw_author: det.raw_author,
+          position_index: det.position_index,
+          status: det.status,
+          candidates: [],
+          duplicate: null,
+        });
+        continue;
+      }
+      // Existing candidates available — fall through to shouldKeepExisting.
     }
 
     const existingRowsForDetection = existingByDetection.get(det.id) ?? [];

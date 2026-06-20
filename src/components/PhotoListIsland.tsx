@@ -54,6 +54,15 @@ export default function PhotoListIsland({ shelfId }: Props) {
   const [matchProgress, setMatchProgress] = useState<{ current: number; total: number } | null>(
     null,
   );
+  const [matchStats, setMatchStats] = useState<{ matched: number; unmatched: number }>({
+    matched: 0,
+    unmatched: 0,
+  });
+  const [currentMatchItem, setCurrentMatchItem] = useState<{
+    title: string;
+    authors?: string[];
+    matched?: boolean;
+  } | null>(null);
   const matchSourceRef = useRef<EventSource | null>(null);
 
   // Close any open SSE connection on unmount.
@@ -158,6 +167,8 @@ export default function PhotoListIsland({ shelfId }: Props) {
       setBusyOpLabel('Dopasowywanie do baz książek...');
       setMatchTitles([]);
       setMatchProgress(null);
+      setMatchStats({ matched: 0, unmatched: 0 });
+      setCurrentMatchItem(null);
       patchRow(photoId, { busy: true, toast: null });
 
       try {
@@ -174,9 +185,21 @@ export default function PhotoListIsland({ shelfId }: Props) {
                 index: number;
                 total: number;
                 title: string;
+                matched: boolean;
+                candidateTitle?: string;
+                candidateAuthors?: string[];
               };
               setMatchTitles((prev) => [...prev, d.title]);
               setMatchProgress({ current: d.index, total: d.total });
+              setMatchStats((prev) => ({
+                matched: prev.matched + (d.matched ? 1 : 0),
+                unmatched: prev.unmatched + (d.matched ? 0 : 1),
+              }));
+              setCurrentMatchItem({
+                title: d.candidateTitle ?? d.title,
+                authors: d.candidateAuthors,
+                matched: d.matched,
+              });
             });
 
             source.addEventListener('done', (e) => {
@@ -626,6 +649,8 @@ export default function PhotoListIsland({ shelfId }: Props) {
         label={busyOpLabel ?? ''}
         titles={matchTitles.length > 0 ? matchTitles : undefined}
         progress={matchProgress ?? undefined}
+        stats={matchProgress !== null ? matchStats : null}
+        currentItem={currentMatchItem}
       />
     </>
   );

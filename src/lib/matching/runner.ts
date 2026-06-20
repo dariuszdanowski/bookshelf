@@ -37,6 +37,9 @@ export type MatchProgressEvent = {
   total: number;
   detectionId: string;
   title: string;
+  matched: boolean;
+  candidateTitle?: string;
+  candidateAuthors?: string[];
 };
 
 export type OnMatchProgressFn = (event: MatchProgressEvent) => void;
@@ -158,11 +161,15 @@ export async function runMatchingWithProgress(
     detectionRows.map(
       (det) => () =>
         matchDetection(det, catalog).then((result) => {
+          const top = result.candidates[0];
           onProgress?.({
             index: ++completed,
             total,
             detectionId: det.id,
             title: det.raw_title ?? '',
+            matched: result.candidates.length > 0 && !result.rateLimited,
+            candidateTitle: top?.title,
+            candidateAuthors: top?.authors,
           });
           return result;
         }),
