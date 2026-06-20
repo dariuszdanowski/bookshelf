@@ -13,6 +13,48 @@ vi.mock('../../../src/lib/db/supabase.browser', () => ({
 
 import PhotoUploader from '../../../src/components/PhotoUploader';
 
+// ─── EventSource mock ─────────────────────────────────────────────────────────
+// jsdom doesn't ship EventSource; we mock it so the SSE match-stream path works.
+let _eseDonePayload: { matched: number; rate_limited: number } = { matched: 0, rate_limited: 0 };
+let _eseErrorCount = 0;
+
+class MockEventSource {
+  url: string;
+  _listeners: Record<string, ((e: MessageEvent) => void)[]> = {};
+  onerror: ((e: Event) => void) | null = null;
+
+  constructor(url: string) {
+    this.url = url;
+    const errors = _eseErrorCount;
+    if (errors > 0) {
+      let count = 0;
+      const fire = () => {
+        queueMicrotask(() => {
+          count++;
+          this.onerror?.(new Event('error'));
+          if (count < errors) fire();
+        });
+      };
+      fire();
+    } else {
+      const payload = { ..._eseDonePayload };
+      queueMicrotask(() => {
+        (this._listeners['done'] ?? []).forEach((h) =>
+          h(new MessageEvent('done', { data: JSON.stringify(payload) })),
+        );
+      });
+    }
+  }
+
+  addEventListener(type: string, handler: (e: MessageEvent) => void) {
+    if (!this._listeners[type]) this._listeners[type] = [];
+    this._listeners[type].push(handler);
+  }
+
+  close() {}
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 const USER_ID = '00000000-0000-4000-8000-000000000001';
 const SHELF_ID = '00000000-0000-4000-8000-000000000002';
 const PHOTO_ID = '00000000-0000-4000-8000-000000000003';
@@ -48,7 +90,6 @@ const mockDetections = [
     spine_color: 'niebieski',
   },
 ];
-const mockMatchResult = { data: { matched: 1, detections: [] } };
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -79,6 +120,13 @@ function uploadFileMock() {
 beforeEach(() => {
   vi.clearAllMocks();
   sessionStorage.clear();
+  _eseDonePayload = { matched: 0, rate_limited: 0 };
+  _eseErrorCount = 0;
+  Object.defineProperty(global, 'EventSource', {
+    configurable: true,
+    writable: true,
+    value: MockEventSource,
+  });
   Object.defineProperty(window, 'location', {
     configurable: true,
     writable: true,
@@ -133,6 +181,7 @@ describe('PhotoUploader', () => {
   });
 
   it('happy path: upload→record→process→match→redirect to review page', async () => {
+    // match step via SSE (MockEventSource fires done) — no /match fetch mock needed
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(activeKeyMock()) // keys check
@@ -144,8 +193,7 @@ describe('PhotoUploader', () => {
       )
       .mockResolvedValueOnce(
         jsonResponse({ data: { photo: mockPhoto, detections: mockDetections } }),
-      )
-      .mockResolvedValueOnce(jsonResponse(mockMatchResult));
+      );
 
     render(<PhotoUploader />);
     await waitFor(() => expect(screen.getByTestId('shelf-select')).toBeInTheDocument());
@@ -159,16 +207,16 @@ describe('PhotoUploader', () => {
       { timeout: 5000 },
     );
 
-    // Sequence: keys, shelves, check-hash, upload-file, record POST, process POST, match POST
-    expect(fetchMock).toHaveBeenCalledTimes(7);
+    // Sequence: keys, shelves, check-hash, upload-file, record POST, process POST (match via SSE)
+    expect(fetchMock).toHaveBeenCalledTimes(6);
     expect(fetchMock.mock.calls[4][0]).toBe('/api/photos');
     expect(fetchMock.mock.calls[5][0]).toMatch(/\/api\/photos\/.+\/process/);
-    expect(fetchMock.mock.calls[6][0]).toMatch(/\/api\/photos\/.+\/match/);
 
     expect(mockUpload).not.toHaveBeenCalled();
   });
 
   it('retry button re-triggers process+match (no re-upload)', async () => {
+    // match step via SSE (MockEventSource fires done) — no /match fetch mock needed
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(activeKeyMock()) // keys check
@@ -183,8 +231,7 @@ describe('PhotoUploader', () => {
       )
       .mockResolvedValueOnce(
         jsonResponse({ data: { photo: mockPhoto, detections: mockDetections } }),
-      )
-      .mockResolvedValueOnce(jsonResponse(mockMatchResult));
+      );
 
     render(<PhotoUploader />);
     await waitFor(() => expect(screen.getByTestId('shelf-select')).toBeInTheDocument());
@@ -204,14 +251,17 @@ describe('PhotoUploader', () => {
       { timeout: 5000 },
     );
 
-    // 8 calls: keys, shelves, check-hash, upload-file, record, process (fail), process (retry), match (retry)
-    expect(fetchMock).toHaveBeenCalledTimes(8);
+    // 7 calls: keys, shelves, check-hash, upload-file, record, process (fail), process (retry)
+    // match retry via SSE (no fetch call)
+    expect(fetchMock).toHaveBeenCalledTimes(7);
     expect(fetchMock.mock.calls[6][0]).toMatch(/\/api\/photos\/.+\/process/);
-    expect(fetchMock.mock.calls[7][0]).toMatch(/\/api\/photos\/.+\/match/);
     expect(mockUpload).not.toHaveBeenCalled();
   });
 
   it('match-only retry: vision succeeded but match failed → retry re-runs match only (no re-process)', async () => {
+    // First match: SSE fires 3 errors → fallback sync fetch returns 429 → match fails.
+    // Retry match: SSE fires done (no error) → redirect.
+    _eseErrorCount = 3;
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(activeKeyMock()) // keys check
@@ -223,11 +273,10 @@ describe('PhotoUploader', () => {
       )
       .mockResolvedValueOnce(
         jsonResponse({ data: { photo: mockPhoto, detections: mockDetections } }),
-      )
+      ) // process POST
       .mockResolvedValueOnce(
         jsonResponse({ error: { code: 'RATE_LIMITED', message: 'Rate limit' } }, 429),
-      )
-      .mockResolvedValueOnce(jsonResponse(mockMatchResult));
+      ); // SSE fallback match fetch → fail
 
     render(<PhotoUploader />);
     await waitFor(() => expect(screen.getByTestId('shelf-select')).toBeInTheDocument());
@@ -239,6 +288,8 @@ describe('PhotoUploader', () => {
     });
     expect(screen.getByTestId('retry-button')).toHaveTextContent('Spróbuj dopasować ponownie');
 
+    // Reset so retry EventSource fires done instead of errors.
+    _eseErrorCount = 0;
     fireEvent.click(screen.getByTestId('retry-button'));
 
     await waitFor(
@@ -248,12 +299,13 @@ describe('PhotoUploader', () => {
       { timeout: 5000 },
     );
 
-    // 7 calls: keys, shelves, check-hash, record, process (OK), match (fail), match (retry)
-    expect(fetchMock).toHaveBeenCalledTimes(8);
+    // 7 calls: keys, shelves, check-hash, upload-file, record, process (OK), match fallback (fail)
+    // retry match is via SSE (no fetch call)
+    expect(fetchMock).toHaveBeenCalledTimes(7);
     const processCalls = fetchMock.mock.calls.filter((c) => /\/process$/.test(String(c[0])));
     const matchCalls = fetchMock.mock.calls.filter((c) => /\/match$/.test(String(c[0])));
     expect(processCalls).toHaveLength(1);
-    expect(matchCalls).toHaveLength(2);
+    expect(matchCalls).toHaveLength(1); // only the SSE-fallback fetch (fail), retry is via SSE
     expect(mockUpload).not.toHaveBeenCalled();
   });
 
@@ -285,6 +337,7 @@ describe('PhotoUploader', () => {
   it('happy path: sessionStorage cleared after successful redirect (recovery path)', async () => {
     const STALE_ID = '00000000-0000-4000-8000-aaaaaaaaaaaa';
     sessionStorage.setItem('upload_resume_photo_id', STALE_ID);
+    // match step via SSE (MockEventSource fires done) — no /match fetch mock needed
     vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(activeKeyMock()) // keys check
       .mockResolvedValueOnce(jsonResponse({ data: { shelves: mockShelves } })) // shelves
@@ -295,8 +348,7 @@ describe('PhotoUploader', () => {
         jsonResponse({
           data: { photo: { ...mockPhoto, id: STALE_ID }, detections: mockDetections },
         }),
-      ) // process POST
-      .mockResolvedValueOnce(jsonResponse(mockMatchResult)); // match POST
+      ); // process POST
 
     render(<PhotoUploader />);
     await waitFor(() => expect(window.location.href).toBe(`/photos/${STALE_ID}`), {
@@ -331,6 +383,13 @@ describe('PhotoUploader — reload recovery', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     sessionStorage.clear();
+    _eseDonePayload = { matched: 0, rate_limited: 0 };
+    _eseErrorCount = 0;
+    Object.defineProperty(global, 'EventSource', {
+      configurable: true,
+      writable: true,
+      value: MockEventSource,
+    });
     Object.defineProperty(window, 'location', {
       configurable: true,
       writable: true,
@@ -353,6 +412,7 @@ describe('PhotoUploader — reload recovery', () => {
 
   it('status=processing — wznawiamy process+match i redirectujemy', async () => {
     sessionStorage.setItem('upload_resume_photo_id', PHOTO_ID);
+    // match via SSE (MockEventSource fires done) — no /match fetch mock needed
     vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(activeKeyMock()) // keys check
       .mockResolvedValueOnce(jsonResponse({ data: { shelves: [] } })) // shelves
@@ -361,8 +421,7 @@ describe('PhotoUploader — reload recovery', () => {
       ) // recovery GET
       .mockResolvedValueOnce(
         jsonResponse({ data: { photo: mockPhoto, detections: mockDetections } }),
-      ) // process POST
-      .mockResolvedValueOnce(jsonResponse(mockMatchResult)); // match POST
+      ); // process POST
 
     render(<PhotoUploader />);
     await waitFor(() => expect(window.location.href).toBe(`/photos/${PHOTO_ID}`), {
@@ -390,6 +449,7 @@ describe('PhotoUploader — reload recovery', () => {
 
   it('status=processed z pending detekcjami — wznawiamy tylko match', async () => {
     sessionStorage.setItem('upload_resume_photo_id', PHOTO_ID);
+    // match via SSE (MockEventSource fires done) — no /match fetch mock needed
     vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(activeKeyMock()) // keys check
       .mockResolvedValueOnce(jsonResponse({ data: { shelves: [] } })) // shelves
@@ -400,8 +460,7 @@ describe('PhotoUploader — reload recovery', () => {
             detections: [{ status: 'pending' }],
           },
         }),
-      )
-      .mockResolvedValueOnce(jsonResponse(mockMatchResult));
+      );
 
     render(<PhotoUploader />);
     await waitFor(() => expect(window.location.href).toBe(`/photos/${PHOTO_ID}`), {
@@ -507,7 +566,8 @@ describe('PhotoUploader — skip process (S-36)', () => {
     await waitFor(() => expect(screen.getByTestId('auto-process-checkbox')).not.toBeChecked());
   });
 
-  it('zaznaczony (default) → obecny flow z /process i /match (regresja)', async () => {
+  it('zaznaczony (default) → obecny flow z /process i /match-stream (regresja)', async () => {
+    // match via SSE (MockEventSource fires done) — no /match fetch mock needed
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(activeKeyMock())
@@ -519,8 +579,7 @@ describe('PhotoUploader — skip process (S-36)', () => {
       )
       .mockResolvedValueOnce(
         jsonResponse({ data: { photo: mockPhoto, detections: mockDetections } }),
-      )
-      .mockResolvedValueOnce(jsonResponse(mockMatchResult));
+      );
 
     render(<PhotoUploader />);
     await waitFor(() => expect(screen.getByTestId('shelf-select')).toBeInTheDocument());
@@ -533,7 +592,8 @@ describe('PhotoUploader — skip process (S-36)', () => {
       { timeout: 5000 },
     );
     const calledUrls = fetchMock.mock.calls.map(([u]) => (typeof u === 'string' ? u : ''));
+    // /process must be called; match goes via SSE (EventSource, not fetch)
     expect(calledUrls.some((u) => u.includes('/process'))).toBe(true);
-    expect(calledUrls.some((u) => u.includes('/match'))).toBe(true);
+    expect(calledUrls.some((u) => u.includes('/match'))).toBe(false);
   });
 });

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { PhotoListItemDTO } from '../lib/photos/schema';
 import type { ShelfDTO } from '../lib/shelves/schema';
@@ -50,6 +50,28 @@ export default function PhotoListIsland({ shelfId }: Props) {
   const [pendingDeletePhotoId, setPendingDeletePhotoId] = useState<string | null>(null);
   const [shelves, setShelves] = useState<ShelfDTO[]>([]);
   const [busyOpLabel, setBusyOpLabel] = useState<string | null>(null);
+  const [matchTitles, setMatchTitles] = useState<string[]>([]);
+  const [matchProgress, setMatchProgress] = useState<{ current: number; total: number } | null>(
+    null,
+  );
+  const [matchStats, setMatchStats] = useState<{ matched: number; unmatched: number }>({
+    matched: 0,
+    unmatched: 0,
+  });
+  const [currentMatchItem, setCurrentMatchItem] = useState<{
+    title: string;
+    authors?: string[];
+    matched?: boolean;
+  } | null>(null);
+  const matchSourceRef = useRef<EventSource | null>(null);
+
+  // Close any open SSE connection on unmount.
+  useEffect(() => {
+    const sourceRef = matchSourceRef;
+    return () => {
+      sourceRef.current?.close();
+    };
+  }, []);
 
   const fetchPhotos = useCallback(async () => {
     try {
@@ -143,31 +165,89 @@ export default function PhotoListIsland({ shelfId }: Props) {
   const runMatch = useCallback(
     async (photoId: string) => {
       setBusyOpLabel('Dopasowywanie do baz książek...');
+      setMatchTitles([]);
+      setMatchProgress(null);
+      setMatchStats({ matched: 0, unmatched: 0 });
+      setCurrentMatchItem(null);
       patchRow(photoId, { busy: true, toast: null });
+
       try {
-        const res = await fetch(`/api/photos/${photoId}/match`, {
-          method: 'POST',
-        });
-        const json = (await res.json()) as {
-          data?: { matched?: number; rate_limited?: number };
-          error?: { message?: string };
-        };
-        if (res.status === 429) {
-          patchRow(photoId, { toast: 'Rate limit — spróbuj za chwilę.' });
-          return;
-        }
-        if (!res.ok) {
+        const result = await new Promise<{ matched: number; rateLimited: number }>(
+          (resolve, reject) => {
+            let settled = false;
+            let errorCount = 0;
+
+            const source = new EventSource(`/api/photos/${photoId}/match-stream`);
+            matchSourceRef.current = source;
+
+            source.addEventListener('progress', (e) => {
+              const d = JSON.parse((e as MessageEvent).data) as {
+                index: number;
+                total: number;
+                title: string;
+                matched: boolean;
+                candidateTitle?: string;
+                candidateAuthors?: string[];
+              };
+              setMatchTitles((prev) => [...prev, d.title]);
+              setMatchProgress({ current: d.index, total: d.total });
+              setMatchStats((prev) => ({
+                matched: prev.matched + (d.matched ? 1 : 0),
+                unmatched: prev.unmatched + (d.matched ? 0 : 1),
+              }));
+              setCurrentMatchItem({
+                title: d.candidateTitle ?? d.title,
+                authors: d.candidateAuthors,
+                matched: d.matched,
+              });
+            });
+
+            source.addEventListener('done', (e) => {
+              if (settled) return;
+              settled = true;
+              source.close();
+              matchSourceRef.current = null;
+              const d = JSON.parse((e as MessageEvent).data) as {
+                matched: number;
+                rate_limited: number;
+              };
+              resolve({ matched: d.matched, rateLimited: d.rate_limited });
+            });
+
+            source.onerror = () => {
+              if (settled) return;
+              errorCount++;
+              if (errorCount >= 3) {
+                settled = true;
+                source.close();
+                matchSourceRef.current = null;
+                fetch(`/api/photos/${photoId}/match`, { method: 'POST' })
+                  .then(async (r) => {
+                    const json = (await r.json()) as {
+                      data?: { matched?: number; rate_limited?: number };
+                      error?: { message?: string };
+                    };
+                    if (r.status === 429) {
+                      reject(new Error('Rate limit — spróbuj za chwilę.'));
+                    } else if (r.ok && json.data) {
+                      resolve({
+                        matched: json.data.matched ?? 0,
+                        rateLimited: json.data.rate_limited ?? 0,
+                      });
+                    } else {
+                      reject(new Error(json.error?.message ?? `Błąd matchowania (${r.status})`));
+                    }
+                  })
+                  .catch(reject);
+              }
+            };
+          },
+        );
+
+        // S-39: część detekcji ścięta przez limit GB mimo retry — informuj usera
+        if (result.rateLimited > 0) {
           patchRow(photoId, {
-            toast: json.error?.message ?? `Błąd matchowania (${res.status})`,
-          });
-          return;
-        }
-        // S-39: część detekcji ścięta przez limit GB mimo retry — bez komunikatu
-        // user widział „dopasowano X" i nie wiedział, że ponowienie odzyska resztę
-        const rateLimited = json.data?.rate_limited ?? 0;
-        if (rateLimited > 0) {
-          patchRow(photoId, {
-            toast: `Dopasowano ${json.data?.matched ?? 0} · ${rateLimited} pozycji wstrzymał limit Google — ponów match za chwilę.`,
+            toast: `Dopasowano ${result.matched} · ${result.rateLimited} pozycji wstrzymał limit Google — ponów match za chwilę.`,
           });
         }
         await fetchPhotos();
@@ -177,6 +257,8 @@ export default function PhotoListIsland({ shelfId }: Props) {
         });
       } finally {
         setBusyOpLabel(null);
+        setMatchTitles([]);
+        setMatchProgress(null);
         patchRow(photoId, { busy: false });
       }
     },
@@ -562,7 +644,14 @@ export default function PhotoListIsland({ shelfId }: Props) {
         }}
       />
 
-      <ProgressModal open={busyOpLabel !== null} label={busyOpLabel ?? ''} />
+      <ProgressModal
+        open={busyOpLabel !== null}
+        label={busyOpLabel ?? ''}
+        titles={matchTitles.length > 0 ? matchTitles : undefined}
+        progress={matchProgress ?? undefined}
+        stats={matchProgress !== null ? matchStats : null}
+        currentItem={currentMatchItem}
+      />
     </>
   );
 }

@@ -213,6 +213,13 @@ test('no duplicate: normal upload without warning', async ({ page }) => {
       body: JSON.stringify(MOCK_MATCH_RESPONSE),
     });
   });
+  await page.route(`**/api/photos/${PHOTO_ID}/match-stream`, (route) =>
+    route.fulfill({
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+      body: 'event: done\ndata: {"matched":1,"rate_limited":0}\n\n',
+    }),
+  );
 
   const fileInput = page.getByTestId('file-input');
   await fileInput.setInputFiles('tests/fixtures/test-shelf.jpg');

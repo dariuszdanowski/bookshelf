@@ -1,67 +1,16 @@
 import type { APIRoute } from 'astro';
 
 import { apiError, apiResponse, parseUuidParam } from '../../../../lib/http/response';
-import { searchGoogleBooks } from '../../../../lib/books/googleBooks';
-import { searchOpenLibrary } from '../../../../lib/books/openLibrary';
-import { searchNationalLibrary } from '../../../../lib/books/nationalLibrary';
-import { scoreCandidate, MATCH_MID } from '../../../../lib/matching/score';
-import {
-  dedupeCandidates,
-  checkCatalogDuplicate,
-  type CatalogDuplicate,
-} from '../../../../lib/matching/dedupe';
-import type { BookCandidate, ScoredCandidate } from '../../../../lib/books/schema';
+import { checkCatalogDuplicate, type CatalogDuplicate } from '../../../../lib/matching/dedupe';
+import type { ScoredCandidate } from '../../../../lib/books/schema';
 import { CONSERVATIVE_REPLACE_MARGIN } from '../../../../lib/matching/fallbackPolicy';
+import {
+  type ExistingBook,
+  runMatchingWithProgress,
+  MATCH_CONCURRENCY,
+} from '../../../../lib/matching/runner';
 
 export const prerender = false;
-
-const MAX_CANDIDATES = 5;
-// Google Books QPS limit: even with API key, 35 simultaneous requests cause 429s.
-// Limit concurrency to avoid request storms on larger shelves.
-const MATCH_CONCURRENCY = 5;
-
-/**
- * Runs tasks with a bounded concurrency pool — no external dependency needed.
- * Preserves original order and returns the same PromiseSettledResult[] shape
- * as Promise.allSettled so callers are interchangeable.
- */
-async function settledWithConcurrency<T>(
-  tasks: Array<() => Promise<T>>,
-  concurrency: number,
-): Promise<PromiseSettledResult<T>[]> {
-  const results: PromiseSettledResult<T>[] = new Array(tasks.length);
-  let next = 0;
-
-  async function worker() {
-    while (next < tasks.length) {
-      const i = next++;
-      try {
-        results[i] = { status: 'fulfilled', value: await tasks[i]() };
-      } catch (e) {
-        results[i] = { status: 'rejected', reason: e };
-      }
-    }
-  }
-
-  await Promise.all(Array.from({ length: Math.min(concurrency, tasks.length) }, worker));
-  return results;
-}
-
-type DetectionRow = {
-  id: string;
-  raw_title: string | null;
-  raw_author: string | null;
-  status: string;
-  position_index: number;
-};
-
-type ExistingBook = {
-  id: string;
-  title: string;
-  authors: string[];
-  isbn_13: string | null;
-  isbn_10: string | null;
-};
 
 type ExistingCandidateRow = {
   detection_id: string;
@@ -78,86 +27,6 @@ type ExistingCandidateRow = {
   match_score: number;
   rank: number;
 };
-
-type MatchResult = {
-  candidates: ScoredCandidate[];
-  duplicate: CatalogDuplicate;
-  rateLimited: boolean;
-};
-
-async function matchDetection(
-  detection: DetectionRow,
-  existingBooks: ExistingBook[],
-): Promise<MatchResult> {
-  const rawTitle = detection.raw_title ?? '';
-  const rawAuthor = detection.raw_author ?? null;
-
-  // GB + Biblioteka Narodowa równolegle. BN ma natywne pokrycie polskich edycji
-  // (recall, którego brakuje GB). Nie robimy early-return na porażce GB — BN może
-  // mieć kandydatów mimo pustego/rate-limited GB.
-  const [googleResult, bnResult] = await Promise.all([
-    searchGoogleBooks({ title: rawTitle, author: rawAuthor }),
-    searchNationalLibrary({ title: rawTitle, author: rawAuthor }),
-  ]);
-
-  const allCandidates: BookCandidate[] = [
-    ...(googleResult.ok ? googleResult.candidates : []),
-    ...(bnResult.ok ? bnResult.candidates : []),
-  ];
-
-  // Rate-limited tylko gdy GB rate-limited ORAZ brak kandydatów (BN też pusty) —
-  // zachowuje retry. Gdy BN dostarczył kandydatów, idziemy dalej mimo GB 429.
-  if (allCandidates.length === 0) {
-    return {
-      candidates: [],
-      duplicate: null,
-      rateLimited: !googleResult.ok && googleResult.reason === 'rate_limited',
-    };
-  }
-
-  // OL ISBN-enrichment: only when ISBN available from gathered candidates (GB or BN)
-  const firstIsbn =
-    allCandidates.find((c) => c.isbn13)?.isbn13 ??
-    allCandidates.find((c) => c.isbn10)?.isbn10 ??
-    null;
-
-  if (firstIsbn) {
-    const olResult = await searchOpenLibrary({ title: rawTitle, isbn: firstIsbn });
-    if (olResult.ok) allCandidates.push(...olResult.candidates);
-  }
-
-  const detForScore = { raw_title: rawTitle, raw_author: rawAuthor };
-  const scored: ScoredCandidate[] = allCandidates.map((c) => ({
-    ...c,
-    matchScore: scoreCandidate(detForScore, {
-      title: c.title,
-      authors: c.authors,
-      isbn13: c.isbn13,
-      isbn10: c.isbn10,
-    }),
-  }));
-
-  // Próg jakości: kandydaci poniżej MATCH_MID (0.55) to "brak pewnego matchu"
-  // (PRD §10 + CLAUDE.md). Odrzucamy ich, by detekcja pokazała ścieżkę
-  // "Wpisz ręcznie" zamiast fałszywej propozycji (np. antologia 48%, śmieci 25%).
-  // Filtr PRZED dedupe/slice — inaczej top-5 zapełniłyby się szumem.
-  const aboveThreshold = scored.filter((c) => c.matchScore >= MATCH_MID);
-  const deduped = dedupeCandidates(aboveThreshold).slice(0, MAX_CANDIDATES);
-
-  // Enrich candidates missing a cover but having an ISBN with OL ISBN cover URL.
-  // OL covers endpoint works by ISBN even when search result lacks cover_i.
-  const topCandidates = deduped.map((c) => {
-    if (c.coverUrl) return c;
-    const isbn = c.isbn13 ?? c.isbn10;
-    if (!isbn) return c;
-    return { ...c, coverUrl: `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg?default=false` };
-  });
-
-  const duplicate =
-    topCandidates.length > 0 ? checkCatalogDuplicate(topCandidates[0], existingBooks) : null;
-
-  return { candidates: topCandidates, duplicate, rateLimited: false };
-}
 
 /**
  * POST /api/photos/[id]/match
@@ -336,10 +205,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
 
   // Bounded-concurrency matching: max MATCH_CONCURRENCY simultaneous Google Books calls.
   // Promise.allSettled(35 tasks) caused QPS 429s; this serialises excess into a pool.
-  const matchResults = await settledWithConcurrency(
-    detectionRows.map((det) => () => matchDetection(det, catalog)),
-    MATCH_CONCURRENCY,
-  );
+  const matchResults = await runMatchingWithProgress(detectionRows, catalog, MATCH_CONCURRENCY);
 
   let matchedCount = 0;
   let allRateLimited = true;
@@ -412,19 +278,23 @@ export const POST: APIRoute = async ({ params, locals }) => {
     const { candidates, duplicate, rateLimited } = result.value;
     if (!rateLimited) allRateLimited = false;
 
-    // Rate-limited → leave detection at current status (retriable)
+    // Rate-limited → fall back to existing candidates if available; else leave retriable.
     if (rateLimited) {
-      rateLimitedCount++;
-      responseDetections.push({
-        id: det.id,
-        raw_title: det.raw_title ?? '',
-        raw_author: det.raw_author,
-        position_index: det.position_index,
-        status: det.status,
-        candidates: [],
-        duplicate: null,
-      });
-      continue;
+      const existingForDet = existingByDetection.get(det.id) ?? [];
+      if (existingForDet.length === 0) {
+        rateLimitedCount++;
+        responseDetections.push({
+          id: det.id,
+          raw_title: det.raw_title ?? '',
+          raw_author: det.raw_author,
+          position_index: det.position_index,
+          status: det.status,
+          candidates: [],
+          duplicate: null,
+        });
+        continue;
+      }
+      // Existing candidates available — fall through to shouldKeepExisting.
     }
 
     const existingRowsForDetection = existingByDetection.get(det.id) ?? [];

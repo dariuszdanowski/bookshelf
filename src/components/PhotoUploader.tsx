@@ -55,8 +55,22 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
   const [supportsDesktopCamera, setSupportsDesktopCamera] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [overlapWarning, setOverlapWarning] = useState(false);
+  const [matchTitles, setMatchTitles] = useState<string[]>([]);
+  const [matchProgress, setMatchProgress] = useState<{ current: number; total: number } | null>(
+    null,
+  );
+  const [matchStats, setMatchStats] = useState<{ matched: number; unmatched: number }>({
+    matched: 0,
+    unmatched: 0,
+  });
+  const [currentMatchItem, setCurrentMatchItem] = useState<{
+    title: string;
+    authors?: string[];
+    matched?: boolean;
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const matchSourceRef = useRef<EventSource | null>(null);
   // Ref mirrors stage for use inside callbacks without adding stage to dep arrays.
   const stageRef = useRef<UploadStage>('idle');
   const overlapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -131,16 +145,75 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
     })();
   }, [presetShelfId]);
 
+  // Close any open SSE connection on unmount.
+  useEffect(() => {
+    return () => {
+      matchSourceRef.current?.close();
+    };
+  }, []);
+
   const runMatch = useCallback(async (photoId: string) => {
     setStage('matching');
-    const matchRes = await fetch(`/api/photos/${photoId}/match`, { method: 'POST' });
-    const matchJson = (await matchRes.json()) as {
-      data?: unknown;
-      error?: { message?: string };
-    };
-    if (!matchRes.ok || !matchJson.data) {
-      throw new Error(matchJson.error?.message ?? `Błąd matchowania (${matchRes.status})`);
-    }
+    setMatchTitles([]);
+    setMatchProgress(null);
+    setMatchStats({ matched: 0, unmatched: 0 });
+    setCurrentMatchItem(null);
+
+    await new Promise<void>((resolve, reject) => {
+      let settled = false;
+      let errorCount = 0;
+
+      const source = new EventSource(`/api/photos/${photoId}/match-stream`);
+      matchSourceRef.current = source;
+
+      source.addEventListener('progress', (e) => {
+        const d = JSON.parse((e as MessageEvent).data) as {
+          index: number;
+          total: number;
+          title: string;
+          matched: boolean;
+          candidateTitle?: string;
+          candidateAuthors?: string[];
+        };
+        setMatchTitles((prev) => [...prev, d.title]);
+        setMatchProgress({ current: d.index, total: d.total });
+        setMatchStats((prev) => ({
+          matched: prev.matched + (d.matched ? 1 : 0),
+          unmatched: prev.unmatched + (d.matched ? 0 : 1),
+        }));
+        setCurrentMatchItem({
+          title: d.candidateTitle ?? d.title,
+          authors: d.candidateAuthors,
+          matched: d.matched,
+        });
+      });
+
+      source.addEventListener('done', () => {
+        if (settled) return;
+        settled = true;
+        source.close();
+        matchSourceRef.current = null;
+        resolve();
+      });
+
+      source.onerror = () => {
+        if (settled) return;
+        errorCount++;
+        if (errorCount >= 3) {
+          settled = true;
+          source.close();
+          matchSourceRef.current = null;
+          fetch(`/api/photos/${photoId}/match`, { method: 'POST' })
+            .then((r) => r.json() as Promise<{ data?: unknown; error?: { message?: string } }>)
+            .then((json) => {
+              if (json.data) resolve();
+              else reject(new Error(json.error?.message ?? `Błąd matchowania`));
+            })
+            .catch(reject);
+        }
+      };
+    });
+
     setCanRetryMatchOnly(false);
     sessionStorage.removeItem('upload_resume_photo_id');
     window.location.href = `/photos/${photoId}`;
@@ -680,7 +753,21 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
 
       <ProgressModal
         open={stage === 'processing' || stage === 'matching'}
-        label={stageLabel[stage] ?? ''}
+        label="Przetwarzanie zdjęcia"
+        steps={[
+          {
+            label: 'Analiza obrazu',
+            status: stage === 'processing' ? 'active' : 'done',
+          },
+          {
+            label: 'Dopasowywanie do baz książek',
+            status: stage === 'processing' ? 'pending' : 'active',
+          },
+        ]}
+        titles={stage === 'matching' ? matchTitles : undefined}
+        progress={stage === 'matching' ? (matchProgress ?? undefined) : undefined}
+        stats={stage === 'matching' && matchProgress !== null ? matchStats : null}
+        currentItem={stage === 'matching' ? currentMatchItem : null}
       />
     </div>
   );
