@@ -199,13 +199,16 @@ test('no duplicate: normal upload without warning', async ({ page }) => {
       void route.continue();
     }
   });
-  await page.route(`**/api/photos/${PHOTO_ID}/process`, (route) => {
-    void route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(MOCK_PROCESS_RESPONSE),
-    });
-  });
+  await page.route(
+    (url) => url.pathname === `/api/photos/${PHOTO_ID}/process`,
+    (route) => {
+      void route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_PROCESS_RESPONSE),
+      });
+    },
+  );
   await page.route(`**/api/photos/${PHOTO_ID}/match`, (route) => {
     void route.fulfill({
       status: 200,

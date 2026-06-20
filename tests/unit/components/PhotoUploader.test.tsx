@@ -302,7 +302,7 @@ describe('PhotoUploader', () => {
     // 7 calls: keys, shelves, check-hash, upload-file, record, process (OK), match fallback (fail)
     // retry match is via SSE (no fetch call)
     expect(fetchMock).toHaveBeenCalledTimes(7);
-    const processCalls = fetchMock.mock.calls.filter((c) => /\/process$/.test(String(c[0])));
+    const processCalls = fetchMock.mock.calls.filter((c) => /\/process/.test(String(c[0])));
     const matchCalls = fetchMock.mock.calls.filter((c) => /\/match$/.test(String(c[0])));
     expect(processCalls).toHaveLength(1);
     expect(matchCalls).toHaveLength(1); // only the SSE-fallback fetch (fail), retry is via SSE

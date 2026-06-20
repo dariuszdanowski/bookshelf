@@ -213,12 +213,14 @@ async function uploadAndGetToReviewPage(
     }
     return route.continue();
   });
-  await page.route(`**/api/photos/${PHOTO_ID}/process`, (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(MOCK_PROCESS_RESPONSE),
-    }),
+  await page.route(
+    (url) => url.pathname === `/api/photos/${PHOTO_ID}/process`,
+    (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_PROCESS_RESPONSE),
+      }),
   );
   await page.route(`**/api/photos/${PHOTO_ID}/match`, (route) =>
     route.fulfill({
@@ -330,11 +332,20 @@ test('3.7 Run vision button → po sukcesie stage=vision_done (refetch)', async 
       body: JSON.stringify(body),
     });
   });
-  await page.route(`**/api/photos/${PHOTO_ID}/process`, (route) =>
+  await page.route(
+    (url) => url.pathname === `/api/photos/${PHOTO_ID}/process`,
+    (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_PROCESS_RESPONSE),
+      }),
+  );
+  await page.route(`**/api/photos/${PHOTO_ID}/match-stream`, (route) =>
     route.fulfill({
       status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(MOCK_PROCESS_RESPONSE),
+      headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+      body: 'event: done\ndata: {"matched":0,"rate_limited":0}\n\n',
     }),
   );
 
@@ -348,7 +359,7 @@ test('3.7 Run vision button → po sukcesie stage=vision_done (refetch)', async 
   // Click Run vision
   await page.getByTestId(`run-vision-${PHOTO_ID}`).click();
 
-  // After successful process + refetch, badge changes to "Wykryte"
+  // After successful process + SSE matching + refetch, badge changes to "Wykryte"
   await expect(page.getByTestId(`stage-badge-${PHOTO_ID}`)).toHaveText('Wykryte', {
     timeout: 10_000,
   });
@@ -372,14 +383,24 @@ test('3.8 Re-run vision: confirm cancel → brak procesu; OK → wywołuje /proc
       body: JSON.stringify(MOCK_PHOTO_LIST_MATCH_DONE),
     }),
   );
-  await page.route(`**/api/photos/${PHOTO_ID}/process`, (route) => {
-    processRequests.push(route.request().url());
-    return route.fulfill({
+  await page.route(
+    (url) => url.pathname === `/api/photos/${PHOTO_ID}/process`,
+    (route) => {
+      processRequests.push(route.request().url());
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_PROCESS_RESPONSE),
+      });
+    },
+  );
+  await page.route(`**/api/photos/${PHOTO_ID}/match-stream`, (route) =>
+    route.fulfill({
       status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(MOCK_PROCESS_RESPONSE),
-    });
-  });
+      headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+      body: 'event: done\ndata: {"matched":0,"rate_limited":0}\n\n',
+    }),
+  );
 
   const link = page.getByTestId(/^shelf-item-photos-link$/).first();
   await link.click();
@@ -419,27 +440,30 @@ test('3.9 Double-click Run vision → toast "Run już w toku"', async ({ page })
       body: JSON.stringify(MOCK_PHOTO_LIST_UPLOADED),
     }),
   );
-  await page.route(`**/api/photos/${PHOTO_ID}/process`, (route) => {
-    processCallCount++;
-    if (processCallCount === 1) {
-      // First call: return 409 CONFLICT (simulates trigger blocking concurrent run)
+  await page.route(
+    (url) => url.pathname === `/api/photos/${PHOTO_ID}/process`,
+    (route) => {
+      processCallCount++;
+      if (processCallCount === 1) {
+        // First call: return 409 CONFLICT (simulates trigger blocking concurrent run)
+        return route.fulfill({
+          status: 409,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            error: {
+              code: 'CONFLICT',
+              message: 'Vision run already in progress for this photo. Try again in a moment.',
+            },
+          }),
+        });
+      }
       return route.fulfill({
-        status: 409,
+        status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({
-          error: {
-            code: 'CONFLICT',
-            message: 'Vision run already in progress for this photo. Try again in a moment.',
-          },
-        }),
+        body: JSON.stringify(MOCK_PROCESS_RESPONSE),
       });
-    }
-    return route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(MOCK_PROCESS_RESPONSE),
-    });
-  });
+    },
+  );
 
   const link = page.getByTestId(/^shelf-item-photos-link$/).first();
   await link.click();

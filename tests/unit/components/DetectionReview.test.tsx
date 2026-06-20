@@ -658,36 +658,56 @@ describe('DetectionReview — manual entry (no match)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// runRerunVision — auto-match po udanym vision
-// Bug: runRerunVision robiło window.location.reload() bez wywołania match
-// → user widział "35 znalezionych, 0 dopasowanych" i musiał ręcznie klikać.
+// runRerunVision — SSE match po udanym vision
+// Nowy flow: /process?skipMatch=1 → EventSource match-stream → reload.
 // ---------------------------------------------------------------------------
 
 describe('DetectionReview — runRerunVision auto-match', () => {
-  it('po udanym vision wywołuje POST /match a dopiero potem reload', async () => {
+  let eseConnectedUrl = '';
+
+  class MockEventSource {
+    url: string;
+    _listeners: Record<string, ((e: MessageEvent) => void)[]> = {};
+    onerror: ((e: Event) => void) | null = null;
+
+    constructor(url: string) {
+      this.url = url;
+      eseConnectedUrl = url;
+      queueMicrotask(() => {
+        (this._listeners['done'] ?? []).forEach((h) => h(new MessageEvent('done', { data: '{}' })));
+      });
+    }
+
+    addEventListener(type: string, handler: (e: MessageEvent) => void) {
+      if (!this._listeners[type]) this._listeners[type] = [];
+      this._listeners[type].push(handler);
+    }
+
+    close() {}
+  }
+
+  beforeEach(() => {
+    eseConnectedUrl = '';
+    Object.defineProperty(global, 'EventSource', {
+      configurable: true,
+      writable: true,
+      value: MockEventSource,
+    });
+  });
+
+  it('po udanym vision otwiera SSE match-stream a potem reload', async () => {
     const reloadMock = window.location.reload as unknown as ReturnType<typeof vi.fn>;
-    const callOrder: string[] = [];
 
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
       const u = typeof url === 'string' ? url : (url as Request).url;
-
-      // Check specific subpaths first (process/match) before the general /api/photos/:id
       if (u.includes('/process')) {
-        callOrder.push('POST /process');
         return Promise.resolve(
           new Response(JSON.stringify({ data: { photo: mockPhoto, detections: [] } }), {
             status: 200,
           }),
         );
       }
-      if (u.includes('/match')) {
-        callOrder.push('POST /match');
-        return Promise.resolve(
-          new Response(JSON.stringify({ data: { matched: 2, detections: [] } }), { status: 200 }),
-        );
-      }
       if (u.includes(`/api/photos/${PHOTO_ID}`)) {
-        callOrder.push('GET /photos');
         return Promise.resolve(new Response(JSON.stringify(makePhotoResponse()), { status: 200 }));
       }
       return Promise.resolve(new Response('{}', { status: 200 }));
@@ -701,37 +721,26 @@ describe('DetectionReview — runRerunVision auto-match', () => {
     await waitFor(() => screen.getByRole('dialog'));
     fireEvent.click(screen.getByTestId('rerun-vision-confirm-confirm'));
 
-    // Wait for reload (signals full flow is done)
+    // Wait for reload (signals full flow vision → SSE → done is complete)
     await waitFor(() => expect(reloadMock).toHaveBeenCalled(), { timeout: 3000 });
 
-    // /process must have been called
+    // /process?skipMatch=1 must have been called
     const processCalls = fetchMock.mock.calls.filter(
       ([url]) => typeof url === 'string' && url.includes('/process'),
     );
     expect(processCalls.length).toBeGreaterThan(0);
+    expect(processCalls[0][0] as string).toContain('skipMatch=1');
 
-    // /match must have been called AFTER /process and BEFORE reload
-    const matchCalls = fetchMock.mock.calls.filter(
-      ([url]) => typeof url === 'string' && url.includes('/match'),
-    );
-    expect(matchCalls.length).toBeGreaterThan(0);
-
-    const processIdx = callOrder.indexOf('POST /process');
-    const matchIdx = callOrder.indexOf('POST /match');
-    expect(processIdx).toBeGreaterThanOrEqual(0);
-    expect(matchIdx).toBeGreaterThan(processIdx); // match AFTER process
+    // SSE match-stream must have been connected after /process
+    expect(eseConnectedUrl).toContain(`/api/photos/${PHOTO_ID}/match-stream`);
   });
 
-  it('gdy vision zwraca błąd, match NIE jest wywołany i reload NIE następuje', async () => {
+  it('gdy vision zwraca błąd, SSE NIE jest uruchamiane i reload NIE następuje', async () => {
     const reloadMock = window.location.reload as unknown as ReturnType<typeof vi.fn>;
 
     vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
       const u = typeof url === 'string' ? url : (url as Request).url;
-      if (
-        u.includes(`/api/photos/${PHOTO_ID}`) &&
-        !u.includes('/process') &&
-        !u.includes('/match')
-      ) {
+      if (u.includes(`/api/photos/${PHOTO_ID}`) && !u.includes('/process')) {
         return Promise.resolve(new Response(JSON.stringify(makePhotoResponse()), { status: 200 }));
       }
       if (u.includes('/process')) {
@@ -741,10 +750,6 @@ describe('DetectionReview — runRerunVision auto-match', () => {
             { status: 500 },
           ),
         );
-      }
-      // match should never be called
-      if (u.includes('/match')) {
-        return Promise.resolve(new Response('{}', { status: 200 }));
       }
       return Promise.resolve(new Response('{}', { status: 200 }));
     });
@@ -756,7 +761,7 @@ describe('DetectionReview — runRerunVision auto-match', () => {
     await waitFor(() => screen.getByRole('dialog'));
     fireEvent.click(screen.getByTestId('rerun-vision-confirm-confirm'));
 
-    // Wait for error message to appear (vision failed → shows error, no reload)
+    // Wait for error message to appear (vision failed → shows error, no SSE, no reload)
     await waitFor(
       () => {
         const msg = screen.queryByTestId('action-message');
@@ -766,6 +771,7 @@ describe('DetectionReview — runRerunVision auto-match', () => {
     );
 
     expect(reloadMock).not.toHaveBeenCalled();
+    expect(eseConnectedUrl).toBe('');
   });
 });
 

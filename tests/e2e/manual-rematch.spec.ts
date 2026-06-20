@@ -185,28 +185,28 @@ test.describe('manual rematch — szukaj po tytule', () => {
   });
 
   test('progress modal: widoczny podczas toolbar rerun match', async ({ page }) => {
-    let resolveMatch!: () => void;
-    const matchHeld = new Promise<void>((r) => {
-      resolveMatch = r;
+    let resolveStream!: (value: string) => void;
+    const streamHeld = new Promise<string>((r) => {
+      resolveStream = r;
     });
 
-    await page.route(`**/api/photos/${PHOTO_ID}/match`, async (route) => {
-      await matchHeld;
+    await page.route(`**/api/photos/${PHOTO_ID}/match-stream`, async (route) => {
+      const body = await streamHeld;
       void route.fulfill({
         status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ data: { matched: 0, rate_limited: 0 } }),
+        contentType: 'text/event-stream',
+        body,
       });
     });
 
     await expect(page.getByTestId('rerun-match-button')).toBeVisible({ timeout: 5_000 });
     await page.getByTestId('rerun-match-button').click();
 
-    // Modal powinien się pojawić podczas trzymanego requestu match
+    // Modal powinien się pojawić podczas trzymanego SSE stream
     await expect(page.getByTestId('progress-modal')).toBeVisible({ timeout: 3_000 });
     await expect(page.getByTestId('progress-modal-label')).toContainText('Dopasowywanie');
 
-    resolveMatch();
+    resolveStream('event: done\ndata: {}\n\n');
     // Po sukcesie window.location.reload() — czekamy na załadowanie strony
     await page.waitForLoadState('networkidle', { timeout: 10_000 });
     await expect(page.getByTestId('progress-modal')).not.toBeVisible();

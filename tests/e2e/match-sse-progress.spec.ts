@@ -169,16 +169,19 @@ test('SSE match: modal "Dopasowywanie" widoczny podczas SSE, redirect po done', 
   let resolveProcess!: () => void;
   let resolveSSE!: () => void;
 
-  await page.route(`**/api/photos/${PHOTO_ID}/process`, async (route) => {
-    await new Promise<void>((r) => {
-      resolveProcess = r;
-    });
-    void route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(MOCK_PROCESS_RESPONSE),
-    });
-  });
+  await page.route(
+    (url) => url.pathname === `/api/photos/${PHOTO_ID}/process`,
+    async (route) => {
+      await new Promise<void>((r) => {
+        resolveProcess = r;
+      });
+      void route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_PROCESS_RESPONSE),
+      });
+    },
+  );
 
   await page.route(`**/api/photos/${PHOTO_ID}/match-stream`, async (route) => {
     await new Promise<void>((r) => {
@@ -203,12 +206,21 @@ test('SSE match: modal "Dopasowywanie" widoczny podczas SSE, redirect po done', 
     }
   });
 
+  // Przygotuj oczekiwanie na request /process zanim uruchomimy upload
+  const processRequestArrived = page.waitForRequest(
+    (req) => new URL(req.url()).pathname === `/api/photos/${PHOTO_ID}/process`,
+  );
+
   await page.getByTestId('file-input').setInputFiles('tests/fixtures/test-shelf.jpg');
 
-  // Modal widoczny podczas fazy vision (process trzymany) — etykieta ogólna
+  // Modal widoczny od razu (od fazy 'uploading' — krok 1 Przesyłanie)
   await expect(page.getByTestId('progress-modal')).toBeVisible({ timeout: 10_000 });
   await expect(page.getByTestId('progress-modal-label')).toContainText('Przetwarzanie zdjęcia');
-  // W fazie vision pasek postępu nie jest widoczny (aktywny krok 1, nie ostatni)
+
+  // Poczekaj aż request /process dotrze do handlera (resolveProcess zostaje ustawione)
+  await processRequestArrived;
+
+  // W fazie vision (krok 2 aktywny, nie ostatni) pasek postępu nie jest widoczny
   await expect(page.getByTestId('progress-modal-bar')).not.toBeAttached();
 
   // Zwolnij process → komponent przechodzi do fazy matching, otwiera EventSource
@@ -241,12 +253,14 @@ test('SSE match fallback: abortowany /match-stream → sync POST /match → redi
 
   await setupBaseRoutes(page);
 
-  await page.route(`**/api/photos/${PHOTO_ID}/process`, (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(MOCK_PROCESS_RESPONSE),
-    }),
+  await page.route(
+    (url) => url.pathname === `/api/photos/${PHOTO_ID}/process`,
+    (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_PROCESS_RESPONSE),
+      }),
   );
 
   // Abort SSE 3× → wyzwala fallback do sync POST /match

@@ -62,7 +62,7 @@ function sanitizeBbox(
  * photos.status nie jest używany jako in-flight tracker (to rola vision_runs.status).
  * photos.status = cache ostatniego succeeded run.
  */
-export const POST: APIRoute = async ({ params, locals }) => {
+export const POST: APIRoute = async ({ params, locals, request }) => {
   if (!locals.user) {
     return apiError({ code: 'UNAUTHENTICATED', status: 401, message: 'Authentication required.' });
   }
@@ -71,6 +71,8 @@ export const POST: APIRoute = async ({ params, locals }) => {
   if (!id) {
     return apiError({ code: 'NOT_FOUND', status: 404, message: 'Not found.' });
   }
+
+  const skipMatch = new URL(request.url).searchParams.get('skipMatch') === '1';
 
   // Guard: ai_enabled per profile (S-26)
   const { data: profile } = await locals.supabase
@@ -332,7 +334,8 @@ export const POST: APIRoute = async ({ params, locals }) => {
 
   // 6.5 Auto-match: wyszukaj kandydatów równolegle dla wszystkich detekcji.
   // Non-fatal — vision jest już zapisany; błąd matchingu nie psuje pipeline'u.
-  if (insertedDetections.length > 0) {
+  // Pominięty gdy ?skipMatch=1 (klient sam uruchamia SSE matching z progress).
+  if (!skipMatch && insertedDetections.length > 0) {
     const matchResults = await Promise.allSettled(
       insertedDetections.map(async (det) => {
         const { candidates } = await findBookCandidates(
