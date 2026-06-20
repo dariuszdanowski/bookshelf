@@ -111,6 +111,11 @@ function makePhotoResponse(detections: DetectionWithCandidatesDTO[] = [detHigh, 
   };
 }
 
+// Mock odpowiedź dla GET /api/shelves — wstawiana po photo Once w każdym łańcuchu mockResolvedValueOnce
+function makeShelvesResponse() {
+  return new Response(JSON.stringify({ data: { shelves: [] } }), { status: 200 });
+}
+
 // ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
@@ -259,6 +264,7 @@ describe('DetectionReview — confirm single', () => {
       .mockResolvedValueOnce(
         new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 }),
       )
+      .mockResolvedValueOnce(makeShelvesResponse())
       .mockResolvedValueOnce(
         new Response(JSON.stringify({ data: { book_id: 'b1', shelf_id: SHELF_ID } }), {
           status: 200,
@@ -278,6 +284,7 @@ describe('DetectionReview — confirm single', () => {
       .mockResolvedValueOnce(
         new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 }),
       )
+      .mockResolvedValueOnce(makeShelvesResponse())
       .mockResolvedValueOnce(
         new Response(
           JSON.stringify({
@@ -330,6 +337,7 @@ describe('DetectionReview — reject', () => {
       .mockResolvedValueOnce(
         new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 }),
       )
+      .mockResolvedValueOnce(makeShelvesResponse())
       .mockResolvedValueOnce(
         new Response(JSON.stringify({ data: { rejected: true } }), { status: 200 }),
       );
@@ -352,6 +360,7 @@ describe('DetectionReview — reject', () => {
       .mockResolvedValueOnce(
         new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 }),
       )
+      .mockResolvedValueOnce(makeShelvesResponse())
       .mockResolvedValueOnce(
         new Response(JSON.stringify({ data: { rejected: true } }), { status: 200 }),
       )

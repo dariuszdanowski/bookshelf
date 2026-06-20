@@ -2131,6 +2131,11 @@ export default function DetectionReview({
   const [confirmRerunOpen, setConfirmRerunOpen] = useState(false);
   const [isBboxEditing, setIsBboxEditing] = useState(false);
   const [applyingEdits, setApplyingEdits] = useState(false);
+  const [allShelves, setAllShelves] = useState<Array<{ id: string; name: string }> | null>(null);
+  const [shelvesLoadFailed, setShelvesLoadFailed] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isMoving, setIsMoving] = useState(false);
   const [showAddMissedForm, setShowAddMissedForm] = useState(false);
   const [addMissedBusy, setAddMissedBusy] = useState(false);
   const [addMissedErrorMsg, setAddMissedErrorMsg] = useState<string | null>(null);
@@ -2186,6 +2191,21 @@ export default function DetectionReview({
       cancelled = true;
     };
   }, [photoId]);
+
+  // Fetch listy półek po załadowaniu zdjęcia (lazy — potrzebne tylko do dropdown MOVE)
+  useEffect(() => {
+    if (!photo) return;
+    setShelvesLoadFailed(false);
+    fetch('/api/shelves')
+      .then((r) => r.json())
+      .then((res: unknown) => {
+        const list =
+          (res as { data?: { shelves?: Array<{ id: string; name: string }> } })?.data?.shelves ??
+          [];
+        setAllShelves(list.filter((s) => s.id !== photo.shelf_id));
+      })
+      .catch(() => setShelvesLoadFailed(true));
+  }, [photo]);
 
   // S-37: initial focus z deep-linku — jednorazowo po załadowaniu detekcji.
   // Nieznane id (detekcja skasowana przy re-process) → cichy no-op, pełny widok.
@@ -2424,6 +2444,54 @@ export default function DetectionReview({
 
   function handleRerunVisionClick() {
     setConfirmRerunOpen(true);
+  }
+
+  async function handleDeletePhoto() {
+    if (!photo) return;
+    setIsDeleting(true);
+    setActionMsg(null);
+    try {
+      const res = await fetch(`/api/photos/${photoId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        setActionMsg(
+          (json as { error?: { message?: string } }).error?.message ??
+            `Błąd usuwania (${res.status})`,
+        );
+        setIsDeleting(false);
+        return;
+      }
+      window.location.href = `/shelves/${photo.shelf_id}?tab=photos`;
+    } catch {
+      setIsDeleting(false);
+      setActionMsg('Błąd sieci przy usuwaniu zdjęcia.');
+    }
+  }
+
+  async function handleMovePhoto(targetShelfId: string) {
+    if (!photo) return;
+    setIsMoving(true);
+    setActionMsg(null);
+    try {
+      const res = await fetch(`/api/photos/${photoId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shelf_id: targetShelfId }),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        setActionMsg(
+          (json as { error?: { message?: string } }).error?.message ??
+            `Błąd przenoszenia (${res.status})`,
+        );
+        setIsMoving(false);
+        return;
+      }
+      window.location.href = `/shelves/${targetShelfId}?tab=photos`;
+    } catch {
+      setIsMoving(false);
+      setActionMsg('Błąd sieci przy przenoszeniu zdjęcia.');
+    }
   }
 
   const estimatedCost = visionRun?.cost_usd ?? photo?.vision_cost_usd;
@@ -2815,6 +2883,45 @@ export default function DetectionReview({
             >
               + Dodaj pominiętą książkę
             </button>
+            {/* Akcje zdjęcia: przenieś na inną półkę + usuń */}
+            <span data-testid="photo-management-bar" className="contents">
+              <select
+                data-testid="move-photo-select"
+                value=""
+                disabled={
+                  isMoving ||
+                  isDeleting ||
+                  actionBusy ||
+                  isBboxEditing ||
+                  shelvesLoadFailed ||
+                  !allShelves?.length
+                }
+                onChange={(e) => void handleMovePhoto(e.target.value)}
+                className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-900 disabled:opacity-50"
+                title={shelvesLoadFailed ? 'Nie można załadować półek' : undefined}
+              >
+                <option value="" disabled>
+                  {isMoving
+                    ? 'Przenoszę…'
+                    : shelvesLoadFailed
+                      ? 'Błąd ładowania półek'
+                      : 'Przenieś na…'}
+                </option>
+                {allShelves?.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                data-testid="delete-photo-button"
+                disabled={isDeleting || isMoving || actionBusy || isBboxEditing}
+                onClick={() => setShowDeleteConfirm(true)}
+                className="inline-flex items-center rounded-md border border-red-300 bg-white px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+              >
+                {isDeleting ? 'Usuwam…' : 'Usuń'}
+              </button>
+            </span>
           </div>
           {actionMsg && (
             <p data-testid="action-message" className="mt-1 text-xs text-amber-700" role="alert">
@@ -2967,6 +3074,21 @@ export default function DetectionReview({
           )}
         </CorrectionModal>
       )}
+
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        title="Usunąć zdjęcie?"
+        message={`Zdjęcie zostanie trwale usunięte wraz z ${detections.length} detekcją${detections.length === 1 ? '' : detections.length < 5 ? 'i' : 'ami'}. Tej operacji nie można cofnąć.`}
+        confirmLabel="Usuń zdjęcie"
+        cancelLabel="Anuluj"
+        confirmTone="danger"
+        testIdPrefix="photo-delete-confirm"
+        onCancel={() => setShowDeleteConfirm(false)}
+        onConfirm={() => {
+          setShowDeleteConfirm(false);
+          void handleDeletePhoto();
+        }}
+      />
 
       <ConfirmDialog
         open={confirmRerunOpen}

@@ -209,13 +209,16 @@ test('no duplicate: normal upload without warning', async ({ page }) => {
       });
     },
   );
-  await page.route(`**/api/photos/${PHOTO_ID}/match`, (route) => {
-    void route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(MOCK_MATCH_RESPONSE),
-    });
-  });
+  await page.route(
+    (url) => url.pathname === `/api/photos/${PHOTO_ID}/match`,
+    (route) => {
+      void route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_MATCH_RESPONSE),
+      });
+    },
+  );
   await page.route(`**/api/photos/${PHOTO_ID}/match-stream`, (route) =>
     route.fulfill({
       status: 200,
