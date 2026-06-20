@@ -280,10 +280,10 @@ steps={
 
 #### Automatyczne
 
-- [x] 2.1 `npx vitest run` — brak nowych failów
-- [x] 2.2 `npx playwright test tests/e2e/manual-rematch.spec.ts` — zielone
-- [x] 2.3 `npx playwright test tests/e2e/shelf-photo-pipeline-ui.spec.ts` — zielone (adaptacja: URL predicate dla /process w uploadAndGetToReviewPage)
-- [x] 2.4 `npm run typecheck` — brak błędów
+- [x] 2.1 `npx vitest run` — brak nowych failów — 1174753
+- [x] 2.2 `npx playwright test tests/e2e/manual-rematch.spec.ts` — zielone — 1174753
+- [x] 2.3 `npx playwright test tests/e2e/shelf-photo-pipeline-ui.spec.ts` — zielone (adaptacja: URL predicate dla /process w uploadAndGetToReviewPage) — 1174753
+- [x] 2.4 `npm run typecheck` — brak błędów — 1174753
 
 #### Ręczne
 
