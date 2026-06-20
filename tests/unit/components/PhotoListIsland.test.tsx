@@ -109,7 +109,7 @@ function mockFetch(routes: {
       }
       return Promise.resolve(h?.() ?? jsonResponse({ data: { photos: [] } }));
     }
-    if (url === `/api/photos/${PHOTO_ID}/process`) {
+    if (url.startsWith(`/api/photos/${PHOTO_ID}/process`)) {
       return Promise.resolve(
         routes.process?.() ?? jsonResponse({ data: { photo: {}, detections: [] } }),
       );
@@ -225,11 +225,11 @@ describe('PhotoListIsland', () => {
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
-        `/api/photos/${PHOTO_ID}/process`,
+        `/api/photos/${PHOTO_ID}/process?skipMatch=1`,
         expect.objectContaining({ method: 'POST' }),
       ),
     );
-    // refetch listy po sukcesie → stage vision_done
+    // Po vision SSE matching odpala i refetchuje listę → stage vision_done
     await waitFor(() => expect(screen.getByTestId(`run-match-${PHOTO_ID}`)).toBeInTheDocument());
   });
 
@@ -246,13 +246,13 @@ describe('PhotoListIsland', () => {
     fireEvent.click(screen.getByTestId(`rerun-vision-${PHOTO_ID}`));
     expect(screen.getByTestId('photo-rerun-confirm')).toBeInTheDocument();
     expect(fetchMock).not.toHaveBeenCalledWith(
-      `/api/photos/${PHOTO_ID}/process`,
+      expect.stringContaining('/process'),
       expect.anything(),
     );
 
     fireEvent.click(screen.getByTestId('photo-rerun-confirm-cancel'));
     expect(fetchMock).not.toHaveBeenCalledWith(
-      `/api/photos/${PHOTO_ID}/process`,
+      expect.stringContaining('/process'),
       expect.anything(),
     );
 
@@ -260,7 +260,7 @@ describe('PhotoListIsland', () => {
     fireEvent.click(screen.getByTestId('photo-rerun-confirm-confirm'));
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
-        `/api/photos/${PHOTO_ID}/process`,
+        `/api/photos/${PHOTO_ID}/process?skipMatch=1`,
         expect.objectContaining({ method: 'POST' }),
       ),
     );

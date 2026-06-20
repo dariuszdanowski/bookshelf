@@ -28,6 +28,9 @@ export default defineConfig({
     optimizeDeps: {
       exclude: ['@cf-wasm/photon', '@supabase/supabase-js'],
     },
+    ssr: {
+      noExternal: ['@anthropic-ai/sdk'],
+    },
   },
 
   adapter: cloudflare(),

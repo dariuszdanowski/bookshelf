@@ -64,6 +64,7 @@ export default function PhotoListIsland({ shelfId }: Props) {
     matched?: boolean;
   } | null>(null);
   const matchSourceRef = useRef<EventSource | null>(null);
+  const [visionPhase, setVisionPhase] = useState<'vision' | 'matching' | null>(null);
 
   // Close any open SSE connection on unmount.
   useEffect(() => {
@@ -118,49 +119,6 @@ export default function PhotoListIsland({ shelfId }: Props) {
       [photoId]: { ...(prev[photoId] ?? { busy: false, toast: null }), ...patch },
     }));
   }, []);
-
-  const runVision = useCallback(
-    async (photoId: string) => {
-      setBusyOpLabel('Analiza vision (może zająć ~10s)...');
-      patchRow(photoId, { busy: true, toast: null });
-      try {
-        const res = await fetch(`/api/photos/${photoId}/process`, {
-          method: 'POST',
-        });
-        const json = (await res.json()) as {
-          data?: unknown;
-          error?: { code?: string; message?: string };
-        };
-        if (res.status === 409) {
-          patchRow(photoId, { toast: 'Run już w toku, poczekaj chwilę.' });
-          return;
-        }
-        if (res.status === 429) {
-          patchRow(photoId, { toast: 'Vision rate limit — spróbuj za chwilę.' });
-          return;
-        }
-        if (res.status === 403 && json.error?.code === 'NO_API_KEY') {
-          patchRow(photoId, { toast: 'Brak klucza API. Dodaj klucz w ustawieniach konta.' });
-          return;
-        }
-        if (!res.ok) {
-          patchRow(photoId, {
-            toast: json.error?.message ?? `Błąd (${res.status})`,
-          });
-          return;
-        }
-        await fetchPhotos();
-      } catch (err) {
-        patchRow(photoId, {
-          toast: err instanceof Error ? err.message : 'Błąd sieci.',
-        });
-      } finally {
-        setBusyOpLabel(null);
-        patchRow(photoId, { busy: false });
-      }
-    },
-    [fetchPhotos, patchRow],
-  );
 
   const runMatch = useCallback(
     async (photoId: string) => {
@@ -263,6 +221,53 @@ export default function PhotoListIsland({ shelfId }: Props) {
       }
     },
     [fetchPhotos, patchRow],
+  );
+
+  const runVision = useCallback(
+    async (photoId: string) => {
+      setVisionPhase('vision');
+      setBusyOpLabel('Analiza obrazu...');
+      patchRow(photoId, { busy: true, toast: null });
+      try {
+        const res = await fetch(`/api/photos/${photoId}/process?skipMatch=1`, {
+          method: 'POST',
+        });
+        const json = (await res.json()) as {
+          data?: unknown;
+          error?: { code?: string; message?: string };
+        };
+        if (res.status === 409) {
+          patchRow(photoId, { toast: 'Run już w toku, poczekaj chwilę.' });
+          return;
+        }
+        if (res.status === 429) {
+          patchRow(photoId, { toast: 'Vision rate limit — spróbuj za chwilę.' });
+          return;
+        }
+        if (res.status === 403 && json.error?.code === 'NO_API_KEY') {
+          patchRow(photoId, { toast: 'Brak klucza API. Dodaj klucz w ustawieniach konta.' });
+          return;
+        }
+        if (!res.ok) {
+          patchRow(photoId, {
+            toast: json.error?.message ?? `Błąd (${res.status})`,
+          });
+          return;
+        }
+        // Vision succeeded — run SSE matching for progress feedback
+        setVisionPhase('matching');
+        await runMatch(photoId);
+      } catch (err) {
+        patchRow(photoId, {
+          toast: err instanceof Error ? err.message : 'Błąd sieci.',
+        });
+      } finally {
+        setVisionPhase(null);
+        setBusyOpLabel(null);
+        patchRow(photoId, { busy: false });
+      }
+    },
+    [patchRow, runMatch],
   );
 
   // Usunięcie zdjęcia: optymistyczne (zdejmujemy wiersz od razu), rollback przy błędzie.
@@ -651,6 +656,20 @@ export default function PhotoListIsland({ shelfId }: Props) {
       <ProgressModal
         open={busyOpLabel !== null}
         label={busyOpLabel ?? ''}
+        steps={
+          visionPhase !== null
+            ? [
+                {
+                  label: 'Analiza obrazu',
+                  status: visionPhase === 'vision' ? 'active' : 'done',
+                },
+                {
+                  label: 'Dopasowywanie',
+                  status: visionPhase === 'matching' ? 'active' : 'pending',
+                },
+              ]
+            : undefined
+        }
         titles={matchTitles.length > 0 ? matchTitles : undefined}
         progress={matchProgress ?? undefined}
         stats={matchProgress !== null ? matchStats : null}
