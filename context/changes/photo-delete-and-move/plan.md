@@ -346,24 +346,24 @@ Wzorzec teardown/storageState: reuse `auth.setup.ts` (standardowe dla wszystkich
 
 #### Automatyczne
 
-- [x] 1.1 Typecheck zielony: `npm run typecheck`
-- [x] 1.2 Lint zielony: `npm run lint`
-- [x] 1.3 Unit testy zielone: `npm run test`
-- [x] 1.4 Build zielony: `npm run build`
+- [x] 1.1 Typecheck zielony: `npm run typecheck` — 7a86633
+- [x] 1.2 Lint zielony: `npm run lint` — 7a86633
+- [x] 1.3 Unit testy zielone: `npm run test` — 7a86633
+- [x] 1.4 Build zielony: `npm run build` — 7a86633
 
 #### Ręczne
 
-- [x] 1.5 Pasek akcji widoczny na /photos/[id]
-- [x] 1.6 Delete → modal → OK → redirect do /shelves/{shelfId}?tab=photos
-- [x] 1.7 Move → select półka → redirect do /shelves/{targetId}?tab=photos
-- [x] 1.8 Przyciski zablokowane podczas actionBusy
+- [x] 1.5 Pasek akcji widoczny na /photos/[id] — 7a86633
+- [x] 1.6 Delete → modal → OK → redirect do /shelves/{shelfId}?tab=photos — 7a86633
+- [x] 1.7 Move → select półka → redirect do /shelves/{targetId}?tab=photos — 7a86633
+- [x] 1.8 Przyciski zablokowane podczas actionBusy — 7a86633
 
 ### Faza 2: E2E testy
 
 #### Automatyczne
 
-- [ ] 2.1 E2E test delete zielony: `npm run test:e2e -- --grep "usuwa zdjęcie"`
-- [ ] 2.2 E2E test move zielony: `npm run test:e2e -- --grep "przenosi zdjęcie"`
-- [ ] 2.3 Brak regresji w istniejących E2E: `npm run test:e2e`
-- [ ] 2.4 Typecheck zielony po dodaniu spec
-- [ ] 2.5 Lint zielony po dodaniu spec
+- [x] 2.1 E2E test delete zielony: `npm run test:e2e -- --grep "usuwa zdjęcie"`
+- [x] 2.2 E2E test move zielony: `npm run test:e2e -- --grep "przenosi zdjęcie"`
+- [x] 2.3 Brak regresji w istniejących E2E: `npm run test:e2e`
+- [x] 2.4 Typecheck zielony po dodaniu spec
+- [x] 2.5 Lint zielony po dodaniu spec
