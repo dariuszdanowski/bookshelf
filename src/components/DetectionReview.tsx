@@ -2122,6 +2122,7 @@ export default function DetectionReview({
     matched?: boolean;
   } | null>(null);
   const matchSourceRef = useRef<EventSource | null>(null);
+  const [rerunVisionPhase, setRerunVisionPhase] = useState<'vision' | 'matching' | null>(null);
   const [decidedIds, setDecidedIds] = useState<Set<string>>(new Set());
   const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -2292,12 +2293,92 @@ export default function DetectionReview({
     }
   }
 
+  function runSSEMatch(): Promise<void> {
+    return new Promise<void>((resolve, reject) => {
+      let settled = false;
+      let errorCount = 0;
+
+      const source = new EventSource(`/api/photos/${photoId}/match-stream`);
+      matchSourceRef.current = source;
+
+      source.addEventListener('progress', (e) => {
+        const d = JSON.parse((e as MessageEvent).data) as {
+          index: number;
+          total: number;
+          title: string;
+          matched: boolean;
+          candidateTitle?: string;
+          candidateAuthors?: string[];
+        };
+        setMatchTitles((prev) => [...prev, d.title]);
+        setMatchProgress({ current: d.index, total: d.total });
+        setMatchStats((prev) => ({
+          matched: prev.matched + (d.matched ? 1 : 0),
+          unmatched: prev.unmatched + (d.matched ? 0 : 1),
+        }));
+        setCurrentMatchItem({
+          title: d.candidateTitle ?? d.title,
+          authors: d.candidateAuthors,
+          matched: d.matched,
+        });
+      });
+
+      source.addEventListener('done', () => {
+        if (settled) return;
+        settled = true;
+        source.close();
+        matchSourceRef.current = null;
+        resolve();
+      });
+
+      source.addEventListener('error', (e) => {
+        if (settled) return;
+        const msg = (() => {
+          try {
+            return (JSON.parse((e as MessageEvent).data) as { message?: string }).message;
+          } catch {
+            return undefined;
+          }
+        })();
+        settled = true;
+        source.close();
+        matchSourceRef.current = null;
+        reject(new Error(msg ?? 'Błąd matchowania.'));
+      });
+
+      source.onerror = () => {
+        if (settled) return;
+        errorCount++;
+        if (errorCount >= 3) {
+          settled = true;
+          source.close();
+          matchSourceRef.current = null;
+          fetch(`/api/photos/${photoId}/match`, { method: 'POST' })
+            .then(async (r) => {
+              const json = (await r.json()) as { data?: unknown; error?: { message?: string } };
+              if (r.status === 429) {
+                reject(new Error('Rate limit, spróbuj za chwilę.'));
+              } else if (!r.ok) {
+                reject(new Error(json.error?.message ?? `Błąd matchowania (${r.status})`));
+              } else {
+                resolve();
+              }
+            })
+            .catch((err: unknown) => {
+              reject(err instanceof Error ? err : new Error('Błąd sieci.'));
+            });
+        }
+      };
+    });
+  }
+
   async function runRerunVision() {
-    setActionBusyLabel('Analiza vision (może zająć ~10s)...');
+    setRerunVisionPhase('vision');
+    setActionBusyLabel('Analiza vision...');
     setActionBusy(true);
     setActionMsg(null);
     try {
-      const res = await fetch(`/api/photos/${photoId}/process`, { method: 'POST' });
+      const res = await fetch(`/api/photos/${photoId}/process?skipMatch=1`, { method: 'POST' });
       const json = (await res.json()) as {
         data?: unknown;
         error?: { code?: string; message?: string };
@@ -2318,17 +2399,17 @@ export default function DetectionReview({
         setActionMsg(json.error?.message ?? `Błąd (${res.status})`);
         return;
       }
-      // Auto-match after vision — user expects proposals immediately, not a blank list.
-      // Ignore match errors: reload will show detections even if match fails.
-      try {
-        await fetch(`/api/photos/${photoId}/match`, { method: 'POST' });
-      } catch {
-        // non-fatal — reload shows detections even if match fails
-      }
+      setRerunVisionPhase('matching');
+      setMatchTitles([]);
+      setMatchProgress(null);
+      setMatchStats({ matched: 0, unmatched: 0 });
+      setCurrentMatchItem(null);
+      await runSSEMatch();
       window.location.reload();
     } catch (err) {
       setActionMsg(err instanceof Error ? err.message : 'Błąd sieci.');
     } finally {
+      setRerunVisionPhase(null);
       setActionBusyLabel(null);
       setActionBusy(false);
     }
@@ -2357,88 +2438,15 @@ export default function DetectionReview({
     setActionBusy(true);
     setActionMsg(null);
 
-    let settled = false;
-    let errorCount = 0;
-
-    const source = new EventSource(`/api/photos/${photoId}/match-stream`);
-    matchSourceRef.current = source;
-
-    source.addEventListener('progress', (e) => {
-      const d = JSON.parse((e as MessageEvent).data) as {
-        index: number;
-        total: number;
-        title: string;
-        matched: boolean;
-        candidateTitle?: string;
-        candidateAuthors?: string[];
-      };
-      setMatchTitles((prev) => [...prev, d.title]);
-      setMatchProgress({ current: d.index, total: d.total });
-      setMatchStats((prev) => ({
-        matched: prev.matched + (d.matched ? 1 : 0),
-        unmatched: prev.unmatched + (d.matched ? 0 : 1),
-      }));
-      setCurrentMatchItem({
-        title: d.candidateTitle ?? d.title,
-        authors: d.candidateAuthors,
-        matched: d.matched,
+    runSSEMatch()
+      .then(() => window.location.reload())
+      .catch((err: unknown) => {
+        setActionMsg(err instanceof Error ? err.message : 'Błąd matchowania.');
+      })
+      .finally(() => {
+        setActionBusyLabel(null);
+        setActionBusy(false);
       });
-    });
-
-    source.addEventListener('done', () => {
-      if (settled) return;
-      settled = true;
-      source.close();
-      matchSourceRef.current = null;
-      setActionBusyLabel(null);
-      setActionBusy(false);
-      window.location.reload();
-    });
-
-    source.addEventListener('error', (e) => {
-      if (settled) return;
-      const msg = (() => {
-        try {
-          return (JSON.parse((e as MessageEvent).data) as { message?: string }).message;
-        } catch {
-          return undefined;
-        }
-      })();
-      settled = true;
-      source.close();
-      matchSourceRef.current = null;
-      setActionBusyLabel(null);
-      setActionBusy(false);
-      setActionMsg(msg ?? 'Błąd matchowania.');
-    });
-
-    source.onerror = () => {
-      if (settled) return;
-      errorCount++;
-      if (errorCount >= 3) {
-        settled = true;
-        source.close();
-        matchSourceRef.current = null;
-        fetch(`/api/photos/${photoId}/match`, { method: 'POST' })
-          .then(async (r) => {
-            const json = (await r.json()) as { data?: unknown; error?: { message?: string } };
-            if (r.status === 429) {
-              setActionMsg('Rate limit, spróbuj za chwilę.');
-            } else if (!r.ok) {
-              setActionMsg(json.error?.message ?? `Błąd matchowania (${r.status})`);
-            } else {
-              window.location.reload();
-            }
-          })
-          .catch((err: unknown) => {
-            setActionMsg(err instanceof Error ? err.message : 'Błąd sieci.');
-          })
-          .finally(() => {
-            setActionBusyLabel(null);
-            setActionBusy(false);
-          });
-      }
-    };
   }
 
   async function handleSaveSingleBbox(
@@ -2974,6 +2982,22 @@ export default function DetectionReview({
         progress={matchProgress ?? undefined}
         stats={matchProgress !== null ? matchStats : null}
         currentItem={currentMatchItem}
+        steps={
+          rerunVisionPhase !== null
+            ? [
+                {
+                  label: 'Analiza obrazu',
+                  status: rerunVisionPhase === 'vision' ? 'active' : 'done',
+                },
+                {
+                  label: 'Dopasowywanie do baz książek',
+                  status: rerunVisionPhase === 'matching' ? 'active' : 'pending',
+                },
+              ]
+            : actionBusy
+              ? [{ label: 'Dopasowywanie do baz książek', status: 'active' as const }]
+              : undefined
+        }
       />
     </div>
   );

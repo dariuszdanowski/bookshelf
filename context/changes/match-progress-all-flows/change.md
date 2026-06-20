@@ -4,5 +4,6 @@ title: ProgressModal i pasek postępu we wszystkich flow vision+match
 status: implementing
 created: 2026-06-20
 updated: 2026-06-20
+
 branch: change/match-progress-all-flows
 ---

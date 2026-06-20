@@ -213,12 +213,14 @@ async function uploadAndGetToReviewPage(
     }
     return route.continue();
   });
-  await page.route(`**/api/photos/${PHOTO_ID}/process`, (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(MOCK_PROCESS_RESPONSE),
-    }),
+  await page.route(
+    (url) => url.pathname === `/api/photos/${PHOTO_ID}/process`,
+    (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_PROCESS_RESPONSE),
+      }),
   );
   await page.route(`**/api/photos/${PHOTO_ID}/match`, (route) =>
     route.fulfill({

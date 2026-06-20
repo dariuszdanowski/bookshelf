@@ -269,8 +269,8 @@ steps={
 
 #### Automatyczne
 
-- [x] 1.1 `npx vitest run tests/unit/components/PhotoUploader.test.tsx` — zielone
-- [x] 1.2 `npx playwright test tests/e2e/upload-flow.spec.ts tests/e2e/match-sse-progress.spec.ts` — zielone (adaptacja: 3-step modal + waitForRequest w teście)
+- [x] 1.1 `npx vitest run tests/unit/components/PhotoUploader.test.tsx` — zielone — c2f9e61
+- [x] 1.2 `npx playwright test tests/e2e/upload-flow.spec.ts tests/e2e/match-sse-progress.spec.ts` — zielone (adaptacja: 3-step modal + waitForRequest w teście) — c2f9e61
 
 #### Ręczne
 
@@ -280,10 +280,10 @@ steps={
 
 #### Automatyczne
 
-- [ ] 2.1 `npx vitest run` — brak nowych failów
-- [ ] 2.2 `npx playwright test tests/e2e/manual-rematch.spec.ts` — zielone
-- [ ] 2.3 `npx playwright test tests/e2e/shelf-photo-pipeline-ui.spec.ts` — zielone
-- [ ] 2.4 `npm run typecheck` — brak błędów
+- [x] 2.1 `npx vitest run` — brak nowych failów
+- [x] 2.2 `npx playwright test tests/e2e/manual-rematch.spec.ts` — zielone
+- [x] 2.3 `npx playwright test tests/e2e/shelf-photo-pipeline-ui.spec.ts` — zielone (adaptacja: URL predicate dla /process w uploadAndGetToReviewPage)
+- [x] 2.4 `npm run typecheck` — brak błędów
 
 #### Ręczne
 
