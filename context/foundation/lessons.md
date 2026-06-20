@@ -147,3 +147,10 @@
 - **Problem**: Impersonacja nie przełączała sesji — bug nie wyszedł w E2E bo test sprawdzał tylko odpowiedź API, a nie pełny flow UI (klik → nawigacja → zmiana sesji). Błąd trafił do manualnej weryfikacji zamiast być złapany automatycznie.
 - **Rule**: Zawsze pisz testy przed lub razem z każdą zmianą — dla logiki unit, dla API integracyjne, dla UI zmiany E2E. Test E2E dla feature UI musi weryfikować pełny user journey (klik + efekt widoczny w UI), nie tylko odpowiedź API.
 - **Applies to**: all
+
+## Playwright page.route() — predykat pathname zamiast glob-stringa
+
+- **Context**: `tests/e2e/*.spec.ts` — każdy `page.route(pattern, handler)` mockujący konkretny endpoint API (np. `/api/photos/${id}/process`, `/api/shelves`).
+- **Problem**: Glob-string `'**/api/photos/${ID}/process'` może dopasować niechciane URL-e (np. `/api/photos/123/process-thumbnail`, `/api/photos/123/process-batch`), co prowadzi do fałszywych intercept'ów i trudno wykrywalnych błędów w testach E2E. Odkryte w ramach slice photo-delete-and-move jako housecleaning przy byok-enforcement i photo-dedup spec'ach.
+- **Rule**: W Playwright używaj predykatu pathname URL zamiast glob-stringa dla `page.route()`: `page.route((url) => url.pathname === '/api/photos/${ID}/process', handler)` zamiast `page.route('**/api/photos/${ID}/process', handler)`. Predykat jest precyzyjny, nie dopasowuje podścieżek ani sufiksów.
+- **Applies to**: implement, impl-review

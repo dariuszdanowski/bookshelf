@@ -2132,6 +2132,7 @@ export default function DetectionReview({
   const [isBboxEditing, setIsBboxEditing] = useState(false);
   const [applyingEdits, setApplyingEdits] = useState(false);
   const [allShelves, setAllShelves] = useState<Array<{ id: string; name: string }> | null>(null);
+  const [shelvesLoadFailed, setShelvesLoadFailed] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isMoving, setIsMoving] = useState(false);
@@ -2194,6 +2195,7 @@ export default function DetectionReview({
   // Fetch listy półek po załadowaniu zdjęcia (lazy — potrzebne tylko do dropdown MOVE)
   useEffect(() => {
     if (!photo) return;
+    setShelvesLoadFailed(false);
     fetch('/api/shelves')
       .then((r) => r.json())
       .then((res: unknown) => {
@@ -2202,7 +2204,7 @@ export default function DetectionReview({
           [];
         setAllShelves(list.filter((s) => s.id !== photo.shelf_id));
       })
-      .catch(() => setAllShelves([]));
+      .catch(() => setShelvesLoadFailed(true));
   }, [photo]);
 
   // S-37: initial focus z deep-linku — jednorazowo po załadowaniu detekcji.
@@ -2447,30 +2449,48 @@ export default function DetectionReview({
   async function handleDeletePhoto() {
     if (!photo) return;
     setIsDeleting(true);
+    setActionMsg(null);
     try {
       const res = await fetch(`/api/photos/${photoId}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('delete failed');
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        setActionMsg(
+          (json as { error?: { message?: string } }).error?.message ??
+            `Błąd usuwania (${res.status})`,
+        );
+        setIsDeleting(false);
+        return;
+      }
       window.location.href = `/shelves/${photo.shelf_id}?tab=photos`;
     } catch {
       setIsDeleting(false);
-      console.error('[DetectionReview] delete photo failed');
+      setActionMsg('Błąd sieci przy usuwaniu zdjęcia.');
     }
   }
 
   async function handleMovePhoto(targetShelfId: string) {
     if (!photo) return;
     setIsMoving(true);
+    setActionMsg(null);
     try {
       const res = await fetch(`/api/photos/${photoId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ shelf_id: targetShelfId }),
       });
-      if (!res.ok) throw new Error('move failed');
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        setActionMsg(
+          (json as { error?: { message?: string } }).error?.message ??
+            `Błąd przenoszenia (${res.status})`,
+        );
+        setIsMoving(false);
+        return;
+      }
       window.location.href = `/shelves/${targetShelfId}?tab=photos`;
     } catch {
       setIsMoving(false);
-      console.error('[DetectionReview] move photo failed');
+      setActionMsg('Błąd sieci przy przenoszeniu zdjęcia.');
     }
   }
 
@@ -2869,13 +2889,23 @@ export default function DetectionReview({
                 data-testid="move-photo-select"
                 value=""
                 disabled={
-                  isMoving || isDeleting || actionBusy || isBboxEditing || !allShelves?.length
+                  isMoving ||
+                  isDeleting ||
+                  actionBusy ||
+                  isBboxEditing ||
+                  shelvesLoadFailed ||
+                  !allShelves?.length
                 }
                 onChange={(e) => void handleMovePhoto(e.target.value)}
                 className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-900 disabled:opacity-50"
+                title={shelvesLoadFailed ? 'Nie można załadować półek' : undefined}
               >
                 <option value="" disabled>
-                  {isMoving ? 'Przenoszę…' : 'Przenieś na…'}
+                  {isMoving
+                    ? 'Przenoszę…'
+                    : shelvesLoadFailed
+                      ? 'Błąd ładowania półek'
+                      : 'Przenieś na…'}
                 </option>
                 {allShelves?.map((s) => (
                   <option key={s.id} value={s.id}>

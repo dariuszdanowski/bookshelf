@@ -137,7 +137,12 @@ test('usuwa zdjęcie z /photos/[id] → redirect do półki', async ({ page }) =
 
   await page.getByTestId('delete-photo-button').click();
   await expect(page.getByTestId('photo-delete-confirm')).toBeVisible({ timeout: 5_000 });
+
+  const deleteReq = page.waitForRequest(
+    (req) => req.url().includes(`/api/photos/${PHOTO_ID}`) && req.method() === 'DELETE',
+  );
   await page.getByTestId('photo-delete-confirm-confirm').click();
+  await deleteReq;
 
   await page.waitForURL((url) => url.href.includes(SHELF_A_ID) && url.href.includes('tab=photos'), {
     timeout: 10_000,
@@ -185,7 +190,11 @@ test('przenosi zdjęcie z /photos/[id] → redirect do nowej półki', async ({ 
   // Półka A (aktualna) jest odfiltrowana — dropdown ma tylko Półkę B
   await expect(moveSelect).not.toBeDisabled({ timeout: 5_000 });
 
+  const patchReq = page.waitForRequest(
+    (req) => req.url().includes(`/api/photos/${PHOTO_ID}`) && req.method() === 'PATCH',
+  );
   await moveSelect.selectOption(SHELF_B_ID);
+  await patchReq;
 
   await page.waitForURL((url) => url.href.includes(SHELF_B_ID) && url.href.includes('tab=photos'), {
     timeout: 10_000,

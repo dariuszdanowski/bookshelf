@@ -196,12 +196,14 @@ test('progress modal: widoczny podczas analizy vision w PhotoUploader', async ({
       ].join(''),
     }),
   );
-  await page.route(`**/api/photos/${PHOTO_ID}/match`, (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(MOCK_MATCH_RESPONSE),
-    }),
+  await page.route(
+    (url) => url.pathname === `/api/photos/${PHOTO_ID}/match`,
+    (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_MATCH_RESPONSE),
+      }),
   );
   await page.route(`**/api/photos/${PHOTO_ID}`, (route) =>
     route.request().method() === 'GET'
@@ -291,13 +293,16 @@ test('upload flow: /upload → wybór półki → upload → redirect → propoz
   });
 
   // 7b. Intercept /api/photos/*/match (sync POST — SSE fallback path)
-  await page.route(`**/api/photos/${PHOTO_ID}/match`, (route) => {
-    void route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(MOCK_MATCH_RESPONSE),
-    });
-  });
+  await page.route(
+    (url) => url.pathname === `/api/photos/${PHOTO_ID}/match`,
+    (route) => {
+      void route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_MATCH_RESPONSE),
+      });
+    },
+  );
 
   // 8. Intercept GET /api/photos/[id] (used by DetectionReview on review page)
   await page.route(`**/api/photos/${PHOTO_ID}`, (route) => {

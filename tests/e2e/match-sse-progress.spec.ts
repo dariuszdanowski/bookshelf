@@ -132,12 +132,14 @@ async function setupBaseRoutes(page: import('@playwright/test').Page) {
       : route.continue(),
   );
   // sync POST /match — fallback path
-  await page.route(`**/api/photos/${PHOTO_ID}/match`, (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(MOCK_MATCH_RESPONSE),
-    }),
+  await page.route(
+    (url) => url.pathname === `/api/photos/${PHOTO_ID}/match`,
+    (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_MATCH_RESPONSE),
+      }),
   );
   await page.route(`**/api/photos/${PHOTO_ID}`, (route) =>
     route.request().method() === 'GET'
