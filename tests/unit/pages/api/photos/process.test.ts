@@ -3,12 +3,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // Mock vision client — hoisted so it's available in the mock factory
 const mockDetectSpines = vi.hoisted(() => vi.fn());
 const mockDeriveWorkingCopy = vi.hoisted(() =>
-  vi
-    .fn()
-    .mockResolvedValue({
-      bytes: new Uint8Array([0xff, 0xd8, 0xff]),
-      mediaType: 'image/jpeg' as const,
-    }),
+  vi.fn().mockResolvedValue({
+    bytes: new Uint8Array([0xff, 0xd8, 0xff]),
+    mediaType: 'image/jpeg' as const,
+  }),
 );
 const mockGetActiveProviderConfig = vi.hoisted(() => vi.fn());
 
@@ -218,6 +216,7 @@ function makeContext(supabase: ReturnType<typeof makeSupabase>['supabase'], phot
       supabase,
       user: { id: USER_ID } as never,
     },
+    request: new Request(`http://localhost/api/photos/${photoId}/process`),
   };
 }
 
