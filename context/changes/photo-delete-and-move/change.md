@@ -1,7 +1,7 @@
 ---
 id: photo-delete-and-move
 title: "Usuń i przenieś zdjęcie z widoku /photos/[id]"
-status: implemented
+status: impl_reviewed
 branch: change/photo-delete-and-move
 created: 2026-06-20
 updated: 2026-06-21
