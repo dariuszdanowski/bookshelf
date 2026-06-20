@@ -2143,6 +2143,13 @@ export default function DetectionReview({
   const initialDecidedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
+    return () => {
+      matchSourceRef.current?.close();
+      matchSourceRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
