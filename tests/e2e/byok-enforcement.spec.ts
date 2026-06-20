@@ -36,13 +36,17 @@ test('PhotoUploader bez klucza — banner informacyjny + upload nadal dostępny'
 
   // Upload form still accessible — not blocked
   await expect(page.getByTestId('drop-zone')).toBeVisible();
-  await expect(page.getByTestId('photo-uploader-no-key-warning').getByRole('link')).toHaveAttribute('href', '/account');
+  await expect(page.getByTestId('photo-uploader-no-key-warning').getByRole('link')).toHaveAttribute(
+    'href',
+    '/account',
+  );
 });
 
 test('process 403 NO_API_KEY — uploader pokazuje błąd z linkiem do /account', async ({ page }) => {
   // createObjectURL override so Image.onload fires reliably
   await page.evaluate(() => {
-    const TINY_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    const TINY_PNG =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
     URL.createObjectURL = () => TINY_PNG;
     URL.revokeObjectURL = () => {};
   });
@@ -51,22 +55,35 @@ test('process 403 NO_API_KEY — uploader pokazuje błąd z linkiem do /account'
     void route.fulfill({ status: 200, body: JSON.stringify({ Key: 'shelf-photos/mock.jpg' }) });
   });
   await page.route('**/api/photos/check-hash**', (route) => {
-    void route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ data: { photo: null } }) });
+    void route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { photo: null } }),
+    });
   });
   await page.route('**/api/photos', (route) => {
     if (route.request().method() === 'POST') {
-      void route.fulfill({ status: 201, contentType: 'application/json', body: JSON.stringify(MOCK_RECORD_RESPONSE) });
+      void route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_RECORD_RESPONSE),
+      });
     } else {
       void route.continue();
     }
   });
-  await page.route(`**/api/photos/${PHOTO_ID}/process`, (route) => {
-    void route.fulfill({
-      status: 403,
-      contentType: 'application/json',
-      body: JSON.stringify({ error: { code: 'NO_API_KEY', message: 'Brak aktywnego klucza API' } }),
-    });
-  });
+  await page.route(
+    (url) => url.pathname === `/api/photos/${PHOTO_ID}/process`,
+    (route) => {
+      void route.fulfill({
+        status: 403,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          error: { code: 'NO_API_KEY', message: 'Brak aktywnego klucza API' },
+        }),
+      });
+    },
+  );
 
   await page.goto('/upload');
   await expect(page.getByTestId('shelf-select')).toBeVisible({ timeout: 5_000 });
