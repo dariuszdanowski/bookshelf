@@ -134,7 +134,8 @@ const MOCK_MATCH_RESPONSE = {
 };
 
 // tiny 1×1 transparent PNG — used as photo_url in E2E to avoid hitting storage
-const TINY_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+const TINY_PNG =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
 
 const MOCK_PHOTO_GET = {
   data: {
@@ -170,7 +171,7 @@ async function goToShelves(page: import('@playwright/test').Page) {
 /** Upload flow: mock all API + Storage, trigger file input, wait for redirect to /photos/[id] */
 async function uploadAndGetToReviewPage(
   page: import('@playwright/test').Page,
-  realShelfId: string
+  realShelfId: string,
 ) {
   await page.goto('/upload');
   await page.waitForLoadState('networkidle');
@@ -178,7 +179,8 @@ async function uploadAndGetToReviewPage(
 
   // createObjectURL override so Image.onload fires
   await page.evaluate(() => {
-    const TINY = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    const TINY =
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
     URL.createObjectURL = () => TINY;
     URL.revokeObjectURL = () => {};
   });
@@ -186,7 +188,7 @@ async function uploadAndGetToReviewPage(
   await expect(page.getByTestId('shelf-select')).toBeVisible({ timeout: 5_000 });
 
   await page.route('**/storage/v1/object/shelf-photos/**', (route) =>
-    route.fulfill({ status: 200, body: JSON.stringify({ Key: 'shelf-photos/mock.jpg' }) })
+    route.fulfill({ status: 200, body: JSON.stringify({ Key: 'shelf-photos/mock.jpg' }) }),
   );
   await page.route('**/api/photos', (route) => {
     if (route.request().method() === 'POST') {
@@ -216,14 +218,21 @@ async function uploadAndGetToReviewPage(
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify(MOCK_PROCESS_RESPONSE),
-    })
+    }),
   );
   await page.route(`**/api/photos/${PHOTO_ID}/match`, (route) =>
     route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify(MOCK_MATCH_RESPONSE),
-    })
+    }),
+  );
+  await page.route(`**/api/photos/${PHOTO_ID}/match-stream`, (route) =>
+    route.fulfill({
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+      body: 'event: done\ndata: {"matched":1,"rate_limited":0}\n\n',
+    }),
   );
   await page.route(`**/api/photos/${PHOTO_ID}`, (route) => {
     if (route.request().method() === 'GET') {
@@ -246,11 +255,11 @@ async function uploadAndGetToReviewPage(
 test('3.5 /shelves: każda półka ma link do szczegółów półki', async ({ page }) => {
   await goToShelves(page);
   // Wait for ShelvesIsland to hydrate and render shelf items
-  await expect(
-    page.getByTestId('photo-list').or(page.locator('[data-testid^="shelf-item-"]'))
-  ).toBeVisible({ timeout: 10_000 }).catch(() => {
-    // Island may take a moment — try direct locator
-  });
+  await expect(page.getByTestId('photo-list').or(page.locator('[data-testid^="shelf-item-"]')))
+    .toBeVisible({ timeout: 10_000 })
+    .catch(() => {
+      // Island may take a moment — try direct locator
+    });
 
   // The shelf list renders asynchronously; wait for at least one shelf-item
   await page.waitForSelector('[data-testid^="shelf-item-"]', { timeout: 10_000 });
@@ -280,7 +289,7 @@ test('3.6 /shelves/[id]: PhotoListIsland renders photo list with stage badge', a
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify(MOCK_PHOTO_LIST_UPLOADED),
-    })
+    }),
   );
 
   // Navigate to /shelves/[id] via the link
@@ -311,9 +320,10 @@ test('3.7 Run vision button → po sukcesie stage=vision_done (refetch)', async 
   let fetchCallCount = 0;
   await page.route(`**/api/shelves/**/photos`, (route) => {
     fetchCallCount++;
-    const body = fetchCallCount === 1
-      ? MOCK_PHOTO_LIST_UPLOADED  // first fetch: uploaded stage
-      : MOCK_PHOTO_LIST_VISION_DONE; // refetch after process: vision_done
+    const body =
+      fetchCallCount === 1
+        ? MOCK_PHOTO_LIST_UPLOADED // first fetch: uploaded stage
+        : MOCK_PHOTO_LIST_VISION_DONE; // refetch after process: vision_done
     return route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -325,7 +335,7 @@ test('3.7 Run vision button → po sukcesie stage=vision_done (refetch)', async 
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify(MOCK_PROCESS_RESPONSE),
-    })
+    }),
   );
 
   const link = page.getByTestId(/^shelf-item-photos-link$/).first();
@@ -339,14 +349,18 @@ test('3.7 Run vision button → po sukcesie stage=vision_done (refetch)', async 
   await page.getByTestId(`run-vision-${PHOTO_ID}`).click();
 
   // After successful process + refetch, badge changes to "Wykryte"
-  await expect(page.getByTestId(`stage-badge-${PHOTO_ID}`)).toHaveText('Wykryte', { timeout: 10_000 });
+  await expect(page.getByTestId(`stage-badge-${PHOTO_ID}`)).toHaveText('Wykryte', {
+    timeout: 10_000,
+  });
   await expect(page.getByTestId(`run-match-${PHOTO_ID}`)).toBeVisible();
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  TEST 4 — Re-run vision: confirm cancel → no fetch; confirm OK → fetch called
 // ══════════════════════════════════════════════════════════════════════════════
-test('3.8 Re-run vision: confirm cancel → brak procesu; OK → wywołuje /process', async ({ page }) => {
+test('3.8 Re-run vision: confirm cancel → brak procesu; OK → wywołuje /process', async ({
+  page,
+}) => {
   await goToShelves(page);
   await page.waitForSelector('[data-testid^="shelf-item-"]', { timeout: 10_000 });
 
@@ -356,7 +370,7 @@ test('3.8 Re-run vision: confirm cancel → brak procesu; OK → wywołuje /proc
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify(MOCK_PHOTO_LIST_MATCH_DONE),
-    })
+    }),
   );
   await page.route(`**/api/photos/${PHOTO_ID}/process`, (route) => {
     processRequests.push(route.request().url());
@@ -403,7 +417,7 @@ test('3.9 Double-click Run vision → toast "Run już w toku"', async ({ page })
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify(MOCK_PHOTO_LIST_UPLOADED),
-    })
+    }),
   );
   await page.route(`**/api/photos/${PHOTO_ID}/process`, (route) => {
     processCallCount++;
@@ -444,7 +458,9 @@ test('3.9 Double-click Run vision → toast "Run już w toku"', async ({ page })
 // ══════════════════════════════════════════════════════════════════════════════
 //  TEST 6 — /photos/[id]: DetectionReview shows vision_run panel + action buttons
 // ══════════════════════════════════════════════════════════════════════════════
-test('3.10 /photos/[id]: vision_run panel widoczny + przyciski Ponów vision / Ponów match', async ({ page }) => {
+test('3.10 /photos/[id]: vision_run panel widoczny + przyciski Ponów vision / Ponów match', async ({
+  page,
+}) => {
   await goToShelves(page);
 
   // Get a real shelf id from the shelf items
@@ -476,7 +492,9 @@ test('3.10 /photos/[id]: vision_run panel widoczny + przyciski Ponów vision / P
 // ══════════════════════════════════════════════════════════════════════════════
 //  TEST 7 — /shelves/[id]: photo with all-failed runs shows stage=uploaded
 // ══════════════════════════════════════════════════════════════════════════════
-test('3.11 Photo z tylko failed runs pokazuje stage=uploaded + Uruchom vision', async ({ page }) => {
+test('3.11 Photo z tylko failed runs pokazuje stage=uploaded + Uruchom vision', async ({
+  page,
+}) => {
   await goToShelves(page);
   await page.waitForSelector('[data-testid^="shelf-item-"]', { timeout: 10_000 });
 
@@ -503,7 +521,7 @@ test('3.11 Photo z tylko failed runs pokazuje stage=uploaded + Uruchom vision', 
           ],
         },
       }),
-    })
+    }),
   );
 
   const link = page.getByTestId(/^shelf-item-photos-link$/).first();
@@ -530,7 +548,7 @@ test('3.12 Mobile: /shelves/[id] czytelna na 375px', async ({ page }) => {
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify(MOCK_PHOTO_LIST_VISION_DONE),
-    })
+    }),
   );
 
   const link = page.getByTestId(/^shelf-item-photos-link$/).first();
