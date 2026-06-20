@@ -224,7 +224,9 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
       setCanRetryMatchOnly(false);
       setNoApiKey(false);
       setStage('processing');
-      const processRes = await fetch(`/api/photos/${photoId}/process`, { method: 'POST' });
+      const processRes = await fetch(`/api/photos/${photoId}/process?skipMatch=1`, {
+        method: 'POST',
+      });
       const processJson = (await processRes.json()) as {
         data?: { photo: PhotoDTO; detections: unknown[] };
         error?: { code?: string; message?: string };
@@ -752,16 +754,34 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
       )}
 
       <ProgressModal
-        open={stage === 'processing' || stage === 'matching'}
+        open={
+          autoProcess &&
+          (stage === 'uploading' ||
+            stage === 'recording' ||
+            stage === 'processing' ||
+            stage === 'matching')
+        }
         label="Przetwarzanie zdjęcia"
         steps={[
           {
+            label: 'Przesyłanie zdjęcia',
+            status: stage === 'uploading' || stage === 'recording' ? 'active' : 'done',
+          },
+          {
             label: 'Analiza obrazu',
-            status: stage === 'processing' ? 'active' : 'done',
+            status:
+              stage === 'uploading' || stage === 'recording'
+                ? 'pending'
+                : stage === 'processing'
+                  ? 'active'
+                  : 'done',
           },
           {
             label: 'Dopasowywanie do baz książek',
-            status: stage === 'processing' ? 'pending' : 'active',
+            status:
+              stage === 'uploading' || stage === 'recording' || stage === 'processing'
+                ? 'pending'
+                : 'active',
           },
         ]}
         titles={stage === 'matching' ? matchTitles : undefined}

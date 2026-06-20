@@ -173,14 +173,17 @@ test('progress modal: widoczny podczas analizy vision w PhotoUploader', async ({
         })
       : route.continue(),
   );
-  await page.route(`**/api/photos/${PHOTO_ID}/process`, async (route) => {
-    await processHeld;
-    void route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(MOCK_PROCESS_RESPONSE),
-    });
-  });
+  await page.route(
+    (url) => url.pathname === `/api/photos/${PHOTO_ID}/process`,
+    async (route) => {
+      await processHeld;
+      void route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_PROCESS_RESPONSE),
+      });
+    },
+  );
   // Mock SSE match-stream → immediate done (2 detections matched).
   await page.route(`**/api/photos/${PHOTO_ID}/match-stream`, (route) =>
     route.fulfill({
@@ -263,13 +266,16 @@ test('upload flow: /upload → wybór półki → upload → redirect → propoz
   });
 
   // 6. Intercept /api/photos/*/process
-  await page.route(`**/api/photos/${PHOTO_ID}/process`, (route) => {
-    void route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(MOCK_PROCESS_RESPONSE),
-    });
-  });
+  await page.route(
+    (url) => url.pathname === `/api/photos/${PHOTO_ID}/process`,
+    (route) => {
+      void route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(MOCK_PROCESS_RESPONSE),
+      });
+    },
+  );
 
   // 7. Intercept /api/photos/*/match-stream (SSE) — immediate done
   await page.route(`**/api/photos/${PHOTO_ID}/match-stream`, (route) => {
