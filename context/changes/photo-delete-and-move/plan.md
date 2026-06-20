@@ -362,8 +362,8 @@ Wzorzec teardown/storageState: reuse `auth.setup.ts` (standardowe dla wszystkich
 
 #### Automatyczne
 
-- [x] 2.1 E2E test delete zielony: `npm run test:e2e -- --grep "usuwa zdjęcie"`
-- [x] 2.2 E2E test move zielony: `npm run test:e2e -- --grep "przenosi zdjęcie"`
-- [x] 2.3 Brak regresji w istniejących E2E: `npm run test:e2e`
-- [x] 2.4 Typecheck zielony po dodaniu spec
-- [x] 2.5 Lint zielony po dodaniu spec
+- [x] 2.1 E2E test delete zielony: `npm run test:e2e -- --grep "usuwa zdjęcie"` — 4132ada
+- [x] 2.2 E2E test move zielony: `npm run test:e2e -- --grep "przenosi zdjęcie"` — 4132ada
+- [x] 2.3 Brak regresji w istniejących E2E: `npm run test:e2e` — 4132ada
+- [x] 2.4 Typecheck zielony po dodaniu spec — 4132ada
+- [x] 2.5 Lint zielony po dodaniu spec — 4132ada
