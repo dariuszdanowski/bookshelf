@@ -28,9 +28,14 @@ export const GET: APIRoute = async ({ url, locals }) => {
   // length-only check przepuszczał śmieci typu "...//.." do interpolacji w URL.
   const isbn = (url.searchParams.get('isbn')?.trim() ?? '').replace(/[-\s]/g, '').toUpperCase();
   if (!/^(\d{13}|\d{9}[\dX])$/.test(isbn)) {
-    return apiError({ code: 'VALIDATION_ERROR', status: 400, message: 'Podaj poprawny ISBN (10 lub 13 cyfr).' });
+    return apiError({
+      code: 'VALIDATION_ERROR',
+      status: 400,
+      message: 'Podaj poprawny ISBN (10 lub 13 cyfr).',
+    });
   }
 
-  const cover_url = await findCoverByIsbn(isbn);
+  const title = url.searchParams.get('title')?.trim() || undefined;
+  const cover_url = await findCoverByIsbn(isbn, title);
   return apiResponse({ data: { cover_url } });
 };
