@@ -162,9 +162,40 @@ async function fetchBN(url: string): Promise<BookSearchResult> {
 }
 
 /**
+ * Generuje warianty zapytań BN od najbardziej precyzyjnego do najszerszego.
+ * Każdy wariant to subset kombinacji tytułu i autora; brak danej → pomijamy.
+ * Kolejność: pełny tytuł+autor → sam tytuł → tytuł+nazwisko →
+ *            1.słowo+autor → 1.słowo → sam autor → samo nazwisko.
+ * Konsument iteruje i zatrzymuje się na pierwszym trafieniu.
+ */
+function* bnQueryVariants(
+  title: string,
+  author: string,
+): Generator<{ title?: string; author?: string }> {
+  // Słowa tytułu (≥3 znaki) — pomija krótkie spójniki/przyimki ("i", "w", "z")
+  const titleWords = title.split(/\s+/).filter((w) => w.length >= 3);
+  const firstWord = titleWords[0] ?? '';
+
+  // Tokeny autora (≥4 znaki) — wyklucza inicjały (A.) i krótkie cząstki (de, van)
+  const authorWords = author.split(/\s+/).filter((w) => w.length >= 4);
+  const surname = authorWords.length >= 2 ? authorWords[authorWords.length - 1] : '';
+
+  if (title && author) yield { title, author }; // 1. pełny tytuł + autor
+  if (title) yield { title }; // 2. sam tytuł
+  if (title && surname) yield { title, author: surname }; // 3. tytuł + nazwisko
+  if (firstWord && firstWord !== title) {
+    if (author) yield { title: firstWord, author }; // 4. 1.słowo + autor
+    yield { title: firstWord }; // 5. samo 1.słowo
+    if (surname) yield { title: firstWord, author: surname }; // 6. 1.słowo + nazwisko
+  }
+  if (author) yield { author }; // 7. sam autor
+  if (surname && surname !== author) yield { author: surname }; // 8. samo nazwisko
+}
+
+/**
  * Wyszukiwanie w Bibliotece Narodowej. ISBN (gdy podany) = exact lookup; inaczej
- * title + author. BN obsługuje polskie diakrytyki w `title` (zweryfikowane 2026-06-22),
- * więc wysyłamy pełny tytuł; fallback z safe query aktywuje się tylko przy HTTP 400.
+ * kaskada wariantów zapytań (title+author → sam tytuł → 1.słowo → autor → ...).
+ * Stop przy pierwszym trafieniu. HTTP 400 lub błąd sieci → fallback safe query.
  */
 export async function searchNationalLibrary(query: {
   title: string;
@@ -186,20 +217,28 @@ export async function searchNationalLibrary(query: {
   const fullTitle = cleanSearchTitle(query.title);
   const fullAuthor = query.author ? deCyrillic(query.author) : '';
 
-  if (fullTitle) {
-    const params = new URLSearchParams({ title: fullTitle, limit: String(BN_LIMIT) });
-    if (fullAuthor) params.set('author', fullAuthor);
+  let networkError = false;
+  for (const variant of bnQueryVariants(fullTitle, fullAuthor)) {
+    const params = new URLSearchParams({ limit: String(BN_LIMIT) });
+    if (variant.title) params.set('title', variant.title);
+    if (variant.author) params.set('author', variant.author);
     const result = await fetchBN(`${BN_BASE}?${params.toString()}`);
-    // ok + empty + rate_limited → terminalne; network (incl. 400) → próbuj fallback
-    if (result.ok || result.reason !== 'network') return result;
+    if (result.ok || result.reason === 'rate_limited') return result;
+    if (result.reason === 'network') {
+      networkError = true;
+      break;
+    }
+    // 'empty' → probuj kolejny wariant
   }
 
-  // Fallback: odfiltruj słowa z polskimi diakrytykami — na wypadek gdyby BN
-  // zwróciło HTTP 400 dla konkretnego tytułu.
+  if (!networkError) return { ok: false, reason: 'empty' };
+
+  // Fallback safe query — tylko gdy nastąpił błąd sieci (incl. stary bug 400 BN).
+  // Odfiltrowane diakrytyki omijają ewentualny problematyczny znak w tytule.
   const safeTitle = diacriticSafeQuery(fullTitle);
   if (!safeTitle) return { ok: false, reason: 'empty' };
-  const safeAuthor = fullAuthor ? diacriticSafeQuery(fullAuthor) : '';
   const safeParams = new URLSearchParams({ title: safeTitle, limit: String(BN_LIMIT) });
+  const safeAuthor = fullAuthor ? diacriticSafeQuery(fullAuthor) : '';
   if (safeAuthor) safeParams.set('author', safeAuthor);
   return fetchBN(`${BN_BASE}?${safeParams.toString()}`);
 }

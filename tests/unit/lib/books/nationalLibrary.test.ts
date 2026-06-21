@@ -123,6 +123,55 @@ describe('searchNationalLibrary', () => {
     expect(result).toEqual({ ok: false, reason: 'network' });
   });
 
+  it('kaskada wariantów: title+author → title-only → tytuł+nazwisko → ... (stop na hit)', async () => {
+    // Realny case: „TOAST za Odważnych" / „Magdalena Jedrysek" (OCR-owy autor bez ę).
+    // BN AND-filter (title+fullAuthor) zwraca 0 bo BN przechowuje „Jędrsynek, Magdalena".
+    // Wariant 2 (sam tytuł) trafia → stop.
+    const spy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ bibs: [] }), { status: 200 })) // wariant 1: title+author → empty
+      .mockResolvedValueOnce(new Response(JSON.stringify({ bibs: [keretBib] }), { status: 200 })); // wariant 2: sam tytuł → hit
+    const result = await searchNationalLibrary({
+      title: 'TOAST za Odważnych',
+      author: 'Magdalena Jedrysek',
+    });
+    expect(spy).toHaveBeenCalledTimes(2); // stop po 2 zapytaniach
+    const v1 = new URL(spy.mock.calls[0][0] as string).searchParams;
+    expect(v1.get('title')).toBe('TOAST za Odważnych');
+    expect(v1.get('author')).toBe('Magdalena Jedrysek'); // wariant 1: z autorem
+    const v2 = new URL(spy.mock.calls[1][0] as string).searchParams;
+    expect(v2.get('title')).toBe('TOAST za Odważnych');
+    expect(v2.get('author')).toBeNull(); // wariant 2: sam tytuł (bez autora)
+    expect(result.ok).toBe(true);
+  });
+
+  it('kaskada wariantów: wszystkie puste → reason empty (bez safe-query call)', async () => {
+    // Gdy BN nie znajduje nic w żadnym wariancie → empty, bez dodatkowego safe-query.
+    // mockImplementation (nie mockResolvedValue) — każde wywołanie tworzy nowy Response
+    // (Response.json() konsumuje body jednorazowo; reużycie tego samego obiektu → błąd).
+    const spy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(() =>
+        Promise.resolve(new Response(JSON.stringify({ bibs: [] }), { status: 200 })),
+      );
+    const result = await searchNationalLibrary({ title: 'Solaris', author: 'Lem' });
+    expect(result).toEqual({ ok: false, reason: 'empty' });
+    expect(spy).toHaveBeenCalled();
+  });
+
+  it('kaskada dociera do „sam autor" gdy tytuł i 1.słowo puste (tylko autor znany)', async () => {
+    // Patologiczny case: title='' (po cleanSearchTitle); autor podany.
+    const spy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(JSON.stringify({ bibs: [keretBib] }), { status: 200 }));
+    const result = await searchNationalLibrary({ title: '', author: 'Etgar Keret' });
+    expect(spy).toHaveBeenCalledTimes(1);
+    const p = new URL(spy.mock.calls[0][0] as string).searchParams;
+    expect(p.get('title')).toBeNull();
+    expect(p.get('author')).toBe('Etgar Keret'); // wariant „sam autor"
+    expect(result.ok).toBe(true);
+  });
+
   it('HTTP 400 na primary → retry z safe query (bez diakrytyków); safe trafia', async () => {
     const spy = vi
       .spyOn(globalThis, 'fetch')
