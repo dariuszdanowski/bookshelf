@@ -6,13 +6,11 @@ vi.mock('../../../../src/lib/books/openLibrary', () => ({
   searchOpenLibraryByTitle: vi.fn(),
 }));
 vi.mock('../../../../src/lib/books/nationalLibrary', () => ({ searchNationalLibrary: vi.fn() }));
-vi.mock('../../../../src/lib/books/cover', () => ({ findCoverByIsbn: vi.fn() }));
 
 import { findBookCandidates } from '../../../../src/lib/matching/findCandidates';
 import { searchGoogleBooks } from '../../../../src/lib/books/googleBooks';
 import { searchOpenLibrary, searchOpenLibraryByTitle } from '../../../../src/lib/books/openLibrary';
 import { searchNationalLibrary } from '../../../../src/lib/books/nationalLibrary';
-import { findCoverByIsbn } from '../../../../src/lib/books/cover';
 
 const ISBN = '9780156027601';
 const GB_CANDIDATE = {
@@ -34,7 +32,6 @@ beforeEach(() => {
   vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({ ok: false, reason: 'empty' });
   vi.mocked(searchNationalLibrary).mockResolvedValue({ ok: false, reason: 'empty' });
   vi.mocked(searchOpenLibrary).mockResolvedValue({ ok: false, reason: 'empty' });
-  vi.mocked(findCoverByIsbn).mockResolvedValue(null);
 });
 
 describe('findBookCandidates — ISBN-first path', () => {

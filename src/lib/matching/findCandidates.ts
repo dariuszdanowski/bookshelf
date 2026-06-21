@@ -2,7 +2,6 @@ import type { BookCandidate, ScoredCandidate } from '../books/schema';
 import { searchGoogleBooks } from '../books/googleBooks';
 import { searchOpenLibrary, searchOpenLibraryByTitle } from '../books/openLibrary';
 import { searchNationalLibrary } from '../books/nationalLibrary';
-import { findCoverByIsbn } from '../books/cover';
 import { scoreCandidate, authorTokensMatch } from './score';
 import { dedupeCandidates } from './dedupe';
 
@@ -90,17 +89,19 @@ export async function findBookCandidates(
     ),
   ).slice(0, SEARCH_MAX_CANDIDATES);
 
-  // Wzbogacenie okładki: HEAD do OL (verified, nie spekulatywny URL) + GB ISBN fallback.
-  // Promise.all = równolegle dla max 8 kandydatów; HEAD OL ~100ms, GB ISBN ~500ms.
-  const candidates = await Promise.all(
-    baseList.map(async (c) => {
-      if (c.coverUrl) return c;
-      const isbn = c.isbn13 ?? c.isbn10;
-      if (!isbn) return c;
-      const coverUrl = await findCoverByIsbn(isbn, c.title);
-      return { ...c, coverUrl };
-    }),
-  );
+  // Spekulatywny URL okładki (bez HEAD check) — pipeline przetwarza do 39 detekcji
+  // sekwencyjnie, każdy HEAD do OL dodawałby ~500ms × 8 kandydatów = 156 dodatkowych
+  // requestów mogących przekroczyć 30s limit CF Worker. Verified HEAD check jest w
+  // findCoverByIsbn (cover-suggestion endpoint) — tam request jest user-initiated, nie batch.
+  const candidates = baseList.map((c) => {
+    if (c.coverUrl) return c;
+    const isbn = c.isbn13 ?? c.isbn10;
+    if (!isbn) return c;
+    return {
+      ...c,
+      coverUrl: `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg?default=false`,
+    };
+  });
 
   return { candidates, rateLimited: false };
 }
