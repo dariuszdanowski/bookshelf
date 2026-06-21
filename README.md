@@ -55,6 +55,12 @@ W jednym zdaniu: **zdjęcie → detekcja → match → dedup → ranking → pot
 | ![Edycja książki](docs/screenshots/06-library-book-definition.png) | ![Klucze API i koszty](docs/screenshots/07-profil-keys.png) |
 | *Edycja wpisu — tytuł, autor, ISBN-13/10, okładka (auto / URL / własne zdjęcie), dane zakupu* | *Profil — BYOK klucze API (Anthropic / OpenAI / OpenRouter), monitoring kosztów vision per analiza* |
 
+### Zgłaszanie błędów
+
+![Zgłoś błąd](docs/screenshots/09-feedback.png)
+
+*Przycisk „Zgłoś błąd" dostępny w nagłówku każdej strony — otwiera modal z formularzem (tytuł, opis, URL strony). Po wysłaniu zgłoszenie trafia jako Issue na GitHub i otwiera się automatycznie w nowej karcie.*
+
 ## Stack
 
 | Warstwa | Wybór |
