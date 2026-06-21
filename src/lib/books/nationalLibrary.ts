@@ -7,12 +7,11 @@ import { cleanSearchTitle, deCyrillic } from '../matching/normalizeQuery';
 // Darmowe, bez klucza, bez limitu. Natywne pokrycie polskich edycji — recall,
 // którego brakuje Google Books (np. „Usterka na skraju galaktyki" Kereta).
 //
-// Gotcha (zweryfikowane PoC 2026-06-05): filtr `title` zwraca HTTP 400 dla
-// DOWOLNEGO polskiego diakrytyku (ź/ś/ż...), a strip diakrytyków psuje match
-// (BN jest diacritic-sensitive). Rozwiązanie: do zapytania `title` bierzemy
-// tylko BEZDIAKRYTYCZNE słowa tytułu — BN ma substring-match, więc i tak trafia
-// („Wielki ogarniacz życia" → „Wielki ogarniacz" → ✓). Gdy 0 takich słów,
-// pomijamy zapytanie tytułowe (ISBN/GB/OL pozostają). Ten sam guard na `author`.
+// Diakrytyki: BN obsługuje polskie znaki w parametrze `title` poprawnie
+// (zweryfikowane 2026-06-22: title=„Toast za Odważnych" → HTTP 200 + wynik;
+// wcześniejszy zapis o HTTP 400 dla diakrytyków był błędny lub dotyczył
+// starszego środowiska). Strategia: wysyłamy pełny tytuł z polskimi znakami;
+// fallback z odfiltrowanymi diakrytykami aktywuje się tylko przy HTTP 400.
 
 const BN_BASE = 'https://data.bn.org.pl/api/institutions/bibs.json';
 const USER_AGENT = 'BookshelfCatalog/1.0 (https://github.com/dariuszdanowski/bookshelf)';
@@ -20,7 +19,7 @@ const BN_LIMIT = 5;
 
 const DIACRITIC = /[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/;
 
-/** Słowa bez polskich diakrytyków — bezpieczne dla buggy filtra BN (patrz wyżej). */
+/** Słowa bez polskich diakrytyków — fallback gdy BN zwróci HTTP 400. */
 function diacriticSafeQuery(s: string): string {
   return s
     .split(/\s+/)
@@ -138,8 +137,8 @@ async function fetchBN(url: string): Promise<BookSearchResult> {
     return { ok: false, reason: 'network' };
   }
   if (response.status === 429) return { ok: false, reason: 'rate_limited' };
-  // 400 = buggy filtr BN dla diakrytyków (mitygowane przez diacriticSafeQuery,
-  // ale zostawiamy graceful guard) → traktuj jak brak wyników, nie crash.
+  // 400 = potencjalny bug filtra BN (stary gotcha, dziś rzadki) → traktuj jak
+  // błąd sieciowy; wywołujący może spróbować fallback z bezpiecznym zapytaniem.
   if (!response.ok) {
     if (response.status !== 400) {
       console.error('[nationalLibrary] HTTP error', { status: response.status });
@@ -164,7 +163,8 @@ async function fetchBN(url: string): Promise<BookSearchResult> {
 
 /**
  * Wyszukiwanie w Bibliotece Narodowej. ISBN (gdy podany) = exact lookup; inaczej
- * title + author z guardem na diakrytyki. Trzecie źródło równolegle z GB+OL.
+ * title + author. BN obsługuje polskie diakrytyki w `title` (zweryfikowane 2026-06-22),
+ * więc wysyłamy pełny tytuł; fallback z safe query aktywuje się tylko przy HTTP 400.
  */
 export async function searchNationalLibrary(query: {
   title: string;
@@ -182,13 +182,24 @@ export async function searchNationalLibrary(query: {
 
   // cleanSearchTitle zawiera deCyrillic — krytyczne dla BN: cyrylicki homoglif
   // (np. „Przytulajkа" z cyrylickim а U+0430) daje w BN 0 wyników, mimo że
-  // książka jest pod łacińską pisownią („Przytulajka" → 2 wyniki). GB robi to
-  // przez titleQueryVariants; BN/OL wcześniej tego nie robiły (luka).
-  const safeTitle = diacriticSafeQuery(cleanSearchTitle(query.title));
-  if (!safeTitle) return { ok: false, reason: 'empty' }; // tytuł w całości diakrytykowy — pomiń
+  // książka jest pod łacińską pisownią. Zachowuje polskie diakrytyki (ą/ę/ó/...).
+  const fullTitle = cleanSearchTitle(query.title);
+  const fullAuthor = query.author ? deCyrillic(query.author) : '';
 
-  const params = new URLSearchParams({ title: safeTitle, limit: String(BN_LIMIT) });
-  const safeAuthor = query.author ? diacriticSafeQuery(deCyrillic(query.author)) : '';
-  if (safeAuthor) params.set('author', safeAuthor);
-  return fetchBN(`${BN_BASE}?${params.toString()}`);
+  if (fullTitle) {
+    const params = new URLSearchParams({ title: fullTitle, limit: String(BN_LIMIT) });
+    if (fullAuthor) params.set('author', fullAuthor);
+    const result = await fetchBN(`${BN_BASE}?${params.toString()}`);
+    // ok + empty + rate_limited → terminalne; network (incl. 400) → próbuj fallback
+    if (result.ok || result.reason !== 'network') return result;
+  }
+
+  // Fallback: odfiltruj słowa z polskimi diakrytykami — na wypadek gdyby BN
+  // zwróciło HTTP 400 dla konkretnego tytułu.
+  const safeTitle = diacriticSafeQuery(fullTitle);
+  if (!safeTitle) return { ok: false, reason: 'empty' };
+  const safeAuthor = fullAuthor ? diacriticSafeQuery(fullAuthor) : '';
+  const safeParams = new URLSearchParams({ title: safeTitle, limit: String(BN_LIMIT) });
+  if (safeAuthor) safeParams.set('author', safeAuthor);
+  return fetchBN(`${BN_BASE}?${safeParams.toString()}`);
 }
