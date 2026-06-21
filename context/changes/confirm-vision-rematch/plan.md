@@ -275,10 +275,10 @@ onClick={() => setConfirmRefine(true)}
 
 #### Automatyczne
 
-- [x] 2.1 typecheck zielony
-- [x] 2.2 lint zielony
-- [x] 2.3 unit testy zielone
-- [x] 2.4 E2E `confirm-vision-rematch.spec.ts` zielone
+- [x] 2.1 typecheck zielony — 37c1d6c
+- [x] 2.2 lint zielony — 37c1d6c
+- [x] 2.3 unit testy zielone — 37c1d6c
+- [x] 2.4 E2E `confirm-vision-rematch.spec.ts` zielone — 37c1d6c
 
 #### Ręczne
 
