@@ -222,6 +222,7 @@ describe('PhotoListIsland', () => {
     await waitFor(() => expect(screen.getByTestId(`run-vision-${PHOTO_ID}`)).toBeInTheDocument());
 
     fireEvent.click(screen.getByTestId(`run-vision-${PHOTO_ID}`));
+    fireEvent.click(screen.getByTestId('photo-vision-confirm-confirm'));
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
@@ -276,6 +277,7 @@ describe('PhotoListIsland', () => {
     await waitFor(() => expect(screen.getByTestId(`run-vision-${PHOTO_ID}`)).toBeInTheDocument());
 
     fireEvent.click(screen.getByTestId(`run-vision-${PHOTO_ID}`));
+    fireEvent.click(screen.getByTestId('photo-vision-confirm-confirm'));
     await waitFor(() => expect(screen.getByTestId(`row-toast-${PHOTO_ID}`)).toBeInTheDocument());
     expect(screen.getByTestId(`row-toast-${PHOTO_ID}`)).toHaveTextContent('Run już w toku');
   });
@@ -290,6 +292,7 @@ describe('PhotoListIsland', () => {
     await waitFor(() => expect(screen.getByTestId(`run-vision-${PHOTO_ID}`)).toBeInTheDocument());
 
     fireEvent.click(screen.getByTestId(`run-vision-${PHOTO_ID}`));
+    fireEvent.click(screen.getByTestId('photo-vision-confirm-confirm'));
     await waitFor(() => expect(screen.getByTestId(`row-toast-${PHOTO_ID}`)).toBeInTheDocument());
     expect(screen.getByTestId(`row-toast-${PHOTO_ID}`)).toHaveTextContent('rate limit');
   });
@@ -396,6 +399,7 @@ describe('PhotoListIsland', () => {
     fireEvent.change(screen.getByTestId(`move-photo-${PHOTO_ID}`), {
       target: { value: OTHER_SHELF_ID },
     });
+    fireEvent.click(screen.getByTestId('photo-move-confirm-confirm'));
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
@@ -496,6 +500,7 @@ describe('PhotoListIsland', () => {
     // Set payload before click so MockEventSource captures it at construction time.
     _eseDonePayload = { matched: 5, rate_limited: 9 };
     fireEvent.click(screen.getByTestId(`run-match-${PHOTO_ID}`));
+    fireEvent.click(screen.getByTestId('photo-match-confirm-confirm'));
 
     await waitFor(() =>
       expect(screen.getByText(/9 pozycji wstrzymał limit Google/)).toBeInTheDocument(),

@@ -512,6 +512,7 @@ describe('DetectionReview — refine', () => {
     render(<DetectionReview photoId={PHOTO_ID} />);
     const refineBtn = await waitFor(() => screen.getByTestId('refine-button'));
     fireEvent.click(refineBtn);
+    fireEvent.click(screen.getByTestId('refine-confirm-confirm'));
 
     await waitFor(() => {
       const refineCall = fetchMock.mock.calls.find(
@@ -544,6 +545,7 @@ describe('DetectionReview — refine', () => {
 
     expect(refineBtn).not.toBeDisabled();
     fireEvent.click(refineBtn);
+    fireEvent.click(screen.getByTestId('refine-confirm-confirm'));
 
     await waitFor(() => {
       const refineCall = fetchMock.mock.calls.find(

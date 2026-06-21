@@ -133,7 +133,7 @@ test.describe('force-refine — przycisk Refine dla słabych bboxów', () => {
     await expect(card.getByTestId('refine-cost-hint')).toBeVisible();
   });
 
-  test('słaby crop — refine wywołuje endpoint i jest aktywny', async ({ page }) => {
+  test('słaby crop — refine wywołuje endpoint po potwierdzeniu dialogu', async ({ page }) => {
     const refinePromise = page.waitForRequest(
       (req) =>
         req.url().includes(`/api/detections/${DET_WEAK_ID}/refine`) && req.method() === 'POST',
@@ -141,7 +141,8 @@ test.describe('force-refine — przycisk Refine dla słabych bboxów', () => {
 
     const card = page.getByTestId('detection-card-2');
     await card.getByTestId('refine-button').click();
-    await refinePromise; // bez timeout = test passes gdy request złapany
+    await page.getByTestId('refine-confirm-confirm').click();
+    await refinePromise;
   });
 
   // ── Brak bbox → refine gating (identity-first) ──────────────────────────

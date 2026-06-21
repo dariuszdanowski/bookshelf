@@ -67,6 +67,7 @@ export default function BookCard({
 }: BookCardProps) {
   const [showDetail, setShowDetail] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [pendingMoveShelfId, setPendingMoveShelfId] = useState<string | null>(null);
   const [coverFailed, setCoverFailed] = useState(false);
   const authorsStr = book.authors.join(', ');
   const altText = authorsStr ? `${book.title} — ${authorsStr}` : book.title;
@@ -140,7 +141,7 @@ export default function BookCard({
         aria-label={`Przenieś „${book.title}" na inną półkę`}
         onChange={(e) => {
           const target = e.target.value;
-          if (target) onMove(book.id, target);
+          if (target) setPendingMoveShelfId(target);
         }}
         className="rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-900 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
       >
@@ -210,6 +211,25 @@ export default function BookCard({
       onClose={() => setShowDetail(false)}
     />
   ) : null;
+
+  const pendingMoveTarget = moveTargets.find((s) => s.id === pendingMoveShelfId);
+  const moveDialog =
+    onMove && pendingMoveShelfId ? (
+      <ConfirmDialog
+        open={true}
+        title="Przenieść książkę?"
+        message={`„${book.title}" zostanie przeniesiona na półkę „${pendingMoveTarget?.name ?? '…'}".`}
+        confirmLabel="Przenieś"
+        cancelLabel="Anuluj"
+        testIdPrefix={`move-book-dialog-${book.id}`}
+        onConfirm={() => {
+          const id = pendingMoveShelfId;
+          setPendingMoveShelfId(null);
+          onMove(book.id, id);
+        }}
+        onCancel={() => setPendingMoveShelfId(null)}
+      />
+    ) : null;
 
   const deleteDialog = onDelete ? (
     <ConfirmDialog
@@ -282,6 +302,7 @@ export default function BookCard({
         </div>
         {editModal}
         {deleteDialog}
+        {moveDialog}
       </div>
     );
   }
@@ -305,6 +326,7 @@ export default function BookCard({
         </div>
         {editModal}
         {deleteDialog}
+        {moveDialog}
       </div>
     );
   }
@@ -323,6 +345,7 @@ export default function BookCard({
       {deleteButton('w-full')}
       {editModal}
       {deleteDialog}
+      {moveDialog}
     </div>
   );
 }

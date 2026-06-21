@@ -707,6 +707,8 @@ function useDetectionDecision(
     }
   }
 
+  const [confirmRefine, setConfirmRefine] = useState(false);
+
   async function handleRefine() {
     setBusyLabel('Analiza vision (ponowne skanowanie grzbietu)...');
     setBusy(true);
@@ -786,6 +788,8 @@ function useDetectionDecision(
     handleUndoReject,
     handleUnconfirm,
     handleRefine,
+    confirmRefine,
+    setConfirmRefine,
     handleRematch,
     handleCorrectSuccess,
   };
@@ -833,6 +837,8 @@ function DetectionCard({
     handleUndoReject,
     handleUnconfirm,
     handleRefine,
+    confirmRefine,
+    setConfirmRefine,
     handleRematch,
     handleCorrectSuccess,
   } = useDetectionDecision(detection, onDecided, onRefined, onUndecided);
@@ -1221,7 +1227,7 @@ function DetectionCard({
           <RefineButton
             bbox={detection.bbox}
             busy={busy}
-            onClick={() => void handleRefine()}
+            onClick={() => setConfirmRefine(true)}
             size="lg"
           />
         </div>
@@ -1257,6 +1263,19 @@ function DetectionCard({
         />
       )}
 
+      <ConfirmDialog
+        open={confirmRefine}
+        title="Doprecyzować odczyt?"
+        message="Uruchomi ponowną analizę AI grzbietu tej książki. Operacja jest płatna."
+        confirmLabel="Doprecyzuj"
+        cancelLabel="Anuluj"
+        testIdPrefix="refine-confirm"
+        onCancel={() => setConfirmRefine(false)}
+        onConfirm={() => {
+          setConfirmRefine(false);
+          void handleRefine();
+        }}
+      />
       <ProgressModal open={busyLabel !== null} label={busyLabel ?? ''} />
     </div>
   );
@@ -1373,6 +1392,8 @@ export function DetectionRow({
     handleUndoReject,
     handleUnconfirm,
     handleRefine,
+    confirmRefine,
+    setConfirmRefine,
     handleRematch,
     handleCorrectSuccess,
   } = useDetectionDecision(detection, onDecided, onRefined, onUndecided);
@@ -1602,6 +1623,19 @@ export function DetectionRow({
         />
       )}
 
+      <ConfirmDialog
+        open={confirmRefine}
+        title="Doprecyzować odczyt?"
+        message="Uruchomi ponowną analizę AI grzbietu tej książki. Operacja jest płatna."
+        confirmLabel="Doprecyzuj"
+        cancelLabel="Anuluj"
+        testIdPrefix="refine-confirm"
+        onCancel={() => setConfirmRefine(false)}
+        onConfirm={() => {
+          setConfirmRefine(false);
+          void handleRefine();
+        }}
+      />
       <ProgressModal open={busyLabel !== null} label={busyLabel ?? ''} />
     </div>
   );
@@ -1648,6 +1682,8 @@ export function DetectionTile({
     handleUndoReject,
     handleUnconfirm,
     handleRefine,
+    confirmRefine,
+    setConfirmRefine,
     handleRematch,
     handleCorrectSuccess,
   } = useDetectionDecision(detection, onDecided, onRefined, onUndecided);
@@ -1902,6 +1938,19 @@ export function DetectionTile({
         />
       )}
 
+      <ConfirmDialog
+        open={confirmRefine}
+        title="Doprecyzować odczyt?"
+        message="Uruchomi ponowną analizę AI grzbietu tej książki. Operacja jest płatna."
+        confirmLabel="Doprecyzuj"
+        cancelLabel="Anuluj"
+        testIdPrefix="refine-confirm"
+        onCancel={() => setConfirmRefine(false)}
+        onConfirm={() => {
+          setConfirmRefine(false);
+          void handleRefine();
+        }}
+      />
       <ProgressModal open={busyLabel !== null} label={busyLabel ?? ''} />
     </div>
   );
@@ -2129,11 +2178,13 @@ export default function DetectionReview({
   const [viewMode, setViewMode] = useDetectionViewMode();
   const [focusedDetectionId, setFocusedDetectionId] = useState<string | null>(null);
   const [confirmRerunOpen, setConfirmRerunOpen] = useState(false);
+  const [confirmRerunMatchOpen, setConfirmRerunMatchOpen] = useState(false);
   const [isBboxEditing, setIsBboxEditing] = useState(false);
   const [applyingEdits, setApplyingEdits] = useState(false);
   const [allShelves, setAllShelves] = useState<Array<{ id: string; name: string }> | null>(null);
   const [shelvesLoadFailed, setShelvesLoadFailed] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [pendingMoveTargetId, setPendingMoveTargetId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isMoving, setIsMoving] = useState(false);
   const [showAddMissedForm, setShowAddMissedForm] = useState(false);
@@ -2867,7 +2918,7 @@ export default function DetectionReview({
             <button
               data-testid="rerun-match-button"
               disabled={actionBusy || isBboxEditing || applyingEdits}
-              onClick={() => void handleRerunMatch()}
+              onClick={() => setConfirmRerunMatchOpen(true)}
               className="inline-flex items-center rounded-md border border-blue-300 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
             >
               {actionBusy ? 'Dopasowuję...' : 'Ponów match'}
@@ -2896,7 +2947,7 @@ export default function DetectionReview({
                   shelvesLoadFailed ||
                   !allShelves?.length
                 }
-                onChange={(e) => void handleMovePhoto(e.target.value)}
+                onChange={(e) => setPendingMoveTargetId(e.target.value)}
                 className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-900 disabled:opacity-50"
                 title={shelvesLoadFailed ? 'Nie można załadować półek' : undefined}
               >
@@ -3076,6 +3127,21 @@ export default function DetectionReview({
       )}
 
       <ConfirmDialog
+        open={pendingMoveTargetId != null}
+        title="Przenieść zdjęcie?"
+        message={`Zdjęcie zostanie przeniesione na półkę „${allShelves?.find((s) => s.id === pendingMoveTargetId)?.name ?? '…'}".`}
+        confirmLabel="Przenieś"
+        cancelLabel="Anuluj"
+        testIdPrefix="move-photo-confirm"
+        onCancel={() => setPendingMoveTargetId(null)}
+        onConfirm={() => {
+          const id = pendingMoveTargetId;
+          setPendingMoveTargetId(null);
+          if (id) void handleMovePhoto(id);
+        }}
+      />
+
+      <ConfirmDialog
         open={showDeleteConfirm}
         title="Usunąć zdjęcie?"
         message={`Zdjęcie zostanie trwale usunięte wraz z ${detections.length} detekcją${detections.length === 1 ? '' : detections.length < 5 ? 'i' : 'ami'}. Tej operacji nie można cofnąć.`}
@@ -3101,6 +3167,20 @@ export default function DetectionReview({
         onConfirm={() => {
           setConfirmRerunOpen(false);
           void runRerunVision();
+        }}
+      />
+
+      <ConfirmDialog
+        open={confirmRerunMatchOpen}
+        title="Uruchomić dopasowanie?"
+        message="Obecne wyniki dopasowania zostaną nadpisane."
+        confirmLabel="Uruchom match"
+        cancelLabel="Anuluj"
+        testIdPrefix="rerun-match-confirm"
+        onCancel={() => setConfirmRerunMatchOpen(false)}
+        onConfirm={() => {
+          setConfirmRerunMatchOpen(false);
+          void handleRerunMatch();
         }}
       />
 

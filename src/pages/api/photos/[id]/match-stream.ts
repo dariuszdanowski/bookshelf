@@ -352,6 +352,8 @@ export const GET: APIRoute = async ({ params, locals }) => {
               name: insertError.name,
               message: insertError.message,
               code: insertError.code,
+              details: (insertError as unknown as Record<string, unknown>).details,
+              hint: (insertError as unknown as Record<string, unknown>).hint,
               count: allCandidateRows.length,
             });
             controller.enqueue(
