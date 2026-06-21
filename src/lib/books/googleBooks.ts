@@ -161,7 +161,16 @@ export async function searchGoogleBooks(query: SearchQuery): Promise<BookSearchR
     if (result.ok || result.reason === 'rate_limited') return result;
   }
 
-  // M22: wydawnictwo (z grzbietu) zawęża wyniki, gdy autor nie pomógł / brak autora.
+  // intitle: bez autora — gdy intitle+inauthor nie dało wyników (np. OCR zgubił
+  // literę w nazwisku: „Jedysek" zamiast „Jedrysek"). Tytuł z grzbietu jest często
+  // bezbłędny; autor = dodatkowy sygnał, nie warunek konieczny znajdowania.
+  // Robimy to PRZED publisher i free-text bo intitle: jest precyzyjniejsze.
+  if (cleanAuthor) {
+    const result = await fetchBooks(buildUrl(`intitle:"${cleanTitle}"`, apiKey));
+    if (result.ok || result.reason === 'rate_limited') return result;
+  }
+
+  // M22: wydawnictwo (z grzbietu) zawęża wyniki, gdy autor i sam tytuł nie pomogły.
   const cleanPublisher = query.publisher ? cleanSearchTitle(query.publisher) : null;
   if (cleanPublisher) {
     const result = await fetchBooks(
