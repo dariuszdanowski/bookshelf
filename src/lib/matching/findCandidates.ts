@@ -2,6 +2,7 @@ import type { BookCandidate, ScoredCandidate } from '../books/schema';
 import { searchGoogleBooks } from '../books/googleBooks';
 import { searchOpenLibrary, searchOpenLibraryByTitle } from '../books/openLibrary';
 import { searchNationalLibrary } from '../books/nationalLibrary';
+import { findCoverByIsbn } from '../books/cover';
 import { scoreCandidate, authorTokensMatch } from './score';
 import { dedupeCandidates } from './dedupe';
 
@@ -81,23 +82,25 @@ export async function findBookCandidates(
 
   scored.sort((a, b) => b.matchScore - a.matchScore);
   const skipScoreGate = opts?.isbnOnly && !rawTitle;
-  const candidates = dedupeCandidates(
+  const baseList = dedupeCandidates(
     scored.filter(
       (c) =>
         (skipScoreGate || c.matchScore >= SEARCH_MIN_SCORE) &&
         authorTokensMatch(rawAuthor, c.authors),
     ),
-  )
-    .slice(0, SEARCH_MAX_CANDIDATES)
-    .map((c) => {
+  ).slice(0, SEARCH_MAX_CANDIDATES);
+
+  // Wzbogacenie okładki: HEAD do OL (verified, nie spekulatywny URL) + GB ISBN fallback.
+  // Promise.all = równolegle dla max 8 kandydatów; HEAD OL ~100ms, GB ISBN ~500ms.
+  const candidates = await Promise.all(
+    baseList.map(async (c) => {
       if (c.coverUrl) return c;
       const isbn = c.isbn13 ?? c.isbn10;
       if (!isbn) return c;
-      return {
-        ...c,
-        coverUrl: `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg?default=false`,
-      };
-    });
+      const coverUrl = await findCoverByIsbn(isbn, c.title);
+      return { ...c, coverUrl };
+    }),
+  );
 
   return { candidates, rateLimited: false };
 }
