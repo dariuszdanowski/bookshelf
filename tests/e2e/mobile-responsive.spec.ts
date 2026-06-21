@@ -70,7 +70,11 @@ test.describe('S-28: hamburger nav', () => {
     await expect(panel).toBeVisible();
     await expect(page.getByTestId('mobile-user-email')).toBeVisible();
 
+    // mobile-nav-shelves to przycisk akordeonu (toggle) — klik otwiera listę półek,
+    // a następnie link "Zarządzaj półkami…" nawiguje do /shelves
     await page.getByTestId('mobile-nav-shelves').click();
+    await expect(page.getByTestId('mobile-nav-shelves-manage')).toBeVisible({ timeout: 5_000 });
+    await page.getByTestId('mobile-nav-shelves-manage').click();
     await page.waitForURL('**/shelves', { timeout: 10_000 });
   });
 
