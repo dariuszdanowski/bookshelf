@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { scoreCandidate, authorTokensMatch, MATCH_HIGH, MATCH_MID } from '../../../../src/lib/matching/score';
+import {
+  scoreCandidate,
+  authorTokensMatch,
+  MATCH_HIGH,
+  MATCH_MID,
+} from '../../../../src/lib/matching/score';
 
 const exactDetection = { raw_title: 'Solaris', raw_author: 'Stanisław Lem' };
 const exactCandidate = {
@@ -18,20 +23,20 @@ describe('scoreCandidate', () => {
   it('titleSim: perfect title match contributes 0.65 × 1.0', () => {
     const score = scoreCandidate(
       { raw_title: 'Solaris', raw_author: null },
-      { title: 'Solaris', authors: [], isbn13: null, isbn10: null }
+      { title: 'Solaris', authors: [], isbn13: null, isbn10: null },
     );
     // 0.65 * 1.0 + 0.30 * 0.5 (neutral) + 0 = 0.65 + 0.15 = 0.80
-    expect(score).toBeCloseTo(0.80, 2);
+    expect(score).toBeCloseTo(0.8, 2);
   });
 
   it('titleSim: garbled title gives score < perfect', () => {
     const garbled = scoreCandidate(
       { raw_title: 'PRZECIRZTA ADEPT', raw_author: null },
-      { title: 'Solaris', authors: [], isbn13: null, isbn10: null }
+      { title: 'Solaris', authors: [], isbn13: null, isbn10: null },
     );
     const exact = scoreCandidate(
       { raw_title: 'Solaris', raw_author: null },
-      { title: 'Solaris', authors: [], isbn13: null, isbn10: null }
+      { title: 'Solaris', authors: [], isbn13: null, isbn10: null },
     );
     expect(garbled).toBeLessThan(exact);
   });
@@ -39,29 +44,29 @@ describe('scoreCandidate', () => {
   it('authorSim: no detection author → neutral 0.5', () => {
     const score = scoreCandidate(
       { raw_title: 'Solaris', raw_author: null },
-      { title: 'Solaris', authors: ['Stanisław Lem'], isbn13: null, isbn10: null }
+      { title: 'Solaris', authors: ['Stanisław Lem'], isbn13: null, isbn10: null },
     );
     // 0.65 * 1.0 + 0.30 * 0.5 + 0 = 0.80
-    expect(score).toBeCloseTo(0.80, 2);
+    expect(score).toBeCloseTo(0.8, 2);
   });
 
   it('authorSim: empty candidate authors → neutral 0.5', () => {
     const score = scoreCandidate(
       { raw_title: 'Solaris', raw_author: 'Lem' },
-      { title: 'Solaris', authors: [], isbn13: null, isbn10: null }
+      { title: 'Solaris', authors: [], isbn13: null, isbn10: null },
     );
     // 0.65 * 1.0 + 0.30 * 0.5 + 0 = 0.80
-    expect(score).toBeCloseTo(0.80, 2);
+    expect(score).toBeCloseTo(0.8, 2);
   });
 
   it('isbnBonus: 0.05 when isbn13 present', () => {
     const withIsbn = scoreCandidate(
       { raw_title: 'Solaris', raw_author: null },
-      { title: 'Solaris', authors: [], isbn13: '9780156027601', isbn10: null }
+      { title: 'Solaris', authors: [], isbn13: '9780156027601', isbn10: null },
     );
     const noIsbn = scoreCandidate(
       { raw_title: 'Solaris', raw_author: null },
-      { title: 'Solaris', authors: [], isbn13: null, isbn10: null }
+      { title: 'Solaris', authors: [], isbn13: null, isbn10: null },
     );
     expect(withIsbn - noIsbn).toBeCloseTo(0.05, 2);
   });
@@ -69,11 +74,11 @@ describe('scoreCandidate', () => {
   it('isbnBonus: 0.05 when isbn10 present (isbn13 null)', () => {
     const withIsbn10 = scoreCandidate(
       { raw_title: 'Solaris', raw_author: null },
-      { title: 'Solaris', authors: [], isbn13: null, isbn10: '0156027607' }
+      { title: 'Solaris', authors: [], isbn13: null, isbn10: '0156027607' },
     );
     const noIsbn = scoreCandidate(
       { raw_title: 'Solaris', raw_author: null },
-      { title: 'Solaris', authors: [], isbn13: null, isbn10: null }
+      { title: 'Solaris', authors: [], isbn13: null, isbn10: null },
     );
     expect(withIsbn10 - noIsbn).toBeCloseTo(0.05, 2);
   });
@@ -86,7 +91,7 @@ describe('scoreCandidate', () => {
   it('score is non-negative', () => {
     const score = scoreCandidate(
       { raw_title: 'AAAAAA', raw_author: 'BBBBBB' },
-      { title: 'XXXXXX', authors: ['YYYYYY'], isbn13: null, isbn10: null }
+      { title: 'XXXXXX', authors: ['YYYYYY'], isbn13: null, isbn10: null },
     );
     expect(score).toBeGreaterThanOrEqual(0);
   });
@@ -101,13 +106,22 @@ describe('scoreCandidate', () => {
     // antologii "Inne nieba" (12 autorów, w tym Wójtowicz). Bez kary score=0.48
     // wypychał fałszywą propozycję. Z karą authorSim ×(3/12) → score znacząco niżej.
     const anthologyAuthors = [
-      'Ewa Białołęcka', 'Krystyna Chodorowska', 'Agnieszka Hałas', 'Anna Hrycyszyn',
-      'Aneta Jadowska', 'Aleksandra Janusz', 'Anna Kańtoch', 'Magdalena Kubasiewicz',
-      'Anna Nieznaj', 'Martyna Raduchowska', 'Milena Wójtowicz', 'Aleksandra Zielińska',
+      'Ewa Białołęcka',
+      'Krystyna Chodorowska',
+      'Agnieszka Hałas',
+      'Anna Hrycyszyn',
+      'Aneta Jadowska',
+      'Aleksandra Janusz',
+      'Anna Kańtoch',
+      'Magdalena Kubasiewicz',
+      'Anna Nieznaj',
+      'Martyna Raduchowska',
+      'Milena Wójtowicz',
+      'Aleksandra Zielińska',
     ];
     const score = scoreCandidate(
       { raw_title: 'Alter Ego', raw_author: 'Milena Wójtowicz' },
-      { title: 'Inne nieba', authors: anthologyAuthors, isbn13: '9788383303857', isbn10: null }
+      { title: 'Inne nieba', authors: anthologyAuthors, isbn13: '9788383303857', isbn10: null },
     );
     // titleSim≈0.20, authorSim = 1.0 × (3/12) = 0.25 → 0.65*0.20 + 0.30*0.25 + 0.05 ≈ 0.255
     expect(score).toBeLessThan(MATCH_MID); // poniżej progu → "brak matchu"
@@ -116,7 +130,12 @@ describe('scoreCandidate', () => {
   it('anthology penalty: współautorstwo (≤3 autorów) bez kary', () => {
     const score = scoreCandidate(
       { raw_title: 'Dobry Omen', raw_author: 'Terry Pratchett' },
-      { title: 'Dobry Omen', authors: ['Terry Pratchett', 'Neil Gaiman'], isbn13: null, isbn10: null }
+      {
+        title: 'Dobry Omen',
+        authors: ['Terry Pratchett', 'Neil Gaiman'],
+        isbn13: null,
+        isbn10: null,
+      },
     );
     // tytuł exact (0.65) + autor exact bez kary (0.30) = 0.95
     expect(score).toBeCloseTo(0.95, 2);
@@ -127,7 +146,7 @@ describe('scoreCandidate', () => {
     many.push('Jan Kowalski');
     const score = scoreCandidate(
       { raw_title: 'Zupełnie Inny Tytuł', raw_author: 'Jan Kowalski' },
-      { title: 'Antologia Czegoś', authors: many, isbn13: null, isbn10: null }
+      { title: 'Antologia Czegoś', authors: many, isbn13: null, isbn10: null },
     );
     // authorSim = 1.0 × (3/11) ≈ 0.27 → wkład autora ≤ 0.082, niski tytuł → score niski
     expect(score).toBeLessThan(MATCH_MID);
@@ -137,11 +156,11 @@ describe('scoreCandidate', () => {
     // 'Jozef' vs 'Józef' — ó decomposes under NFD to o + combining acute → stripped
     const withAccent = scoreCandidate(
       { raw_title: 'Opowiadania', raw_author: 'Józef Hen' },
-      { title: 'Opowiadania', authors: ['Jozef Hen'], isbn13: null, isbn10: null }
+      { title: 'Opowiadania', authors: ['Jozef Hen'], isbn13: null, isbn10: null },
     );
     const withoutAccent = scoreCandidate(
       { raw_title: 'Opowiadania', raw_author: 'Jozef Hen' },
-      { title: 'Opowiadania', authors: ['Jozef Hen'], isbn13: null, isbn10: null }
+      { title: 'Opowiadania', authors: ['Jozef Hen'], isbn13: null, isbn10: null },
     );
     expect(withAccent).toBeCloseTo(withoutAccent, 2);
   });
@@ -154,7 +173,12 @@ describe('authorSim — order-independent (przez scoreCandidate)', () => {
   it('„Imię Nazwisko" vs „Nazwisko, Imię" (format BN) → wysoki score', () => {
     const score = scoreCandidate(
       { raw_title: 'Przytulajka', raw_author: 'Agnieszka Krawczyk' },
-      { title: 'Przytulajka', authors: ['Krawczyk, Agnieszka'], isbn13: '9788379768578', isbn10: null }
+      {
+        title: 'Przytulajka',
+        authors: ['Krawczyk, Agnieszka'],
+        isbn13: '9788379768578',
+        isbn10: null,
+      },
     );
     expect(score).toBeGreaterThanOrEqual(MATCH_HIGH); // >= 0.75, realnie ~1.0
   });
@@ -162,11 +186,11 @@ describe('authorSim — order-independent (przez scoreCandidate)', () => {
   it('OCR złapał samo nazwisko: „Lem" vs „Stanisław Lem" → pełny kredyt autora', () => {
     const partial = scoreCandidate(
       { raw_title: 'Solaris', raw_author: 'Lem' },
-      { title: 'Solaris', authors: ['Stanisław Lem'], isbn13: null, isbn10: null }
+      { title: 'Solaris', authors: ['Stanisław Lem'], isbn13: null, isbn10: null },
     );
     const full = scoreCandidate(
       { raw_title: 'Solaris', raw_author: 'Stanisław Lem' },
-      { title: 'Solaris', authors: ['Stanisław Lem'], isbn13: null, isbn10: null }
+      { title: 'Solaris', authors: ['Stanisław Lem'], isbn13: null, isbn10: null },
     );
     expect(partial).toBeCloseTo(full, 2); // nazwisko wystarcza
   });
@@ -174,7 +198,7 @@ describe('authorSim — order-independent (przez scoreCandidate)', () => {
   it('inny autor nadal niski (Agnieszka Krawczyk vs Danuta Bieńkowska)', () => {
     const score = scoreCandidate(
       { raw_title: 'X', raw_author: 'Agnieszka Krawczyk' },
-      { title: 'X', authors: ['Danuta Bieńkowska'], isbn13: null, isbn10: null }
+      { title: 'X', authors: ['Danuta Bieńkowska'], isbn13: null, isbn10: null },
     );
     // tytuł exact 0.65, autor ~0 → poniżej MATCH_HIGH (nie windujemy złego autora)
     expect(score).toBeLessThan(MATCH_HIGH);
@@ -214,5 +238,23 @@ describe('authorTokensMatch', () => {
 
   it('akceptuje gdy choć jeden autor wieloautorskiego kandydata pasuje', () => {
     expect(authorTokensMatch('Gaiman', ['Terry Pratchett', 'Neil Gaiman'])).toBe(true);
+  });
+
+  it('wyklucza kandydata który ma tylko to samo imię (Magdalena Jedysek vs Magdalena Banaszkiewicz)', () => {
+    // Realny przypadek: rematch „TOAST za Odważnych"/Magdalena Jedysek zwrócił
+    // „Wąż w raju" (Kantor/Paleczny/Banaszkiewicz) — any-token match na wspólnym
+    // imieniu „Magdalena" przepuszczał kandydata z całkowicie innym nazwiskiem.
+    expect(
+      authorTokensMatch('Magdalena Jedysek', [
+        'Ryszard Kantor',
+        'Tadeusz Paleczny',
+        'Magdalena Banaszkiewicz',
+      ]),
+    ).toBe(false);
+  });
+
+  it('akceptuje poprawną autorkę mimo abbreviowanego imienia w kandydacie (Joanna Chmielewska vs J. Chmielewska)', () => {
+    // Nazwisko „chmielewska" pasuje — skrócone inicjały imienia nie powinny blokować.
+    expect(authorTokensMatch('Joanna Chmielewska', ['J. Chmielewska'])).toBe(true);
   });
 });

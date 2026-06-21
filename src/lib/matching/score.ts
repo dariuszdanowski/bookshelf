@@ -20,10 +20,7 @@ function levenshtein(a: string, b: string): number {
 }
 
 function normalize(s: string): string {
-  return s
-    .normalize('NFD')
-    .replace(/\p{M}/gu, '')
-    .toLowerCase();
+  return s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
 }
 
 function titleSim(a: string, b: string): number {
@@ -75,7 +72,10 @@ function tokenSetSim(detTokens: string[], candTokens: string[]): number {
   return sum / detTokens.length;
 }
 
-export function authorSim(detectionAuthor: string | null | undefined, candidateAuthors: string[]): number {
+export function authorSim(
+  detectionAuthor: string | null | undefined,
+  candidateAuthors: string[],
+): number {
   if (!detectionAuthor) return 0.5; // neutral — no OCR author info
   if (candidateAuthors.length === 0) return 0.5; // neutral — candidate has no author data
   const detTokens = nameTokens(detectionAuthor);
@@ -101,22 +101,43 @@ function authorTokens(s: string): string[] {
  * przez Levenshtein ~0.31 z samego nakładania liter — fałszywie przechodziły
  * próg filtra. Token-overlap jest właściwym dyskryminatorem dla nazwisk.
  *
+ * Gdy detekcja ma 2+ tokenów (imię + nazwisko), filtrujemy po OSTATNIM tokenie
+ * (nazwisku w polskiej konwencji „Imię Nazwisko"). Samo imię to zbyt słaby sygnał —
+ * „Magdalena Jedysek" vs „Magdalena Banaszkiewicz" fałszywie przechodziło przez
+ * any-token match na wspólnym „Magdalena". Próg 0.75 (zamiast 0.8) toleruje
+ * 1-literówkę w krótkim nazwisku (3–4 znaki, np. „Liss" ~ „Lis").
+ *
  * Zwraca true (nie wykluczaj) gdy: brak wykrytego autora, brak danych autora
  * u kandydata, albo wykryty autor ma tylko bardzo krótkie tokeny (nie da się
- * rozróżnić). Wyklucza tylko gdy kandydat MA autora i ŻADEN token się nie zgadza.
+ * rozróżnić). Wyklucza tylko gdy kandydat MA autora i token nazwiska się nie zgadza.
  */
-export function authorTokensMatch(detectionAuthor: string | null | undefined, candidateAuthors: string[]): boolean {
+export function authorTokensMatch(
+  detectionAuthor: string | null | undefined,
+  candidateAuthors: string[],
+): boolean {
   if (!detectionAuthor) return true;
   const dTokens = authorTokens(detectionAuthor);
   if (dTokens.length === 0) return true; // tylko krótkie tokeny — brak sygnału
   const cTokens = candidateAuthors.flatMap(authorTokens);
   if (cTokens.length === 0) return true; // kandydat bez autora — nie wykluczaj
+
+  // Gdy mamy imię + nazwisko, używamy OSTATNIEGO tokenu (nazwisko) jako klucza.
+  // Imię samo w sobie to za słaby sygnał — wiele autorek nosi to samo imię.
+  if (dTokens.length >= 2) {
+    const keyToken = dTokens[dTokens.length - 1];
+    return cTokens.some((ct) => {
+      if (keyToken === ct) return true;
+      const maxLen = Math.max(keyToken.length, ct.length);
+      return 1 - levenshtein(keyToken, ct) / maxLen >= 0.75;
+    });
+  }
+
   return dTokens.some((dt) =>
     cTokens.some((ct) => {
       if (dt === ct) return true;
       const maxLen = Math.max(dt.length, ct.length);
       return 1 - levenshtein(dt, ct) / maxLen >= 0.8; // tolerancja literówki OCR per token
-    })
+    }),
   );
 }
 
@@ -125,7 +146,10 @@ type Candidate = { title: string; authors: string[]; isbn13: string | null; isbn
 
 export function scoreCandidate(detection: Detection, candidate: Candidate): number {
   const isbnBonus = candidate.isbn13 || candidate.isbn10 ? 0.05 : 0;
-  return Math.min(1, 0.65 * titleSim(detection.raw_title, candidate.title) +
-    0.30 * authorSim(detection.raw_author, candidate.authors) +
-    isbnBonus);
+  return Math.min(
+    1,
+    0.65 * titleSim(detection.raw_title, candidate.title) +
+      0.3 * authorSim(detection.raw_author, candidate.authors) +
+      isbnBonus,
+  );
 }
