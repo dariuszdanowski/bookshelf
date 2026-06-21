@@ -201,6 +201,7 @@ test.describe('manual rematch — szukaj po tytule', () => {
 
     await expect(page.getByTestId('rerun-match-button')).toBeVisible({ timeout: 5_000 });
     await page.getByTestId('rerun-match-button').click();
+    await page.getByTestId('rerun-match-confirm-confirm').click();
 
     // Modal powinien się pojawić podczas trzymanego SSE stream
     await expect(page.getByTestId('progress-modal')).toBeVisible({ timeout: 3_000 });

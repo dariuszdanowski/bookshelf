@@ -2842,7 +2842,7 @@ export default function DetectionReview({
             {actionMsg && <p className="mb-3 w-full text-sm text-red-600">{actionMsg}</p>}
             <button
               data-testid="process-now-button"
-              onClick={() => void runRerunVision()}
+              onClick={handleRerunVisionClick}
               disabled={actionBusy}
               className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             >
@@ -2858,12 +2858,27 @@ export default function DetectionReview({
             </button>
           </div>
         </div>
+        <ConfirmDialog
+          open={confirmRerunOpen}
+          title="Ponowić vision?"
+          message={rerunConfirmMessage}
+          confirmLabel="Uruchom nowy run"
+          cancelLabel="Anuluj"
+          testIdPrefix="rerun-vision-confirm"
+          onCancel={() => setConfirmRerunOpen(false)}
+          onConfirm={() => {
+            setConfirmRerunOpen(false);
+            void runRerunVision();
+          }}
+        />
       </div>
     );
   }
 
   const matchedCount = detections.filter((d) => d.candidates.length > 0).length;
-  const pendingCount = detections.filter((d) => !decidedIds.has(d.id)).length;
+  const pendingCount = detections.filter(
+    (d) => d.candidates.length === 0 && !decidedIds.has(d.id),
+  ).length;
 
   return (
     <div data-testid="detection-review">

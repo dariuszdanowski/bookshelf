@@ -358,8 +358,9 @@ test('3.7 Run vision button → po sukcesie stage=vision_done (refetch)', async 
 
   await expect(page.getByTestId(`run-vision-${PHOTO_ID}`)).toBeVisible({ timeout: 10_000 });
 
-  // Click Run vision
+  // Click Run vision + confirm dialog
   await page.getByTestId(`run-vision-${PHOTO_ID}`).click();
+  await page.getByTestId('photo-vision-confirm-confirm').click();
 
   // After successful process + SSE matching + refetch, badge changes to "Wykryte"
   await expect(page.getByTestId(`stage-badge-${PHOTO_ID}`)).toHaveText('Wykryte', {
@@ -473,8 +474,9 @@ test('3.9 Double-click Run vision → toast "Run już w toku"', async ({ page })
   await revealPhotosTab(page);
   await expect(page.getByTestId(`run-vision-${PHOTO_ID}`)).toBeVisible({ timeout: 10_000 });
 
-  // Click — gets 409
+  // Click + confirm dialog → gets 409
   await page.getByTestId(`run-vision-${PHOTO_ID}`).click();
+  await page.getByTestId('photo-vision-confirm-confirm').click();
 
   // Toast appears
   await expect(page.getByTestId(`row-toast-${PHOTO_ID}`)).toBeVisible({ timeout: 5_000 });

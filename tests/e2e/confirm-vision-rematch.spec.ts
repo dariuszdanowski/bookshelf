@@ -262,6 +262,92 @@ test.describe('confirm: Ponów match (PhotoListIsland)', () => {
   });
 });
 
+// ── DetectionReview — Uruchom vision (empty state, process-now-button) ───────
+
+const PHOTO_NO_DETECTIONS_ID = 'cc000000-0000-4000-8000-000000000013';
+
+test.describe('confirm: process-now-button (DetectionReview — brak detekcji)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route(`**/api/photos/${PHOTO_NO_DETECTIONS_ID}`, async (route) => {
+      if (route.request().method() !== 'GET') return route.fallback();
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            photo: {
+              id: PHOTO_NO_DETECTIONS_ID,
+              shelf_id: 'cc000000-0000-4000-8000-000000000001',
+              status: 'processed',
+              detected_count: 0,
+              error_message: null,
+              vision_cost_usd: null,
+              vision_latency_ms: null,
+              created_at: new Date().toISOString(),
+            },
+            photo_url: null,
+            detections: [],
+            vision_run: null,
+            costs_total_usd: null,
+          },
+        }),
+      });
+    });
+    await page.route('**/api/photos/*/process**', async (route) => {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"data":{}}' });
+    });
+    await page.route('**/api/photos/*/match-stream', async (route) => {
+      await route.fulfill({
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+        body: 'event: done\ndata: {"matched":0,"rate_limited":0}\n\n',
+      });
+    });
+    await page.goto(`/photos/${PHOTO_NO_DETECTIONS_ID}`);
+    await expect(page.getByTestId('process-now-button')).toBeVisible({ timeout: 10_000 });
+  });
+
+  test('kliknięcie process-now-button otwiera dialog — API nie wywołane przed potwierdzeniem', async ({
+    page,
+  }) => {
+    let processCalled = false;
+    await page.route(`**/api/photos/${PHOTO_NO_DETECTIONS_ID}/process**`, async (route) => {
+      processCalled = true;
+      await route.fallback();
+    });
+
+    await page.getByTestId('process-now-button').click();
+    await expect(page.getByTestId('rerun-vision-confirm')).toBeVisible();
+    expect(processCalled).toBe(false);
+  });
+
+  test('"Anuluj" zamyka dialog bez wywołania API', async ({ page }) => {
+    let processCalled = false;
+    await page.route(`**/api/photos/${PHOTO_NO_DETECTIONS_ID}/process**`, async (route) => {
+      processCalled = true;
+      await route.fallback();
+    });
+
+    await page.getByTestId('process-now-button').click();
+    await expect(page.getByTestId('rerun-vision-confirm')).toBeVisible();
+    await page.getByTestId('rerun-vision-confirm-cancel').click();
+    await expect(page.getByTestId('rerun-vision-confirm')).not.toBeVisible();
+    expect(processCalled).toBe(false);
+  });
+
+  test('"Potwierdź" wywołuje endpoint /process', async ({ page }) => {
+    const processPromise = page.waitForRequest(
+      (req) =>
+        req.url().includes(`/api/photos/${PHOTO_NO_DETECTIONS_ID}/process`) &&
+        req.method() === 'POST',
+    );
+
+    await page.getByTestId('process-now-button').click();
+    await page.getByTestId('rerun-vision-confirm-confirm').click();
+    await processPromise;
+  });
+});
+
 // ── DetectionReview — Doprecyzuj odczyt ──────────────────────────────────────
 
 test.describe('confirm: Doprecyzuj odczyt (DetectionReview)', () => {
