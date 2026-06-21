@@ -48,6 +48,13 @@ export default function PhotoListIsland({ shelfId }: Props) {
   const [rowStates, setRowStates] = useState<Record<string, RowState>>({});
   const [pendingRerunPhotoId, setPendingRerunPhotoId] = useState<string | null>(null);
   const [pendingDeletePhotoId, setPendingDeletePhotoId] = useState<string | null>(null);
+  const [pendingVisionPhotoId, setPendingVisionPhotoId] = useState<string | null>(null);
+  const [pendingMatchPhotoId, setPendingMatchPhotoId] = useState<string | null>(null);
+  const [pendingMovePhoto, setPendingMovePhoto] = useState<{
+    photoId: string;
+    targetShelfId: string;
+    targetShelfName: string;
+  } | null>(null);
   const [shelves, setShelves] = useState<ShelfDTO[]>([]);
   const [busyOpLabel, setBusyOpLabel] = useState<string | null>(null);
   const [matchTitles, setMatchTitles] = useState<string[]>([]);
@@ -527,7 +534,7 @@ export default function PhotoListIsland({ shelfId }: Props) {
                       data-testid={`run-vision-${photo.id}`}
                       disabled={rowState.busy || isLocked}
                       title={isLocked ? 'Trwa analiza, poczekaj na zakończenie' : undefined}
-                      onClick={() => handleRunVision(photo.id, false)}
+                      onClick={() => setPendingVisionPhotoId(photo.id)}
                       className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                     >
                       {rowState.busy || isLocked ? 'Uruchamiam...' : 'Uruchom vision'}
@@ -551,7 +558,7 @@ export default function PhotoListIsland({ shelfId }: Props) {
                       data-testid={`run-match-${photo.id}`}
                       disabled={rowState.busy || isLocked}
                       title={isLocked ? 'Trwa analiza, poczekaj na zakończenie' : undefined}
-                      onClick={() => handleRunMatch(photo.id)}
+                      onClick={() => setPendingMatchPhotoId(photo.id)}
                       className="inline-flex items-center rounded-md border border-blue-300 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
                     >
                       {rowState.busy ? 'Dopasowuję...' : 'Uruchom match'}
@@ -563,7 +570,7 @@ export default function PhotoListIsland({ shelfId }: Props) {
                       data-testid={`rerun-match-${photo.id}`}
                       disabled={rowState.busy || isLocked}
                       title={isLocked ? 'Trwa analiza, poczekaj na zakończenie' : undefined}
-                      onClick={() => handleRunMatch(photo.id)}
+                      onClick={() => setPendingMatchPhotoId(photo.id)}
                       className="inline-flex items-center rounded-md border border-blue-300 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
                     >
                       {rowState.busy ? 'Dopasowuję...' : 'Ponów match'}
@@ -584,7 +591,15 @@ export default function PhotoListIsland({ shelfId }: Props) {
                       data-testid={`move-photo-${photo.id}`}
                       disabled={isLocked}
                       value=""
-                      onChange={(e) => void movePhoto(photo.id, e.target.value)}
+                      onChange={(e) => {
+                        const s = otherShelves.find((x) => x.id === e.target.value);
+                        if (s)
+                          setPendingMovePhoto({
+                            photoId: photo.id,
+                            targetShelfId: s.id,
+                            targetShelfName: s.name,
+                          });
+                      }}
                       title={
                         isLocked
                           ? 'Trwa analiza, poczekaj na zakończenie'
@@ -650,6 +665,54 @@ export default function PhotoListIsland({ shelfId }: Props) {
           const nextPhotoId = pendingDeletePhotoId;
           setPendingDeletePhotoId(null);
           void deletePhoto(nextPhotoId);
+        }}
+      />
+
+      <ConfirmDialog
+        open={pendingVisionPhotoId != null}
+        title="Uruchomić vision?"
+        message="Zdjęcie zostanie przeanalizowane przez AI. Operacja zajmie kilka sekund i zużyje środki API."
+        confirmLabel="Uruchom vision"
+        cancelLabel="Anuluj"
+        testIdPrefix="photo-vision-confirm"
+        onCancel={() => setPendingVisionPhotoId(null)}
+        onConfirm={() => {
+          if (!pendingVisionPhotoId) return;
+          const id = pendingVisionPhotoId;
+          setPendingVisionPhotoId(null);
+          void handleRunVision(id, false);
+        }}
+      />
+
+      <ConfirmDialog
+        open={pendingMatchPhotoId != null}
+        title="Uruchomić dopasowanie?"
+        message="Obecne wyniki dopasowania zostaną nadpisane."
+        confirmLabel="Uruchom match"
+        cancelLabel="Anuluj"
+        testIdPrefix="photo-match-confirm"
+        onCancel={() => setPendingMatchPhotoId(null)}
+        onConfirm={() => {
+          if (!pendingMatchPhotoId) return;
+          const id = pendingMatchPhotoId;
+          setPendingMatchPhotoId(null);
+          void handleRunMatch(id);
+        }}
+      />
+
+      <ConfirmDialog
+        open={pendingMovePhoto != null}
+        title="Przenieść zdjęcie?"
+        message={`Zdjęcie zostanie przeniesione na półkę „${pendingMovePhoto?.targetShelfName ?? '…'}".`}
+        confirmLabel="Przenieś"
+        cancelLabel="Anuluj"
+        testIdPrefix="photo-move-confirm"
+        onCancel={() => setPendingMovePhoto(null)}
+        onConfirm={() => {
+          if (!pendingMovePhoto) return;
+          const { photoId, targetShelfId } = pendingMovePhoto;
+          setPendingMovePhoto(null);
+          void movePhoto(photoId, targetShelfId);
         }}
       />
 

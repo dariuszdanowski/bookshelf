@@ -2129,6 +2129,7 @@ export default function DetectionReview({
   const [viewMode, setViewMode] = useDetectionViewMode();
   const [focusedDetectionId, setFocusedDetectionId] = useState<string | null>(null);
   const [confirmRerunOpen, setConfirmRerunOpen] = useState(false);
+  const [confirmRerunMatchOpen, setConfirmRerunMatchOpen] = useState(false);
   const [isBboxEditing, setIsBboxEditing] = useState(false);
   const [applyingEdits, setApplyingEdits] = useState(false);
   const [allShelves, setAllShelves] = useState<Array<{ id: string; name: string }> | null>(null);
@@ -2867,7 +2868,7 @@ export default function DetectionReview({
             <button
               data-testid="rerun-match-button"
               disabled={actionBusy || isBboxEditing || applyingEdits}
-              onClick={() => void handleRerunMatch()}
+              onClick={() => setConfirmRerunMatchOpen(true)}
               className="inline-flex items-center rounded-md border border-blue-300 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
             >
               {actionBusy ? 'Dopasowuję...' : 'Ponów match'}
@@ -3101,6 +3102,20 @@ export default function DetectionReview({
         onConfirm={() => {
           setConfirmRerunOpen(false);
           void runRerunVision();
+        }}
+      />
+
+      <ConfirmDialog
+        open={confirmRerunMatchOpen}
+        title="Uruchomić dopasowanie?"
+        message="Obecne wyniki dopasowania zostaną nadpisane."
+        confirmLabel="Uruchom match"
+        cancelLabel="Anuluj"
+        testIdPrefix="rerun-match-confirm"
+        onCancel={() => setConfirmRerunMatchOpen(false)}
+        onConfirm={() => {
+          setConfirmRerunMatchOpen(false);
+          void handleRerunMatch();
         }}
       />
 
