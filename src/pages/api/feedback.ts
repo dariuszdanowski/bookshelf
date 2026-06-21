@@ -58,6 +58,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         Accept: 'application/vnd.github+json',
         'X-GitHub-Api-Version': '2022-11-28',
         'Content-Type': 'application/json',
+        'User-Agent': 'BookShelf-Catalog/1.0',
       },
       body: JSON.stringify({
         title: `Bug: ${title}`,
@@ -77,8 +78,16 @@ export const POST: APIRoute = async ({ request, locals }) => {
   }
 
   if (!githubResponse.ok) {
+    const ghText = await githubResponse.text().catch(() => '<unreadable>');
+    let ghBody: unknown;
+    try {
+      ghBody = JSON.parse(ghText);
+    } catch {
+      ghBody = ghText;
+    }
     console.error('[api/feedback POST] GitHub API error', {
       status: githubResponse.status,
+      body: ghBody,
     });
     return apiError({
       code: 'INTERNAL_ERROR',

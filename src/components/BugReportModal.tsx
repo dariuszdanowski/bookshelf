@@ -65,6 +65,7 @@ export default function BugReportModal() {
       setIssueNumber(json.data!.issueNumber);
       setIssueUrl(json.data!.issueUrl);
       setSuccess(true);
+      window.open(json.data!.issueUrl, '_blank', 'noopener,noreferrer');
       setTimeout(() => closeModal(), 2500);
     } catch {
       setError('Nie udało się połączyć z serwerem.');
