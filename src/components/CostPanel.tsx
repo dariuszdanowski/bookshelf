@@ -50,7 +50,7 @@ type Props = {
 export default function CostPanel({
   photoId,
   detectionId,
-  align = 'right',
+  align = 'left',
   preloadedVisionRun,
   label,
   hint,
@@ -145,7 +145,7 @@ export default function CostPanel({
       {/* Panel */}
       {open && (
         <div
-          className={`absolute z-50 mt-1 w-72 rounded-lg border border-gray-200 bg-white shadow-xl ${
+          className={`absolute z-50 mt-1 w-72 max-w-[calc(100vw-1rem)] rounded-lg border border-gray-200 bg-white shadow-xl ${
             align === 'left' ? 'right-0' : 'left-0'
           }`}
         >
