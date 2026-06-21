@@ -1590,7 +1590,7 @@ export function DetectionRow({
         <RefineButton
           bbox={detection.bbox}
           busy={busy}
-          onClick={() => void handleRefine()}
+          onClick={() => setConfirmRefine(true)}
           size="md"
         />
       </div>
@@ -1905,7 +1905,7 @@ export function DetectionTile({
         <RefineButton
           bbox={detection.bbox}
           busy={busy}
-          onClick={() => void handleRefine()}
+          onClick={() => setConfirmRefine(true)}
           size="sm"
         />
       </div>

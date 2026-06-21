@@ -1,7 +1,8 @@
 ---
 change_id: confirm-vision-rematch
 title: Potwierdzenie przed wywołaniem vision / rematch
-status: implemented
+status: archived
+archived_at: 2026-06-21T07:15:40Z
 created: 2026-06-21
 updated: 2026-06-21
 ---

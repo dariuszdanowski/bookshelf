@@ -89,14 +89,16 @@ describe('DetectionRow — render', () => {
 
 describe('DetectionRow — akcje', () => {
   it('klik Akceptuj woła POST /confirm z candidate_id', async () => {
-    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ data: { book_id: 'b1' } }), { status: 200 })
-    );
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(
+        new Response(JSON.stringify({ data: { book_id: 'b1' } }), { status: 200 }),
+      );
     render(<DetectionRow detection={detMatched} onDecided={() => {}} />);
     fireEvent.click(screen.getByTestId('confirm-button'));
     await waitFor(() => {
       const call = fetchMock.mock.calls.find(
-        ([url]) => typeof url === 'string' && url.includes('/confirm')
+        ([url]) => typeof url === 'string' && url.includes('/confirm'),
       );
       expect(call).toBeDefined();
       const body = JSON.parse(call![1]!.body as string) as { candidate_id: string };
@@ -105,14 +107,16 @@ describe('DetectionRow — akcje', () => {
   });
 
   it('klik Odrzuć woła POST /reject', async () => {
-    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ data: { rejected: true } }), { status: 200 })
-    );
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(
+        new Response(JSON.stringify({ data: { rejected: true } }), { status: 200 }),
+      );
     render(<DetectionRow detection={detMatched} onDecided={() => {}} />);
     fireEvent.click(screen.getByTestId('reject-button'));
     await waitFor(() => {
       const call = fetchMock.mock.calls.find(
-        ([url]) => typeof url === 'string' && url.includes('/reject')
+        ([url]) => typeof url === 'string' && url.includes('/reject'),
       );
       expect(call).toBeDefined();
     });
@@ -120,7 +124,7 @@ describe('DetectionRow — akcje', () => {
 
   it('po sukcesie akcji woła onDecided', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ data: { rejected: true } }), { status: 200 })
+      new Response(JSON.stringify({ data: { rejected: true } }), { status: 200 }),
     );
     const onDecided = vi.fn();
     render(<DetectionRow detection={detMatched} onDecided={onDecided} />);
@@ -129,14 +133,17 @@ describe('DetectionRow — akcje', () => {
   });
 
   it('klik Refine woła POST /refine', async () => {
-    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify({ data: { detection: { id: DET_ID } } }), { status: 200 })
-    );
+    const fetchMock = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(
+        new Response(JSON.stringify({ data: { detection: { id: DET_ID } } }), { status: 200 }),
+      );
     render(<DetectionRow detection={detMatched} onDecided={() => {}} />);
     fireEvent.click(screen.getByTestId('refine-button'));
+    fireEvent.click(screen.getByTestId('refine-confirm-confirm'));
     await waitFor(() => {
       const call = fetchMock.mock.calls.find(
-        ([url]) => typeof url === 'string' && url.includes('/refine')
+        ([url]) => typeof url === 'string' && url.includes('/refine'),
       );
       expect(call).toBeDefined();
     });
