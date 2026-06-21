@@ -550,6 +550,15 @@ function useDetectionDecision(
   const [decidedKind, setDecidedKind] = useState<DecisionKind | null>(
     initiallyConfirmed ? 'confirmed' : null,
   );
+
+  // Sync po batch confirm: rodzic aktualizuje detection.status → 'confirmed' w setDetections.
+  // useState nie reaguje na zmianę propów, więc synchronizujemy lokalny state przez effect.
+  useEffect(() => {
+    if (detection.status === 'confirmed') {
+      setState('decided');
+      setDecidedKind((prev) => prev ?? 'confirmed');
+    }
+  }, [detection.status]);
   const [busy, setBusy] = useState(false);
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -648,6 +657,8 @@ function useDetectionDecision(
       setDecidedKind(null);
       setState('pending');
       onUndecided?.(detection.id);
+      // Wyczyść przestarzałą flagę duplikatu — książka właśnie usunięta z katalogu.
+      onRefined?.({ ...detection, status: 'matched', duplicate: null });
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : 'Błąd sieci.');
     } finally {
@@ -2357,10 +2368,16 @@ export default function DetectionReview({
       }
       const confirmed = json.data?.confirmed ?? [];
       const skipped = json.data?.skipped ?? [];
-      confirmed.forEach((c) => {
-        setDecidedIds((prev) => new Set([...prev, c.detection_id]));
-        setConfirmedIds((prev) => new Set([...prev, c.detection_id]));
-      });
+      if (confirmed.length > 0) {
+        const confirmedSet = new Set(confirmed.map((c) => c.detection_id));
+        setDecidedIds((prev) => new Set([...prev, ...confirmedSet]));
+        setConfirmedIds((prev) => new Set([...prev, ...confirmedSet]));
+        // Aktualizacja statusu w detections → zmiana key wymusi remount kart
+        // i prawidłowy stan wizualny ("Dodano do katalogu") bez F5.
+        setDetections((prev) =>
+          prev.map((d) => (confirmedSet.has(d.id) ? { ...d, status: 'confirmed' } : d)),
+        );
+      }
       if (skipped.length > 0) {
         setActionMsg(`${skipped.length} pominięte (duplikaty lub błędy).`);
       }
