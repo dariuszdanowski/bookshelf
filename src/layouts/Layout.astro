@@ -3,6 +3,7 @@ import '../styles/global.css';
 import ImpersonationBanner from '../components/ImpersonationBanner.tsx';
 import BugReportModal from '../components/BugReportModal.tsx';
 import MobileNav from '../components/MobileNav.tsx';
+import ShelvesDropdown from '../components/ShelvesDropdown.tsx';
 import UserMenu from '../components/UserMenu.tsx';
 import ThemeToggle from '../components/ThemeToggle.tsx';
 import EnvBadge from '../components/EnvBadge.astro';
@@ -20,14 +21,23 @@ const currentPath = Astro.url.pathname;
 
 let displayName: string | null = null;
 let isAdmin = false;
+let navShelves: { id: string; name: string }[] = [];
 if (user) {
-  const { data: profile } = await Astro.locals.supabase
-    .from('profiles')
-    .select('display_name, is_admin')
-    .eq('id', user.id)
-    .single();
-  displayName = profile?.display_name ?? null;
-  isAdmin = profile?.is_admin ?? false;
+  const [profileRes, shelvesRes] = await Promise.all([
+    Astro.locals.supabase
+      .from('profiles')
+      .select('display_name, is_admin')
+      .eq('id', user.id)
+      .single(),
+    Astro.locals.supabase
+      .from('shelves')
+      .select('id, name')
+      .order('position_index', { ascending: true })
+      .order('created_at', { ascending: true }),
+  ]);
+  displayName = profileRes.data?.display_name ?? null;
+  isAdmin = profileRes.data?.is_admin ?? false;
+  navShelves = shelvesRes.data ?? [];
 }
 
 function navCls(href: string) {
@@ -91,6 +101,7 @@ function navCls(href: string) {
             email={user.email ?? ''}
             currentPath={currentPath}
             isAdmin={isAdmin}
+            shelves={navShelves}
           />
         )
       }
@@ -105,18 +116,7 @@ function navCls(href: string) {
             >
               Biblioteka
             </a>
-            <a
-              href="/shelves"
-              class={navCls('/shelves')}
-              aria-current={
-                currentPath === '/shelves' || currentPath.startsWith('/shelves/')
-                  ? 'page'
-                  : undefined
-              }
-              data-testid="nav-shelves"
-            >
-              Moje półki
-            </a>
+            <ShelvesDropdown client:load shelves={navShelves} currentPath={currentPath} />
             <a
               href="/upload"
               class={navCls('/upload')}

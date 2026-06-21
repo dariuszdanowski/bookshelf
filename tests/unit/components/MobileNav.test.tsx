@@ -12,7 +12,7 @@ describe('MobileNav (S-28)', () => {
     expect(screen.queryByTestId('mobile-nav-panel')).not.toBeInTheDocument();
   });
 
-  it('klik otwiera panel z 5 linkami, emailem i wylogowaniem', () => {
+  it('klik otwiera panel z linkami, emailem i wylogowaniem', () => {
     render(<MobileNav email={EMAIL} />);
     fireEvent.click(screen.getByTestId('mobile-nav-toggle'));
 
@@ -21,13 +21,35 @@ describe('MobileNav (S-28)', () => {
     expect(panel).toBeInTheDocument();
 
     expect(screen.getByTestId('mobile-nav-library')).toHaveAttribute('href', '/library');
-    expect(screen.getByTestId('mobile-nav-shelves')).toHaveAttribute('href', '/shelves');
+    // „Moje półki" to akordeon-button (nie link) — po kliknięciu rozwinięty pokazuje półki
+    const shelvesBtn = screen.getByTestId('mobile-nav-shelves');
+    expect(shelvesBtn.tagName).toBe('BUTTON');
+    expect(shelvesBtn).toHaveAttribute('aria-expanded');
     expect(screen.getByTestId('mobile-nav-upload')).toHaveAttribute('href', '/upload');
     expect(screen.getByTestId('mobile-nav-add-purchase')).toHaveAttribute('href', '/purchase');
     expect(screen.getByTestId('mobile-nav-account')).toHaveAttribute('href', '/account');
 
     expect(screen.getByTestId('mobile-user-email').textContent).toBe(EMAIL);
     expect(screen.getByTestId('logout-button')).toBeInTheDocument();
+  });
+
+  it('klik „Moje półki" rozwija listę półek i link „Zarządzaj półkami…"', () => {
+    const shelves = [
+      { id: 'shelf-1', name: 'Salon' },
+      { id: 'shelf-2', name: 'Sypialnia' },
+    ];
+    render(<MobileNav email={EMAIL} shelves={shelves} />);
+    fireEvent.click(screen.getByTestId('mobile-nav-toggle'));
+
+    const shelvesBtn = screen.getByTestId('mobile-nav-shelves');
+    // domyślnie zwinięty (currentPath pusty → nie jesteśmy na /shelves)
+    expect(shelvesBtn).toHaveAttribute('aria-expanded', 'false');
+    // po kliknięciu rozwinięty — widać półki
+    fireEvent.click(shelvesBtn);
+    expect(shelvesBtn).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText('Salon')).toBeInTheDocument();
+    expect(screen.getByText('Sypialnia')).toBeInTheDocument();
+    expect(screen.getByText('Zarządzaj półkami…')).toBeInTheDocument();
   });
 
   it('drugi klik zamyka panel', () => {
