@@ -2858,6 +2858,19 @@ export default function DetectionReview({
             </button>
           </div>
         </div>
+        <ConfirmDialog
+          open={confirmRerunOpen}
+          title="Ponowić vision?"
+          message={rerunConfirmMessage}
+          confirmLabel="Uruchom nowy run"
+          cancelLabel="Anuluj"
+          testIdPrefix="rerun-vision-confirm"
+          onCancel={() => setConfirmRerunOpen(false)}
+          onConfirm={() => {
+            setConfirmRerunOpen(false);
+            void runRerunVision();
+          }}
+        />
       </div>
     );
   }

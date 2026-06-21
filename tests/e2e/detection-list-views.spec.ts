@@ -141,7 +141,7 @@ async function seedViewMode(page: Page, mode: string | null) {
     ([key, value]) => {
       window.localStorage.setItem(key, value);
     },
-    [VIEW_MODE_KEY, mode] as const
+    [VIEW_MODE_KEY, mode] as const,
   );
 }
 
@@ -246,13 +246,16 @@ test.describe('S-25 detection list views', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ data: { detection: { id: '00000000-0000-4000-8000-000000000c01' } } }),
+        body: JSON.stringify({
+          data: { detection: { id: '00000000-0000-4000-8000-000000000c01' } },
+        }),
       });
     });
 
     await seedViewMode(page, 'list');
     await page.goto(`/photos/${PHOTO_ID}`);
     await page.getByTestId('detection-row-1').getByTestId('refine-button').click();
+    await page.getByTestId('refine-confirm-confirm').click();
     await expect.poll(() => refineCalled).toBe(true);
   });
 });

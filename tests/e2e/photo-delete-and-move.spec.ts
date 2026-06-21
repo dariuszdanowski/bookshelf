@@ -194,6 +194,7 @@ test('przenosi zdjęcie z /photos/[id] → redirect do nowej półki', async ({ 
     (req) => req.url().includes(`/api/photos/${PHOTO_ID}`) && req.method() === 'PATCH',
   );
   await moveSelect.selectOption(SHELF_B_ID);
+  await page.getByTestId('move-photo-confirm-confirm').click();
   await patchReq;
 
   await page.waitForURL((url) => url.href.includes(SHELF_B_ID) && url.href.includes('tab=photos'), {
