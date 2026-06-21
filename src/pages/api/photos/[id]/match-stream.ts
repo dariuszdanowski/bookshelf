@@ -404,7 +404,10 @@ export const GET: APIRoute = async ({ params, locals }) => {
         );
         controller.close();
       } catch (e) {
-        console.error('[api/photos/match-stream GET] stream error', e);
+        console.error(
+          '[api/photos/match-stream GET] stream error',
+          e instanceof Error ? e.message : String(e),
+        );
         try {
           controller.enqueue(
             enc.encode(

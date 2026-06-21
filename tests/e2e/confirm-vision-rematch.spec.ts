@@ -247,6 +247,19 @@ test.describe('confirm: Ponów match (PhotoListIsland)', () => {
     await expect(page.getByTestId('photo-match-confirm')).not.toBeVisible();
     expect(matchCalled).toBe(false);
   });
+
+  test('"Potwierdź" przy Ponów match wywołuje endpoint match-stream', async ({ page }) => {
+    const matchStreamPromise = page.waitForRequest(
+      (req) =>
+        req.url().includes(`/api/photos/${PHOTO_MATCH_DONE_ID}/match-stream`) &&
+        req.method() === 'GET',
+    );
+
+    await page.getByTestId(`rerun-match-${PHOTO_MATCH_DONE_ID}`).click();
+    await expect(page.getByTestId('photo-match-confirm')).toBeVisible();
+    await page.getByTestId('photo-match-confirm-confirm').click();
+    await matchStreamPromise;
+  });
 });
 
 // ── DetectionReview — Doprecyzuj odczyt ──────────────────────────────────────
