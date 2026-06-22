@@ -173,6 +173,13 @@ async function uploadAndGetToReviewPage(
   page: import('@playwright/test').Page,
   realShelfId: string,
 ) {
+  await page.route('**/api/account/keys**', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { keys: [{ is_active: true }] } }),
+    }),
+  );
   await page.goto('/upload');
   await page.waitForLoadState('networkidle');
   await expect(page.getByTestId('photo-uploader')).toBeVisible();
@@ -231,7 +238,7 @@ async function uploadAndGetToReviewPage(
         body: JSON.stringify(MOCK_MATCH_RESPONSE),
       }),
   );
-  await page.route(`**/api/photos/${PHOTO_ID}/match-stream`, (route) =>
+  await page.route(`**/api/photos/${PHOTO_ID}/match-stream**`, (route) =>
     route.fulfill({
       status: 200,
       headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
@@ -343,7 +350,7 @@ test('3.7 Run vision button → po sukcesie stage=vision_done (refetch)', async 
         body: JSON.stringify(MOCK_PROCESS_RESPONSE),
       }),
   );
-  await page.route(`**/api/photos/${PHOTO_ID}/match-stream`, (route) =>
+  await page.route(`**/api/photos/${PHOTO_ID}/match-stream**`, (route) =>
     route.fulfill({
       status: 200,
       headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
@@ -397,7 +404,7 @@ test('3.8 Re-run vision: confirm cancel → brak procesu; OK → wywołuje /proc
       });
     },
   );
-  await page.route(`**/api/photos/${PHOTO_ID}/match-stream`, (route) =>
+  await page.route(`**/api/photos/${PHOTO_ID}/match-stream**`, (route) =>
     route.fulfill({
       status: 200,
       headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },

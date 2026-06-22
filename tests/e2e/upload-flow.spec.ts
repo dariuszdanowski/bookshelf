@@ -143,6 +143,13 @@ test('progress modal: widoczny podczas analizy vision w PhotoUploader', async ({
     resolveProcess = r;
   });
 
+  await page.route('**/api/account/keys**', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { keys: [{ is_active: true }] } }),
+    }),
+  );
   await page.goto('/upload');
   await page.waitForLoadState('networkidle');
 
@@ -185,7 +192,7 @@ test('progress modal: widoczny podczas analizy vision w PhotoUploader', async ({
     },
   );
   // Mock SSE match-stream → immediate done (2 detections matched).
-  await page.route(`**/api/photos/${PHOTO_ID}/match-stream`, (route) =>
+  await page.route(`**/api/photos/${PHOTO_ID}/match-stream**`, (route) =>
     route.fulfill({
       status: 200,
       headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
@@ -230,6 +237,13 @@ test('upload flow: /upload → wybór półki → upload → redirect → propoz
   page,
 }) => {
   // Sesja z współdzielonego storageState — od razu na /upload (bez signup per-test)
+  await page.route('**/api/account/keys**', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { keys: [{ is_active: true }] } }),
+    }),
+  );
   await page.goto('/upload');
   await page.waitForLoadState('networkidle');
   await expect(page.getByTestId('photo-uploader')).toBeVisible();
@@ -280,7 +294,7 @@ test('upload flow: /upload → wybór półki → upload → redirect → propoz
   );
 
   // 7. Intercept /api/photos/*/match-stream (SSE) — immediate done
-  await page.route(`**/api/photos/${PHOTO_ID}/match-stream`, (route) => {
+  await page.route(`**/api/photos/${PHOTO_ID}/match-stream**`, (route) => {
     void route.fulfill({
       status: 200,
       headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },

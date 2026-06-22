@@ -100,7 +100,7 @@ async function setupAndGoToShelfPhotos(page: Page) {
       body: JSON.stringify({ data: {} }),
     });
   });
-  await page.route('**/api/photos/*/match-stream', async (route) => {
+  await page.route('**/api/photos/*/match-stream**', async (route) => {
     await route.fulfill({
       status: 200,
       headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
@@ -296,7 +296,7 @@ test.describe('confirm: process-now-button (DetectionReview — brak detekcji)',
     await page.route('**/api/photos/*/process**', async (route) => {
       await route.fulfill({ status: 200, contentType: 'application/json', body: '{"data":{}}' });
     });
-    await page.route('**/api/photos/*/match-stream', async (route) => {
+    await page.route('**/api/photos/*/match-stream**', async (route) => {
       await route.fulfill({
         status: 200,
         headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },

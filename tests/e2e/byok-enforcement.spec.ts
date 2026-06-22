@@ -84,6 +84,13 @@ test('process 403 NO_API_KEY — uploader pokazuje błąd z linkiem do /account'
       });
     },
   );
+  await page.route('**/api/account/keys**', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { keys: [{ is_active: true }] } }),
+    }),
+  );
 
   await page.goto('/upload');
   await expect(page.getByTestId('shelf-select')).toBeVisible({ timeout: 5_000 });

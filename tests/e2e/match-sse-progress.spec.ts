@@ -127,6 +127,13 @@ async function setupBaseRoutes(page: import('@playwright/test').Page) {
 test('SSE match: modal "Dopasowywanie" widoczny podczas SSE, redirect po done', async ({
   page,
 }) => {
+  await page.route('**/api/account/keys**', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { keys: [{ is_active: true }] } }),
+    }),
+  );
   await page.goto('/upload');
   await page.waitForLoadState('networkidle');
   await page.evaluate(() => {
@@ -157,7 +164,7 @@ test('SSE match: modal "Dopasowywanie" widoczny podczas SSE, redirect po done', 
     },
   );
 
-  await page.route(`**/api/photos/${PHOTO_ID}/match-stream`, async (route) => {
+  await page.route(`**/api/photos/${PHOTO_ID}/match-stream**`, async (route) => {
     await new Promise<void>((r) => {
       resolveSSE = r;
     });

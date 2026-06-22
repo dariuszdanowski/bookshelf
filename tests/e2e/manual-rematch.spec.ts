@@ -190,7 +190,7 @@ test.describe('manual rematch — szukaj po tytule', () => {
       resolveStream = r;
     });
 
-    await page.route(`**/api/photos/${PHOTO_ID}/match-stream`, async (route) => {
+    await page.route(`**/api/photos/${PHOTO_ID}/match-stream**`, async (route) => {
       const body = await streamHeld;
       void route.fulfill({
         status: 200,
