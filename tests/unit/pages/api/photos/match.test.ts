@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockSearchGoogleBooks = vi.hoisted(() => vi.fn());
 const mockSearchOpenLibrary = vi.hoisted(() => vi.fn());
+const mockSearchOpenLibraryByTitle = vi.hoisted(() => vi.fn());
 const mockSearchNationalLibrary = vi.hoisted(() => vi.fn());
 
 vi.mock('../../../../../src/lib/books/googleBooks', () => ({
@@ -9,6 +10,7 @@ vi.mock('../../../../../src/lib/books/googleBooks', () => ({
 }));
 vi.mock('../../../../../src/lib/books/openLibrary', () => ({
   searchOpenLibrary: mockSearchOpenLibrary,
+  searchOpenLibraryByTitle: mockSearchOpenLibraryByTitle,
 }));
 vi.mock('../../../../../src/lib/books/nationalLibrary', () => ({
   searchNationalLibrary: mockSearchNationalLibrary,
@@ -200,6 +202,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockSearchGoogleBooks.mockResolvedValue({ ok: true, candidates: [googleCandidate] });
   mockSearchOpenLibrary.mockResolvedValue({ ok: false, reason: 'empty' });
+  mockSearchOpenLibraryByTitle.mockResolvedValue({ ok: false, reason: 'empty' });
   mockSearchNationalLibrary.mockResolvedValue({ ok: false, reason: 'empty' });
 });
 

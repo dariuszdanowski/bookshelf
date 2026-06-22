@@ -1,14 +1,9 @@
-import { searchGoogleBooks } from '../books/googleBooks';
-import { searchOpenLibrary } from '../books/openLibrary';
-import { searchNationalLibrary } from '../books/nationalLibrary';
-import { scoreCandidate, MATCH_MID } from './score';
-import { dedupeCandidates, checkCatalogDuplicate, type CatalogDuplicate } from './dedupe';
-import type { BookCandidate, ScoredCandidate } from '../books/schema';
+import { findBookCandidates } from './findCandidates';
+import { checkCatalogDuplicate, type CatalogDuplicate } from './dedupe';
+import type { ScoredCandidate } from '../books/schema';
 
 // Google Books QPS limit: even with API key, 35 simultaneous requests cause 429s.
 export const MATCH_CONCURRENCY = 5;
-
-const MAX_CANDIDATES = 5;
 
 export type DetectionRow = {
   id: string;
@@ -78,71 +73,17 @@ export async function matchDetection(
   const rawTitle = detection.raw_title ?? '';
   const rawAuthor = detection.raw_author ?? null;
 
-  // GB + Biblioteka Narodowa równolegle. BN ma natywne pokrycie polskich edycji
-  // (recall, którego brakuje GB). Nie robimy early-return na porażce GB — BN może
-  // mieć kandydatów mimo pustego/rate-limited GB.
-  const [googleResult, bnResult] = await Promise.all([
-    searchGoogleBooks({ title: rawTitle, author: rawAuthor }),
-    searchNationalLibrary({ title: rawTitle, author: rawAuthor }),
-  ]);
-
-  const allCandidates: BookCandidate[] = [
-    ...(googleResult.ok ? googleResult.candidates : []),
-    ...(bnResult.ok ? bnResult.candidates : []),
-  ];
-
-  // Rate-limited tylko gdy GB rate-limited ORAZ brak kandydatów (BN też pusty) —
-  // zachowuje retry. Gdy BN dostarczył kandydatów, idziemy dalej mimo GB 429.
-  if (allCandidates.length === 0) {
-    return {
-      candidates: [],
-      duplicate: null,
-      rateLimited: !googleResult.ok && googleResult.reason === 'rate_limited',
-    };
-  }
-
-  // OL ISBN-enrichment: only when ISBN available from gathered candidates (GB or BN)
-  const firstIsbn =
-    allCandidates.find((c) => c.isbn13)?.isbn13 ??
-    allCandidates.find((c) => c.isbn10)?.isbn10 ??
-    null;
-
-  if (firstIsbn) {
-    const olResult = await searchOpenLibrary({ title: rawTitle, isbn: firstIsbn });
-    if (olResult.ok) allCandidates.push(...olResult.candidates);
-  }
-
-  const detForScore = { raw_title: rawTitle, raw_author: rawAuthor };
-  const scored: ScoredCandidate[] = allCandidates.map((c) => ({
-    ...c,
-    matchScore: scoreCandidate(detForScore, {
-      title: c.title,
-      authors: c.authors,
-      isbn13: c.isbn13,
-      isbn10: c.isbn10,
-    }),
-  }));
-
-  // Próg jakości: kandydaci poniżej MATCH_MID (0.55) to "brak pewnego matchu"
-  // (PRD §10 + CLAUDE.md). Odrzucamy ich, by detekcja pokazała ścieżkę
-  // "Wpisz ręcznie" zamiast fałszywej propozycji (np. antologia 48%, śmieci 25%).
-  // Filtr PRZED dedupe/slice — inaczej top-5 zapełniłyby się szumem.
-  const aboveThreshold = scored.filter((c) => c.matchScore >= MATCH_MID);
-  const deduped = dedupeCandidates(aboveThreshold).slice(0, MAX_CANDIDATES);
-
-  // Enrich candidates missing a cover but having an ISBN with OL ISBN cover URL.
-  // OL covers endpoint works by ISBN even when search result lacks cover_i.
-  const topCandidates = deduped.map((c) => {
-    if (c.coverUrl) return c;
-    const isbn = c.isbn13 ?? c.isbn10;
-    if (!isbn) return c;
-    return { ...c, coverUrl: `https://covers.openlibrary.org/b/isbn/${isbn}-M.jpg?default=false` };
-  });
+  // Używamy tej samej funkcji co rematch (/detections/[id]/rematch) — próg
+  // SEARCH_MIN_SCORE (0.25) zamiast MATCH_MID (0.55), plus authorTokensMatch.
+  // Niższy próg pozwala uchwycić tytuły seryjne gdzie OCR czyta tylko część
+  // (np. "Zepsuta krew" z pełnego "Grzeczna dziewczynka. Zepsuta krew") —
+  // score 0.45 byłby odrzucony przez 0.55, ale BN kandydat jest poprawny.
+  const { candidates, rateLimited } = await findBookCandidates(rawTitle, rawAuthor, null);
 
   const duplicate =
-    topCandidates.length > 0 ? checkCatalogDuplicate(topCandidates[0], existingBooks) : null;
+    candidates.length > 0 ? checkCatalogDuplicate(candidates[0], existingBooks) : null;
 
-  return { candidates: topCandidates, duplicate, rateLimited: false };
+  return { candidates, duplicate, rateLimited };
 }
 
 /**
