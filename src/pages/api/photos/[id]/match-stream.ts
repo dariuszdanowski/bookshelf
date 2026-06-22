@@ -55,7 +55,9 @@ type CandidateRow = {
  * Emits `event: progress` per detection completion, `event: done` on finish.
  * Auth and business logic mirrors POST /match; no DB schema changes.
  */
-export const GET: APIRoute = async ({ params, locals }) => {
+const MATCH_BATCH_SIZE = 8;
+
+export const GET: APIRoute = async ({ params, locals, url }) => {
   const id = parseUuidParam(params.id);
   if (!id) {
     return apiError({ code: 'NOT_FOUND', status: 404, message: 'Not found.' });
@@ -155,8 +157,14 @@ export const GET: APIRoute = async ({ params, locals }) => {
 
   const enc = new TextEncoder();
 
-  // No detections → emit done immediately without opening stream work
-  if (!detectionRows || detectionRows.length === 0) {
+  // Batch processing: each invocation handles a slice of detections to stay within
+  // CF Workers subrequest limit (50 free / 10 000 paid). Default batch = 8.
+  const batchOffset = Math.max(0, parseInt(url.searchParams.get('offset') ?? '0', 10) || 0);
+  const grandTotal = detectionRows?.length ?? 0;
+  const batchDetections = (detectionRows ?? []).slice(batchOffset, batchOffset + MATCH_BATCH_SIZE);
+
+  // No detections in this batch → emit done immediately without opening stream work
+  if (batchDetections.length === 0) {
     const stream = new ReadableStream({
       start(controller) {
         controller.enqueue(enc.encode('event: done\ndata: {"matched":0,"rate_limited":0}\n\n'));
@@ -166,7 +174,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
     return new Response(stream, { status: 200, headers: SSE_HEADERS });
   }
 
-  // Load existing candidates for conservative replace check
+  // Load existing candidates for conservative replace check (scoped to this batch)
   const { data: existingCandidateRows, error: existingCandidatesError } = await locals.supabase
     .from('book_candidates')
     .select(
@@ -174,7 +182,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
     )
     .in(
       'detection_id',
-      detectionRows.map((d) => d.id),
+      batchDetections.map((d) => d.id),
     );
 
   if (existingCandidatesError) {
@@ -237,15 +245,15 @@ export const GET: APIRoute = async ({ params, locals }) => {
     async start(controller) {
       try {
         const matchResults = await runMatchingWithProgress(
-          detectionRows,
+          batchDetections,
           catalog,
           MATCH_CONCURRENCY,
           (evt) => {
             controller.enqueue(
               enc.encode(
                 `event: progress\ndata: ${JSON.stringify({
-                  index: evt.index,
-                  total: evt.total,
+                  index: batchOffset + evt.index,
+                  total: grandTotal,
                   title: evt.title,
                   detectionId: evt.detectionId,
                   matched: evt.matched,
@@ -267,8 +275,8 @@ export const GET: APIRoute = async ({ params, locals }) => {
         const processedDetectionIds: string[] = [];
         const matchedDetectionIds: string[] = [];
 
-        for (let i = 0; i < detectionRows.length; i++) {
-          const det = detectionRows[i];
+        for (let i = 0; i < batchDetections.length; i++) {
+          const det = batchDetections[i];
           const result = matchResults[i];
 
           if (result.status === 'rejected') {
@@ -391,7 +399,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
         matchedCount += preservedMatchedCount;
 
         // All rate-limited → emit error event (client can retry via sync POST)
-        if (detectionRows.length > 0 && allRateLimited && matchedCount === 0) {
+        if (batchDetections.length > 0 && allRateLimited && matchedCount === 0) {
           controller.enqueue(
             enc.encode(
               `event: error\ndata: ${JSON.stringify({ message: 'Google Books rate limit. Spróbuj ponownie za chwilę.', code: 'RATE_LIMITED' })}\n\n`,
@@ -401,9 +409,15 @@ export const GET: APIRoute = async ({ params, locals }) => {
           return;
         }
 
+        const nextOffset = batchOffset + batchDetections.length;
+        const hasMore = nextOffset < grandTotal;
         controller.enqueue(
           enc.encode(
-            `event: done\ndata: ${JSON.stringify({ matched: matchedCount, rate_limited: rateLimitedCount })}\n\n`,
+            `event: done\ndata: ${JSON.stringify({
+              matched: matchedCount,
+              rate_limited: rateLimitedCount,
+              ...(hasMore ? { nextOffset, grandTotal } : {}),
+            })}\n\n`,
           ),
         );
         controller.close();

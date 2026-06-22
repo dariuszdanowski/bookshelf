@@ -2424,12 +2424,12 @@ export default function DetectionReview({
     }
   }
 
-  function runSSEMatch(): Promise<void> {
+  function runSSEMatch(offset = 0): Promise<void> {
     return new Promise<void>((resolve, reject) => {
       let settled = false;
       let errorCount = 0;
 
-      const source = new EventSource(`/api/photos/${photoId}/match-stream`);
+      const source = new EventSource(`/api/photos/${photoId}/match-stream?offset=${offset}`);
       matchSourceRef.current = source;
 
       source.addEventListener('progress', (e) => {
@@ -2454,12 +2454,23 @@ export default function DetectionReview({
         });
       });
 
-      source.addEventListener('done', () => {
+      source.addEventListener('done', (e) => {
         if (settled) return;
-        settled = true;
         source.close();
         matchSourceRef.current = null;
-        resolve();
+        const d = JSON.parse((e as MessageEvent).data) as {
+          matched: number;
+          rate_limited: number;
+          nextOffset?: number;
+          grandTotal?: number;
+        };
+        if (d.nextOffset != null && d.grandTotal != null && d.nextOffset < d.grandTotal) {
+          settled = true;
+          runSSEMatch(d.nextOffset).then(resolve).catch(reject);
+        } else {
+          settled = true;
+          resolve();
+        }
       });
 
       source.addEventListener('error', (e) => {
@@ -2484,20 +2495,24 @@ export default function DetectionReview({
           settled = true;
           source.close();
           matchSourceRef.current = null;
-          fetch(`/api/photos/${photoId}/match`, { method: 'POST' })
-            .then(async (r) => {
-              const json = (await r.json()) as { data?: unknown; error?: { message?: string } };
-              if (r.status === 429) {
-                reject(new Error('Rate limit, spróbuj za chwilę.'));
-              } else if (!r.ok) {
-                reject(new Error(json.error?.message ?? `Błąd matchowania (${r.status})`));
-              } else {
-                resolve();
-              }
-            })
-            .catch((err: unknown) => {
-              reject(err instanceof Error ? err : new Error('Błąd sieci.'));
-            });
+          if (offset === 0) {
+            fetch(`/api/photos/${photoId}/match`, { method: 'POST' })
+              .then(async (r) => {
+                const json = (await r.json()) as { data?: unknown; error?: { message?: string } };
+                if (r.status === 429) {
+                  reject(new Error('Rate limit, spróbuj za chwilę.'));
+                } else if (!r.ok) {
+                  reject(new Error(json.error?.message ?? `Błąd matchowania (${r.status})`));
+                } else {
+                  resolve();
+                }
+              })
+              .catch((err: unknown) => {
+                reject(err instanceof Error ? err : new Error('Błąd sieci.'));
+              });
+          } else {
+            reject(new Error('Błąd połączenia podczas matchowania.'));
+          }
         }
       };
     });
