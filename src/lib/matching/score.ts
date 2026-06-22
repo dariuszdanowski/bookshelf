@@ -1,3 +1,5 @@
+import { deCyrillic } from './normalizeQuery';
+
 export const MATCH_HIGH = 0.75;
 export const MATCH_MID = 0.55;
 
@@ -46,7 +48,7 @@ function multiAuthorConfidence(authorCount: number): number {
 
 /** Tokeny nazwiska/imienia (≥2 znaki po normalizacji). */
 function nameTokens(s: string): string[] {
-  return normalize(s)
+  return normalize(deCyrillic(s))
     .split(/[^a-z0-9]+/)
     .filter((t) => t.length >= 2);
 }
@@ -89,7 +91,7 @@ export function authorSim(
 // Tokeny nazwiska/imienia (≥3 znaki po normalizacji) — wyklucza inicjały i szum
 // typu „de", „van". Diakrytyki zdjęte przez normalize.
 function authorTokens(s: string): string[] {
-  return normalize(s)
+  return normalize(deCyrillic(s))
     .split(/[^a-z0-9]+/)
     .filter((t) => t.length >= 3);
 }
