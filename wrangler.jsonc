@@ -10,7 +10,4 @@
   "observability": {
     "enabled": true,
   },
-  "limits": {
-    "subrequests": 10000,
-  },
 }
