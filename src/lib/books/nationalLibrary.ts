@@ -129,7 +129,10 @@ function mapBib(bib: Bib): BookCandidate {
 async function fetchBN(url: string): Promise<BookSearchResult> {
   let response: Response;
   try {
-    response = await fetch(url, { headers: { 'User-Agent': USER_AGENT } });
+    response = await fetch(url, {
+      headers: { 'User-Agent': USER_AGENT },
+      signal: AbortSignal.timeout(8000),
+    });
   } catch (e) {
     console.error('[nationalLibrary] network error', {
       err: e instanceof Error ? e.message : String(e),
