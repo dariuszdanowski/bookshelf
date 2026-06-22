@@ -7,7 +7,6 @@ import { expect, test } from '@playwright/test';
  * 1. GET /match-stream jest wywoływany (SSE path aktywny)
  * 2. Modal "Dopasowywanie" widoczny podczas oczekiwania na SSE
  * 3. Po event: done — redirect do /photos/{id}
- * 4. Fallback: abort /match-stream → sync POST /match → redirect
  *
  * Tytuły pojawiają się w modalu zbyt krótko (SSE body dostarczone naraz przez
  * route.fulfill → done natychmiastowe → redirect). Weryfikacja tytułów i paska
@@ -71,23 +70,6 @@ const MOCK_PROCESS_RESPONSE = {
   },
 };
 
-const MOCK_MATCH_RESPONSE = {
-  data: {
-    matched: 3,
-    detections: [
-      {
-        id: 'det-1',
-        raw_title: 'Harry Potter',
-        raw_author: 'J.K. Rowling',
-        position_index: 1,
-        status: 'matched',
-        candidates: [],
-        duplicate: null,
-      },
-    ],
-  },
-};
-
 const MOCK_PHOTO_GET_RESPONSE = {
   data: {
     photo: {
@@ -130,16 +112,6 @@ async function setupBaseRoutes(page: import('@playwright/test').Page) {
           body: JSON.stringify(MOCK_RECORD_RESPONSE),
         })
       : route.continue(),
-  );
-  // sync POST /match — fallback path
-  await page.route(
-    (url) => url.pathname === `/api/photos/${PHOTO_ID}/match`,
-    (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(MOCK_MATCH_RESPONSE),
-      }),
   );
   await page.route(`**/api/photos/${PHOTO_ID}`, (route) =>
     route.request().method() === 'GET'
@@ -238,58 +210,4 @@ test('SSE match: modal "Dopasowywanie" widoczny podczas SSE, redirect po done', 
 
   // SSE path użyty → sync POST /match NIE powinien być wywołany
   expect(syncMatchCalled).toBe(false);
-});
-
-test('SSE match fallback: abortowany /match-stream → sync POST /match → redirect', async ({
-  page,
-}) => {
-  await page.goto('/upload');
-  await page.waitForLoadState('networkidle');
-  await page.evaluate(() => {
-    const TINY_PNG =
-      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
-    URL.createObjectURL = () => TINY_PNG;
-    URL.revokeObjectURL = () => {};
-  });
-  await expect(page.getByTestId('shelf-select')).toBeVisible({ timeout: 5_000 });
-
-  await setupBaseRoutes(page);
-
-  await page.route(
-    (url) => url.pathname === `/api/photos/${PHOTO_ID}/process`,
-    (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(MOCK_PROCESS_RESPONSE),
-      }),
-  );
-
-  // Abort SSE 3× → wyzwala fallback do sync POST /match
-  let sseCallCount = 0;
-  await page.route(`**/api/photos/${PHOTO_ID}/match-stream`, (route) => {
-    sseCallCount++;
-    void route.abort();
-  });
-
-  // Śledzenie czy sync /match POST był wywołany
-  let syncMatchCalled = false;
-  page.on('request', (req) => {
-    if (
-      req.url().includes(`/api/photos/${PHOTO_ID}/match`) &&
-      !req.url().includes('match-stream') &&
-      req.method() === 'POST'
-    ) {
-      syncMatchCalled = true;
-    }
-  });
-
-  await page.getByTestId('file-input').setInputFiles('tests/fixtures/test-shelf.jpg');
-
-  // Po 3 abortach EventSource → fallback do sync POST → redirect
-  await page.waitForURL(`/photos/${PHOTO_ID}`, { timeout: 20_000 });
-
-  // Fallback path użyty → sync /match POST wywołany
-  expect(syncMatchCalled).toBe(true);
-  expect(sseCallCount).toBeGreaterThanOrEqual(1);
 });

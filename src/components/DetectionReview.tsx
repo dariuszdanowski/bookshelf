@@ -2495,24 +2495,7 @@ export default function DetectionReview({
           settled = true;
           source.close();
           matchSourceRef.current = null;
-          if (offset === 0) {
-            fetch(`/api/photos/${photoId}/match`, { method: 'POST' })
-              .then(async (r) => {
-                const json = (await r.json()) as { data?: unknown; error?: { message?: string } };
-                if (r.status === 429) {
-                  reject(new Error('Rate limit, spróbuj za chwilę.'));
-                } else if (!r.ok) {
-                  reject(new Error(json.error?.message ?? `Błąd matchowania (${r.status})`));
-                } else {
-                  resolve();
-                }
-              })
-              .catch((err: unknown) => {
-                reject(err instanceof Error ? err : new Error('Błąd sieci.'));
-              });
-          } else {
-            reject(new Error('Błąd połączenia podczas matchowania.'));
-          }
+          reject(new Error('Błąd połączenia podczas matchowania.'));
         }
       };
     });

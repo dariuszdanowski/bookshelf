@@ -55,7 +55,9 @@ type CandidateRow = {
  * Emits `event: progress` per detection completion, `event: done` on finish.
  * Auth and business logic mirrors POST /match; no DB schema changes.
  */
-const MATCH_BATCH_SIZE = 8;
+// Każda detekcja dostaje własne wywołanie CF Worker (własny budget 50 subreqs).
+// Klient łączy wyniki seryjnie przez nextOffset. Zużycie: ~6 Supabase + ≤14 API = ~20/50.
+const MATCH_BATCH_SIZE = 1;
 
 export const GET: APIRoute = async ({ params, locals, url }) => {
   const id = parseUuidParam(params.id);
@@ -140,7 +142,8 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
     .from('detections')
     .select('id, raw_title, raw_author, status, position_index')
     .eq('vision_run_id', latestRun.id)
-    .neq('status', 'rejected');
+    .neq('status', 'rejected')
+    .order('position_index', { ascending: true });
 
   if (detError) {
     console.error('[api/photos/match-stream GET] detections select failed', {
