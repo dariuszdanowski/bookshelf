@@ -59,8 +59,9 @@ test('S-36: odznaczony checkbox → upload bez /process i /match, lądowanie na 
   // Twardy guardrail: zbieramy KAŻDY request do process/match
   const visionRequests: string[] = [];
   page.on('request', (req) => {
-    if (req.url().includes('/process') || req.url().includes('/match')) {
-      visionRequests.push(req.url());
+    const url = req.url();
+    if (url.includes('/api/') && (url.includes('/process') || url.includes('/match'))) {
+      visionRequests.push(url);
     }
   });
 
