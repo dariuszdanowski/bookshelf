@@ -140,7 +140,8 @@ export const GET: APIRoute = async ({ params, locals, url }) => {
     .from('detections')
     .select('id, raw_title, raw_author, status, position_index')
     .eq('vision_run_id', latestRun.id)
-    .neq('status', 'rejected');
+    .neq('status', 'rejected')
+    .order('position_index', { ascending: true });
 
   if (detError) {
     console.error('[api/photos/match-stream GET] detections select failed', {
