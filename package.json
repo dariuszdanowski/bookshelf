@@ -38,7 +38,7 @@
     "studio": "node scripts/open-studio.mjs"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.104.2",
+    "@anthropic-ai/sdk": "^0.105.0",
     "@astrojs/cloudflare": "^13.7.0",
     "@astrojs/react": "^5.0.4",
     "@cf-wasm/photon": "^0.3.5",
@@ -47,12 +47,12 @@
     "@tailwindcss/vite": "^4.3.1",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "astro": "^6.4.7",
+    "astro": "^6.4.8",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "tailwindcss": "^4.3.1",
     "tesseract.js": "^7.0.0",
-    "wrangler": "^4.101.0",
+    "wrangler": "^4.103.0",
     "zod": "^4.4.3"
   },
   "overrides": {
