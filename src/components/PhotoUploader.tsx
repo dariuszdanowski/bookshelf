@@ -367,7 +367,8 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
       // ŚWIADOMIE bez resume-state: recovery-effect wznowiłby pipeline wbrew
       // decyzji usera (pitfall z roadmapy). Lądujemy na tabie Zdjęcia, gdzie
       // czeka akcja „Uruchom vision".
-      if (!autoProcess) {
+      // Brak aktywnego klucza API → zawsze skip (nawet gdy user zaznaczył checkbox).
+      if (!autoProcess || hasActiveKey === false) {
         setStage('done');
         window.location.href = `/shelves/${selectedShelfId}?tab=photos`;
         return;
@@ -378,7 +379,7 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
       await processPhoto(photoId);
       setStage('done'); // redirect happens inside processPhoto; this line is reached only in tests
     },
-    [selectedShelfId, processPhoto, autoProcess],
+    [selectedShelfId, processPhoto, autoProcess, hasActiveKey],
   );
 
   const handleFile = useCallback(
@@ -570,22 +571,40 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
 
       {/* S-36: kontrola kosztu — odznaczenie pomija vision/match przy uploadzie */}
       {!isProcessing && stage !== 'done' && stage !== 'duplicate' && (
-        <label className="mb-3 flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+        <label
+          className={`mb-3 flex items-center gap-2 text-sm ${hasActiveKey === false ? 'cursor-not-allowed text-gray-400 dark:text-gray-500' : 'text-gray-700 dark:text-gray-300'}`}
+        >
           <input
             type="checkbox"
             data-testid="auto-process-checkbox"
-            checked={autoProcess}
+            checked={autoProcess && hasActiveKey !== false}
+            disabled={hasActiveKey === false}
             onChange={(e) => handleAutoProcessChange(e.target.checked)}
-            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
           />
           <span className="flex items-center gap-1">
             Analizuj od razu{' '}
-            <span className="text-gray-500 dark:text-gray-400">(vision + match, płatne)</span>
-            <HelpTip label="auto-process">
-              Zaznaczone: po wgraniu zdjęcie jest od razu analizowane przez AI (vision) i
-              dopasowywane do baz książek — generuje koszt API. Odznaczone: zdjęcie zostaje
-              zapisane, analizę uruchamiasz ręcznie z karty Zdjęcia.
-            </HelpTip>
+            {hasActiveKey === false ? (
+              <span className="text-gray-400 dark:text-gray-500">
+                (wymaga klucza API —{' '}
+                <a
+                  href="/account"
+                  className="underline hover:text-gray-600 dark:hover:text-gray-300"
+                >
+                  dodaj w ustawieniach
+                </a>
+                )
+              </span>
+            ) : (
+              <>
+                <span className="text-gray-500 dark:text-gray-400">(vision + match, płatne)</span>
+                <HelpTip label="auto-process">
+                  Zaznaczone: po wgraniu zdjęcie jest od razu analizowane przez AI (vision) i
+                  dopasowywane do baz książek — generuje koszt API. Odznaczone: zdjęcie zostaje
+                  zapisane, analizę uruchamiasz ręcznie z karty Zdjęcia.
+                </HelpTip>
+              </>
+            )}
           </span>
         </label>
       )}
