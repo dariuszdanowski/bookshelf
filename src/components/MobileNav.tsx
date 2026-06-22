@@ -153,6 +153,7 @@ export default function MobileNav({
                   <li>
                     <a
                       href="/shelves"
+                      data-testid="mobile-nav-shelves-manage"
                       className={`block rounded px-2 py-1.5 text-sm ${
                         currentPath === '/shelves'
                           ? 'bg-indigo-50 font-semibold text-indigo-600 dark:bg-indigo-900/20 dark:text-indigo-400'

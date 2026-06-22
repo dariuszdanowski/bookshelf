@@ -2208,6 +2208,7 @@ export default function DetectionReview({
   );
   // M20: id potwierdzonych już w DB przy wejściu — odróżnia decyzje sesyjne od historycznych
   const initialDecidedRef = useRef<Set<string>>(new Set());
+  const coverEnrichRef = useRef(false);
 
   useEffect(() => {
     return () => {
@@ -2291,6 +2292,41 @@ export default function DetectionReview({
         ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
   }, [loading, detections, initialFocusedDetectionId, viewMode]);
+
+  // Dociąganie okładek w tle — po załadowaniu detekcji sprawdza czy rank=1 kandydaci
+  // mają spekulatywny URL (OL -M.jpg?default=false = niezweryfikowany), i odpala
+  // POST /api/photos/[id]/enrich-covers, które seryjnie sprawdza OL/GB i aktualizuje
+  // cover_url w DB. Stan React patchowany bez pełnego reload — okładki pojawiają się
+  // w miarę jak endpoint je znajdzie.
+  useEffect(() => {
+    if (loading) return;
+    if (coverEnrichRef.current) return;
+    const hasSpeculative = detections.some((d) =>
+      d.candidates[0]?.coverUrl?.includes('?default=false'),
+    );
+    if (!hasSpeculative) return;
+    coverEnrichRef.current = true;
+    void fetch(`/api/photos/${photoId}/enrich-covers`, { method: 'POST' })
+      .then((r) => (r.ok ? (r.json() as Promise<unknown>) : null))
+      .then((raw) => {
+        const json = raw as {
+          data?: { enriched: Array<{ detectionId: string; coverUrl: string }> };
+        } | null;
+        if (!json?.data?.enriched?.length) return;
+        const byDetectionId = new Map(json.data.enriched.map((e) => [e.detectionId, e.coverUrl]));
+        setDetections((prev) =>
+          prev.map((d) => {
+            const coverUrl = byDetectionId.get(d.id);
+            if (!coverUrl || !d.candidates.length) return d;
+            return {
+              ...d,
+              candidates: [{ ...d.candidates[0], coverUrl }, ...d.candidates.slice(1)],
+            };
+          }),
+        );
+      })
+      .catch(() => {}); // best-effort — błąd sieci nie psuje UI
+  }, [loading, detections, photoId]);
 
   function handleDecided(detectionId: string, kind: DecisionKind = 'confirmed') {
     setDecidedIds((prev) => new Set([...prev, detectionId]));
