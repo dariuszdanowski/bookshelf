@@ -7,7 +7,6 @@ import { expect, test } from '@playwright/test';
  * 1. GET /match-stream jest wywoływany (SSE path aktywny)
  * 2. Modal "Dopasowywanie" widoczny podczas oczekiwania na SSE
  * 3. Po event: done — redirect do /photos/{id}
- * 4. Fallback: abort /match-stream → sync POST /match → redirect
  *
  * Tytuły pojawiają się w modalu zbyt krótko (SSE body dostarczone naraz przez
  * route.fulfill → done natychmiastowe → redirect). Weryfikacja tytułów i paska
@@ -71,23 +70,6 @@ const MOCK_PROCESS_RESPONSE = {
   },
 };
 
-const MOCK_MATCH_RESPONSE = {
-  data: {
-    matched: 3,
-    detections: [
-      {
-        id: 'det-1',
-        raw_title: 'Harry Potter',
-        raw_author: 'J.K. Rowling',
-        position_index: 1,
-        status: 'matched',
-        candidates: [],
-        duplicate: null,
-      },
-    ],
-  },
-};
-
 const MOCK_PHOTO_GET_RESPONSE = {
   data: {
     photo: {
@@ -130,16 +112,6 @@ async function setupBaseRoutes(page: import('@playwright/test').Page) {
           body: JSON.stringify(MOCK_RECORD_RESPONSE),
         })
       : route.continue(),
-  );
-  // sync POST /match — fallback path
-  await page.route(
-    (url) => url.pathname === `/api/photos/${PHOTO_ID}/match`,
-    (route) =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(MOCK_MATCH_RESPONSE),
-      }),
   );
   await page.route(`**/api/photos/${PHOTO_ID}`, (route) =>
     route.request().method() === 'GET'
@@ -240,7 +212,7 @@ test('SSE match: modal "Dopasowywanie" widoczny podczas SSE, redirect po done', 
   expect(syncMatchCalled).toBe(false);
 });
 
-test('SSE match fallback: abortowany /match-stream → sync POST /match → redirect', async ({
+test('SSE match błąd: 3 aborty /match-stream → komunikat błędu (brak fallbacku POST)', async ({
   page,
 }) => {
   await page.goto('/upload');
@@ -265,14 +237,14 @@ test('SSE match fallback: abortowany /match-stream → sync POST /match → redi
       }),
   );
 
-  // Abort SSE 3× → wyzwala fallback do sync POST /match
+  // Abort SSE 3× → błąd połączenia, brak fallbacku do POST /match
   let sseCallCount = 0;
   await page.route(`**/api/photos/${PHOTO_ID}/match-stream`, (route) => {
     sseCallCount++;
     void route.abort();
   });
 
-  // Śledzenie czy sync /match POST był wywołany
+  // POST /match NIE powinien być wywołany — fallback usunięty
   let syncMatchCalled = false;
   page.on('request', (req) => {
     if (
@@ -286,10 +258,9 @@ test('SSE match fallback: abortowany /match-stream → sync POST /match → redi
 
   await page.getByTestId('file-input').setInputFiles('tests/fixtures/test-shelf.jpg');
 
-  // Po 3 abortach EventSource → fallback do sync POST → redirect
-  await page.waitForURL(`/photos/${PHOTO_ID}`, { timeout: 20_000 });
+  // Po 3 abortach EventSource → modal znika lub pojawia się komunikat błędu
+  await expect(page.getByTestId('progress-modal')).not.toBeVisible({ timeout: 20_000 });
 
-  // Fallback path użyty → sync /match POST wywołany
-  expect(syncMatchCalled).toBe(true);
+  expect(syncMatchCalled).toBe(false);
   expect(sseCallCount).toBeGreaterThanOrEqual(1);
 });
