@@ -136,78 +136,94 @@ export default function PhotoListIsland({ shelfId }: Props) {
       setCurrentMatchItem(null);
       patchRow(photoId, { busy: true, toast: null });
 
-      try {
-        const result = await new Promise<{ matched: number; rateLimited: number }>(
-          (resolve, reject) => {
-            let settled = false;
-            let errorCount = 0;
+      // MATCH_BATCH_SIZE=1: każda detekcja to osobne wywołanie CF Worker (własny budżet
+      // 50 subreqs). Klient łączy wyniki seryjnie przez nextOffset w event: done.
+      function runSSEBatch(offset: number): Promise<{ matched: number; rateLimited: number }> {
+        return new Promise((resolve, reject) => {
+          let settled = false;
+          let errorCount = 0;
 
-            const source = new EventSource(`/api/photos/${photoId}/match-stream`);
-            matchSourceRef.current = source;
+          const source = new EventSource(`/api/photos/${photoId}/match-stream?offset=${offset}`);
+          matchSourceRef.current = source;
 
-            source.addEventListener('progress', (e) => {
-              const d = JSON.parse((e as MessageEvent).data) as {
-                index: number;
-                total: number;
-                title: string;
-                matched: boolean;
-                candidateTitle?: string;
-                candidateAuthors?: string[];
-              };
-              setMatchTitles((prev) => [...prev, d.title]);
-              setMatchProgress({ current: d.index, total: d.total });
-              setMatchStats((prev) => ({
-                matched: prev.matched + (d.matched ? 1 : 0),
-                unmatched: prev.unmatched + (d.matched ? 0 : 1),
-              }));
-              setCurrentMatchItem({
-                title: d.candidateTitle ?? d.title,
-                authors: d.candidateAuthors,
-                matched: d.matched,
-              });
+          source.addEventListener('progress', (e) => {
+            const d = JSON.parse((e as MessageEvent).data) as {
+              index: number;
+              total: number;
+              title: string;
+              matched: boolean;
+              candidateTitle?: string;
+              candidateAuthors?: string[];
+            };
+            setMatchTitles((prev) => [...prev, d.title]);
+            setMatchProgress({ current: d.index, total: d.total });
+            setMatchStats((prev) => ({
+              matched: prev.matched + (d.matched ? 1 : 0),
+              unmatched: prev.unmatched + (d.matched ? 0 : 1),
+            }));
+            setCurrentMatchItem({
+              title: d.candidateTitle ?? d.title,
+              authors: d.candidateAuthors,
+              matched: d.matched,
             });
+          });
 
-            source.addEventListener('done', (e) => {
-              if (settled) return;
+          source.addEventListener('done', (e) => {
+            if (settled) return;
+            source.close();
+            matchSourceRef.current = null;
+            const d = JSON.parse((e as MessageEvent).data) as {
+              matched: number;
+              rate_limited: number;
+              nextOffset?: number;
+              grandTotal?: number;
+            };
+            if (d.nextOffset != null && d.grandTotal != null && d.nextOffset < d.grandTotal) {
+              settled = true;
+              runSSEBatch(d.nextOffset)
+                .then((next) =>
+                  resolve({
+                    matched: d.matched + next.matched,
+                    rateLimited: d.rate_limited + next.rateLimited,
+                  }),
+                )
+                .catch(reject);
+            } else {
+              settled = true;
+              resolve({ matched: d.matched, rateLimited: d.rate_limited });
+            }
+          });
+
+          source.addEventListener('error', (e) => {
+            if (settled) return;
+            const msg = (() => {
+              try {
+                return (JSON.parse((e as MessageEvent).data) as { message?: string }).message;
+              } catch {
+                return undefined;
+              }
+            })();
+            settled = true;
+            source.close();
+            matchSourceRef.current = null;
+            reject(new Error(msg ?? 'Błąd matchowania.'));
+          });
+
+          source.onerror = () => {
+            if (settled) return;
+            errorCount++;
+            if (errorCount >= 3) {
               settled = true;
               source.close();
               matchSourceRef.current = null;
-              const d = JSON.parse((e as MessageEvent).data) as {
-                matched: number;
-                rate_limited: number;
-              };
-              resolve({ matched: d.matched, rateLimited: d.rate_limited });
-            });
+              reject(new Error('Błąd połączenia podczas matchowania.'));
+            }
+          };
+        });
+      }
 
-            source.onerror = () => {
-              if (settled) return;
-              errorCount++;
-              if (errorCount >= 3) {
-                settled = true;
-                source.close();
-                matchSourceRef.current = null;
-                fetch(`/api/photos/${photoId}/match`, { method: 'POST' })
-                  .then(async (r) => {
-                    const json = (await r.json()) as {
-                      data?: { matched?: number; rate_limited?: number };
-                      error?: { message?: string };
-                    };
-                    if (r.status === 429) {
-                      reject(new Error('Rate limit — spróbuj za chwilę.'));
-                    } else if (r.ok && json.data) {
-                      resolve({
-                        matched: json.data.matched ?? 0,
-                        rateLimited: json.data.rate_limited ?? 0,
-                      });
-                    } else {
-                      reject(new Error(json.error?.message ?? `Błąd matchowania (${r.status})`));
-                    }
-                  })
-                  .catch(reject);
-              }
-            };
-          },
-        );
+      try {
+        const result = await runSSEBatch(0);
 
         // S-39: część detekcji ścięta przez limit GB mimo retry — informuj usera
         if (result.rateLimited > 0) {

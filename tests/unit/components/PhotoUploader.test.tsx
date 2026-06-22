@@ -259,7 +259,7 @@ describe('PhotoUploader', () => {
   });
 
   it('match-only retry: vision succeeded but match failed → retry re-runs match only (no re-process)', async () => {
-    // First match: SSE fires 3 errors → fallback sync fetch returns 429 → match fails.
+    // First match: SSE fires 3 onerror events → immediate reject (no fallback fetch).
     // Retry match: SSE fires done (no error) → redirect.
     _eseErrorCount = 3;
     const fetchMock = vi
@@ -273,10 +273,7 @@ describe('PhotoUploader', () => {
       )
       .mockResolvedValueOnce(
         jsonResponse({ data: { photo: mockPhoto, detections: mockDetections } }),
-      ) // process POST
-      .mockResolvedValueOnce(
-        jsonResponse({ error: { code: 'RATE_LIMITED', message: 'Rate limit' } }, 429),
-      ); // SSE fallback match fetch → fail
+      ); // process POST
 
     render(<PhotoUploader />);
     await waitFor(() => expect(screen.getByTestId('shelf-select')).toBeInTheDocument());
@@ -299,13 +296,13 @@ describe('PhotoUploader', () => {
       { timeout: 5000 },
     );
 
-    // 7 calls: keys, shelves, check-hash, upload-file, record, process (OK), match fallback (fail)
-    // retry match is via SSE (no fetch call)
-    expect(fetchMock).toHaveBeenCalledTimes(7);
+    // 6 calls: keys, shelves, check-hash, upload-file, record, process (OK)
+    // both match attempts are via SSE — zero fetch calls for /match
+    expect(fetchMock).toHaveBeenCalledTimes(6);
     const processCalls = fetchMock.mock.calls.filter((c) => /\/process/.test(String(c[0])));
     const matchCalls = fetchMock.mock.calls.filter((c) => /\/match$/.test(String(c[0])));
     expect(processCalls).toHaveLength(1);
-    expect(matchCalls).toHaveLength(1); // only the SSE-fallback fetch (fail), retry is via SSE
+    expect(matchCalls).toHaveLength(0); // no sync fallback — SSE only
     expect(mockUpload).not.toHaveBeenCalled();
   });
 

@@ -159,60 +159,84 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
     setMatchStats({ matched: 0, unmatched: 0 });
     setCurrentMatchItem(null);
 
-    await new Promise<void>((resolve, reject) => {
-      let settled = false;
-      let errorCount = 0;
+    // MATCH_BATCH_SIZE=1: każda detekcja to osobne wywołanie CF Worker. Klient łączy
+    // wyniki seryjnie przez nextOffset — identyczna logika jak w DetectionReview.tsx.
+    function runSSEBatch(offset: number): Promise<void> {
+      return new Promise<void>((resolve, reject) => {
+        let settled = false;
+        let errorCount = 0;
 
-      const source = new EventSource(`/api/photos/${photoId}/match-stream`);
-      matchSourceRef.current = source;
+        const source = new EventSource(`/api/photos/${photoId}/match-stream?offset=${offset}`);
+        matchSourceRef.current = source;
 
-      source.addEventListener('progress', (e) => {
-        const d = JSON.parse((e as MessageEvent).data) as {
-          index: number;
-          total: number;
-          title: string;
-          matched: boolean;
-          candidateTitle?: string;
-          candidateAuthors?: string[];
-        };
-        setMatchTitles((prev) => [...prev, d.title]);
-        setMatchProgress({ current: d.index, total: d.total });
-        setMatchStats((prev) => ({
-          matched: prev.matched + (d.matched ? 1 : 0),
-          unmatched: prev.unmatched + (d.matched ? 0 : 1),
-        }));
-        setCurrentMatchItem({
-          title: d.candidateTitle ?? d.title,
-          authors: d.candidateAuthors,
-          matched: d.matched,
+        source.addEventListener('progress', (e) => {
+          const d = JSON.parse((e as MessageEvent).data) as {
+            index: number;
+            total: number;
+            title: string;
+            matched: boolean;
+            candidateTitle?: string;
+            candidateAuthors?: string[];
+          };
+          setMatchTitles((prev) => [...prev, d.title]);
+          setMatchProgress({ current: d.index, total: d.total });
+          setMatchStats((prev) => ({
+            matched: prev.matched + (d.matched ? 1 : 0),
+            unmatched: prev.unmatched + (d.matched ? 0 : 1),
+          }));
+          setCurrentMatchItem({
+            title: d.candidateTitle ?? d.title,
+            authors: d.candidateAuthors,
+            matched: d.matched,
+          });
         });
-      });
 
-      source.addEventListener('done', () => {
-        if (settled) return;
-        settled = true;
-        source.close();
-        matchSourceRef.current = null;
-        resolve();
-      });
+        source.addEventListener('done', (e) => {
+          if (settled) return;
+          source.close();
+          matchSourceRef.current = null;
+          const d = JSON.parse((e as MessageEvent).data) as {
+            nextOffset?: number;
+            grandTotal?: number;
+          };
+          if (d.nextOffset != null && d.grandTotal != null && d.nextOffset < d.grandTotal) {
+            settled = true;
+            runSSEBatch(d.nextOffset).then(resolve).catch(reject);
+          } else {
+            settled = true;
+            resolve();
+          }
+        });
 
-      source.onerror = () => {
-        if (settled) return;
-        errorCount++;
-        if (errorCount >= 3) {
+        source.addEventListener('error', (e) => {
+          if (settled) return;
+          const msg = (() => {
+            try {
+              return (JSON.parse((e as MessageEvent).data) as { message?: string }).message;
+            } catch {
+              return undefined;
+            }
+          })();
           settled = true;
           source.close();
           matchSourceRef.current = null;
-          fetch(`/api/photos/${photoId}/match`, { method: 'POST' })
-            .then((r) => r.json() as Promise<{ data?: unknown; error?: { message?: string } }>)
-            .then((json) => {
-              if (json.data) resolve();
-              else reject(new Error(json.error?.message ?? `Błąd matchowania`));
-            })
-            .catch(reject);
-        }
-      };
-    });
+          reject(new Error(msg ?? 'Błąd matchowania.'));
+        });
+
+        source.onerror = () => {
+          if (settled) return;
+          errorCount++;
+          if (errorCount >= 3) {
+            settled = true;
+            source.close();
+            matchSourceRef.current = null;
+            reject(new Error('Błąd połączenia podczas matchowania.'));
+          }
+        };
+      });
+    }
+
+    await runSSEBatch(0);
 
     setCanRetryMatchOnly(false);
     sessionStorage.removeItem('upload_resume_photo_id');
