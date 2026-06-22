@@ -226,7 +226,7 @@ test('no duplicate: normal upload without warning', async ({ page }) => {
       });
     },
   );
-  await page.route(`**/api/photos/${PHOTO_ID}/match-stream`, (route) =>
+  await page.route(`**/api/photos/${PHOTO_ID}/match-stream**`, (route) =>
     route.fulfill({
       status: 200,
       headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },

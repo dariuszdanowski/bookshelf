@@ -164,7 +164,7 @@ test('SSE match: modal "Dopasowywanie" widoczny podczas SSE, redirect po done', 
     },
   );
 
-  await page.route(`**/api/photos/${PHOTO_ID}/match-stream`, async (route) => {
+  await page.route(`**/api/photos/${PHOTO_ID}/match-stream**`, async (route) => {
     await new Promise<void>((r) => {
       resolveSSE = r;
     });

@@ -193,6 +193,7 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
 
         source.addEventListener('done', (e) => {
           if (settled) return;
+          settled = true; // set before close to prevent onerror race
           source.close();
           matchSourceRef.current = null;
           const d = JSON.parse((e as MessageEvent).data) as {
@@ -200,10 +201,8 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
             grandTotal?: number;
           };
           if (d.nextOffset != null && d.grandTotal != null && d.nextOffset < d.grandTotal) {
-            settled = true;
             runSSEBatch(d.nextOffset).then(resolve).catch(reject);
           } else {
-            settled = true;
             resolve();
           }
         });
