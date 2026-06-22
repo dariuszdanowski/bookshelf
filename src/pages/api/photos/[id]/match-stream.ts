@@ -341,11 +341,15 @@ export const GET: APIRoute = async ({ params, locals }) => {
           await supabase.from('book_candidates').delete().in('detection_id', processedDetectionIds);
         }
 
-        // 2. Insert all new candidates in one call
+        // 2. Insert all new candidates in one call (with 1 retry for transient errors)
         if (allCandidateRows.length > 0) {
-          const { error: insertError } = await supabase
-            .from('book_candidates')
-            .insert(allCandidateRows);
+          let insertError = (await supabase.from('book_candidates').insert(allCandidateRows)).error;
+
+          if (insertError) {
+            // Single retry after short delay — covers transient network errors to Supabase
+            await new Promise((r) => setTimeout(r, 500));
+            insertError = (await supabase.from('book_candidates').insert(allCandidateRows)).error;
+          }
 
           if (insertError) {
             console.error('[api/photos/match-stream GET] batch book_candidates insert failed', {
@@ -358,7 +362,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
             });
             controller.enqueue(
               enc.encode(
-                `event: error\ndata: ${JSON.stringify({ message: 'Nie udało się zapisać kandydatów.', code: 'INTERNAL_ERROR' })}\n\n`,
+                `event: error\ndata: ${JSON.stringify({ message: 'Nie udało się zapisać kandydatów.', code: 'INTERNAL_ERROR', debug: insertError.code ?? insertError.message })}\n\n`,
               ),
             );
             controller.close();
