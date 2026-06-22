@@ -173,6 +173,13 @@ async function uploadAndGetToReviewPage(
   page: import('@playwright/test').Page,
   realShelfId: string,
 ) {
+  await page.route('**/api/account/keys**', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { keys: [{ is_active: true }] } }),
+    }),
+  );
   await page.goto('/upload');
   await page.waitForLoadState('networkidle');
   await expect(page.getByTestId('photo-uploader')).toBeVisible();

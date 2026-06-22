@@ -170,6 +170,7 @@ export default function PhotoListIsland({ shelfId }: Props) {
 
           source.addEventListener('done', (e) => {
             if (settled) return;
+            settled = true; // set before close to prevent onerror race
             source.close();
             matchSourceRef.current = null;
             const d = JSON.parse((e as MessageEvent).data) as {

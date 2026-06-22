@@ -64,6 +64,13 @@ test('S-36: odznaczony checkbox → upload bez /process i /match, lądowanie na 
     }
   });
 
+  await page.route('**/api/account/keys**', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { keys: [{ is_active: true }] } }),
+    }),
+  );
   await page.goto('/upload');
   await expect(page.getByTestId('photo-uploader')).toBeVisible();
   await expect(page.getByTestId('shelf-select')).toBeVisible({ timeout: 5_000 });
@@ -120,6 +127,13 @@ test('S-36: odznaczony checkbox → upload bez /process i /match, lądowanie na 
 });
 
 test('S-36: preferencja checkboxa przeżywa reload (localStorage)', async ({ page }) => {
+  await page.route('**/api/account/keys**', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { keys: [{ is_active: true }] } }),
+    }),
+  );
   await page.goto('/upload');
   // shelf-select pojawia się dopiero po hydratacji + fetchu półek — dopiero
   // wtedy handler checkboxa jest podpięty (uncheck przed hydratacją ginie)

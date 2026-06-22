@@ -143,6 +143,13 @@ test('progress modal: widoczny podczas analizy vision w PhotoUploader', async ({
     resolveProcess = r;
   });
 
+  await page.route('**/api/account/keys**', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { keys: [{ is_active: true }] } }),
+    }),
+  );
   await page.goto('/upload');
   await page.waitForLoadState('networkidle');
 
@@ -230,6 +237,13 @@ test('upload flow: /upload → wybór półki → upload → redirect → propoz
   page,
 }) => {
   // Sesja z współdzielonego storageState — od razu na /upload (bez signup per-test)
+  await page.route('**/api/account/keys**', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ data: { keys: [{ is_active: true }] } }),
+    }),
+  );
   await page.goto('/upload');
   await page.waitForLoadState('networkidle');
   await expect(page.getByTestId('photo-uploader')).toBeVisible();
