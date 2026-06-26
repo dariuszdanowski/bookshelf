@@ -27,19 +27,48 @@ const CLIENT_SHA256_MAX_BYTES = 4 * 1024 * 1024; // 4 MB
 // S-36: preferencja „Analizuj od razu" — kontrola kosztu vision per user.
 const AUTO_PROCESS_STORAGE_KEY = 'bookshelf:upload-auto-process';
 
-// Wysyła log diagnostyczny do serwera (widoczny w Cloudflare logs / lokalnym dev).
-// Używa sendBeacon — nie blokuje UI, nie interferuje z fetch-mockami w testach.
-// Jeśli sendBeacon niedostępny (SSR, stare env) — cicho pomija.
-function logToServer(
-  level: 'debug' | 'warn' | 'error',
-  tag: string,
-  message: string,
-  data?: unknown,
-): void {
-  if (typeof navigator === 'undefined' || typeof navigator.sendBeacon !== 'function') return;
-  const body = JSON.stringify({ level, tag, message, data });
-  navigator.sendBeacon('/api/client-log', new Blob([body], { type: 'application/json' }));
+// ─── Upload step logger ────────────────────────────────────────────────────────
+// Rejestruje każdy krok uploadu w lokalnym buforze + localStorage (przeżywa crash)
+// + sendBeacon do serwera. Bufor modułu-level (nie React state) żeby nie powodować
+// re-renderów; do wyświetlenia w UI kopiujemy go do stanu tylko przy wejściu do
+// handleFile i przy błędzie.
+
+const STEP_LOG_KEY = 'bookshelf_upload_debug';
+
+interface StepEntry {
+  t: number; // Date.now()
+  step: string;
+  info: string;
 }
+
+// Bufor modułu — reset przy przeładowaniu strony, ale NIE przy re-renderach.
+const _stepBuf: StepEntry[] = [];
+
+function addStep(step: string, info = ''): void {
+  const entry: StepEntry = { t: Date.now(), step, info };
+  _stepBuf.push(entry);
+  // Persist — przeżywa crash taba (odczytujemy przy następnym mountowaniu)
+  try {
+    localStorage.setItem(STEP_LOG_KEY, JSON.stringify(_stepBuf.slice(-30)));
+  } catch {
+    // localStorage niedostępny — pomijamy persystencję
+  }
+  // sendBeacon do serwera — /api/client-log jest public (brak auth gate)
+  if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+    const body = JSON.stringify({ level: 'debug', tag: step, message: info, data: entry });
+    navigator.sendBeacon('/api/client-log', new Blob([body], { type: 'application/json' }));
+  }
+}
+
+function clearStepLog(): void {
+  _stepBuf.length = 0;
+  try {
+    localStorage.removeItem(STEP_LOG_KEY);
+  } catch {
+    // localStorage niedostępny
+  }
+}
+// ──────────────────────────────────────────────────────────────────────────────
 
 async function computeSha256(file: File): Promise<string | null> {
   if (!crypto.subtle) {
@@ -92,6 +121,9 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
     authors?: string[];
     matched?: boolean;
   } | null>(null);
+  // Debug: kroki uploadu — zasilane z localStorage przy mounie (crash recovery)
+  // i aktualizowane przy błędzie żeby panel był widoczny od razu.
+  const [debugSteps, setDebugSteps] = useState<StepEntry[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const matchSourceRef = useRef<EventSource | null>(null);
@@ -124,6 +156,30 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
       }
     } catch {
       // localStorage niedostępny — zostaje default true
+    }
+  }, []);
+
+  // Crash recovery: jeśli poprzednia sesja uploadu zakończyła się crashem
+  // (OOM, crash taba), localStorage ma zapisane kroki — pokazujemy je w debug panelu
+  // i wysyłamy sendBeacon do serwera (nie konsumuje fetch-mocków w testach).
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STEP_LOG_KEY);
+      if (!raw) return;
+      const stale = JSON.parse(raw) as StepEntry[];
+      if (stale.length === 0) return;
+      setDebugSteps(stale);
+      if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+        const body = JSON.stringify({
+          level: 'error',
+          tag: 'crash-recovery',
+          message: `${stale.length} kroków z poprzedniej sesji`,
+          data: stale,
+        });
+        navigator.sendBeacon('/api/client-log', new Blob([body], { type: 'application/json' }));
+      }
+    } catch {
+      // localStorage niedostępny lub zepsute dane
     }
   }, []);
 
@@ -415,60 +471,47 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
       setDuplicatePhotoId(null);
       setDuplicateCreatedAt(null);
 
-      const fileMeta = {
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        sizeMB: +(file.size / 1024 / 1024).toFixed(2),
-        cryptoSubtle: !!crypto.subtle,
-        userAgent: navigator.userAgent.slice(0, 120),
-      };
-      logToServer('debug', 'handleFile:start', 'file received', fileMeta);
+      // Nowy upload — wyczyść poprzedni log diagnostyczny.
+      clearStepLog();
+      setDebugSteps([]);
+
+      const sizeMB = +(file.size / 1024 / 1024).toFixed(2);
+      addStep('handleFile:start', `${sizeMB}MB ${file.type} crypto=${!!crypto.subtle}`);
 
       try {
         if (file.size > MAX_FILE_SIZE_BYTES) {
-          logToServer('warn', 'handleFile:size-check', 'file too large', {
-            sizeMB: fileMeta.sizeMB,
-          });
+          addStep('size:too-large', `${sizeMB}MB > 15MB`);
           throw new Error(`Plik jest za duży (max 15 MB). Wybierz mniejsze zdjęcie.`);
         }
 
-        // Wczesny dedup po stronie klienta — tylko gdy crypto.subtle dostępne (HTTPS)
-        // i plik jest wystarczająco mały, żeby bezpiecznie załadować do ArrayBuffer
-        // (CLIENT_SHA256_MAX_BYTES). Dla dużych plików i HTTP LAN pomijamy —
-        // serwer w upload-file robi autorytatywny dedup po każdym uploadzie.
-        logToServer('debug', 'handleFile:sha256', 'computing client hash', {
-          sizeMB: fileMeta.sizeMB,
-          willCompute: !!crypto.subtle && file.size <= CLIENT_SHA256_MAX_BYTES,
-        });
+        const willCompute = !!crypto.subtle && file.size <= CLIENT_SHA256_MAX_BYTES;
+        addStep('sha256:decision', `willCompute=${willCompute}`);
+
         const sha256 = await computeSha256(file);
         if (sha256) {
-          logToServer('debug', 'handleFile:check-hash', 'checking server for duplicate', {});
+          addStep('check-hash:start', sha256.slice(0, 8) + '…');
           const checkRes = await fetch(`/api/photos/check-hash?hash=${sha256}`);
           const checkJson = (await checkRes.json()) as {
             data?: { photo: { id: string; shelf_id: string; created_at: string } | null };
           };
           if (checkJson.data?.photo) {
-            logToServer('debug', 'handleFile:duplicate', 'duplicate found client-side', {
-              photoId: checkJson.data.photo.id,
-            });
+            addStep('duplicate:found', checkJson.data.photo.id);
             setDuplicatePhotoId(checkJson.data.photo.id);
             setDuplicateCreatedAt(checkJson.data.photo.created_at);
             setStage('duplicate');
             return;
           }
+          addStep('check-hash:no-dup', '');
+        } else {
+          addStep('sha256:skipped', 'server will dedup');
         }
 
-        logToServer('debug', 'handleFile:upload', 'starting doUpload', { sizeMB: fileMeta.sizeMB });
+        addStep('upload:start', `${sizeMB}MB`);
         await doUpload(file);
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : 'Nieznany błąd';
-        const errName = err instanceof Error ? err.name : 'unknown';
-        logToServer('error', 'handleFile:error', errMsg, {
-          name: errName,
-          stack: err instanceof Error ? err.stack?.slice(0, 400) : undefined,
-          fileMeta,
-        });
+        addStep('error', `${err instanceof Error ? err.name : '?'}: ${errMsg.slice(0, 80)}`);
+        setDebugSteps([..._stepBuf]);
         setErrorMsg(errMsg);
         setStage('error');
       }
@@ -850,6 +893,23 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
         stats={stage === 'matching' && matchProgress !== null ? matchStats : null}
         currentItem={stage === 'matching' ? currentMatchItem : null}
       />
+
+      {debugSteps.length > 0 && (
+        <details className="mt-4 rounded border border-gray-200 bg-gray-50 text-xs dark:border-gray-700 dark:bg-gray-900">
+          <summary className="cursor-pointer px-3 py-2 font-mono text-gray-500 dark:text-gray-400">
+            Upload debug log ({debugSteps.length} kroków)
+          </summary>
+          <ol className="max-h-48 overflow-y-auto px-3 pb-2 font-mono">
+            {debugSteps.map((s, i) => (
+              <li key={i} className="py-0.5 text-gray-600 dark:text-gray-300">
+                <span className="text-gray-400">{new Date(s.t).toISOString().slice(11, 23)}</span>{' '}
+                <span className="font-semibold">{s.step}</span>
+                {s.info ? ` — ${s.info}` : ''}
+              </li>
+            ))}
+          </ol>
+        </details>
+      )}
     </div>
   );
 }

@@ -36,7 +36,15 @@ function logEnvBannerOnce(): void {
  * na liście). PREFIX = match po prefiksie (`/api/auth/login`,
  * `/api/auth/signup` → match na `/api/auth/`).
  */
-const PUBLIC_EXACT = new Set(['/', '/login', '/signup', '/api/health', '/help', '/logout']);
+const PUBLIC_EXACT = new Set([
+  '/',
+  '/login',
+  '/signup',
+  '/api/health',
+  '/api/client-log',
+  '/help',
+  '/logout',
+]);
 const PUBLIC_PREFIXES = ['/api/auth/'] as const;
 
 function isPublicPath(pathname: string): boolean {
