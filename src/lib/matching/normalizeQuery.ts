@@ -7,10 +7,33 @@
 
 // Cyrylica → łacina dla liter o identycznym kształcie (najczęstsze w polskim OCR).
 const CYRILLIC_TO_LATIN: Record<string, string> = {
-  а: 'a', е: 'e', о: 'o', с: 'c', р: 'p', х: 'x', у: 'y', к: 'k', м: 'm',
-  т: 't', н: 'h', в: 'b', і: 'i', ј: 'j',
-  А: 'A', Е: 'E', О: 'O', С: 'C', Р: 'P', Х: 'X', У: 'Y', К: 'K', М: 'M',
-  Т: 'T', Н: 'H', В: 'B', І: 'I',
+  а: 'a',
+  е: 'e',
+  о: 'o',
+  с: 'c',
+  р: 'p',
+  х: 'x',
+  у: 'y',
+  к: 'k',
+  м: 'm',
+  т: 't',
+  н: 'h',
+  в: 'b',
+  і: 'i',
+  ј: 'j',
+  А: 'A',
+  Е: 'E',
+  О: 'O',
+  С: 'C',
+  Р: 'P',
+  Х: 'X',
+  У: 'Y',
+  К: 'K',
+  М: 'M',
+  Т: 'T',
+  Н: 'H',
+  В: 'B',
+  І: 'I',
 };
 
 /** Mapuje cyrylickie homoglify na łacińskie odpowiedniki. */
@@ -29,9 +52,9 @@ export function deCyrillic(s: string): string {
  */
 export function cleanSearchTitle(raw: string): string {
   return deCyrillic(raw)
-    .replace(/\b\d{4}\s*[-–—]\s*\d{4}\b/g, ' ')       // zakres lat
-    .replace(/\s+[^\s]{1,5}(?:\.{3,}|…)\s*$/, '')      // ucięte słowo: " ŻYC..." → strip
-    .replace(/(?:\.{3,}|…)\s*$/, '')                    // pozostałe "..." na końcu → strip
+    .replace(/\b\d{4}\s*[-–—]\s*\d{4}\b/g, ' ') // zakres lat
+    .replace(/\s+[^\s]{1,5}(?:\.{3,}|…)\s*$/, '') // ucięte słowo: " ŻYC..." → strip
+    .replace(/(?:\.{3,}|…)\s*$/, '') // pozostałe "..." na końcu → strip
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -71,6 +94,19 @@ export function extractAuthorFromTitle(raw: string): { title: string; author: st
     return { title: match[1].trim(), author: candidate };
   }
   return { title: raw, author: null };
+}
+
+export const WORD_FALLBACK_MIN_LEN = 5;
+
+/**
+ * Extracts significant title words (>= WORD_FALLBACK_MIN_LEN chars) from rawTitle,
+ * deduped and sorted by length descending (longest = most distinctive).
+ * Used by word-level OCR fallback in findCandidates when primary search scores low.
+ */
+export function extractSignificantWords(title: string): string[] {
+  const cleaned = cleanSearchTitle(title);
+  const words = cleaned.split(/\s+/).filter((w) => w.length >= WORD_FALLBACK_MIN_LEN);
+  return [...new Set(words)].sort((a, b) => b.length - a.length);
 }
 
 /**

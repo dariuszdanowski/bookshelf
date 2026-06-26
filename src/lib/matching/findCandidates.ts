@@ -2,8 +2,9 @@ import type { BookCandidate, ScoredCandidate } from '../books/schema';
 import { searchGoogleBooks } from '../books/googleBooks';
 import { searchOpenLibrary, searchOpenLibraryByTitle } from '../books/openLibrary';
 import { searchNationalLibrary } from '../books/nationalLibrary';
-import { scoreCandidate, authorTokensMatch } from './score';
+import { scoreCandidate, authorTokensMatch, MATCH_MID } from './score';
 import { dedupeCandidates } from './dedupe';
+import { extractSignificantWords } from './normalizeQuery';
 
 // Niższy próg niż MATCH_MID (0.55) — to świadome wyszukiwanie przez usera
 // („Szukaj po tytule" / identyfikacja), który i tak wybiera ręcznie. Pozwala na
@@ -80,6 +81,31 @@ export async function findBookCandidates(
   }));
 
   scored.sort((a, b) => b.matchScore - a.matchScore);
+
+  // Word-level OCR fallback: when all primary candidates score below MATCH_MID,
+  // try individual title tokens (longest first) + rawAuthor to recover garbled first word.
+  const WORD_FALLBACK_MAX = 3;
+  if ((scored[0]?.matchScore ?? 0) < MATCH_MID && rawAuthor && rawTitle) {
+    const words = extractSignificantWords(rawTitle).slice(0, WORD_FALLBACK_MAX);
+    for (const word of words) {
+      const wordResult = await searchGoogleBooks({ title: word, author: rawAuthor });
+      if (!wordResult.ok) {
+        if (wordResult.reason === 'rate_limited') break;
+        continue;
+      }
+      const wordScored: ScoredCandidate[] = wordResult.candidates.map((c) => ({
+        ...c,
+        matchScore: scoreCandidate(
+          { raw_title: rawTitle, raw_author: rawAuthor },
+          { title: c.title, authors: c.authors, isbn13: c.isbn13, isbn10: c.isbn10 },
+        ),
+      }));
+      scored.push(...wordScored);
+      scored.sort((a, b) => b.matchScore - a.matchScore);
+      if (wordScored.some((c) => c.matchScore >= MATCH_MID)) break;
+    }
+  }
+
   const skipScoreGate = opts?.isbnOnly && !rawTitle;
   const baseList = dedupeCandidates(
     scored.filter(
