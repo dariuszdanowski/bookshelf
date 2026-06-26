@@ -360,6 +360,7 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
 
     setCanRetryMatchOnly(false);
     clearResumePhotoId();
+    clearStepLog();
     window.location.href = `/photos/${photoId}`;
   }, []);
 
@@ -439,6 +440,7 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
               const hasPending = pollDetections.some((d) => d.status === 'pending');
               if (!hasPending) {
                 clearResumePhotoId();
+                clearStepLog();
                 window.location.href = `/photos/${photo.id}`;
               } else {
                 setCanRetryMatchOnly(true);
@@ -457,6 +459,7 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
           const hasPending = detections.some((d) => d.status === 'pending');
           if (!hasPending) {
             clearResumePhotoId();
+            clearStepLog();
             window.location.href = `/photos/${photo.id}`;
           } else {
             setCanRetryMatchOnly(true);
@@ -550,6 +553,7 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
       // Brak aktywnego klucza API → zawsze skip (nawet gdy user zaznaczył checkbox).
       if (!autoProcess || hasActiveKey === false) {
         addStep('doUpload:redirect', `autoProcess=${autoProcess} hasKey=${String(hasActiveKey)}`);
+        clearStepLog();
         setStage('done');
         window.location.href = `/shelves/${selectedShelfId}?tab=photos`;
         return;
