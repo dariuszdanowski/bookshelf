@@ -19,8 +19,12 @@ const REMOTE_BAK = resolve(root, '.dev.vars.remote.bak');
 
 const mode = process.argv[2];
 
-function detectSupabaseHost() {
+function detectSupabaseHost(localTemplate) {
   if (os.platform() !== 'win32') return '127.0.0.1';
+  // Gdy .dev.vars.local zawiera SUPABASE_LOCALHOST_FORWARDING=true, localhost-forwarding
+  // działa na tej maszynie (Docker porty WSL dostępne przez 127.0.0.1 z Windows).
+  // Pomijamy wtedy wykrywanie WSL IP — 127.0.0.1 jest stabilne i nie zmienia się po restartach.
+  if (/^SUPABASE_LOCALHOST_FORWARDING=true$/m.test(localTemplate)) return '127.0.0.1';
   // `wsl -e ...` lub `wsl -- ...` bezpośrednio przez spawn (bez cmd.exe shell);
   // execSync z stringiem psuje quoting cudzysłowów na Windows.
   const r = spawnSync('wsl.exe', ['--', 'hostname', '-I'], { encoding: 'utf8', timeout: 8000 });
@@ -79,8 +83,8 @@ function toLocal() {
     renameSync(ACTIVE, REMOTE_BAK);
     console.log('  backup: .dev.vars → .dev.vars.remote.bak');
   }
-  const host = detectSupabaseHost();
   const template = readFileSync(LOCAL, 'utf8');
+  const host = detectSupabaseHost(template);
   const rewritten = template.replace(/(:\/\/)127\.0\.0\.1(:\d+)/g, `$1${host}$2`);
   writeFileSync(ACTIVE, rewritten);
   console.log(`✓ Aktywowano profil lokalny — PUBLIC_SUPABASE_URL hostuje na ${host}`);

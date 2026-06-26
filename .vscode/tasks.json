@@ -107,10 +107,24 @@
       "problemMatcher": []
     },
     {
+      "label": "WSL: start Docker daemon",
+      "detail": "sudo service docker start — wymagane po każdym restarcie komputera. Docker CE w WSL nie startuje automatycznie (systemd user session). Terminal zapyta o hasło sudo.",
+      "type": "process",
+      "windows": {
+        "command": "wsl.exe",
+        "args": ["-e", "bash", "-lc", "sudo service docker start && echo DOCKER_OK"]
+      },
+      "command": "bash",
+      "args": ["-c", "sudo service docker start && echo DOCKER_OK"],
+      "presentation": { "panel": "shared", "reveal": "always" },
+      "problemMatcher": []
+    },
+    {
       "label": "Pre-dev: env:local + supabase start",
-      "detail": "Compound dla preLaunchTask w launch.json — przepina .dev.vars na lokalny i startuje Supabase. Astro odpala launch config.",
+      "detail": "Compound dla preLaunchTask w launch.json — startuje Docker, przepina .dev.vars na lokalny i startuje Supabase. Astro odpala launch config.",
       "dependsOrder": "sequence",
       "dependsOn": [
+        "WSL: start Docker daemon",
         "Env: switch to LOCAL (.dev.vars.local → .dev.vars)",
         "Supabase: start (lokalny stack w WSL)"
       ],
@@ -118,12 +132,13 @@
     },
     {
       "label": "Dev: full local stack (env + supabase + astro)",
-      "detail": "Przełącza na profil lokalny (z WSL IP), startuje Supabase w WSL, odpala Astro dev w Windows",
+      "detail": "Startuje Docker w WSL, przełącza na profil lokalny, startuje Supabase, odpala Astro dev w Windows",
       "type": "shell",
       "command": "npm",
       "args": ["run", "dev"],
       "dependsOrder": "sequence",
       "dependsOn": [
+        "WSL: start Docker daemon",
         "Env: switch to LOCAL (.dev.vars.local → .dev.vars)",
         "Supabase: start (lokalny stack w WSL)"
       ],
@@ -133,10 +148,13 @@
     },
     {
       "label": "WSL: Supabase keepalive (local dev)",
-      "detail": "Startuje lokalny stack w WSL i trzyma sesję aktywną — WSL VM nie wyłączy się. Otwiera Studio po starcie. Użyj jako preLaunchTask dla dev servera.",
+      "detail": "Startuje Docker, lokalny stack w WSL i trzyma sesję aktywną — WSL VM nie wyłączy się. Otwiera Studio po starcie. Użyj jako preLaunchTask dla dev servera.",
       "type": "process",
       "dependsOrder": "sequence",
-      "dependsOn": ["Env: switch to LOCAL (.dev.vars.local → .dev.vars)"],
+      "dependsOn": [
+        "WSL: start Docker daemon",
+        "Env: switch to LOCAL (.dev.vars.local → .dev.vars)"
+      ],
       "windows": {
         "command": "wsl.exe",
         "args": [
