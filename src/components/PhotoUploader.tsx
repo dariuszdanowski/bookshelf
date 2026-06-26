@@ -19,14 +19,37 @@ type UploadStage =
 
 const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15 MB cap (photon pamięć Worker 128MB)
 
+// Dla plików > 4 MB pomijamy client-side SHA-256 (file.arrayBuffer() w browser na dużych
+// plikach może crashować tab na mobilnym Safari/Chrome z ograniczoną pamięcią).
+// Serwer i tak robi autorytatywny dedup w upload-file.ts.
+const CLIENT_SHA256_MAX_BYTES = 4 * 1024 * 1024; // 4 MB
+
 // S-36: preferencja „Analizuj od razu" — kontrola kosztu vision per user.
 const AUTO_PROCESS_STORAGE_KEY = 'bookshelf:upload-auto-process';
 
-async function computeSha256(file: File): Promise<string> {
+// Wysyła log diagnostyczny do serwera (widoczny w Cloudflare logs / lokalnym dev).
+// Używa sendBeacon — nie blokuje UI, nie interferuje z fetch-mockami w testach.
+// Jeśli sendBeacon niedostępny (SSR, stare env) — cicho pomija.
+function logToServer(
+  level: 'debug' | 'warn' | 'error',
+  tag: string,
+  message: string,
+  data?: unknown,
+): void {
+  if (typeof navigator === 'undefined' || typeof navigator.sendBeacon !== 'function') return;
+  const body = JSON.stringify({ level, tag, message, data });
+  navigator.sendBeacon('/api/client-log', new Blob([body], { type: 'application/json' }));
+}
+
+async function computeSha256(file: File): Promise<string | null> {
   if (!crypto.subtle) {
-    // Non-secure context (HTTP over LAN): return a random 64-char hex that passes
-    // server validation but won't match any real hash, so dedup is naturally skipped.
-    return Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+    // Non-secure context (HTTP over LAN): skip client-side hash — server handles dedup.
+    return null;
+  }
+  if (file.size > CLIENT_SHA256_MAX_BYTES) {
+    // Duży plik — pomijamy, żeby nie crashować tab na mobilnym Safari.
+    // Server zrobi autorytatywny dedup po uploadzie.
+    return null;
   }
   const buffer = await file.arrayBuffer();
   const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
@@ -364,21 +387,43 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
       setDuplicatePhotoId(null);
       setDuplicateCreatedAt(null);
 
+      const fileMeta = {
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        sizeMB: +(file.size / 1024 / 1024).toFixed(2),
+        cryptoSubtle: !!crypto.subtle,
+        userAgent: navigator.userAgent.slice(0, 120),
+      };
+      logToServer('debug', 'handleFile:start', 'file received', fileMeta);
+
       try {
         if (file.size > MAX_FILE_SIZE_BYTES) {
+          logToServer('warn', 'handleFile:size-check', 'file too large', {
+            sizeMB: fileMeta.sizeMB,
+          });
           throw new Error(`Plik jest za duży (max 15 MB). Wybierz mniejsze zdjęcie.`);
         }
 
-        // Wczesny dedup po stronie klienta — tylko w secure context (HTTPS/localhost),
-        // gdzie crypto.subtle jest dostępne i zwraca prawdziwy SHA-256.
-        // Na HTTP LAN pomijamy (serwer w upload-file i tak zrobi autorytatywny dedup).
-        if (crypto.subtle) {
-          const sha256 = await computeSha256(file);
+        // Wczesny dedup po stronie klienta — tylko gdy crypto.subtle dostępne (HTTPS)
+        // i plik jest wystarczająco mały, żeby bezpiecznie załadować do ArrayBuffer
+        // (CLIENT_SHA256_MAX_BYTES). Dla dużych plików i HTTP LAN pomijamy —
+        // serwer w upload-file robi autorytatywny dedup po każdym uploadzie.
+        logToServer('debug', 'handleFile:sha256', 'computing client hash', {
+          sizeMB: fileMeta.sizeMB,
+          willCompute: !!crypto.subtle && file.size <= CLIENT_SHA256_MAX_BYTES,
+        });
+        const sha256 = await computeSha256(file);
+        if (sha256) {
+          logToServer('debug', 'handleFile:check-hash', 'checking server for duplicate', {});
           const checkRes = await fetch(`/api/photos/check-hash?hash=${sha256}`);
           const checkJson = (await checkRes.json()) as {
             data?: { photo: { id: string; shelf_id: string; created_at: string } | null };
           };
           if (checkJson.data?.photo) {
+            logToServer('debug', 'handleFile:duplicate', 'duplicate found client-side', {
+              photoId: checkJson.data.photo.id,
+            });
             setDuplicatePhotoId(checkJson.data.photo.id);
             setDuplicateCreatedAt(checkJson.data.photo.created_at);
             setStage('duplicate');
@@ -386,9 +431,17 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
           }
         }
 
+        logToServer('debug', 'handleFile:upload', 'starting doUpload', { sizeMB: fileMeta.sizeMB });
         await doUpload(file);
       } catch (err) {
-        setErrorMsg(err instanceof Error ? err.message : 'Nieznany błąd');
+        const errMsg = err instanceof Error ? err.message : 'Nieznany błąd';
+        const errName = err instanceof Error ? err.name : 'unknown';
+        logToServer('error', 'handleFile:error', errMsg, {
+          name: errName,
+          stack: err instanceof Error ? err.stack?.slice(0, 400) : undefined,
+          fileMeta,
+        });
+        setErrorMsg(errMsg);
         setStage('error');
       }
     },
