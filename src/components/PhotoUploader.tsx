@@ -337,7 +337,44 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
           setErrorMsg('Poprzednie przetwarzanie zakończyło się błędem. Spróbuj ponownie.');
           setStage('error');
           sessionStorage.removeItem('upload_resume_photo_id');
-        } else if (photo.status === 'uploaded' || photo.status === 'processing') {
+        } else if (photo.status === 'processing') {
+          // Tab został zabity przez OS (mobile) podczas oczekiwania na vision (~13s).
+          // Vision nadal działa server-side — nie wywołuj /process ponownie (dostaniemy
+          // 409 Conflict). Zamiast tego polluj status co 2.5s aż vision się skończy.
+          setStage('processing');
+          const POLL_MS = 2500;
+          const MAX_POLLS = 24; // 60s
+          let resolved = false;
+          for (let poll = 0; poll < MAX_POLLS && !resolved; poll++) {
+            await new Promise<void>((r) => setTimeout(r, POLL_MS));
+            const pollRes = await fetch(`/api/photos/${photo.id}`);
+            if (!pollRes.ok) break;
+            const pollJson = (await pollRes.json()) as {
+              data?: {
+                photo: { id: string; status: string };
+                detections: Array<{ status: string }>;
+              };
+            };
+            const pollStatus = pollJson.data?.photo?.status;
+            if (pollStatus === 'processed') {
+              resolved = true;
+              const pollDetections = pollJson.data?.detections ?? [];
+              const hasPending = pollDetections.some((d) => d.status === 'pending');
+              if (!hasPending) {
+                sessionStorage.removeItem('upload_resume_photo_id');
+                window.location.href = `/photos/${photo.id}`;
+              } else {
+                setCanRetryMatchOnly(true);
+                await runMatch(photo.id);
+              }
+            } else if (pollStatus === 'failed') {
+              throw new Error('Przetwarzanie zakończyło się błędem. Spróbuj ponownie.');
+            }
+          }
+          if (!resolved) {
+            throw new Error('Przetwarzanie trwa zbyt długo. Odśwież stronę i spróbuj ponownie.');
+          }
+        } else if (photo.status === 'uploaded') {
           await processPhoto(photo.id);
         } else if (photo.status === 'processed') {
           const hasPending = detections.some((d) => d.status === 'pending');
