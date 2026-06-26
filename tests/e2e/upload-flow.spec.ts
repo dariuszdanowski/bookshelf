@@ -186,8 +186,8 @@ test('progress modal: widoczny podczas analizy vision w PhotoUploader', async ({
       await processHeld;
       void route.fulfill({
         status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(MOCK_PROCESS_RESPONSE),
+        headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+        body: `event: started\ndata: {}\n\nevent: done\ndata: ${JSON.stringify(MOCK_PROCESS_RESPONSE.data)}\n\n`,
       });
     },
   );
@@ -287,8 +287,8 @@ test('upload flow: /upload → wybór półki → upload → redirect → propoz
     (route) => {
       void route.fulfill({
         status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(MOCK_PROCESS_RESPONSE),
+        headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+        body: `event: started\ndata: {}\n\nevent: done\ndata: ${JSON.stringify(MOCK_PROCESS_RESPONSE.data)}\n\n`,
       });
     },
   );

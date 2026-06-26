@@ -96,8 +96,8 @@ async function setupAndGoToShelfPhotos(page: Page) {
   await page.route('**/api/photos/*/process**', async (route) => {
     await route.fulfill({
       status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ data: {} }),
+      headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+      body: `event: started\ndata: {}\n\nevent: done\ndata: ${JSON.stringify({ photo: {}, detections: [] })}\n\n`,
     });
   });
   await page.route('**/api/photos/*/match-stream**', async (route) => {
@@ -294,7 +294,11 @@ test.describe('confirm: process-now-button (DetectionReview — brak detekcji)',
       });
     });
     await page.route('**/api/photos/*/process**', async (route) => {
-      await route.fulfill({ status: 200, contentType: 'application/json', body: '{"data":{}}' });
+      await route.fulfill({
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+        body: `event: started\ndata: {}\n\nevent: done\ndata: ${JSON.stringify({ photo: {}, detections: [] })}\n\n`,
+      });
     });
     await page.route('**/api/photos/*/match-stream**', async (route) => {
       await route.fulfill({

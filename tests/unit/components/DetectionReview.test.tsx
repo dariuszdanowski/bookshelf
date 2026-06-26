@@ -712,10 +712,18 @@ describe('DetectionReview — runRerunVision auto-match', () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
       const u = typeof url === 'string' ? url : (url as Request).url;
       if (u.includes('/process')) {
+        const enc = new TextEncoder();
+        const body = `event: started\ndata: {}\n\nevent: done\ndata: ${JSON.stringify({ photo: mockPhoto, detections: [] })}\n\n`;
         return Promise.resolve(
-          new Response(JSON.stringify({ data: { photo: mockPhoto, detections: [] } }), {
-            status: 200,
-          }),
+          new Response(
+            new ReadableStream({
+              start(c) {
+                c.enqueue(enc.encode(body));
+                c.close();
+              },
+            }),
+            { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
+          ),
         );
       }
       if (u.includes(`/api/photos/${PHOTO_ID}`)) {

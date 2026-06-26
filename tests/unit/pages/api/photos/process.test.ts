@@ -24,6 +24,22 @@ vi.mock('../../../../../src/lib/keys/getActiveProviderConfig', () => ({
 
 import { POST } from '../../../../../src/pages/api/photos/[id]/process';
 
+async function readSseEvents(res: Response): Promise<{ event: string; data: unknown }[]> {
+  const events: { event: string; data: unknown }[] = [];
+  const text = await res.text();
+  for (const chunk of text.split('\n\n')) {
+    if (!chunk.trim()) continue;
+    let event = 'message';
+    let data = '';
+    for (const line of chunk.split('\n')) {
+      if (line.startsWith('event: ')) event = line.slice(7);
+      else if (line.startsWith('data: ')) data = line.slice(6);
+    }
+    if (data) events.push({ event, data: JSON.parse(data) });
+  }
+  return events;
+}
+
 const USER_ID = '00000000-0000-4000-8000-000000000001';
 const PHOTO_ID = '00000000-0000-4000-8000-000000000003';
 const RUN_ID = '00000000-0000-4000-8000-000000000099';
@@ -316,16 +332,17 @@ describe('POST /api/photos/[id]/process', () => {
     const res = await POST(makeContext(supabase) as never);
     expect(res.status).toBe(200);
 
-    const json = (await res.json()) as {
-      data: {
-        photo: { status: string; detected_count: number | null };
-        detections: { raw_title: string }[];
-      };
+    const events = await readSseEvents(res);
+    const done = events.find((e) => e.event === 'done');
+    expect(done).toBeDefined();
+    const doneData = done!.data as {
+      photo: { status: string; detected_count: number | null };
+      detections: { raw_title: string }[];
     };
-    expect(json.data.photo.status).toBe('processed');
-    expect(json.data.photo.detected_count).toBe(1);
-    expect(json.data.detections).toHaveLength(1);
-    expect(json.data.detections[0].raw_title).toBe('Solaris');
+    expect(doneData.photo.status).toBe('processed');
+    expect(doneData.photo.detected_count).toBe(1);
+    expect(doneData.detections).toHaveLength(1);
+    expect(doneData.detections[0].raw_title).toBe('Solaris');
 
     expect(mockDetectSpines).toHaveBeenCalledOnce();
 
@@ -341,7 +358,8 @@ describe('POST /api/photos/[id]/process', () => {
 
   it('does NOT delete existing detections (append-only)', async () => {
     const { supabase, fromFn } = makeSupabase({});
-    await POST(makeContext(supabase) as never);
+    const res = await POST(makeContext(supabase) as never);
+    await readSseEvents(res);
 
     // No delete should have been called on detections table
     const detectionsMock = fromFn.mock.results.find(
@@ -354,14 +372,15 @@ describe('POST /api/photos/[id]/process', () => {
     expect(typeof detectionsMock?.delete).toBe('undefined');
   });
 
-  it('parse_failure: inserts correction, sets vision_run failed, returns 400', async () => {
+  it('parse_failure: inserts correction, sets vision_run failed, returns SSE error', async () => {
     mockDetectSpines.mockResolvedValue({ ok: false, reason: 'parse_failure', latencyMs: 3000 });
     const { supabase, fromFn } = makeSupabase({});
 
     const res = await POST(makeContext(supabase) as never);
-    expect(res.status).toBe(400);
-    const json = (await res.json()) as { error: { code: string } };
-    expect(json.error.code).toBe('VALIDATION_ERROR');
+    expect(res.status).toBe(200);
+    const events = await readSseEvents(res);
+    const errEvent = events.find((e) => e.event === 'error');
+    expect((errEvent!.data as { code: string }).code).toBe('VALIDATION_ERROR');
 
     const correctionInsert = fromFn.mock.calls.some(([t]) => t === 'corrections');
     expect(correctionInsert).toBe(true);
@@ -371,36 +390,40 @@ describe('POST /api/photos/[id]/process', () => {
     expect(visionRunCalls.length).toBeGreaterThan(0);
   });
 
-  it('returns RATE_LIMITED (429) on Anthropic 429 error, sets vision_run failed', async () => {
+  it('returns SSE RATE_LIMITED on Anthropic 429 error, sets vision_run failed', async () => {
     const rateError = Object.assign(new Error('Too many requests'), { status: 429 });
     mockDetectSpines.mockRejectedValueOnce(rateError);
     const { supabase } = makeSupabase({});
 
     const res = await POST(makeContext(supabase) as never);
-    expect(res.status).toBe(429);
-    const json = (await res.json()) as { error: { code: string } };
-    expect(json.error.code).toBe('RATE_LIMITED');
+    expect(res.status).toBe(200);
+    const events = await readSseEvents(res);
+    const errEvent = events.find((e) => e.event === 'error');
+    expect((errEvent!.data as { code: string }).code).toBe('RATE_LIMITED');
   });
 
-  it('returns RATE_LIMITED (429) on Anthropic 529 (overload)', async () => {
+  it('returns SSE RATE_LIMITED on Anthropic 529 (overload)', async () => {
     const overloadError = Object.assign(new Error('Overloaded'), { status: 529 });
     mockDetectSpines.mockRejectedValueOnce(overloadError);
     const { supabase } = makeSupabase({});
 
     const res = await POST(makeContext(supabase) as never);
-    expect(res.status).toBe(429);
-    expect(((await res.json()) as { error: { code: string } }).error.code).toBe('RATE_LIMITED');
+    expect(res.status).toBe(200);
+    const events = await readSseEvents(res);
+    const errEvent = events.find((e) => e.event === 'error');
+    expect((errEvent!.data as { code: string }).code).toBe('RATE_LIMITED');
   });
 
-  it('returns 500 on Storage download failure', async () => {
+  it('returns SSE INTERNAL_ERROR on Storage download failure', async () => {
     const { supabase } = makeSupabase({
       downloadResult: { data: null, error: { message: 'Storage down' } },
     });
 
     const res = await POST(makeContext(supabase) as never);
-    expect(res.status).toBe(500);
-    const json = (await res.json()) as { error: { code: string } };
-    expect(json.error.code).toBe('INTERNAL_ERROR');
+    expect(res.status).toBe(200);
+    const events = await readSseEvents(res);
+    const errEvent = events.find((e) => e.event === 'error');
+    expect((errEvent!.data as { code: string }).code).toBe('INTERNAL_ERROR');
   });
 
   it('bbox: inserts bbox_x1..y2 when vision returns bbox', async () => {
@@ -417,7 +440,7 @@ describe('POST /api/photos/[id]/process', () => {
       ],
     });
 
-    await POST(makeContext(supabase) as never);
+    await readSseEvents(await POST(makeContext(supabase) as never));
     expect(trackInsertions.detections).toHaveLength(1);
     const row = (
       trackInsertions.detections[0] as {
@@ -442,7 +465,7 @@ describe('POST /api/photos/[id]/process', () => {
       detections: [{ ...validVisionResult.detections[0], bbox: undefined }],
     });
 
-    await POST(makeContext(supabase) as never);
+    await readSseEvents(await POST(makeContext(supabase) as never));
     expect(trackInsertions.detections).toHaveLength(1);
     const row = (trackInsertions.detections[0] as { bbox_x1: unknown; bbox_y1: unknown }[])[0];
     expect(row.bbox_x1).toBeNull();
@@ -463,7 +486,7 @@ describe('POST /api/photos/[id]/process', () => {
       ],
     });
 
-    await POST(makeContext(supabase) as never);
+    await readSseEvents(await POST(makeContext(supabase) as never));
     expect(trackInsertions.detections).toHaveLength(1);
     const row = (
       trackInsertions.detections[0] as {
@@ -499,7 +522,7 @@ describe('POST /api/photos/[id]/process', () => {
       ],
     });
 
-    await POST(makeContext(supabase) as never);
+    await readSseEvents(await POST(makeContext(supabase) as never));
     const row = (trackInsertions.detections[0] as { bbox_x1: unknown; bbox_y1: unknown }[])[0];
     // Must be saved — horizontal bbox should NOT be nulled out
     expect(row.bbox_x1).toBeCloseTo(0.014);
@@ -521,7 +544,7 @@ describe('POST /api/photos/[id]/process', () => {
       ],
     });
 
-    await POST(makeContext(supabase) as never);
+    await readSseEvents(await POST(makeContext(supabase) as never));
     const row = (trackInsertions.detections[0] as { bbox_x1: unknown }[])[0];
     expect(row.bbox_x1).toBeNull();
   });
@@ -541,19 +564,20 @@ describe('POST /api/photos/[id]/process', () => {
       ],
     });
 
-    await POST(makeContext(supabase) as never);
+    await readSseEvents(await POST(makeContext(supabase) as never));
     const row = (trackInsertions.detections[0] as { bbox_x1: unknown; bbox_y2: unknown }[])[0];
     expect(row.bbox_x1).toBeCloseTo(0.12);
     expect(row.bbox_y2).toBeCloseTo(0.85);
   });
 
-  it('deriveWorkingCopy failure: sets vision_run failed, returns 500', async () => {
+  it('deriveWorkingCopy failure: sets vision_run failed, returns SSE INTERNAL_ERROR', async () => {
     mockDeriveWorkingCopy.mockRejectedValueOnce(new Error('photon crash'));
     const { supabase } = makeSupabase({});
 
     const res = await POST(makeContext(supabase) as never);
-    expect(res.status).toBe(500);
-    const json = (await res.json()) as { error: { code: string } };
-    expect(json.error.code).toBe('INTERNAL_ERROR');
+    expect(res.status).toBe(200);
+    const events = await readSseEvents(res);
+    const errEvent = events.find((e) => e.event === 'error');
+    expect((errEvent!.data as { code: string }).code).toBe('INTERNAL_ERROR');
   });
 });

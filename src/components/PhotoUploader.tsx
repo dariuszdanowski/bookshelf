@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { runMatchSSE } from '../lib/matching/runMatchSSE';
+import { runProcessSSE } from '../lib/vision/runProcessSSE';
 import type { PhotoDTO } from '../lib/photos/schema';
 import type { ShelfDTO } from '../lib/shelves/schema';
 import CameraPreview from './CameraPreview';
@@ -19,14 +20,138 @@ type UploadStage =
 
 const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15 MB cap (photon pamięć Worker 128MB)
 
+// Dla plików > 4 MB pomijamy client-side SHA-256 (file.arrayBuffer() w browser na dużych
+// plikach może crashować tab na mobilnym Safari/Chrome z ograniczoną pamięcią).
+// Serwer i tak robi autorytatywny dedup w upload-file.ts.
+const CLIENT_SHA256_MAX_BYTES = 4 * 1024 * 1024; // 4 MB
+
 // S-36: preferencja „Analizuj od razu" — kontrola kosztu vision per user.
 const AUTO_PROCESS_STORAGE_KEY = 'bookshelf:upload-auto-process';
 
-async function computeSha256(file: File): Promise<string> {
+// ─── Upload step logger ────────────────────────────────────────────────────────
+// Rejestruje każdy krok uploadu w lokalnym buforze + localStorage (przeżywa crash)
+// + sendBeacon do serwera. Bufor modułu-level (nie React state) żeby nie powodować
+// re-renderów; do wyświetlenia w UI kopiujemy go do stanu tylko przy wejściu do
+// handleFile i przy błędzie.
+
+const STEP_LOG_KEY = 'bookshelf_upload_debug';
+
+interface StepEntry {
+  t: number; // Date.now()
+  step: string;
+  info: string;
+}
+
+// Bufor modułu — reset przy przeładowaniu strony, ale NIE przy re-renderach.
+const _stepBuf: StepEntry[] = [];
+
+function addStep(step: string, info = ''): void {
+  const entry: StepEntry = { t: Date.now(), step, info };
+  _stepBuf.push(entry);
+  // Persist — przeżywa crash taba (odczytujemy przy następnym mountowaniu)
+  try {
+    localStorage.setItem(STEP_LOG_KEY, JSON.stringify(_stepBuf.slice(-30)));
+  } catch {
+    // localStorage niedostępny — pomijamy persystencję
+  }
+  // sendBeacon do serwera — /api/client-log jest public (brak auth gate)
+  if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+    const body = JSON.stringify({ level: 'debug', tag: step, message: info, data: entry });
+    navigator.sendBeacon('/api/client-log', new Blob([body], { type: 'application/json' }));
+  }
+}
+
+function clearStepLog(): void {
+  _stepBuf.length = 0;
+  try {
+    localStorage.removeItem(STEP_LOG_KEY);
+  } catch {
+    // localStorage niedostępny
+  }
+}
+
+// ─── Resume photo ID ───────────────────────────────────────────────────────────
+// localStorage (nie sessionStorage) żeby przeżyć kill taba na iOS Safari/Chrome
+// (sessionStorage jest czyszczony gdy OS zabija tab przy braku pamięci).
+// TTL 30 min eliminuje stare wpisów które nie są już relewarny.
+
+const RESUME_KEY = 'bookshelf:upload_resume_photo_id';
+const RESUME_MAX_AGE_MS = 30 * 60 * 1000;
+
+function setResumePhotoId(photoId: string): void {
+  try {
+    localStorage.setItem(RESUME_KEY, JSON.stringify({ id: photoId, ts: Date.now() }));
+  } catch {
+    // localStorage niedostępny
+  }
+}
+
+function getResumePhotoId(): string | null {
+  try {
+    const raw = localStorage.getItem(RESUME_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { id?: string; ts?: number };
+    if (!parsed.id || !parsed.ts) return null;
+    if (Date.now() - parsed.ts > RESUME_MAX_AGE_MS) {
+      localStorage.removeItem(RESUME_KEY);
+      return null;
+    }
+    return parsed.id;
+  } catch {
+    return null;
+  }
+}
+
+function clearResumePhotoId(): void {
+  try {
+    localStorage.removeItem(RESUME_KEY);
+  } catch {
+    // localStorage niedostępny
+  }
+}
+
+// Persystuje bieżący offset matchingu (index następnej detekcji do przetworzenia).
+// Przy reloadzie recovery wczytuje go i wznawia match-stream od właściwego miejsca
+// zamiast restartować od offset=0.
+function setMatchOffset(offset: number): void {
+  try {
+    const raw = localStorage.getItem(RESUME_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw) as { id?: string; ts?: number; matchOffset?: number };
+    if (!parsed.id) return;
+    localStorage.setItem(RESUME_KEY, JSON.stringify({ ...parsed, matchOffset: offset }));
+  } catch {
+    // localStorage niedostępny
+  }
+}
+
+function getMatchOffset(): number {
+  try {
+    const raw = localStorage.getItem(RESUME_KEY);
+    if (!raw) return 0;
+    const parsed = JSON.parse(raw) as { id?: string; ts?: number; matchOffset?: number };
+    if (!parsed.id || !parsed.ts) return 0;
+    if (Date.now() - parsed.ts > RESUME_MAX_AGE_MS) {
+      localStorage.removeItem(RESUME_KEY);
+      return 0;
+    }
+    return parsed.matchOffset ?? 0;
+  } catch {
+    return 0;
+  }
+}
+// ──────────────────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────────────────
+
+async function computeSha256(file: File): Promise<string | null> {
   if (!crypto.subtle) {
-    // Non-secure context (HTTP over LAN): return a random 64-char hex that passes
-    // server validation but won't match any real hash, so dedup is naturally skipped.
-    return Array.from({ length: 64 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
+    // Non-secure context (HTTP over LAN): skip client-side hash — server handles dedup.
+    return null;
+  }
+  if (file.size > CLIENT_SHA256_MAX_BYTES) {
+    // Duży plik — pomijamy, żeby nie crashować tab na mobilnym Safari.
+    // Server zrobi autorytatywny dedup po uploadzie.
+    return null;
   }
   const buffer = await file.arrayBuffer();
   const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
@@ -69,6 +194,9 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
     authors?: string[];
     matched?: boolean;
   } | null>(null);
+  // Debug: kroki uploadu — zasilane z localStorage przy mounie (crash recovery)
+  // i aktualizowane przy błędzie żeby panel był widoczny od razu.
+  const [debugSteps, setDebugSteps] = useState<StepEntry[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const matchSourceRef = useRef<EventSource | null>(null);
@@ -101,6 +229,40 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
       }
     } catch {
       // localStorage niedostępny — zostaje default true
+    }
+  }, []);
+
+  // Crash recovery: jeśli poprzednia sesja uploadu zakończyła się crashem
+  // (OOM, crash taba), localStorage ma zapisane kroki — pokazujemy je w debug panelu
+  // i wysyłamy sendBeacon do serwera (nie konsumuje fetch-mocków w testach).
+  //
+  // Beacon i panel są pokazywane TYLKO gdy jest też resume photo ID — wtedy
+  // pipeline był rzeczywiście in-flight podczas crasha. Bez resume ID → poprzednia
+  // sesja zakończyła się normalnie (np. stary kod nie czyścił logu po sukcesie) →
+  // czyścimy log po cichu żeby uniknąć fałszywych alarmów.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STEP_LOG_KEY);
+      if (!raw) return;
+      const stale = JSON.parse(raw) as StepEntry[];
+      if (stale.length === 0) return;
+      if (!getResumePhotoId()) {
+        // Brak resume ID → sesja zakończyła się ok, log jest przestarzały
+        clearStepLog();
+        return;
+      }
+      setDebugSteps(stale);
+      if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+        const body = JSON.stringify({
+          level: 'error',
+          tag: 'crash-recovery',
+          message: `${stale.length} kroków z poprzedniej sesji`,
+          data: stale,
+        });
+        navigator.sendBeacon('/api/client-log', new Blob([body], { type: 'application/json' }));
+      }
+    } catch {
+      // localStorage niedostępny lub zepsute dane
     }
   }, []);
 
@@ -154,29 +316,61 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
     };
   }, []);
 
-  const runMatch = useCallback(async (photoId: string) => {
+  // Globalny listener na błędy które uciekają poza handleFile's try/catch
+  // (render errors, unhandled rejections z innych źródeł).
+  // Aktywny tylko gdy jest aktywny upload (stage != idle) żeby nie zaśmiecać logów.
+  useEffect(() => {
+    const onUnhandledRejection = (e: PromiseRejectionEvent) => {
+      const reason =
+        e.reason instanceof Error
+          ? `${e.reason.name}: ${e.reason.message}`
+          : String(e.reason ?? 'unknown');
+      addStep('unhandled-rejection', reason.slice(0, 100));
+    };
+    const onError = (e: ErrorEvent) => {
+      const msg = e.message ?? 'unknown error';
+      const src = e.filename ? ` (${e.filename.split('/').pop()}:${e.lineno})` : '';
+      addStep('global-error', `${msg}${src}`.slice(0, 100));
+    };
+    window.addEventListener('unhandledrejection', onUnhandledRejection);
+    window.addEventListener('error', onError);
+    return () => {
+      window.removeEventListener('unhandledrejection', onUnhandledRejection);
+      window.removeEventListener('error', onError);
+    };
+  }, []);
+
+  const runMatch = useCallback(async (photoId: string, startOffset = 0) => {
     setStage('matching');
     setMatchTitles([]);
     setMatchProgress(null);
     setMatchStats({ matched: 0, unmatched: 0 });
     setCurrentMatchItem(null);
 
-    await runMatchSSE(photoId, matchSourceRef, (d) => {
-      setMatchTitles((prev) => [...prev, d.title]);
-      setMatchProgress({ current: d.index, total: d.total });
-      setMatchStats((prev) => ({
-        matched: prev.matched + (d.matched ? 1 : 0),
-        unmatched: prev.unmatched + (d.matched ? 0 : 1),
-      }));
-      setCurrentMatchItem({
-        title: d.candidateTitle ?? d.title,
-        authors: d.candidateAuthors,
-        matched: d.matched,
-      });
-    });
+    await runMatchSSE(
+      photoId,
+      matchSourceRef,
+      (d) => {
+        setMatchTitles((prev) => [...prev, d.title]);
+        setMatchProgress({ current: d.index, total: d.total });
+        setMatchStats((prev) => ({
+          matched: prev.matched + (d.matched ? 1 : 0),
+          unmatched: prev.unmatched + (d.matched ? 0 : 1),
+        }));
+        setCurrentMatchItem({
+          title: d.candidateTitle ?? d.title,
+          authors: d.candidateAuthors,
+          matched: d.matched,
+        });
+        // Przeżywa reload taba — recovery wznowi od tego miejsca
+        setMatchOffset(d.index + 1);
+      },
+      startOffset,
+    );
 
     setCanRetryMatchOnly(false);
-    sessionStorage.removeItem('upload_resume_photo_id');
+    clearResumePhotoId();
+    clearStepLog();
     window.location.href = `/photos/${photoId}`;
   }, []);
 
@@ -185,18 +379,15 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
       setCanRetryMatchOnly(false);
       setNoApiKey(false);
       setStage('processing');
-      const processRes = await fetch(`/api/photos/${photoId}/process?skipMatch=1`, {
-        method: 'POST',
-      });
-      const processJson = (await processRes.json()) as {
-        data?: { photo: PhotoDTO; detections: unknown[] };
-        error?: { code?: string; message?: string };
-      };
-      if (!processRes.ok || !processJson.data) {
-        if (processRes.status === 403 && processJson.error?.code === 'NO_API_KEY') {
+      try {
+        await runProcessSSE(photoId);
+      } catch (err) {
+        const code = (err as { code?: string }).code;
+        const status = (err as { status?: number }).status;
+        if (status === 403 && code === 'NO_API_KEY') {
           setNoApiKey(true);
         }
-        throw new Error(processJson.error?.message ?? `Błąd przetwarzania (${processRes.status})`);
+        throw err;
       }
       setCanRetryMatchOnly(true);
       await runMatch(photoId);
@@ -206,13 +397,13 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
 
   // Recovery: resume pipeline for a photo stuck in 'processing' after page reload.
   useEffect(() => {
-    const resumeId = sessionStorage.getItem('upload_resume_photo_id');
+    const resumeId = getResumePhotoId();
     if (!resumeId) return;
     (async () => {
       try {
         const res = await fetch(`/api/photos/${resumeId}`);
         if (!res.ok) {
-          sessionStorage.removeItem('upload_resume_photo_id');
+          clearResumePhotoId();
           return;
         }
         const json = (await res.json()) as {
@@ -224,7 +415,7 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
         const photo = json.data?.photo;
         const detections = json.data?.detections ?? [];
         if (!photo) {
-          sessionStorage.removeItem('upload_resume_photo_id');
+          clearResumePhotoId();
           return;
         }
 
@@ -233,20 +424,59 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
         if (photo.status === 'failed') {
           setErrorMsg('Poprzednie przetwarzanie zakończyło się błędem. Spróbuj ponownie.');
           setStage('error');
-          sessionStorage.removeItem('upload_resume_photo_id');
-        } else if (photo.status === 'uploaded' || photo.status === 'processing') {
+          clearResumePhotoId();
+        } else if (photo.status === 'processing') {
+          // Tab został zabity przez OS (mobile) podczas oczekiwania na vision (~13s).
+          // Vision nadal działa server-side — nie wywołuj /process ponownie (dostaniemy
+          // 409 Conflict). Zamiast tego polluj status co 2.5s aż vision się skończy.
+          setStage('processing');
+          const POLL_MS = 2500;
+          const MAX_POLLS = 24; // 60s
+          let resolved = false;
+          for (let poll = 0; poll < MAX_POLLS && !resolved; poll++) {
+            await new Promise<void>((r) => setTimeout(r, POLL_MS));
+            const pollRes = await fetch(`/api/photos/${photo.id}`);
+            if (!pollRes.ok) break;
+            const pollJson = (await pollRes.json()) as {
+              data?: {
+                photo: { id: string; status: string };
+                detections: Array<{ status: string }>;
+              };
+            };
+            const pollStatus = pollJson.data?.photo?.status;
+            if (pollStatus === 'processed') {
+              resolved = true;
+              const pollDetections = pollJson.data?.detections ?? [];
+              const hasPending = pollDetections.some((d) => d.status === 'pending');
+              if (!hasPending) {
+                clearResumePhotoId();
+                clearStepLog();
+                window.location.href = `/photos/${photo.id}`;
+              } else {
+                setCanRetryMatchOnly(true);
+                await runMatch(photo.id);
+              }
+            } else if (pollStatus === 'failed') {
+              throw new Error('Przetwarzanie zakończyło się błędem. Spróbuj ponownie.');
+            }
+          }
+          if (!resolved) {
+            throw new Error('Przetwarzanie trwa zbyt długo. Odśwież stronę i spróbuj ponownie.');
+          }
+        } else if (photo.status === 'uploaded') {
           await processPhoto(photo.id);
         } else if (photo.status === 'processed') {
           const hasPending = detections.some((d) => d.status === 'pending');
           if (!hasPending) {
-            sessionStorage.removeItem('upload_resume_photo_id');
+            clearResumePhotoId();
+            clearStepLog();
             window.location.href = `/photos/${photo.id}`;
           } else {
             setCanRetryMatchOnly(true);
-            await runMatch(photo.id);
+            await runMatch(photo.id, getMatchOffset());
           }
         } else {
-          sessionStorage.removeItem('upload_resume_photo_id');
+          clearResumePhotoId();
         }
       } catch (err) {
         setErrorMsg(
@@ -295,6 +525,7 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
       // M15 (thumbnail-server-side): miniatura powstaje server-side w upload-file
       // (photon, best-effort) obok oryginału — klient nie dotyka już canvasu.
 
+      addStep('doUpload:recording-start', `shelf=${selectedShelfId?.slice(0, 8)}`);
       setStage('recording');
       const recRes = await fetch('/api/photos', {
         method: 'POST',
@@ -305,6 +536,7 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
           file_hash_sha256: serverSha256,
         }),
       });
+      addStep('doUpload:recording-response', `${recRes.status}`);
       const recJson = (await recRes.json()) as {
         data?: { photo: PhotoDTO };
         error?: { code?: string; message?: string };
@@ -330,12 +562,15 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
       // czeka akcja „Uruchom vision".
       // Brak aktywnego klucza API → zawsze skip (nawet gdy user zaznaczył checkbox).
       if (!autoProcess || hasActiveKey === false) {
+        addStep('doUpload:redirect', `autoProcess=${autoProcess} hasKey=${String(hasActiveKey)}`);
+        clearStepLog();
         setStage('done');
         window.location.href = `/shelves/${selectedShelfId}?tab=photos`;
         return;
       }
 
-      sessionStorage.setItem('upload_resume_photo_id', photoId);
+      addStep('doUpload:process-start', photoId.slice(0, 8));
+      setResumePhotoId(photoId);
 
       await processPhoto(photoId);
       setStage('done'); // redirect happens inside processPhoto; this line is reached only in tests
@@ -364,31 +599,48 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
       setDuplicatePhotoId(null);
       setDuplicateCreatedAt(null);
 
+      // Nowy upload — wyczyść poprzedni log diagnostyczny.
+      clearStepLog();
+      setDebugSteps([]);
+
+      const sizeMB = +(file.size / 1024 / 1024).toFixed(2);
+      addStep('handleFile:start', `${sizeMB}MB ${file.type} crypto=${!!crypto.subtle}`);
+
       try {
         if (file.size > MAX_FILE_SIZE_BYTES) {
+          addStep('size:too-large', `${sizeMB}MB > 15MB`);
           throw new Error(`Plik jest za duży (max 15 MB). Wybierz mniejsze zdjęcie.`);
         }
 
-        // Wczesny dedup po stronie klienta — tylko w secure context (HTTPS/localhost),
-        // gdzie crypto.subtle jest dostępne i zwraca prawdziwy SHA-256.
-        // Na HTTP LAN pomijamy (serwer w upload-file i tak zrobi autorytatywny dedup).
-        if (crypto.subtle) {
-          const sha256 = await computeSha256(file);
+        const willCompute = !!crypto.subtle && file.size <= CLIENT_SHA256_MAX_BYTES;
+        addStep('sha256:decision', `willCompute=${willCompute}`);
+
+        const sha256 = await computeSha256(file);
+        if (sha256) {
+          addStep('check-hash:start', sha256.slice(0, 8) + '…');
           const checkRes = await fetch(`/api/photos/check-hash?hash=${sha256}`);
           const checkJson = (await checkRes.json()) as {
             data?: { photo: { id: string; shelf_id: string; created_at: string } | null };
           };
           if (checkJson.data?.photo) {
+            addStep('duplicate:found', checkJson.data.photo.id);
             setDuplicatePhotoId(checkJson.data.photo.id);
             setDuplicateCreatedAt(checkJson.data.photo.created_at);
             setStage('duplicate');
             return;
           }
+          addStep('check-hash:no-dup', '');
+        } else {
+          addStep('sha256:skipped', 'server will dedup');
         }
 
+        addStep('upload:start', `${sizeMB}MB`);
         await doUpload(file);
       } catch (err) {
-        setErrorMsg(err instanceof Error ? err.message : 'Nieznany błąd');
+        const errMsg = err instanceof Error ? err.message : 'Nieznany błąd';
+        addStep('error', `${err instanceof Error ? err.name : '?'}: ${errMsg.slice(0, 80)}`);
+        setDebugSteps([..._stepBuf]);
+        setErrorMsg(errMsg);
         setStage('error');
       }
     },
@@ -769,6 +1021,23 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
         stats={stage === 'matching' && matchProgress !== null ? matchStats : null}
         currentItem={stage === 'matching' ? currentMatchItem : null}
       />
+
+      {debugSteps.length > 0 && (
+        <details className="mt-4 rounded border border-gray-200 bg-gray-50 text-xs dark:border-gray-700 dark:bg-gray-900">
+          <summary className="cursor-pointer px-3 py-2 font-mono text-gray-500 dark:text-gray-400">
+            Upload debug log ({debugSteps.length} kroków)
+          </summary>
+          <ol className="max-h-48 overflow-y-auto px-3 pb-2 font-mono">
+            {debugSteps.map((s, i) => (
+              <li key={i} className="py-0.5 text-gray-600 dark:text-gray-300">
+                <span className="text-gray-400">{new Date(s.t).toISOString().slice(11, 23)}</span>{' '}
+                <span className="font-semibold">{s.step}</span>
+                {s.info ? ` — ${s.info}` : ''}
+              </li>
+            ))}
+          </ol>
+        </details>
+      )}
     </div>
   );
 }

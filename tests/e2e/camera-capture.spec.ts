@@ -79,8 +79,9 @@ async function mockUploadRoutes(page: import('@playwright/test').Page) {
   });
   await page.route('/api/photos/*/process', (route) =>
     route.fulfill({
-      contentType: 'application/json',
-      body: JSON.stringify({ data: { status: 'processed', detections: [] } }),
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+      body: `event: started\ndata: {}\n\nevent: done\ndata: ${JSON.stringify({ photo: { status: 'processed' }, detections: [] })}\n\n`,
     }),
   );
   await page.route('/api/photos/*/match', (route) =>

@@ -78,6 +78,20 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
+function sseProcessResponse(data: unknown = { photo: {}, detections: [] }) {
+  const enc = new TextEncoder();
+  const body = `event: started\ndata: {}\n\nevent: done\ndata: ${JSON.stringify(data)}\n\n`;
+  return new Response(
+    new ReadableStream({
+      start(c) {
+        c.enqueue(enc.encode(body));
+        c.close();
+      },
+    }),
+    { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
+  );
+}
+
 type Handler = () => Response;
 
 /**
@@ -110,9 +124,7 @@ function mockFetch(routes: {
       return Promise.resolve(h?.() ?? jsonResponse({ data: { photos: [] } }));
     }
     if (url.startsWith(`/api/photos/${PHOTO_ID}/process`)) {
-      return Promise.resolve(
-        routes.process?.() ?? jsonResponse({ data: { photo: {}, detections: [] } }),
-      );
+      return Promise.resolve(routes.process?.() ?? sseProcessResponse());
     }
     if (url === `/api/photos/${PHOTO_ID}/match`) {
       return Promise.resolve(
@@ -215,7 +227,7 @@ describe('PhotoListIsland', () => {
         () =>
           jsonResponse({ data: { photos: [makePhoto({ id: PHOTO_ID, stage: 'vision_done' })] } }),
       ],
-      process: () => jsonResponse({ data: { photo: {}, detections: [] } }),
+      process: () => sseProcessResponse(),
     });
 
     render(<PhotoListIsland shelfId={SHELF_ID} shelfName="Salon" />);
@@ -238,7 +250,7 @@ describe('PhotoListIsland', () => {
     const fetchMock = mockFetch({
       photosList: () =>
         jsonResponse({ data: { photos: [makePhoto({ id: PHOTO_ID, stage: 'vision_done' })] } }),
-      process: () => jsonResponse({ data: { photo: {}, detections: [] } }),
+      process: () => sseProcessResponse(),
     });
 
     render(<PhotoListIsland shelfId={SHELF_ID} shelfName="Salon" />);
