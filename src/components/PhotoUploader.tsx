@@ -177,6 +177,30 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
     };
   }, []);
 
+  // Globalny listener na błędy które uciekają poza handleFile's try/catch
+  // (render errors, unhandled rejections z innych źródeł).
+  // Aktywny tylko gdy jest aktywny upload (stage != idle) żeby nie zaśmiecać logów.
+  useEffect(() => {
+    const onUnhandledRejection = (e: PromiseRejectionEvent) => {
+      const reason =
+        e.reason instanceof Error
+          ? `${e.reason.name}: ${e.reason.message}`
+          : String(e.reason ?? 'unknown');
+      addStep('unhandled-rejection', reason.slice(0, 100));
+    };
+    const onError = (e: ErrorEvent) => {
+      const msg = e.message ?? 'unknown error';
+      const src = e.filename ? ` (${e.filename.split('/').pop()}:${e.lineno})` : '';
+      addStep('global-error', `${msg}${src}`.slice(0, 100));
+    };
+    window.addEventListener('unhandledrejection', onUnhandledRejection);
+    window.addEventListener('error', onError);
+    return () => {
+      window.removeEventListener('unhandledrejection', onUnhandledRejection);
+      window.removeEventListener('error', onError);
+    };
+  }, []);
+
   const runMatch = useCallback(async (photoId: string) => {
     setStage('matching');
     setMatchTitles([]);
@@ -318,6 +342,7 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
       // M15 (thumbnail-server-side): miniatura powstaje server-side w upload-file
       // (photon, best-effort) obok oryginału — klient nie dotyka już canvasu.
 
+      addStep('doUpload:recording-start', `shelf=${selectedShelfId?.slice(0, 8)}`);
       setStage('recording');
       const recRes = await fetch('/api/photos', {
         method: 'POST',
@@ -328,6 +353,7 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
           file_hash_sha256: serverSha256,
         }),
       });
+      addStep('doUpload:recording-response', `${recRes.status}`);
       const recJson = (await recRes.json()) as {
         data?: { photo: PhotoDTO };
         error?: { code?: string; message?: string };
@@ -353,11 +379,13 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
       // czeka akcja „Uruchom vision".
       // Brak aktywnego klucza API → zawsze skip (nawet gdy user zaznaczył checkbox).
       if (!autoProcess || hasActiveKey === false) {
+        addStep('doUpload:redirect', `autoProcess=${autoProcess} hasKey=${String(hasActiveKey)}`);
         setStage('done');
         window.location.href = `/shelves/${selectedShelfId}?tab=photos`;
         return;
       }
 
+      addStep('doUpload:process-start', photoId.slice(0, 8));
       sessionStorage.setItem('upload_resume_photo_id', photoId);
 
       await processPhoto(photoId);
