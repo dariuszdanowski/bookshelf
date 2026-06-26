@@ -4,6 +4,7 @@ import type { BookCandidateDTO } from '../lib/books/schema';
 import type { PhotoDTO, DetectionWithCandidatesDTO, BboxEditSet } from '../lib/photos/schema';
 import { classifyCropQuality } from '../lib/matching/fallbackPolicy';
 import { runMatchSSE } from '../lib/matching/runMatchSSE';
+import { runProcessSSE } from '../lib/vision/runProcessSSE';
 import BookModal, { type BookModalBook } from './BookModal';
 import ConfirmDialog from './ConfirmDialog';
 import CostPanel from './CostPanel';
@@ -2447,27 +2448,7 @@ export default function DetectionReview({
     setActionBusy(true);
     setActionMsg(null);
     try {
-      const res = await fetch(`/api/photos/${photoId}/process?skipMatch=1`, { method: 'POST' });
-      const json = (await res.json()) as {
-        data?: unknown;
-        error?: { code?: string; message?: string };
-      };
-      if (res.status === 409) {
-        setActionMsg('Vision run w toku, poczekaj 1 minutę.');
-        return;
-      }
-      if (res.status === 429) {
-        setActionMsg('Rate limit, spróbuj za chwilę.');
-        return;
-      }
-      if (res.status === 403 && json.error?.code === 'NO_API_KEY') {
-        setActionMsg('Brak klucza API. Dodaj klucz w ustawieniach konta.');
-        return;
-      }
-      if (!res.ok) {
-        setActionMsg(json.error?.message ?? `Błąd (${res.status})`);
-        return;
-      }
+      await runProcessSSE(photoId);
       setRerunVisionPhase('matching');
       setMatchTitles([]);
       setMatchProgress(null);
@@ -2476,7 +2457,17 @@ export default function DetectionReview({
       await runSSEMatch();
       window.location.reload();
     } catch (err) {
-      setActionMsg(err instanceof Error ? err.message : 'Błąd sieci.');
+      const code = (err as { code?: string }).code;
+      const status = (err as { status?: number }).status;
+      if (status === 409 || code === 'CONFLICT') {
+        setActionMsg('Vision run w toku, poczekaj 1 minutę.');
+      } else if (code === 'RATE_LIMITED') {
+        setActionMsg('Rate limit, spróbuj za chwilę.');
+      } else if (status === 403 && code === 'NO_API_KEY') {
+        setActionMsg('Brak klucza API. Dodaj klucz w ustawieniach konta.');
+      } else {
+        setActionMsg(err instanceof Error ? err.message : 'Błąd sieci.');
+      }
     } finally {
       setRerunVisionPhase(null);
       setActionBusyLabel(null);

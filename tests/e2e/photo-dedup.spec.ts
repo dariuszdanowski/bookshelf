@@ -211,8 +211,8 @@ test('no duplicate: normal upload without warning', async ({ page }) => {
     (route) => {
       void route.fulfill({
         status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(MOCK_PROCESS_RESPONSE),
+        headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+        body: `event: started\ndata: {}\n\nevent: done\ndata: ${JSON.stringify(MOCK_PROCESS_RESPONSE.data)}\n\n`,
       });
     },
   );

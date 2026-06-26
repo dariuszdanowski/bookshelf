@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { runMatchSSE } from '../lib/matching/runMatchSSE';
+import { runProcessSSE } from '../lib/vision/runProcessSSE';
 import type { PhotoListItemDTO } from '../lib/photos/schema';
 import type { ShelfDTO } from '../lib/shelves/schema';
 import ConfirmDialog from './ConfirmDialog';
@@ -179,38 +180,24 @@ export default function PhotoListIsland({ shelfId }: Props) {
       setBusyOpLabel('Analiza obrazu...');
       patchRow(photoId, { busy: true, toast: null });
       try {
-        const res = await fetch(`/api/photos/${photoId}/process?skipMatch=1`, {
-          method: 'POST',
-        });
-        const json = (await res.json()) as {
-          data?: unknown;
-          error?: { code?: string; message?: string };
-        };
-        if (res.status === 409) {
-          patchRow(photoId, { toast: 'Run już w toku, poczekaj chwilę.' });
-          return;
-        }
-        if (res.status === 429) {
-          patchRow(photoId, { toast: 'Vision rate limit — spróbuj za chwilę.' });
-          return;
-        }
-        if (res.status === 403 && json.error?.code === 'NO_API_KEY') {
-          patchRow(photoId, { toast: 'Brak klucza API. Dodaj klucz w ustawieniach konta.' });
-          return;
-        }
-        if (!res.ok) {
-          patchRow(photoId, {
-            toast: json.error?.message ?? `Błąd (${res.status})`,
-          });
-          return;
-        }
+        await runProcessSSE(photoId);
         // Vision succeeded — run SSE matching for progress feedback
         setVisionPhase('matching');
         await runMatch(photoId);
       } catch (err) {
-        patchRow(photoId, {
-          toast: err instanceof Error ? err.message : 'Błąd sieci.',
-        });
+        const code = (err as { code?: string }).code;
+        const status = (err as { status?: number }).status;
+        if (status === 409 || code === 'CONFLICT') {
+          patchRow(photoId, { toast: 'Run już w toku, poczekaj chwilę.' });
+        } else if (code === 'RATE_LIMITED') {
+          patchRow(photoId, { toast: 'Vision rate limit — spróbuj za chwilę.' });
+        } else if (status === 403 && code === 'NO_API_KEY') {
+          patchRow(photoId, { toast: 'Brak klucza API. Dodaj klucz w ustawieniach konta.' });
+        } else {
+          patchRow(photoId, {
+            toast: err instanceof Error ? err.message : 'Błąd sieci.',
+          });
+        }
       } finally {
         setVisionPhase(null);
         setBusyOpLabel(null);

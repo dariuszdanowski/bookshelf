@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { runMatchSSE } from '../lib/matching/runMatchSSE';
+import { runProcessSSE } from '../lib/vision/runProcessSSE';
 import type { PhotoDTO } from '../lib/photos/schema';
 import type { ShelfDTO } from '../lib/shelves/schema';
 import CameraPreview from './CameraPreview';
@@ -288,18 +289,15 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
       setCanRetryMatchOnly(false);
       setNoApiKey(false);
       setStage('processing');
-      const processRes = await fetch(`/api/photos/${photoId}/process?skipMatch=1`, {
-        method: 'POST',
-      });
-      const processJson = (await processRes.json()) as {
-        data?: { photo: PhotoDTO; detections: unknown[] };
-        error?: { code?: string; message?: string };
-      };
-      if (!processRes.ok || !processJson.data) {
-        if (processRes.status === 403 && processJson.error?.code === 'NO_API_KEY') {
+      try {
+        await runProcessSSE(photoId);
+      } catch (err) {
+        const code = (err as { code?: string }).code;
+        const status = (err as { status?: number }).status;
+        if (status === 403 && code === 'NO_API_KEY') {
           setNoApiKey(true);
         }
-        throw new Error(processJson.error?.message ?? `Błąd przetwarzania (${processRes.status})`);
+        throw err;
       }
       setCanRetryMatchOnly(true);
       await runMatch(photoId);

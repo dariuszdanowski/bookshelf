@@ -225,8 +225,8 @@ async function uploadAndGetToReviewPage(
     (route) =>
       route.fulfill({
         status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(MOCK_PROCESS_RESPONSE),
+        headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+        body: `event: started\ndata: {}\n\nevent: done\ndata: ${JSON.stringify(MOCK_PROCESS_RESPONSE.data)}\n\n`,
       }),
   );
   await page.route(
@@ -346,8 +346,8 @@ test('3.7 Run vision button → po sukcesie stage=vision_done (refetch)', async 
     (route) =>
       route.fulfill({
         status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(MOCK_PROCESS_RESPONSE),
+        headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+        body: `event: started\ndata: {}\n\nevent: done\ndata: ${JSON.stringify(MOCK_PROCESS_RESPONSE.data)}\n\n`,
       }),
   );
   await page.route(`**/api/photos/${PHOTO_ID}/match-stream**`, (route) =>
@@ -399,8 +399,8 @@ test('3.8 Re-run vision: confirm cancel → brak procesu; OK → wywołuje /proc
       processRequests.push(route.request().url());
       return route.fulfill({
         status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(MOCK_PROCESS_RESPONSE),
+        headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+        body: `event: started\ndata: {}\n\nevent: done\ndata: ${JSON.stringify(MOCK_PROCESS_RESPONSE.data)}\n\n`,
       });
     },
   );
@@ -469,8 +469,8 @@ test('3.9 Double-click Run vision → toast "Run już w toku"', async ({ page })
       }
       return route.fulfill({
         status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(MOCK_PROCESS_RESPONSE),
+        headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+        body: `event: started\ndata: {}\n\nevent: done\ndata: ${JSON.stringify(MOCK_PROCESS_RESPONSE.data)}\n\n`,
       });
     },
   );

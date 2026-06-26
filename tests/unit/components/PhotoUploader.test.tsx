@@ -98,6 +98,20 @@ function jsonResponse(body: unknown, status = 200) {
   });
 }
 
+function sseProcessResponse(photo = mockPhoto, detections: unknown[] = mockDetections) {
+  const enc = new TextEncoder();
+  const body = `event: started\ndata: {}\n\nevent: done\ndata: ${JSON.stringify({ photo, detections })}\n\n`;
+  return new Response(
+    new ReadableStream({
+      start(c) {
+        c.enqueue(enc.encode(body));
+        c.close();
+      },
+    }),
+    { status: 200, headers: { 'Content-Type': 'text/event-stream' } },
+  );
+}
+
 // Key check fires first on mount (before shelves). Tests mock it with an active key
 // unless the test specifically exercises the no-key warning path.
 function activeKeyMock() {
@@ -191,9 +205,7 @@ describe('PhotoUploader', () => {
       .mockResolvedValueOnce(
         jsonResponse({ data: { photo: { ...mockPhoto, status: 'uploaded' } } }, 201),
       )
-      .mockResolvedValueOnce(
-        jsonResponse({ data: { photo: mockPhoto, detections: mockDetections } }),
-      );
+      .mockResolvedValueOnce(sseProcessResponse());
 
     render(<PhotoUploader />);
     await waitFor(() => expect(screen.getByTestId('shelf-select')).toBeInTheDocument());
@@ -229,9 +241,7 @@ describe('PhotoUploader', () => {
       .mockResolvedValueOnce(
         jsonResponse({ error: { code: 'INTERNAL_ERROR', message: 'Vision down' } }, 500),
       )
-      .mockResolvedValueOnce(
-        jsonResponse({ data: { photo: mockPhoto, detections: mockDetections } }),
-      );
+      .mockResolvedValueOnce(sseProcessResponse());
 
     render(<PhotoUploader />);
     await waitFor(() => expect(screen.getByTestId('shelf-select')).toBeInTheDocument());
@@ -271,9 +281,7 @@ describe('PhotoUploader', () => {
       .mockResolvedValueOnce(
         jsonResponse({ data: { photo: { ...mockPhoto, status: 'uploaded' } } }, 201),
       )
-      .mockResolvedValueOnce(
-        jsonResponse({ data: { photo: mockPhoto, detections: mockDetections } }),
-      ); // process POST
+      .mockResolvedValueOnce(sseProcessResponse()); // process POST
 
     render(<PhotoUploader />);
     await waitFor(() => expect(screen.getByTestId('shelf-select')).toBeInTheDocument());
@@ -574,9 +582,7 @@ describe('PhotoUploader — skip process (S-36)', () => {
       .mockResolvedValueOnce(
         jsonResponse({ data: { photo: { ...mockPhoto, status: 'uploaded' } } }, 201),
       )
-      .mockResolvedValueOnce(
-        jsonResponse({ data: { photo: mockPhoto, detections: mockDetections } }),
-      );
+      .mockResolvedValueOnce(sseProcessResponse());
 
     render(<PhotoUploader />);
     await waitFor(() => expect(screen.getByTestId('shelf-select')).toBeInTheDocument());
