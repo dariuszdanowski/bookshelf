@@ -11,12 +11,13 @@ zewnętrzną i proponuje wpisy z lokalizacją — tobie zostaje akceptacja lub k
 Po wgraniu zdjęcia półki aplikacja:
 
 1. **Detekcja** — Claude Sonnet 4.6 (multimodal) wyciąga listę widocznych tytułów i autorów.
-2. **Matching** — Google Books / OpenLibrary dostarczają metadane (ISBN, okładkę, autora).
-3. **Deduplikacja** — sprawdzenie, czy książka już jest w twoim katalogu.
-4. **Ranking** — propozycje uporządkowane wg pewności matchu.
-5. **Potwierdzenie** — ty akceptujesz, odrzucasz lub korygujesz; system uczy się z korekt.
+2. **Matching** — Google Books / OpenLibrary / Biblioteka Narodowa dostarczają metadane (ISBN, okładkę, autora). Każdy kandydat dostaje wynik 0–100% (65% podobieństwo tytułu + 30% autora + 5% premia ISBN).
+3. **Odzysk po błędzie OCR** — gdy grzbiet jest zniekształcony i żaden kandydat nie przekroczy 55%, system automatycznie wyodrębnia istotne słowa z tytułu (≥ 5 liter, najdłuższe pierwsze) i próbuje je kolejno jako osobne zapytania razem z autorem. Pierwsza trafna odpowiedź zatrzymuje szukanie. Dzięki temu „Słowcy Koszmarów" → kandydat „Siewcy Koszmarów" bez ingerencji użytkownika.
+4. **Deduplikacja** — sprawdzenie, czy książka już jest w twoim katalogu.
+5. **Ranking** — propozycje uporządkowane wg pewności: ≥ 75% pre-zaznaczone, 55–74% wymaga potwierdzenia, poniżej — ręczne wpisanie.
+6. **Potwierdzenie** — ty akceptujesz, odrzucasz lub korygujesz; system rejestruje korekty do telemetrii jakości.
 
-W jednym zdaniu: **zdjęcie → detekcja → match → dedup → ranking → potwierdzenie**.
+W jednym zdaniu: **zdjęcie → detekcja → match (+ odzysk OCR) → dedup → ranking → potwierdzenie**.
 
 ## Screenshots
 
@@ -173,6 +174,7 @@ bookshelf/
 |---|---|
 | [docs/prd.md](docs/prd.md) | PRD modułu — wymagania funkcjonalne, schemat danych (8 tabel) |
 | [docs/plan-implementacji.md](docs/plan-implementacji.md) | Kalendarz milestonów, ryzyka, definition of done |
+| [docs/algorytm-matchingu.md](docs/algorytm-matchingu.md) | Jak działa silnik dopasowywania książek — OCR cleanup, scoring, słowny fallback OCR |
 | [docs/self-review.md](docs/self-review.md) | Self-review pod 6 wymogów certyfikacji 10xDevs 3.0 — z dowodami |
 | [CLAUDE.md](CLAUDE.md) | Kontekst i konwencje pracy z agentem AI |
 

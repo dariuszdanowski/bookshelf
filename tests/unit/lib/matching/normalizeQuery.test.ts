@@ -5,6 +5,8 @@ import {
   mainTitleSegment,
   titleQueryVariants,
   extractAuthorFromTitle,
+  extractSignificantWords,
+  WORD_FALLBACK_MIN_LEN,
 } from '../../../../src/lib/matching/normalizeQuery';
 
 describe('deCyrillic', () => {
@@ -203,5 +205,50 @@ describe('titleQueryVariants', () => {
   it('oczyszczony tytuł trafia jako pierwszy wariant (homoglify+lata)', () => {
     const v = titleQueryVariants('Prof. Filutек 1985-2003');
     expect(v[0]).toBe('Prof. Filutek');
+  });
+});
+
+describe('extractSignificantWords', () => {
+  it('stała WORD_FALLBACK_MIN_LEN wynosi 5', () => {
+    expect(WORD_FALLBACK_MIN_LEN).toBe(5);
+  });
+
+  it('happy path — "Słowcy Koszmarów" → najdłuższe pierwsze', () => {
+    const result = extractSignificantWords('Słowcy Koszmarów');
+    expect(result).toEqual(['Koszmarów', 'Słowcy']);
+  });
+
+  it('pusty string → pusta lista', () => {
+    expect(extractSignificantWords('')).toEqual([]);
+  });
+
+  it('wszystkie słowa < 5 znaków → pusta lista', () => {
+    expect(extractSignificantWords('Lem Lub')).toEqual([]);
+  });
+
+  it('duplikaty są deduplikowane', () => {
+    const result = extractSignificantWords('Siewcy Siewcy Koszmarów');
+    expect(result).toEqual(['Koszmarów', 'Siewcy']);
+  });
+
+  it('cyrylickie homoglify oczyszczone przez cleanSearchTitle przed tokenizacją', () => {
+    // 'Asprа' — końcowe 'а' to U+430 (cyrylica) → cleanSearchTitle mapuje na 'a'
+    const result = extractSignificantWords('Asprа');
+    expect(result).toEqual(['Aspra']);
+  });
+
+  it('słowa dokładnie 5 znaków przechodzą próg (granica >= 5)', () => {
+    expect(extractSignificantWords('Abcde')).toEqual(['Abcde']);
+  });
+
+  it('słowa 4 znaki odpadają (granica >= 5)', () => {
+    expect(extractSignificantWords('Abcd')).toEqual([]);
+  });
+
+  it('sortuje od najdłuższego — wiele słów rożnej długości', () => {
+    const result = extractSignificantWords('Krótkość Dlugociagniete Srednia');
+    expect(result[0]).toBe('Dlugociagniete');
+    expect(result[1]).toBe('Krótkość');
+    expect(result[2]).toBe('Srednia');
   });
 });

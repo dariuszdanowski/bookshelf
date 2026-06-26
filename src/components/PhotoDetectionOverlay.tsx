@@ -202,7 +202,7 @@ export default function PhotoDetectionOverlay({
       const viewport = event.currentTarget as HTMLDivElement;
       const direction = event.deltaY < 0 ? 1 : -1;
       const currentZoom = zoomRef.current;
-      const nextZoom = Math.max(1, Math.min(4, currentZoom + direction * 0.15));
+      const nextZoom = Math.max(1, Math.min(16, currentZoom + direction * 0.15));
       if (nextZoom === currentZoom) return;
 
       const rect = viewport.getBoundingClientRect();
@@ -415,7 +415,7 @@ export default function PhotoDetectionOverlay({
       const [p1, p2] = [...pointersRef.current.values()];
       const dist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
       if (pinch.startDist > 0) {
-        const next = Math.max(1, Math.min(4, pinch.startZoom * (dist / pinch.startDist)));
+        const next = Math.max(1, Math.min(16, pinch.startZoom * (dist / pinch.startDist)));
         if (next !== zoomRef.current) {
           const viewport = wheelViewportRef.current;
           const rect = viewport.getBoundingClientRect();
