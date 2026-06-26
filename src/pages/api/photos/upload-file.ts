@@ -106,22 +106,34 @@ export const POST: APIRoute = async ({ request, locals }) => {
   // zapisywana obok oryginału jako `<storagePath>.thumb.jpg`. Best-effort —
   // błąd generowania/uploadu (np. HEIC nie-dekodowalny przez photon) NIE blokuje
   // sukcesu uploadu oryginału; lista fallbackuje do oryginału.
-  try {
-    const thumbBytes = await deriveThumbnail(buffer);
-    const { error: thumbErr } = await locals.supabase.storage
-      .from('shelf-photos')
-      .upload(`${storagePath}${THUMB_SUFFIX}`, thumbBytes, {
-        contentType: 'image/jpeg',
-        upsert: false,
-      });
-    if (thumbErr) {
-      console.warn('[api/photos/upload-file POST] thumbnail upload failed', thumbErr.message);
-    }
-  } catch (err) {
+  //
+  // Guard: pomijamy miniaturę dla dużych plików. Photon WASM dekoduje JPEG do
+  // surowych pikseli przed skalowaniem — duże zdjęcia z komórki (≥8 MB skompresowane
+  // = potencjalnie 100-200 MB surowych pikseli) przekraczają limit pamięci Worker
+  // (128 MB) i crashują izolat zamiast rzucić wyjątek, którego try/catch by złapał.
+  const THUMB_MAX_INPUT_BYTES = 8 * 1024 * 1024; // 8 MB kompresji ≈ bezpieczny próg
+  if (file.size > THUMB_MAX_INPUT_BYTES) {
     console.warn(
-      '[api/photos/upload-file POST] thumbnail generation failed',
-      err instanceof Error ? err.message : String(err),
+      `[api/photos/upload-file POST] skipping thumbnail for large file (${(file.size / 1024 / 1024).toFixed(1)} MB)`,
     );
+  } else {
+    try {
+      const thumbBytes = await deriveThumbnail(buffer);
+      const { error: thumbErr } = await locals.supabase.storage
+        .from('shelf-photos')
+        .upload(`${storagePath}${THUMB_SUFFIX}`, thumbBytes, {
+          contentType: 'image/jpeg',
+          upsert: false,
+        });
+      if (thumbErr) {
+        console.warn('[api/photos/upload-file POST] thumbnail upload failed', thumbErr.message);
+      }
+    } catch (err) {
+      console.warn(
+        '[api/photos/upload-file POST] thumbnail generation failed',
+        err instanceof Error ? err.message : String(err),
+      );
+    }
   }
 
   return apiResponse({ data: { storagePath, sha256 }, status: 201 });

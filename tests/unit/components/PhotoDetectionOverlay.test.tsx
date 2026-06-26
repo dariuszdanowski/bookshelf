@@ -334,17 +334,17 @@ describe('PhotoDetectionOverlay — pinch-zoom (M6)', () => {
     expect(screen.getByTestId('zoom-reset-button')).toHaveTextContent('200%');
   });
 
-  it('zoom clampowany do 4x; po podniesieniu palca gest sie konczy', () => {
+  it('zoom clampowany do 16x; po podniesieniu palca gest sie konczy', () => {
     const viewport = setupViewport();
     fireEvent.pointerDown(viewport, { pointerId: 1, clientX: 100, clientY: 100 });
     fireEvent.pointerDown(viewport, { pointerId: 2, clientX: 110, clientY: 100 }); // dystans 10
-    fireEvent.pointerMove(viewport, { pointerId: 2, clientX: 600, clientY: 100 }); // x50 -> clamp 4
-    expect(screen.getByTestId('zoom-reset-button')).toHaveTextContent('400%');
+    fireEvent.pointerMove(viewport, { pointerId: 2, clientX: 10110, clientY: 100 }); // x1000 -> clamp 16
+    expect(screen.getByTestId('zoom-reset-button')).toHaveTextContent('1600%');
 
     fireEvent.pointerUp(viewport, { pointerId: 2 });
     // pojedynczy pointer nie zmienia juz zoomu
     fireEvent.pointerMove(viewport, { pointerId: 1, clientX: 500, clientY: 100 });
-    expect(screen.getByTestId('zoom-reset-button')).toHaveTextContent('400%');
+    expect(screen.getByTestId('zoom-reset-button')).toHaveTextContent('1600%');
   });
 
   it('w trybie edycji drugi pointer NIE startuje pinch (kolizja z rysowaniem bbox)', () => {
