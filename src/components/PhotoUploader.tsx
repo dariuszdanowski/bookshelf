@@ -69,6 +69,78 @@ function clearStepLog(): void {
     // localStorage niedostępny
   }
 }
+
+// ─── Resume photo ID ───────────────────────────────────────────────────────────
+// localStorage (nie sessionStorage) żeby przeżyć kill taba na iOS Safari/Chrome
+// (sessionStorage jest czyszczony gdy OS zabija tab przy braku pamięci).
+// TTL 30 min eliminuje stare wpisów które nie są już relewarny.
+
+const RESUME_KEY = 'bookshelf:upload_resume_photo_id';
+const RESUME_MAX_AGE_MS = 30 * 60 * 1000;
+
+function setResumePhotoId(photoId: string): void {
+  try {
+    localStorage.setItem(RESUME_KEY, JSON.stringify({ id: photoId, ts: Date.now() }));
+  } catch {
+    // localStorage niedostępny
+  }
+}
+
+function getResumePhotoId(): string | null {
+  try {
+    const raw = localStorage.getItem(RESUME_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { id?: string; ts?: number };
+    if (!parsed.id || !parsed.ts) return null;
+    if (Date.now() - parsed.ts > RESUME_MAX_AGE_MS) {
+      localStorage.removeItem(RESUME_KEY);
+      return null;
+    }
+    return parsed.id;
+  } catch {
+    return null;
+  }
+}
+
+function clearResumePhotoId(): void {
+  try {
+    localStorage.removeItem(RESUME_KEY);
+  } catch {
+    // localStorage niedostępny
+  }
+}
+
+// Persystuje bieżący offset matchingu (index następnej detekcji do przetworzenia).
+// Przy reloadzie recovery wczytuje go i wznawia match-stream od właściwego miejsca
+// zamiast restartować od offset=0.
+function setMatchOffset(offset: number): void {
+  try {
+    const raw = localStorage.getItem(RESUME_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw) as { id?: string; ts?: number; matchOffset?: number };
+    if (!parsed.id) return;
+    localStorage.setItem(RESUME_KEY, JSON.stringify({ ...parsed, matchOffset: offset }));
+  } catch {
+    // localStorage niedostępny
+  }
+}
+
+function getMatchOffset(): number {
+  try {
+    const raw = localStorage.getItem(RESUME_KEY);
+    if (!raw) return 0;
+    const parsed = JSON.parse(raw) as { id?: string; ts?: number; matchOffset?: number };
+    if (!parsed.id || !parsed.ts) return 0;
+    if (Date.now() - parsed.ts > RESUME_MAX_AGE_MS) {
+      localStorage.removeItem(RESUME_KEY);
+      return 0;
+    }
+    return parsed.matchOffset ?? 0;
+  } catch {
+    return 0;
+  }
+}
+// ──────────────────────────────────────────────────────────────────────────────
 // ──────────────────────────────────────────────────────────────────────────────
 
 async function computeSha256(file: File): Promise<string | null> {
@@ -258,29 +330,36 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
     };
   }, []);
 
-  const runMatch = useCallback(async (photoId: string) => {
+  const runMatch = useCallback(async (photoId: string, startOffset = 0) => {
     setStage('matching');
     setMatchTitles([]);
     setMatchProgress(null);
     setMatchStats({ matched: 0, unmatched: 0 });
     setCurrentMatchItem(null);
 
-    await runMatchSSE(photoId, matchSourceRef, (d) => {
-      setMatchTitles((prev) => [...prev, d.title]);
-      setMatchProgress({ current: d.index, total: d.total });
-      setMatchStats((prev) => ({
-        matched: prev.matched + (d.matched ? 1 : 0),
-        unmatched: prev.unmatched + (d.matched ? 0 : 1),
-      }));
-      setCurrentMatchItem({
-        title: d.candidateTitle ?? d.title,
-        authors: d.candidateAuthors,
-        matched: d.matched,
-      });
-    });
+    await runMatchSSE(
+      photoId,
+      matchSourceRef,
+      (d) => {
+        setMatchTitles((prev) => [...prev, d.title]);
+        setMatchProgress({ current: d.index, total: d.total });
+        setMatchStats((prev) => ({
+          matched: prev.matched + (d.matched ? 1 : 0),
+          unmatched: prev.unmatched + (d.matched ? 0 : 1),
+        }));
+        setCurrentMatchItem({
+          title: d.candidateTitle ?? d.title,
+          authors: d.candidateAuthors,
+          matched: d.matched,
+        });
+        // Przeżywa reload taba — recovery wznowi od tego miejsca
+        setMatchOffset(d.index + 1);
+      },
+      startOffset,
+    );
 
     setCanRetryMatchOnly(false);
-    sessionStorage.removeItem('upload_resume_photo_id');
+    clearResumePhotoId();
     window.location.href = `/photos/${photoId}`;
   }, []);
 
@@ -307,13 +386,13 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
 
   // Recovery: resume pipeline for a photo stuck in 'processing' after page reload.
   useEffect(() => {
-    const resumeId = sessionStorage.getItem('upload_resume_photo_id');
+    const resumeId = getResumePhotoId();
     if (!resumeId) return;
     (async () => {
       try {
         const res = await fetch(`/api/photos/${resumeId}`);
         if (!res.ok) {
-          sessionStorage.removeItem('upload_resume_photo_id');
+          clearResumePhotoId();
           return;
         }
         const json = (await res.json()) as {
@@ -325,7 +404,7 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
         const photo = json.data?.photo;
         const detections = json.data?.detections ?? [];
         if (!photo) {
-          sessionStorage.removeItem('upload_resume_photo_id');
+          clearResumePhotoId();
           return;
         }
 
@@ -334,7 +413,7 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
         if (photo.status === 'failed') {
           setErrorMsg('Poprzednie przetwarzanie zakończyło się błędem. Spróbuj ponownie.');
           setStage('error');
-          sessionStorage.removeItem('upload_resume_photo_id');
+          clearResumePhotoId();
         } else if (photo.status === 'processing') {
           // Tab został zabity przez OS (mobile) podczas oczekiwania na vision (~13s).
           // Vision nadal działa server-side — nie wywołuj /process ponownie (dostaniemy
@@ -359,7 +438,7 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
               const pollDetections = pollJson.data?.detections ?? [];
               const hasPending = pollDetections.some((d) => d.status === 'pending');
               if (!hasPending) {
-                sessionStorage.removeItem('upload_resume_photo_id');
+                clearResumePhotoId();
                 window.location.href = `/photos/${photo.id}`;
               } else {
                 setCanRetryMatchOnly(true);
@@ -377,14 +456,14 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
         } else if (photo.status === 'processed') {
           const hasPending = detections.some((d) => d.status === 'pending');
           if (!hasPending) {
-            sessionStorage.removeItem('upload_resume_photo_id');
+            clearResumePhotoId();
             window.location.href = `/photos/${photo.id}`;
           } else {
             setCanRetryMatchOnly(true);
-            await runMatch(photo.id);
+            await runMatch(photo.id, getMatchOffset());
           }
         } else {
-          sessionStorage.removeItem('upload_resume_photo_id');
+          clearResumePhotoId();
         }
       } catch (err) {
         setErrorMsg(
@@ -477,7 +556,7 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
       }
 
       addStep('doUpload:process-start', photoId.slice(0, 8));
-      sessionStorage.setItem('upload_resume_photo_id', photoId);
+      setResumePhotoId(photoId);
 
       await processPhoto(photoId);
       setStage('done'); // redirect happens inside processPhoto; this line is reached only in tests

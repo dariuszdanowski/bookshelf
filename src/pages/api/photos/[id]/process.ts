@@ -173,6 +173,11 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
 
   const runId = runData.id;
 
+  // Ustaw photos.status = 'processing' żeby crash-recovery po reloadzie strony
+  // wykrył in-flight vision i wszedł w tryb pollingu zamiast próbować ponownie
+  // wywołać /process (co zwróciłoby 409 z triggera vision_runs).
+  await locals.supabase.from('photos').update({ status: 'processing' }).eq('id', id);
+
   // --- SSE streaming starts here ---
   // All slow operations (storage download, vision LLM, DB writes) run in an async
   // IIFE that feeds a TransformStream. The Response is returned immediately so the
@@ -185,7 +190,7 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
   const sseWrite = (event: string, data: unknown): Promise<void> =>
     writer.write(enc.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
 
-  const failRun = (msg: string): Promise<unknown> =>
+  const failRun = (msg: string) =>
     locals.supabase
       .from('vision_runs')
       .update({

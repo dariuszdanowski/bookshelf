@@ -17,6 +17,7 @@ import PhotoUploader from '../../../src/components/PhotoUploader';
 // jsdom doesn't ship EventSource; we mock it so the SSE match-stream path works.
 let _eseDonePayload: { matched: number; rate_limited: number } = { matched: 0, rate_limited: 0 };
 let _eseErrorCount = 0;
+let _lastEventSourceUrl = '';
 
 class MockEventSource {
   url: string;
@@ -25,6 +26,7 @@ class MockEventSource {
 
   constructor(url: string) {
     this.url = url;
+    _lastEventSourceUrl = url;
     const errors = _eseErrorCount;
     if (errors > 0) {
       let count = 0;
@@ -134,8 +136,10 @@ function uploadFileMock() {
 beforeEach(() => {
   vi.clearAllMocks();
   sessionStorage.clear();
+  localStorage.removeItem('bookshelf:upload_resume_photo_id');
   _eseDonePayload = { matched: 0, rate_limited: 0 };
   _eseErrorCount = 0;
+  _lastEventSourceUrl = '';
   Object.defineProperty(global, 'EventSource', {
     configurable: true,
     writable: true,
@@ -339,9 +343,12 @@ describe('PhotoUploader', () => {
     expect(screen.getByTestId('no-api-key-link')).toHaveAttribute('href', '/account');
   });
 
-  it('happy path: sessionStorage cleared after successful redirect (recovery path)', async () => {
+  it('happy path: localStorage resume cleared after successful redirect (recovery path)', async () => {
     const STALE_ID = '00000000-0000-4000-8000-aaaaaaaaaaaa';
-    sessionStorage.setItem('upload_resume_photo_id', STALE_ID);
+    localStorage.setItem(
+      'bookshelf:upload_resume_photo_id',
+      JSON.stringify({ id: STALE_ID, ts: Date.now() }),
+    );
     // match step via SSE (MockEventSource fires done) — no /match fetch mock needed
     vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(activeKeyMock()) // keys check
@@ -359,7 +366,7 @@ describe('PhotoUploader', () => {
     await waitFor(() => expect(window.location.href).toBe(`/photos/${STALE_ID}`), {
       timeout: 5000,
     });
-    expect(sessionStorage.getItem('upload_resume_photo_id')).toBeNull();
+    expect(localStorage.getItem('bookshelf:upload_resume_photo_id')).toBeNull();
   });
 
   it('shows error area on storage upload failure (no retry-button, back button shown)', async () => {
@@ -385,9 +392,15 @@ describe('PhotoUploader', () => {
 });
 
 describe('PhotoUploader — reload recovery', () => {
+  const RESUME_KEY = 'bookshelf:upload_resume_photo_id';
+  const setResume = (id: string) =>
+    localStorage.setItem(RESUME_KEY, JSON.stringify({ id, ts: Date.now() }));
+  const getResume = () => localStorage.getItem(RESUME_KEY);
+
   beforeEach(() => {
     vi.clearAllMocks();
     sessionStorage.clear();
+    localStorage.removeItem(RESUME_KEY);
     _eseDonePayload = { matched: 0, rate_limited: 0 };
     _eseErrorCount = 0;
     Object.defineProperty(global, 'EventSource', {
@@ -413,10 +426,11 @@ describe('PhotoUploader — reload recovery', () => {
   afterEach(() => {
     vi.restoreAllMocks();
     sessionStorage.clear();
+    localStorage.removeItem(RESUME_KEY);
   });
 
   it('status=processing — wznawiamy process+match i redirectujemy', async () => {
-    sessionStorage.setItem('upload_resume_photo_id', PHOTO_ID);
+    setResume(PHOTO_ID);
     // match via SSE (MockEventSource fires done) — no /match fetch mock needed
     vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(activeKeyMock()) // keys check
@@ -432,11 +446,11 @@ describe('PhotoUploader — reload recovery', () => {
     await waitFor(() => expect(window.location.href).toBe(`/photos/${PHOTO_ID}`), {
       timeout: 5000,
     });
-    expect(sessionStorage.getItem('upload_resume_photo_id')).toBeNull();
+    expect(getResume()).toBeNull();
   });
 
-  it('status=failed — pokazuje error area, czyści sessionStorage', async () => {
-    sessionStorage.setItem('upload_resume_photo_id', PHOTO_ID);
+  it('status=failed — pokazuje error area, czyści localStorage resume', async () => {
+    setResume(PHOTO_ID);
     vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(activeKeyMock()) // keys check
       .mockResolvedValueOnce(jsonResponse({ data: { shelves: [] } })) // shelves
@@ -449,11 +463,11 @@ describe('PhotoUploader — reload recovery', () => {
       timeout: 5000,
     });
     expect(screen.getByTestId('error-area')).toHaveTextContent('Poprzednie przetwarzanie');
-    expect(sessionStorage.getItem('upload_resume_photo_id')).toBeNull();
+    expect(getResume()).toBeNull();
   });
 
   it('status=processed z pending detekcjami — wznawiamy tylko match', async () => {
-    sessionStorage.setItem('upload_resume_photo_id', PHOTO_ID);
+    setResume(PHOTO_ID);
     // match via SSE (MockEventSource fires done) — no /match fetch mock needed
     vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(activeKeyMock()) // keys check
@@ -473,8 +487,32 @@ describe('PhotoUploader — reload recovery', () => {
     });
   });
 
+  it('status=processed z matchOffset=5 w localStorage — wznawia match od offset=5', async () => {
+    localStorage.setItem(
+      RESUME_KEY,
+      JSON.stringify({ id: PHOTO_ID, ts: Date.now(), matchOffset: 5 }),
+    );
+    vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(activeKeyMock())
+      .mockResolvedValueOnce(jsonResponse({ data: { shelves: [] } }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          data: {
+            photo: { id: PHOTO_ID, status: 'processed' },
+            detections: [{ status: 'pending' }],
+          },
+        }),
+      );
+
+    render(<PhotoUploader />);
+    await waitFor(() => expect(window.location.href).toBe(`/photos/${PHOTO_ID}`), {
+      timeout: 5000,
+    });
+    expect(_lastEventSourceUrl).toContain('offset=5');
+  });
+
   it('status=processed bez pending detekcji — redirect bez dodatkowych callów', async () => {
-    sessionStorage.setItem('upload_resume_photo_id', PHOTO_ID);
+    setResume(PHOTO_ID);
     vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(activeKeyMock()) // keys check
       .mockResolvedValueOnce(jsonResponse({ data: { shelves: [] } })) // shelves
@@ -491,10 +529,10 @@ describe('PhotoUploader — reload recovery', () => {
     await waitFor(() => expect(window.location.href).toBe(`/photos/${PHOTO_ID}`), {
       timeout: 5000,
     });
-    expect(sessionStorage.getItem('upload_resume_photo_id')).toBeNull();
+    expect(getResume()).toBeNull();
   });
 
-  it('brak sessionStorage — normalne idle, brak dodatkowych fetch callów', async () => {
+  it('brak localStorage resume — normalne idle, brak dodatkowych fetch callów', async () => {
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(activeKeyMock()) // keys check
@@ -559,7 +597,7 @@ describe('PhotoUploader — skip process (S-36)', () => {
     expect(calledUrls.some((u) => u.includes('/process'))).toBe(false);
     expect(calledUrls.some((u) => u.includes('/match'))).toBe(false);
     // Pitfall z roadmapy: bez resume-state przy skip
-    expect(sessionStorage.getItem('upload_resume_photo_id')).toBeNull();
+    expect(localStorage.getItem('bookshelf:upload_resume_photo_id')).toBeNull();
   });
 
   it('preferencja false czytana z localStorage przy mount', async () => {
