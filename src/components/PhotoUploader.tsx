@@ -235,12 +235,22 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
   // Crash recovery: jeśli poprzednia sesja uploadu zakończyła się crashem
   // (OOM, crash taba), localStorage ma zapisane kroki — pokazujemy je w debug panelu
   // i wysyłamy sendBeacon do serwera (nie konsumuje fetch-mocków w testach).
+  //
+  // Beacon i panel są pokazywane TYLKO gdy jest też resume photo ID — wtedy
+  // pipeline był rzeczywiście in-flight podczas crasha. Bez resume ID → poprzednia
+  // sesja zakończyła się normalnie (np. stary kod nie czyścił logu po sukcesie) →
+  // czyścimy log po cichu żeby uniknąć fałszywych alarmów.
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STEP_LOG_KEY);
       if (!raw) return;
       const stale = JSON.parse(raw) as StepEntry[];
       if (stale.length === 0) return;
+      if (!getResumePhotoId()) {
+        // Brak resume ID → sesja zakończyła się ok, log jest przestarzały
+        clearStepLog();
+        return;
+      }
       setDebugSteps(stale);
       if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
         const body = JSON.stringify({
