@@ -96,7 +96,7 @@ Reguły E2E (seed test, getByRole, wait-for-state, izolacja) — sekcja M3L4 w [
 ## Demo dla recenzenta
 
 - **URL:** https://bookshelf.dariusz-danowski-559.workers.dev
-- **Konto demo:** `demo@demo.com` / hasło na żądanie · **4 półki** (Zakupione + 3 nazwane) · **7 zdjęć** (6 processed, śr. 16 detekcji/zdjęcie) · **46 realnych książek** z ISBN (polskie i zagraniczne, m.in. King, Grisham, Olech)
+- **Konto demo:** `demo@demo.com` / hasło na żądanie · **4 półki** (Zakupione + 3 nazwane) · **7 zdjęć** (6 processed, śr. 16 detekcji/zdjęcie; 1 celowo w stanie `uploaded` do demonstracji Flow A na żywo) · **46 realnych książek** z ISBN (polskie i zagraniczne, m.in. King, Grisham, Olech)
 - Szybki tour: `/shelves` (półki + zakładka Zdjęcia) → `/upload` (Flow A) → `/photos/[id]` (review detekcji z overlay bbox) → `/library` (wyszukiwarka + filtry + tryby widoku) → `/account` (statystyki kosztów vision, klucze BYOK)
 
 ## Anty-wzorce lekcji 4.2 — kontrola
