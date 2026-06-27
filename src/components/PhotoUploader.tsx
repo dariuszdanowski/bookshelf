@@ -388,7 +388,6 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
     const pendingUpload = getPendingUpload();
     if (pendingUpload && !getPendingRecording()) {
       clearPendingUpload();
-      clearStepLog();
       setErrorMsg(
         'Poprzednie wgrywanie zostało przerwane (przeładowanie strony). Wgraj zdjęcie ponownie.',
       );
@@ -517,7 +516,6 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
           const hasPending = detections.some((d) => d.status === 'pending');
           if (!hasPending) {
             clearResumePhotoId();
-            clearStepLog();
             window.location.href = `/photos/${photo.id}`;
           } else {
             setCanRetryMatchOnly(true);
