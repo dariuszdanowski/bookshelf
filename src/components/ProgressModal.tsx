@@ -64,7 +64,7 @@ export default function ProgressModal({
   const showProgress = !steps || activeStep?.label === steps[steps.length - 1]?.label;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overscroll-none bg-black/60 p-4">
       <div
         role="dialog"
         aria-modal="true"

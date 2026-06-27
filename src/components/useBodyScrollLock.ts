@@ -12,10 +12,15 @@ import { useEffect } from 'react';
 export function useBodyScrollLock(active: boolean = true) {
   useEffect(() => {
     if (!active) return;
-    const prev = document.body.style.overflow;
+    const prevOverflow = document.body.style.overflow;
+    const prevOverscroll = document.body.style.overscrollBehavior;
     document.body.style.overflow = 'hidden';
+    // overscroll-behavior: none blokuje pull-to-refresh na Android Chrome
+    // (overflow: hidden sam w sobie tego nie robi — to browser UI feature)
+    document.body.style.overscrollBehavior = 'none';
     return () => {
-      document.body.style.overflow = prev;
+      document.body.style.overflow = prevOverflow;
+      document.body.style.overscrollBehavior = prevOverscroll;
     };
   }, [active]);
 }

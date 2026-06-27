@@ -45,6 +45,10 @@ interface StepEntry {
 // Bufor modułu — reset przy przeładowaniu strony, ale NIE przy re-renderach.
 const _stepBuf: StepEntry[] = [];
 
+// Subskrybent React setState — wrapper obiektowy (const nie blokuje mutacji pola).
+// Rejestruje komponent żeby odbierać live-updates bez pollingu.
+const _live: { setter: ((steps: StepEntry[]) => void) | null } = { setter: null };
+
 function addStep(step: string, info = ''): void {
   const entry: StepEntry = { t: Date.now(), step, info };
   _stepBuf.push(entry);
@@ -54,6 +58,8 @@ function addStep(step: string, info = ''): void {
   } catch {
     // localStorage niedostępny — pomijamy persystencję
   }
+  // Live UI update — React state, widoczne na ekranie bez DevTools
+  _live.setter?.([..._stepBuf]);
   // sendBeacon do serwera — /api/client-log jest public (brak auth gate)
   if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
     const body = JSON.stringify({ level: 'debug', tag: step, message: info, data: entry });
@@ -140,7 +146,93 @@ function getMatchOffset(): number {
     return 0;
   }
 }
-// ──────────────────────────────────────────────────────────────────────────────
+// ─── Pending upload state ─────────────────────────────────────────────────────
+// Marker zapisywany PRZED fetch do upload-file. Jeśli strona przeładuje się
+// podczas trwającego uploadu (Vite HMR, Android OS, cokolwiek), recovery może
+// poinformować usera zamiast cicho pokazywać pusty formularz.
+
+const PENDING_UPLOAD_KEY = 'bookshelf:pending_upload';
+
+function setPendingUpload(shelfId: string): void {
+  try {
+    localStorage.setItem(PENDING_UPLOAD_KEY, JSON.stringify({ shelfId, ts: Date.now() }));
+  } catch {
+    // localStorage niedostępny
+  }
+}
+
+function clearPendingUpload(): void {
+  try {
+    localStorage.removeItem(PENDING_UPLOAD_KEY);
+  } catch {
+    // localStorage niedostępny
+  }
+}
+
+function getPendingUpload(): { shelfId: string; ts: number } | null {
+  try {
+    const raw = localStorage.getItem(PENDING_UPLOAD_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { shelfId: string; ts: number };
+    // TTL 10 min — krótszy niż pending recording (upload to sekundy, nie minuty)
+    if (Date.now() - parsed.ts > 10 * 60 * 1000) {
+      localStorage.removeItem(PENDING_UPLOAD_KEY);
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+// ─── Pending recording state ──────────────────────────────────────────────────
+// Zapisywany PRZED wywołaniem POST /api/photos — umożliwia wznawianie od etapu
+// recording jeśli strona przeładuje się po 201 z upload-file (np. Vite HMR,
+// Android OS zabił tab, nieoczekiwany reload).
+
+const PENDING_RECORDING_KEY = 'bookshelf:pending_recording';
+const PENDING_RECORDING_TTL_MS = 30 * 60 * 1000; // 30 min
+
+interface PendingRecording {
+  storagePath: string;
+  sha256: string;
+  shelfId: string;
+  ts: number;
+}
+
+function setPendingRecording(storagePath: string, sha256: string, shelfId: string): void {
+  try {
+    localStorage.setItem(
+      PENDING_RECORDING_KEY,
+      JSON.stringify({ storagePath, sha256, shelfId, ts: Date.now() }),
+    );
+  } catch {
+    // localStorage niedostępny
+  }
+}
+
+function getPendingRecording(): PendingRecording | null {
+  try {
+    const raw = localStorage.getItem(PENDING_RECORDING_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PendingRecording;
+    if (Date.now() - parsed.ts > PENDING_RECORDING_TTL_MS) {
+      localStorage.removeItem(PENDING_RECORDING_KEY);
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function clearPendingRecording(): void {
+  try {
+    localStorage.removeItem(PENDING_RECORDING_KEY);
+  } catch {
+    // localStorage niedostępny
+  }
+}
 // ──────────────────────────────────────────────────────────────────────────────
 
 async function computeSha256(file: File): Promise<string | null> {
@@ -194,9 +286,12 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
     authors?: string[];
     matched?: boolean;
   } | null>(null);
-  // Debug: kroki uploadu — zasilane z localStorage przy mounie (crash recovery)
-  // i aktualizowane przy błędzie żeby panel był widoczny od razu.
+  // Debug: kroki uploadu — zasilane z localStorage przy mounie (crash recovery),
+  // aktualizowane live przez _live.setter i przy błędzie.
   const [debugSteps, setDebugSteps] = useState<StepEntry[]>([]);
+  // Informacje o wybranym pliku — widoczne na ekranie od razu po wyborze zdjęcia,
+  // zanim jakikolwiek fetch ruszy (pomaga diagnozować OOM przed uploade).
+  const [liveFileInfo, setLiveFileInfo] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const matchSourceRef = useRef<EventSource | null>(null);
@@ -233,34 +328,38 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
   }, []);
 
   // Crash recovery: jeśli poprzednia sesja uploadu zakończyła się crashem
-  // (OOM, crash taba), localStorage ma zapisane kroki — pokazujemy je w debug panelu
-  // i wysyłamy sendBeacon do serwera (nie konsumuje fetch-mocków w testach).
+  // (OOM, crash taba, reload strony mid-upload), localStorage ma zapisane kroki.
   //
-  // Beacon i panel są pokazywane TYLKO gdy jest też resume photo ID — wtedy
-  // pipeline był rzeczywiście in-flight podczas crasha. Bez resume ID → poprzednia
-  // sesja zakończyła się normalnie (np. stary kod nie czyścił logu po sukcesie) →
-  // czyścimy log po cichu żeby uniknąć fałszywych alarmów.
+  // UWAGA: beacon wysyłamy zawsze — crash może nastąpić PRZED ustawieniem
+  // resumePhotoId (np. między upload-file 201 a POST /api/photos). Poprzedni
+  // warunek "tylko gdy resumeId" cicho kasował kroki najczęstszego crashu.
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STEP_LOG_KEY);
       if (!raw) return;
       const stale = JSON.parse(raw) as StepEntry[];
       if (stale.length === 0) return;
-      if (!getResumePhotoId()) {
-        // Brak resume ID → sesja zakończyła się ok, log jest przestarzały
-        clearStepLog();
-        return;
-      }
-      setDebugSteps(stale);
+
+      const resumeId = getResumePhotoId();
+      const pendingRec = getPendingRecording();
+
       if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
         const body = JSON.stringify({
           level: 'error',
           tag: 'crash-recovery',
-          message: `${stale.length} kroków z poprzedniej sesji`,
+          message: `${stale.length} kroków (hasResume=${!!resumeId} hasPending=${!!pendingRec})`,
           data: stale,
         });
         navigator.sendBeacon('/api/client-log', new Blob([body], { type: 'application/json' }));
       }
+
+      if (resumeId) {
+        setDebugSteps(stale);
+      } else if (!pendingRec) {
+        // Brak resume ID i pending recording → sesja zakończyła się normalnie
+        clearStepLog();
+      }
+      // Jeśli pendingRec istnieje → recovery useEffect (poniżej) obsłuży go
     } catch {
       // localStorage niedostępny lub zepsute dane
     }
@@ -317,8 +416,8 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
   }, []);
 
   // Globalny listener na błędy które uciekają poza handleFile's try/catch
-  // (render errors, unhandled rejections z innych źródeł).
-  // Aktywny tylko gdy jest aktywny upload (stage != idle) żeby nie zaśmiecać logów.
+  // (render errors, unhandled rejections z innych źródeł) + detekcja beforeunload
+  // podczas aktywnego uploadu (diagnozuje reload strony mid-upload).
   useEffect(() => {
     const onUnhandledRejection = (e: PromiseRejectionEvent) => {
       const reason =
@@ -332,11 +431,43 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
       const src = e.filename ? ` (${e.filename.split('/').pop()}:${e.lineno})` : '';
       addStep('global-error', `${msg}${src}`.slice(0, 100));
     };
+    const onBeforeUnload = () => {
+      const s = stageRef.current;
+      if (s === 'idle' || s === 'done') return;
+      if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+        navigator.sendBeacon(
+          '/api/client-log',
+          new Blob(
+            [
+              JSON.stringify({
+                level: 'error',
+                tag: 'upload-unload',
+                message: `page unload during stage=${s}`,
+                data: _stepBuf.slice(-10),
+              }),
+            ],
+            { type: 'application/json' },
+          ),
+        );
+      }
+    };
     window.addEventListener('unhandledrejection', onUnhandledRejection);
     window.addEventListener('error', onError);
+    window.addEventListener('beforeunload', onBeforeUnload);
     return () => {
       window.removeEventListener('unhandledrejection', onUnhandledRejection);
       window.removeEventListener('error', onError);
+      window.removeEventListener('beforeunload', onBeforeUnload);
+    };
+  }, []);
+
+  // Rejestracja live-settera — addStep() będzie aktualizował debugSteps w czasie rzeczywistym.
+  // setDebugSteps jest stabilne (gwarancja React), więc pusta tablica deps jest bezpieczna.
+
+  useEffect(() => {
+    _live.setter = setDebugSteps;
+    return () => {
+      _live.setter = null;
     };
   }, []);
 
@@ -395,8 +526,79 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
     [runMatch],
   );
 
-  // Recovery: resume pipeline for a photo stuck in 'processing' after page reload.
+  // Recovery: resume pipeline after page reload mid-upload.
+  // Trzy ścieżki:
+  // (A) pending upload — reload nastąpił PODCZAS fetch do upload-file (plik nie wgrany)
+  // (B) pending recording — reload po upload-file 201, przed POST /api/photos
+  // (C) resume photo ID — reload po recording, podczas vision/match
   useEffect(() => {
+    // Ścieżka A: reload podczas uploadu — storagePath nieznany, nie można auto-wznowić.
+    // Informujemy usera żeby wgrał plik ponownie (lepsze niż cichy pusty formularz).
+    const pendingUpload = getPendingUpload();
+    if (pendingUpload && !getPendingRecording()) {
+      clearPendingUpload();
+      clearStepLog();
+      setErrorMsg(
+        'Poprzednie wgrywanie zostało przerwane (przeładowanie strony). Wgraj zdjęcie ponownie.',
+      );
+      setStage('error');
+      return;
+    }
+    clearPendingUpload(); // wyczyść jeśli pending recording też istnieje (obsłuży ścieżka B)
+
+    // Ścieżka B: crash nastąpił przed POST /api/photos — wznów recording.
+    const pendingRec = getPendingRecording();
+    if (pendingRec) {
+      (async () => {
+        try {
+          addStep('recovery:pending-rec', pendingRec.storagePath.slice(-8));
+          // check-hash: czy recording zdążyło się odbyć przed unloadem?
+          const checkRes = await fetch(`/api/photos/check-hash?hash=${pendingRec.sha256}`);
+          const checkJson = (await checkRes.json()) as {
+            data?: { photo: { id: string } | null };
+          };
+
+          let photoId: string;
+          if (checkJson.data?.photo?.id) {
+            photoId = checkJson.data.photo.id;
+            addStep('recovery:found-by-hash', photoId.slice(0, 8));
+          } else {
+            const recRes = await fetch('/api/photos', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                shelf_id: pendingRec.shelfId,
+                storage_path: pendingRec.storagePath,
+                file_hash_sha256: pendingRec.sha256,
+              }),
+            });
+            const recJson = (await recRes.json()) as {
+              data?: { photo: { id: string } };
+              error?: { code?: string; message?: string };
+            };
+            if (!recRes.ok || !recJson.data) {
+              throw new Error(recJson.error?.message ?? `Błąd zapisu (${recRes.status})`);
+            }
+            photoId = recJson.data.photo.id;
+            addStep('recovery:recorded', photoId.slice(0, 8));
+          }
+
+          clearPendingRecording();
+          clearStepLog();
+          setCurrentPhotoId(photoId);
+          setResumePhotoId(photoId);
+          await processPhoto(photoId);
+          setStage('done');
+        } catch (err) {
+          clearPendingRecording();
+          setErrorMsg(err instanceof Error ? err.message : 'Błąd wznawiania nagrania.');
+          setStage('error');
+        }
+      })();
+      return;
+    }
+
+    // Ścieżka B: crash po recording — wznów vision/match.
     const resumeId = getResumePhotoId();
     if (!resumeId) return;
     (async () => {
@@ -492,6 +694,10 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
     async (file: File) => {
       setStage('uploading');
 
+      // Marker "upload w toku" — umożliwia recovery jeśli strona przeładuje się
+      // podczas uploadu (Vite HMR reconnect, Android OS kill, itp.).
+      setPendingUpload(selectedShelfId!);
+
       // Upload przez serwer (proxy) — przeglądarka wysyła plik na /api/photos/upload-file,
       // serwer widzi Supabase Storage niezależnie od urządzenia (telefon/komputer/LAN).
       const uploadForm = new FormData();
@@ -500,6 +706,7 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
         method: 'POST',
         body: uploadForm,
       });
+      clearPendingUpload(); // 201 received — upload completed, marker no longer needed
       const uploadJson = (await uploadRes.json().catch(() => ({}))) as {
         data?: { storagePath: string; sha256: string };
         error?: {
@@ -525,6 +732,9 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
       // M15 (thumbnail-server-side): miniatura powstaje server-side w upload-file
       // (photon, best-effort) obok oryginału — klient nie dotyka już canvasu.
 
+      // Zapisz stan przed recording — pozwala na wznowienie jeśli strona przeładuje
+      // się po 201 z upload-file (Vite HMR, Android OS kill taba, itp.).
+      setPendingRecording(storagePath, serverSha256, selectedShelfId!);
       addStep('doUpload:recording-start', `shelf=${selectedShelfId?.slice(0, 8)}`);
       setStage('recording');
       const recRes = await fetch('/api/photos', {
@@ -544,6 +754,7 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
 
       // Race condition: another upload with same hash slipped in between check and insert
       if (recRes.status === 409 && recJson.error?.code === 'DUPLICATE_PHOTO') {
+        clearPendingRecording();
         setDuplicatePhotoId(null);
         setDuplicateCreatedAt(null);
         setStage('duplicate');
@@ -551,8 +762,10 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
       }
 
       if (!recRes.ok || !recJson.data) {
+        clearPendingRecording();
         throw new Error(recJson.error?.message ?? `Błąd zapisu (${recRes.status})`);
       }
+      clearPendingRecording();
       const photoId = recJson.data.photo.id;
       setCurrentPhotoId(photoId);
 
@@ -604,6 +817,8 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
       setDebugSteps([]);
 
       const sizeMB = +(file.size / 1024 / 1024).toFixed(2);
+      // Widoczne na ekranie natychmiast — przed jakimkolwiek await (pomaga diagnozować OOM).
+      setLiveFileInfo(`${sizeMB} MB • ${file.type || 'image/jpeg'}`);
       addStep('handleFile:start', `${sizeMB}MB ${file.type} crypto=${!!crypto.subtle}`);
 
       try {
@@ -1022,12 +1237,32 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
         currentItem={stage === 'matching' ? currentMatchItem : null}
       />
 
-      {debugSteps.length > 0 && (
-        <details className="mt-4 rounded border border-gray-200 bg-gray-50 text-xs dark:border-gray-700 dark:bg-gray-900">
-          <summary className="cursor-pointer px-3 py-2 font-mono text-gray-500 dark:text-gray-400">
-            Upload debug log ({debugSteps.length} kroków)
+      {(debugSteps.length > 0 || isProcessing) && (
+        <details
+          open={isProcessing}
+          className="mt-4 rounded border border-gray-200 bg-gray-50 text-xs dark:border-gray-700 dark:bg-gray-900"
+        >
+          <summary className="flex cursor-pointer items-center justify-between px-3 py-2 font-mono text-gray-500 dark:text-gray-400">
+            <span>
+              Debug log ({debugSteps.length} kroków{liveFileInfo ? ` • ${liveFileInfo}` : ''})
+            </span>
+            {debugSteps.length > 0 && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  void navigator.clipboard.writeText(JSON.stringify(debugSteps, null, 2));
+                }}
+                className="ml-2 rounded px-2 py-0.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+              >
+                Kopiuj
+              </button>
+            )}
           </summary>
           <ol className="max-h-48 overflow-y-auto px-3 pb-2 font-mono">
+            {debugSteps.length === 0 && (
+              <li className="py-0.5 text-gray-400">Oczekiwanie na kroki…</li>
+            )}
             {debugSteps.map((s, i) => (
               <li key={i} className="py-0.5 text-gray-600 dark:text-gray-300">
                 <span className="text-gray-400">{new Date(s.t).toISOString().slice(11, 23)}</span>{' '}
