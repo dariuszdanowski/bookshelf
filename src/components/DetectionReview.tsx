@@ -2185,6 +2185,7 @@ export default function DetectionReview({
   } | null>(null);
   const matchSourceRef = useRef<EventSource | null>(null);
   const [rerunVisionPhase, setRerunVisionPhase] = useState<'vision' | 'matching' | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [decidedIds, setDecidedIds] = useState<Set<string>>(new Set());
   const [confirmedIds, setConfirmedIds] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -2241,10 +2242,8 @@ export default function DetectionReview({
           loadedDetections.filter((d) => d.status === 'confirmed').map((d) => d.id),
         );
         initialDecidedRef.current = confirmedFromDb;
-        if (confirmedFromDb.size > 0) {
-          setDecidedIds(new Set(confirmedFromDb));
-          setConfirmedIds(new Set(confirmedFromDb));
-        }
+        setDecidedIds(new Set(confirmedFromDb));
+        setConfirmedIds(new Set(confirmedFromDb));
       } catch (err) {
         if (!cancelled)
           setErrorMsg(err instanceof Error ? err.message : 'Nie udało się załadować propozycji.');
@@ -2255,7 +2254,7 @@ export default function DetectionReview({
     return () => {
       cancelled = true;
     };
-  }, [photoId]);
+  }, [photoId, refreshKey]);
 
   // Fetch listy półek po załadowaniu zdjęcia (lazy — potrzebne tylko do dropdown MOVE)
   useEffect(() => {
@@ -2455,7 +2454,7 @@ export default function DetectionReview({
       setMatchStats({ matched: 0, unmatched: 0 });
       setCurrentMatchItem(null);
       await runSSEMatch();
-      window.location.reload();
+      setRefreshKey((k) => k + 1);
     } catch (err) {
       const code = (err as { code?: string }).code;
       const status = (err as { status?: number }).status;
@@ -2547,7 +2546,7 @@ export default function DetectionReview({
     setActionMsg(null);
 
     runSSEMatch()
-      .then(() => window.location.reload())
+      .then(() => setRefreshKey((k) => k + 1))
       .catch((err: unknown) => {
         setActionMsg(err instanceof Error ? err.message : 'Błąd matchowania.');
       })
@@ -2852,6 +2851,30 @@ export default function DetectionReview({
             setConfirmRerunOpen(false);
             void runRerunVision();
           }}
+        />
+        <ProgressModal
+          open={actionBusyLabel !== null}
+          label={actionBusyLabel ?? ''}
+          titles={matchTitles}
+          progress={matchProgress ?? undefined}
+          stats={matchProgress !== null ? matchStats : null}
+          currentItem={currentMatchItem}
+          steps={
+            rerunVisionPhase !== null
+              ? [
+                  {
+                    label: 'Analiza obrazu',
+                    status: rerunVisionPhase === 'vision' ? 'active' : 'done',
+                  },
+                  {
+                    label: 'Dopasowywanie do baz książek',
+                    status: rerunVisionPhase === 'matching' ? 'active' : 'pending',
+                  },
+                ]
+              : actionBusy
+                ? [{ label: 'Dopasowywanie do baz książek', status: 'active' as const }]
+                : undefined
+          }
         />
       </div>
     );

@@ -350,6 +350,30 @@ test.describe('confirm: process-now-button (DetectionReview — brak detekcji)',
     await page.getByTestId('rerun-vision-confirm-confirm').click();
     await processPromise;
   });
+
+  test('ProgressModal pojawia się podczas przetwarzania w empty state', async ({ page }) => {
+    // Override mocked /process so it hangs long enough to observe modal
+    let releaseMock!: () => void;
+    const hangPromise = new Promise<void>((resolve) => {
+      releaseMock = resolve;
+    });
+    await page.route(`**/api/photos/${PHOTO_NO_DETECTIONS_ID}/process**`, async (route) => {
+      await hangPromise;
+      await route.fulfill({
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+        body: `event: started\ndata: {}\n\nevent: done\ndata: ${JSON.stringify({ photo: {}, detections: [] })}\n\n`,
+      });
+    });
+
+    await page.getByTestId('process-now-button').click();
+    await page.getByTestId('rerun-vision-confirm-confirm').click();
+
+    await expect(page.getByTestId('progress-modal')).toBeVisible({ timeout: 3_000 });
+
+    releaseMock();
+    await expect(page.getByTestId('progress-modal')).not.toBeVisible({ timeout: 8_000 });
+  });
 });
 
 // ── DetectionReview — Doprecyzuj odczyt ──────────────────────────────────────
