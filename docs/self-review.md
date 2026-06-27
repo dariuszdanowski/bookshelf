@@ -1,6 +1,6 @@
 # Self-review — BookShelf Catalog × wymogi certyfikacji 10xDevs 3.0
 
-**Data:** 2026-06-06 · **Produkcja:** https://bookshelf.dariusz-danowski-559.workers.dev · **Repo:** https://github.com/dariuszdanowski/bookshelf
+**Data:** 2026-06-28 · **Produkcja:** https://bookshelf.dariusz-danowski-559.workers.dev · **Repo:** https://github.com/dariuszdanowski/bookshelf
 
 Przegląd projektu pod sześć twardych wymogów certyfikacji (lekcja 4.2 preworka). Każdy wiersz prowadzi do dowodu w kodzie, testach lub CI — recenzent znajduje weryfikację w ≤1 klik.
 
@@ -52,23 +52,23 @@ UI: React islands ([`src/components/`](../src/components/)) na stronach Astro SS
 | PRD produktu + schemat danych | [`docs/prd.md`](prd.md), [`context/foundation/prd.md`](../context/foundation/prd.md) |
 | Plan implementacji (kalendarz M1–M3, DoD) | [`docs/plan-implementacji.md`](plan-implementacji.md) |
 | Tech-stack decision + infrastruktura (scored platform comparison) | [`context/foundation/tech-stack.md`](../context/foundation/tech-stack.md), [`context/foundation/infrastructure.md`](../context/foundation/infrastructure.md) |
-| Roadmapa slice'ów (26 done / 13 proposed, north star S-05) | [`context/foundation/roadmap.md`](../context/foundation/roadmap.md) |
+| Roadmapa slice'ów (49 done / 4 proposed, north star S-05) | [`context/foundation/roadmap.md`](../context/foundation/roadmap.md) |
 | Plan testów (mapa ryzyk, fazowany rollout, cookbook) | [`context/foundation/test-plan.md`](../context/foundation/test-plan.md) |
 | Kontekst dla AI: reguły pracy agenta + per-area rules | [`CLAUDE.md`](../CLAUDE.md), [`AGENTS.md`](../AGENTS.md), [`src/lib/vision/AGENTS.md`](../src/lib/vision/AGENTS.md) |
 | Lekcje (recurring rules) + health-check (re-genowany audyt) | [`context/foundation/lessons.md`](../context/foundation/lessons.md), [`context/foundation/health-check.md`](../context/foundation/health-check.md) |
-| **33 zarchiwizowane change'y** pełnego cyklu plan → implement → impl-review → archive | [`context/archive/`](../context/archive/) |
+| **73 zarchiwizowane change'y** pełnego cyklu plan → implement → impl-review → archive | [`context/archive/`](../context/archive/) |
 
 ## Wymóg 5 — Test E2E
 
-**Realizacja:** 28 plików spec Playwright, golden path `upload → detect → confirm → catalog` z mockiem vision przez `page.route` (zero kosztu LLM w automatach).
+**Realizacja:** 46 plików spec Playwright, golden path `upload → detect → confirm → catalog` z mockiem vision przez `page.route` (zero kosztu LLM w automatach).
 
 | Dowód | Gdzie |
 |---|---|
 | Golden path Flow A | [`tests/e2e/upload-flow.spec.ts`](../tests/e2e/upload-flow.spec.ts), [`proposal-accept-to-catalog.spec.ts`](../tests/e2e/proposal-accept-to-catalog.spec.ts) |
-| Auth, shelves, katalog, BYOK, koszty — pełna lista 28 specs | [`tests/e2e/`](../tests/e2e/) |
+| Auth, shelves, katalog, BYOK, koszty — pełna lista 46 specs | [`tests/e2e/`](../tests/e2e/) |
 | Współdzielona sesja `storageState` (1 signup/run), projekty setup/cleanup | [`playwright.config.ts`](../playwright.config.ts) |
 | E2E w CI na każdym PR (efemeryczna lokalna Supabase = darmowa walidacja migracji) | job `e2e` w [`ci.yml`](../.github/workflows/ci.yml) |
-| Ostatni pełny run lokalny: **130 passed / 2 skipped** | log w PR [#51](https://github.com/dariuszdanowski/bookshelf/pull/51) |
+| Ostatni pełny run lokalny: **149 passed / 2 skipped** | CI green na main |
 
 ## Wymóg 6 — CI/CD
 
@@ -76,7 +76,7 @@ UI: React islands ([`src/components/`](../src/components/)) na stronach Astro SS
 
 | Etap | Dowód |
 |---|---|
-| CI (PR + main): `npm audit` → lint → typecheck → **870 unit** → build + job e2e: integracja RLS + **Playwright E2E** | [`ci.yml`](../.github/workflows/ci.yml), [historia runów](https://github.com/dariuszdanowski/bookshelf/actions) |
+| CI (PR + main): `npm audit` → lint → typecheck → **1058 unit** → build + job e2e: integracja RLS + **Playwright E2E** | [`ci.yml`](../.github/workflows/ci.yml), [historia runów](https://github.com/dariuszdanowski/bookshelf/actions) |
 | Deploy (main): build → **migrate-first** `supabase db push` → `wrangler deploy` → **post-deploy smoke** `/api/health` | [`deploy.yml`](../.github/workflows/deploy.yml) |
 | Publiczny deployment | https://bookshelf.dariusz-danowski-559.workers.dev (health: [`/api/health`](https://bookshelf.dariusz-danowski-559.workers.dev/api/health)) |
 | Continuous dependency scanning | [`dependabot.yml`](../.github/dependabot.yml) + krok `npm audit --audit-level=high` w CI |
@@ -96,7 +96,7 @@ Reguły E2E (seed test, getByRole, wait-for-state, izolacja) — sekcja M3L4 w [
 ## Demo dla recenzenta
 
 - **URL:** https://bookshelf.dariusz-danowski-559.workers.dev
-- **Konto demo:** _(uzupełnić przy zgłoszeniu — P5 planu: 3 półki, ~30 realnych książek, przykładowe zdjęcia przez pełny pipeline)_
+- **Konto demo:** `demo@demo.com` / hasło na żądanie · **4 półki** (Zakupione + 3 nazwane) · **7 zdjęć** (6 processed, śr. 16 detekcji/zdjęcie) · **46 realnych książek** z ISBN (polskie i zagraniczne, m.in. King, Grisham, Olech)
 - Szybki tour: `/shelves` (półki + zakładka Zdjęcia) → `/upload` (Flow A) → `/photos/[id]` (review detekcji z overlay bbox) → `/library` (wyszukiwarka + filtry + tryby widoku) → `/account` (statystyki kosztów vision, klucze BYOK)
 
 ## Anty-wzorce lekcji 4.2 — kontrola

@@ -706,9 +706,7 @@ describe('DetectionReview — runRerunVision auto-match', () => {
     });
   });
 
-  it('po udanym vision otwiera SSE match-stream a potem reload', async () => {
-    const reloadMock = window.location.reload as unknown as ReturnType<typeof vi.fn>;
-
+  it('po udanym vision otwiera SSE match-stream a potem odświeża dane (refreshKey)', async () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
       const u = typeof url === 'string' ? url : (url as Request).url;
       if (u.includes('/process')) {
@@ -740,8 +738,20 @@ describe('DetectionReview — runRerunVision auto-match', () => {
     await waitFor(() => screen.getByRole('dialog'));
     fireEvent.click(screen.getByTestId('rerun-vision-confirm-confirm'));
 
-    // Wait for reload (signals full flow vision → SSE → done is complete)
-    await waitFor(() => expect(reloadMock).toHaveBeenCalled(), { timeout: 3000 });
+    // Wait for in-place data refresh (refreshKey increments → useEffect re-fetches photo GET)
+    // Initial load = 1 call; after flow completes = 2nd call
+    await waitFor(
+      () => {
+        const getPhotoCalls = fetchMock.mock.calls.filter(
+          ([url]) =>
+            typeof url === 'string' &&
+            url.includes(`/api/photos/${PHOTO_ID}`) &&
+            !url.includes('/process'),
+        );
+        expect(getPhotoCalls.length).toBeGreaterThanOrEqual(2);
+      },
+      { timeout: 3000 },
+    );
 
     // /process?skipMatch=1 must have been called
     const processCalls = fetchMock.mock.calls.filter(
@@ -752,6 +762,10 @@ describe('DetectionReview — runRerunVision auto-match', () => {
 
     // SSE match-stream must have been connected after /process
     expect(eseConnectedUrl).toContain(`/api/photos/${PHOTO_ID}/match-stream`);
+
+    // No page reload should happen (replaced by in-place refresh)
+    const reloadMock = window.location.reload as unknown as ReturnType<typeof vi.fn>;
+    expect(reloadMock).not.toHaveBeenCalled();
   });
 
   it('gdy vision zwraca błąd, SSE NIE jest uruchamiane i reload NIE następuje', async () => {
