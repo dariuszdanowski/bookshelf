@@ -17,6 +17,15 @@ const { title = 'BookShelf Catalog' } = Astro.props;
 const user = Astro.locals.user;
 const dbEnv = detectDbEnvironment();
 const titleWithEnv = `[${ENV_LABEL[dbEnv]}] ${title}`;
+const buildCommit = __BUILD_COMMIT__;
+const buildDate = new Date(__BUILD_TIME__).toLocaleString('pl-PL', {
+  day: '2-digit',
+  month: '2-digit',
+  year: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  timeZone: 'Europe/Warsaw',
+});
 const currentPath = Astro.url.pathname;
 
 let displayName: string | null = null;
@@ -185,5 +194,8 @@ function navCls(href: string) {
     </header>
     {user && <ImpersonationBanner client:load />}
     <slot />
+    <footer class="py-2 text-center font-mono text-[10px] text-gray-300 dark:text-gray-700">
+      v{buildCommit} · {buildDate}
+    </footer>
   </body>
 </html>

@@ -1,5 +1,10 @@
 /// <reference types="astro/client" />
 
+// Build-time constants injected via vite.define in astro.config.mjs.
+// Available in both .astro templates and React islands.
+declare const __BUILD_COMMIT__: string;
+declare const __BUILD_TIME__: string;
+
 /**
  * Cloudflare Worker bindings (secrets z Worker Dashboard).
  *

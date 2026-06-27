@@ -69,6 +69,17 @@ export default [
   },
 
   {
+    // Build-time constants injected by vite.define — muszą być znane ESLintowi
+    // żeby no-undef nie zgłaszał błędów w .astro i .ts.
+    languageOptions: {
+      globals: {
+        __BUILD_COMMIT__: 'readonly',
+        __BUILD_TIME__: 'readonly',
+      },
+    },
+  },
+
+  {
     files: ['*.config.{js,mjs,ts}', 'src/pages/api/**/*.ts', 'src/middleware.ts'],
     languageOptions: {
       globals: { ...globals.node },

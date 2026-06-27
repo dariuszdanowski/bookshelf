@@ -15,6 +15,12 @@ export default defineConfig({
   integrations: [react()],
 
   vite: {
+    define: {
+      // Build-time constants — zastępowane przez Vite przy kompilacji,
+      // dostępne w .astro i React islands bez żadnych env vars w runtime.
+      __BUILD_COMMIT__: JSON.stringify(process.env.GITHUB_SHA?.slice(0, 7) ?? 'dev'),
+      __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+    },
     resolve: {
       alias: {
         // Guard against SSR dep prebundle picking production jsx-dev-runtime,
