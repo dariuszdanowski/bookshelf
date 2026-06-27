@@ -28,54 +28,6 @@ const CLIENT_SHA256_MAX_BYTES = 4 * 1024 * 1024; // 4 MB
 // S-36: preferencja „Analizuj od razu" — kontrola kosztu vision per user.
 const AUTO_PROCESS_STORAGE_KEY = 'bookshelf:upload-auto-process';
 
-// ─── Upload step logger ────────────────────────────────────────────────────────
-// Rejestruje każdy krok uploadu w lokalnym buforze + localStorage (przeżywa crash)
-// + sendBeacon do serwera. Bufor modułu-level (nie React state) żeby nie powodować
-// re-renderów; do wyświetlenia w UI kopiujemy go do stanu tylko przy wejściu do
-// handleFile i przy błędzie.
-
-const STEP_LOG_KEY = 'bookshelf_upload_debug';
-
-interface StepEntry {
-  t: number; // Date.now()
-  step: string;
-  info: string;
-}
-
-// Bufor modułu — reset przy przeładowaniu strony, ale NIE przy re-renderach.
-const _stepBuf: StepEntry[] = [];
-
-// Subskrybent React setState — wrapper obiektowy (const nie blokuje mutacji pola).
-// Rejestruje komponent żeby odbierać live-updates bez pollingu.
-const _live: { setter: ((steps: StepEntry[]) => void) | null } = { setter: null };
-
-function addStep(step: string, info = ''): void {
-  const entry: StepEntry = { t: Date.now(), step, info };
-  _stepBuf.push(entry);
-  // Persist — przeżywa crash taba (odczytujemy przy następnym mountowaniu)
-  try {
-    localStorage.setItem(STEP_LOG_KEY, JSON.stringify(_stepBuf.slice(-30)));
-  } catch {
-    // localStorage niedostępny — pomijamy persystencję
-  }
-  // Live UI update — React state, widoczne na ekranie bez DevTools
-  _live.setter?.([..._stepBuf]);
-  // sendBeacon do serwera — /api/client-log jest public (brak auth gate)
-  if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
-    const body = JSON.stringify({ level: 'debug', tag: step, message: info, data: entry });
-    navigator.sendBeacon('/api/client-log', new Blob([body], { type: 'application/json' }));
-  }
-}
-
-function clearStepLog(): void {
-  _stepBuf.length = 0;
-  try {
-    localStorage.removeItem(STEP_LOG_KEY);
-  } catch {
-    // localStorage niedostępny
-  }
-}
-
 // ─── Resume photo ID ───────────────────────────────────────────────────────────
 // localStorage (nie sessionStorage) żeby przeżyć kill taba na iOS Safari/Chrome
 // (sessionStorage jest czyszczony gdy OS zabija tab przy braku pamięci).
@@ -286,12 +238,6 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
     authors?: string[];
     matched?: boolean;
   } | null>(null);
-  // Debug: kroki uploadu — zasilane z localStorage przy mounie (crash recovery),
-  // aktualizowane live przez _live.setter i przy błędzie.
-  const [debugSteps, setDebugSteps] = useState<StepEntry[]>([]);
-  // Informacje o wybranym pliku — widoczne na ekranie od razu po wyborze zdjęcia,
-  // zanim jakikolwiek fetch ruszy (pomaga diagnozować OOM przed uploade).
-  const [liveFileInfo, setLiveFileInfo] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const matchSourceRef = useRef<EventSource | null>(null);
@@ -324,44 +270,6 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
       }
     } catch {
       // localStorage niedostępny — zostaje default true
-    }
-  }, []);
-
-  // Crash recovery: jeśli poprzednia sesja uploadu zakończyła się crashem
-  // (OOM, crash taba, reload strony mid-upload), localStorage ma zapisane kroki.
-  //
-  // UWAGA: beacon wysyłamy zawsze — crash może nastąpić PRZED ustawieniem
-  // resumePhotoId (np. między upload-file 201 a POST /api/photos). Poprzedni
-  // warunek "tylko gdy resumeId" cicho kasował kroki najczęstszego crashu.
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STEP_LOG_KEY);
-      if (!raw) return;
-      const stale = JSON.parse(raw) as StepEntry[];
-      if (stale.length === 0) return;
-
-      const resumeId = getResumePhotoId();
-      const pendingRec = getPendingRecording();
-
-      if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
-        const body = JSON.stringify({
-          level: 'error',
-          tag: 'crash-recovery',
-          message: `${stale.length} kroków (hasResume=${!!resumeId} hasPending=${!!pendingRec})`,
-          data: stale,
-        });
-        navigator.sendBeacon('/api/client-log', new Blob([body], { type: 'application/json' }));
-      }
-
-      if (resumeId) {
-        setDebugSteps(stale);
-      } else if (!pendingRec) {
-        // Brak resume ID i pending recording → sesja zakończyła się normalnie
-        clearStepLog();
-      }
-      // Jeśli pendingRec istnieje → recovery useEffect (poniżej) obsłuży go
-    } catch {
-      // localStorage niedostępny lub zepsute dane
     }
   }, []);
 
@@ -415,62 +323,6 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
     };
   }, []);
 
-  // Globalny listener na błędy które uciekają poza handleFile's try/catch
-  // (render errors, unhandled rejections z innych źródeł) + detekcja beforeunload
-  // podczas aktywnego uploadu (diagnozuje reload strony mid-upload).
-  useEffect(() => {
-    const onUnhandledRejection = (e: PromiseRejectionEvent) => {
-      const reason =
-        e.reason instanceof Error
-          ? `${e.reason.name}: ${e.reason.message}`
-          : String(e.reason ?? 'unknown');
-      addStep('unhandled-rejection', reason.slice(0, 100));
-    };
-    const onError = (e: ErrorEvent) => {
-      const msg = e.message ?? 'unknown error';
-      const src = e.filename ? ` (${e.filename.split('/').pop()}:${e.lineno})` : '';
-      addStep('global-error', `${msg}${src}`.slice(0, 100));
-    };
-    const onBeforeUnload = () => {
-      const s = stageRef.current;
-      if (s === 'idle' || s === 'done') return;
-      if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
-        navigator.sendBeacon(
-          '/api/client-log',
-          new Blob(
-            [
-              JSON.stringify({
-                level: 'error',
-                tag: 'upload-unload',
-                message: `page unload during stage=${s}`,
-                data: _stepBuf.slice(-10),
-              }),
-            ],
-            { type: 'application/json' },
-          ),
-        );
-      }
-    };
-    window.addEventListener('unhandledrejection', onUnhandledRejection);
-    window.addEventListener('error', onError);
-    window.addEventListener('beforeunload', onBeforeUnload);
-    return () => {
-      window.removeEventListener('unhandledrejection', onUnhandledRejection);
-      window.removeEventListener('error', onError);
-      window.removeEventListener('beforeunload', onBeforeUnload);
-    };
-  }, []);
-
-  // Rejestracja live-settera — addStep() będzie aktualizował debugSteps w czasie rzeczywistym.
-  // setDebugSteps jest stabilne (gwarancja React), więc pusta tablica deps jest bezpieczna.
-
-  useEffect(() => {
-    _live.setter = setDebugSteps;
-    return () => {
-      _live.setter = null;
-    };
-  }, []);
-
   const runMatch = useCallback(async (photoId: string, startOffset = 0) => {
     setStage('matching');
     setMatchTitles([]);
@@ -501,7 +353,6 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
 
     setCanRetryMatchOnly(false);
     clearResumePhotoId();
-    clearStepLog();
     window.location.href = `/photos/${photoId}`;
   }, []);
 
@@ -551,7 +402,6 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
     if (pendingRec) {
       (async () => {
         try {
-          addStep('recovery:pending-rec', pendingRec.storagePath.slice(-8));
           // check-hash: czy recording zdążyło się odbyć przed unloadem?
           const checkRes = await fetch(`/api/photos/check-hash?hash=${pendingRec.sha256}`);
           const checkJson = (await checkRes.json()) as {
@@ -561,7 +411,6 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
           let photoId: string;
           if (checkJson.data?.photo?.id) {
             photoId = checkJson.data.photo.id;
-            addStep('recovery:found-by-hash', photoId.slice(0, 8));
           } else {
             const recRes = await fetch('/api/photos', {
               method: 'POST',
@@ -580,11 +429,9 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
               throw new Error(recJson.error?.message ?? `Błąd zapisu (${recRes.status})`);
             }
             photoId = recJson.data.photo.id;
-            addStep('recovery:recorded', photoId.slice(0, 8));
           }
 
           clearPendingRecording();
-          clearStepLog();
           setCurrentPhotoId(photoId);
           setResumePhotoId(photoId);
           await processPhoto(photoId);
@@ -652,7 +499,6 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
               const hasPending = pollDetections.some((d) => d.status === 'pending');
               if (!hasPending) {
                 clearResumePhotoId();
-                clearStepLog();
                 window.location.href = `/photos/${photo.id}`;
               } else {
                 setCanRetryMatchOnly(true);
@@ -735,7 +581,6 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
       // Zapisz stan przed recording — pozwala na wznowienie jeśli strona przeładuje
       // się po 201 z upload-file (Vite HMR, Android OS kill taba, itp.).
       setPendingRecording(storagePath, serverSha256, selectedShelfId!);
-      addStep('doUpload:recording-start', `shelf=${selectedShelfId?.slice(0, 8)}`);
       setStage('recording');
       const recRes = await fetch('/api/photos', {
         method: 'POST',
@@ -746,7 +591,6 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
           file_hash_sha256: serverSha256,
         }),
       });
-      addStep('doUpload:recording-response', `${recRes.status}`);
       const recJson = (await recRes.json()) as {
         data?: { photo: PhotoDTO };
         error?: { code?: string; message?: string };
@@ -775,14 +619,11 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
       // czeka akcja „Uruchom vision".
       // Brak aktywnego klucza API → zawsze skip (nawet gdy user zaznaczył checkbox).
       if (!autoProcess || hasActiveKey === false) {
-        addStep('doUpload:redirect', `autoProcess=${autoProcess} hasKey=${String(hasActiveKey)}`);
-        clearStepLog();
         setStage('done');
         window.location.href = `/shelves/${selectedShelfId}?tab=photos`;
         return;
       }
 
-      addStep('doUpload:process-start', photoId.slice(0, 8));
       setResumePhotoId(photoId);
 
       await processPhoto(photoId);
@@ -812,49 +653,28 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
       setDuplicatePhotoId(null);
       setDuplicateCreatedAt(null);
 
-      // Nowy upload — wyczyść poprzedni log diagnostyczny.
-      clearStepLog();
-      setDebugSteps([]);
-
-      const sizeMB = +(file.size / 1024 / 1024).toFixed(2);
-      // Widoczne na ekranie natychmiast — przed jakimkolwiek await (pomaga diagnozować OOM).
-      setLiveFileInfo(`${sizeMB} MB • ${file.type || 'image/jpeg'}`);
-      addStep('handleFile:start', `${sizeMB}MB ${file.type} crypto=${!!crypto.subtle}`);
-
       try {
         if (file.size > MAX_FILE_SIZE_BYTES) {
-          addStep('size:too-large', `${sizeMB}MB > 15MB`);
           throw new Error(`Plik jest za duży (max 15 MB). Wybierz mniejsze zdjęcie.`);
         }
 
-        const willCompute = !!crypto.subtle && file.size <= CLIENT_SHA256_MAX_BYTES;
-        addStep('sha256:decision', `willCompute=${willCompute}`);
-
         const sha256 = await computeSha256(file);
         if (sha256) {
-          addStep('check-hash:start', sha256.slice(0, 8) + '…');
           const checkRes = await fetch(`/api/photos/check-hash?hash=${sha256}`);
           const checkJson = (await checkRes.json()) as {
             data?: { photo: { id: string; shelf_id: string; created_at: string } | null };
           };
           if (checkJson.data?.photo) {
-            addStep('duplicate:found', checkJson.data.photo.id);
             setDuplicatePhotoId(checkJson.data.photo.id);
             setDuplicateCreatedAt(checkJson.data.photo.created_at);
             setStage('duplicate');
             return;
           }
-          addStep('check-hash:no-dup', '');
-        } else {
-          addStep('sha256:skipped', 'server will dedup');
         }
 
-        addStep('upload:start', `${sizeMB}MB`);
         await doUpload(file);
       } catch (err) {
         const errMsg = err instanceof Error ? err.message : 'Nieznany błąd';
-        addStep('error', `${err instanceof Error ? err.name : '?'}: ${errMsg.slice(0, 80)}`);
-        setDebugSteps([..._stepBuf]);
         setErrorMsg(errMsg);
         setStage('error');
       }
@@ -1236,43 +1056,6 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
         stats={stage === 'matching' && matchProgress !== null ? matchStats : null}
         currentItem={stage === 'matching' ? currentMatchItem : null}
       />
-
-      {(debugSteps.length > 0 || isProcessing) && (
-        <details
-          open={isProcessing}
-          className="mt-4 rounded border border-gray-200 bg-gray-50 text-xs dark:border-gray-700 dark:bg-gray-900"
-        >
-          <summary className="flex cursor-pointer items-center justify-between px-3 py-2 font-mono text-gray-500 dark:text-gray-400">
-            <span>
-              Debug log ({debugSteps.length} kroków{liveFileInfo ? ` • ${liveFileInfo}` : ''})
-            </span>
-            {debugSteps.length > 0 && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.preventDefault();
-                  void navigator.clipboard.writeText(JSON.stringify(debugSteps, null, 2));
-                }}
-                className="ml-2 rounded px-2 py-0.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20"
-              >
-                Kopiuj
-              </button>
-            )}
-          </summary>
-          <ol className="max-h-48 overflow-y-auto px-3 pb-2 font-mono">
-            {debugSteps.length === 0 && (
-              <li className="py-0.5 text-gray-400">Oczekiwanie na kroki…</li>
-            )}
-            {debugSteps.map((s, i) => (
-              <li key={i} className="py-0.5 text-gray-600 dark:text-gray-300">
-                <span className="text-gray-400">{new Date(s.t).toISOString().slice(11, 23)}</span>{' '}
-                <span className="font-semibold">{s.step}</span>
-                {s.info ? ` — ${s.info}` : ''}
-              </li>
-            ))}
-          </ol>
-        </details>
-      )}
     </div>
   );
 }
