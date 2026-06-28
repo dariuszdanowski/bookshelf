@@ -1,0 +1,133 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f172a"/>
+      <stop offset="100%" style="stop-color:#1e293b"/>
+    </linearGradient>
+    <linearGradient id="shelf" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#92400e"/>
+      <stop offset="100%" style="stop-color:#78350f"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="shadow">
+      <feDropShadow dx="2" dy="4" stdDeviation="4" flood-color="#00000066"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Subtle grid lines -->
+  <line x1="0" y1="210" x2="1200" y2="210" stroke="#ffffff08" stroke-width="1"/>
+  <line x1="0" y1="420" x2="1200" y2="420" stroke="#ffffff08" stroke-width="1"/>
+  <line x1="400" y1="0" x2="400" y2="630" stroke="#ffffff08" stroke-width="1"/>
+  <line x1="800" y1="0" x2="800" y2="630" stroke="#ffffff08" stroke-width="1"/>
+
+  <!-- Shelf plank -->
+  <rect x="60" y="430" width="780" height="18" fill="url(#shelf)" rx="2" filter="url(#shadow)"/>
+  <!-- Shelf shadow under -->
+  <rect x="60" y="448" width="780" height="6" fill="#00000044" rx="2"/>
+
+  <!-- Book 1 — red/orange tall -->
+  <rect x="80" y="270" width="52" height="160" fill="#dc2626" rx="2" filter="url(#shadow)"/>
+  <rect x="80" y="270" width="8" height="160" fill="#b91c1c"/>
+  <text x="106" y="390" font-family="Georgia,serif" font-size="11" fill="#fca5a5" text-anchor="middle" transform="rotate(-90,106,370)">DOM LALKARKI</text>
+
+  <!-- Book 2 — teal slim -->
+  <rect x="140" y="295" width="38" height="135" fill="#0d9488" rx="2" filter="url(#shadow)"/>
+  <rect x="140" y="295" width="6" height="135" fill="#0f766e"/>
+  <text x="159" y="400" font-family="Georgia,serif" font-size="10" fill="#99f6e4" text-anchor="middle" transform="rotate(-90,159,380)">INHERITANCE GAMES</text>
+
+  <!-- Book 3 — purple wide -->
+  <rect x="186" y="280" width="60" height="150" fill="#7c3aed" rx="2" filter="url(#shadow)"/>
+  <rect x="186" y="280" width="9" height="150" fill="#6d28d9"/>
+  <text x="216" y="395" font-family="Georgia,serif" font-size="11" fill="#ddd6fe" text-anchor="middle" transform="rotate(-90,216,375)">TAJNE PRZEZ MAGICZNE</text>
+
+  <!-- Book 4 — amber -->
+  <rect x="254" y="300" width="44" height="130" fill="#d97706" rx="2" filter="url(#shadow)"/>
+  <rect x="254" y="300" width="7" height="130" fill="#b45309"/>
+  <text x="276" y="395" font-family="Georgia,serif" font-size="10" fill="#fde68a" text-anchor="middle" transform="rotate(-90,276,375)">ZBRODNIA I MAGIA</text>
+
+  <!-- Book 5 — dark navy slim -->
+  <rect x="306" y="285" width="36" height="145" fill="#1e3a8a" rx="2" filter="url(#shadow)"/>
+  <rect x="306" y="285" width="6" height="145" fill="#1e40af"/>
+  <text x="324" y="398" font-family="Georgia,serif" font-size="9" fill="#bfdbfe" text-anchor="middle" transform="rotate(-90,324,376)">TOAST</text>
+
+  <!-- Book 6 — green -->
+  <rect x="350" y="310" width="42" height="120" fill="#166534" rx="2" filter="url(#shadow)"/>
+  <rect x="350" y="310" width="7" height="120" fill="#14532d"/>
+  <text x="371" y="398" font-family="Georgia,serif" font-size="9" fill="#86efac" text-anchor="middle" transform="rotate(-90,371,376)">PAPIEROWY MAG</text>
+
+  <!-- Book 7 — charcoal -->
+  <rect x="400" y="290" width="50" height="140" fill="#374151" rx="2" filter="url(#shadow)"/>
+  <rect x="400" y="290" width="8" height="140" fill="#1f2937"/>
+  <text x="425" y="400" font-family="Georgia,serif" font-size="10" fill="#9ca3af" text-anchor="middle" transform="rotate(-90,425,378)">SZKLANY MAG</text>
+
+  <!-- Book 8 — pink -->
+  <rect x="458" y="275" width="46" height="155" fill="#be185d" rx="2" filter="url(#shadow)"/>
+  <rect x="458" y="275" width="7" height="155" fill="#9d174d"/>
+  <text x="481" y="395" font-family="Georgia,serif" font-size="10" fill="#fbcfe8" text-anchor="middle" transform="rotate(-90,481,373)">ARCYMAG</text>
+
+  <!-- Book 9 — blue slim -->
+  <rect x="512" y="305" width="34" height="125" fill="#1d4ed8" rx="2" filter="url(#shadow)"/>
+  <rect x="512" y="305" width="5" height="125" fill="#1e40af"/>
+
+  <!-- Book 10 — olive -->
+  <rect x="554" y="288" width="48" height="142" fill="#4d7c0f" rx="2" filter="url(#shadow)"/>
+  <rect x="554" y="288" width="7" height="142" fill="#3f6212"/>
+
+  <!-- Book 11 — rose wide -->
+  <rect x="610" y="298" width="56" height="132" fill="#e11d48" rx="2" filter="url(#shadow)"/>
+  <rect x="610" y="298" width="9" height="132" fill="#be123c"/>
+
+  <!-- Book 12 — slate -->
+  <rect x="674" y="282" width="40" height="148" fill="#475569" rx="2" filter="url(#shadow)"/>
+  <rect x="674" y="282" width="6" height="148" fill="#334155"/>
+
+  <!-- Book 13 — yellow -->
+  <rect x="722" y="308" width="38" height="122" fill="#ca8a04" rx="2" filter="url(#shadow)"/>
+  <rect x="722" y="308" width="6" height="122" fill="#a16207"/>
+
+  <!-- Book 14 — indigo wide -->
+  <rect x="768" y="278" width="62" height="152" fill="#4338ca" rx="2" filter="url(#shadow)"/>
+  <rect x="768" y="278" width="10" height="152" fill="#3730a3"/>
+
+  <!-- Fade to right -->
+  <defs>
+    <linearGradient id="fadeRight" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="60%" style="stop-color:#00000000"/>
+      <stop offset="100%" style="stop-color:#0f172a"/>
+    </linearGradient>
+  </defs>
+  <rect x="60" y="260" width="780" height="180" fill="url(#fadeRight)"/>
+
+  <!-- Right panel — text content -->
+  <!-- Accent line -->
+  <rect x="900" y="180" width="4" height="270" fill="#6366f1" rx="2"/>
+
+  <!-- App name -->
+  <text x="924" y="235" font-family="system-ui,-apple-system,sans-serif" font-size="52" font-weight="700" fill="#f1f5f9" letter-spacing="-1">BookShelf</text>
+  <text x="924" y="295" font-family="system-ui,-apple-system,sans-serif" font-size="52" font-weight="700" fill="#6366f1" letter-spacing="-1">Catalog</text>
+
+  <!-- Divider -->
+  <rect x="924" y="315" width="200" height="2" fill="#334155"/>
+
+  <!-- Tagline -->
+  <text x="924" y="355" font-family="system-ui,-apple-system,sans-serif" font-size="19" fill="#94a3b8">Zdjęcie półki →</text>
+  <text x="924" y="383" font-family="system-ui,-apple-system,sans-serif" font-size="19" fill="#94a3b8">gotowy katalog.</text>
+
+  <!-- Stats chips -->
+  <rect x="924" y="415" width="130" height="34" fill="#1e293b" rx="17" stroke="#334155" stroke-width="1"/>
+  <text x="989" y="437" font-family="system-ui,-apple-system,sans-serif" font-size="14" fill="#a5b4fc" text-anchor="middle">1 zdjęcie = 20 książek</text>
+
+  <!-- Tech tags -->
+  <text x="924" y="490" font-family="system-ui,-apple-system,sans-serif" font-size="13" fill="#475569">Astro · Supabase · Cloudflare · LLM Vision</text>
+
+  <!-- Bottom bar -->
+  <rect x="0" y="590" width="1200" height="40" fill="#0f172a"/>
+  <text x="60" y="613" font-family="system-ui,-apple-system,sans-serif" font-size="13" fill="#475569">10xDevs 3.0 — projekt zaliczeniowy</text>
+  <text x="1140" y="613" font-family="system-ui,-apple-system,sans-serif" font-size="13" fill="#6366f1" text-anchor="end">bookshelf.dariusz-danowski-559.workers.dev</text>
+</svg>
