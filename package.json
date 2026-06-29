@@ -38,7 +38,7 @@
     "studio": "node scripts/open-studio.mjs"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.105.0",
+    "@anthropic-ai/sdk": "^0.106.0",
     "@astrojs/cloudflare": "^13.7.0",
     "@astrojs/react": "^5.0.4",
     "@cf-wasm/photon": "^0.3.5",
@@ -52,7 +52,7 @@
     "react-dom": "^19.2.6",
     "tailwindcss": "^4.3.1",
     "tesseract.js": "^7.0.0",
-    "wrangler": "^4.103.0",
+    "wrangler": "^4.105.0",
     "zod": "^4.4.3"
   },
   "overrides": {
@@ -62,28 +62,28 @@
   "devDependencies": {
     "@astrojs/check": "^0.9.9",
     "@eslint/js": "^9.39.4",
-    "@playwright/test": "^1.61.0",
+    "@playwright/test": "^1.61.1",
     "@stryker-mutator/core": "^9.6.1",
     "@stryker-mutator/vitest-runner": "^9.6.1",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
-    "@types/node": "^26.0.0",
+    "@types/node": "^26.0.1",
     "@vitest/coverage-v8": "^4.1.9",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-astro": "^1.7.0",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "globals": "^17.6.0",
+    "globals": "^17.7.0",
     "jsdom": "^29.1.1",
     "lefthook": "^2.1.9",
     "nodemon": "^3.1.14",
-    "prettier": "^3.8.4",
+    "prettier": "^3.9.1",
     "prettier-plugin-astro": "^0.14.1",
     "prettier-plugin-tailwindcss": "^0.8.0",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.61.1",
+    "typescript-eslint": "^8.62.0",
     "vitest": "^4.1.9"
   }
 }
