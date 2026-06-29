@@ -40,7 +40,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.105.0",
     "@astrojs/cloudflare": "^13.7.0",
-    "@astrojs/react": "^5.0.4",
+    "@astrojs/react": "^6.0.0",
     "@cf-wasm/photon": "^0.3.5",
     "@supabase/ssr": "^0.12.0",
     "@supabase/supabase-js": "^2.108.2",
