@@ -367,8 +367,8 @@ Migracja czysto addytywna (nowa tabela + rozszerzone CHECKi) — brak ryzyka dla
 
 #### Automatyczne
 
-- [x] 2.1 `npm run lint` i `astro check` przechodzą
-- [x] 2.2 Nowe testy jednostkowe `schema.ts`/`budgetPolicy.ts` zielone
+- [x] 2.1 `npm run lint` i `astro check` przechodzą — 44dbd52
+- [x] 2.2 Nowe testy jednostkowe `schema.ts`/`budgetPolicy.ts` zielone — 44dbd52
 
 ### Faza 3: API endpoint + atrybucja kosztu w `/account`
 
