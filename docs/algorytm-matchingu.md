@@ -13,9 +13,10 @@
 4. [Etap 2 — Wyszukiwanie w bazach zewnętrznych](#4-etap-2--wyszukiwanie-w-bazach-zewnętrznych)
 5. [Etap 3 — Ocena dopasowania](#5-etap-3--ocena-dopasowania)
 6. [Etap 4 — Słowny fallback OCR (gdy tytuł częściowo zniekształcony)](#6-etap-4--słowny-fallback-ocr-gdy-tytuł-częściowo-zniekształcony)
-7. [Etap 5 — Deduplikacja i ranking](#7-etap-5--deduplikacja-i-ranking)
-8. [Co widzi użytkownik po całym procesie?](#8-co-widzi-użytkownik-po-całym-procesie)
-9. [Podsumowanie — pełny diagram procesu](#9-podsumowanie--pełny-diagram-procesu)
+7. [Etap 5 — Rozwiązanie przez AI (ręczny fallback ostateczny)](#7-etap-5--rozwiązanie-przez-ai-ręczny-fallback-ostateczny)
+8. [Etap 6 — Deduplikacja i ranking](#8-etap-6--deduplikacja-i-ranking)
+9. [Co widzi użytkownik po całym procesie?](#9-co-widzi-użytkownik-po-całym-procesie)
+10. [Podsumowanie — pełny diagram procesu](#10-podsumowanie--pełny-diagram-procesu)
 
 ---
 
@@ -140,7 +141,25 @@ Bez fallbacku użytkownik zobaczyłby pustą listę i musiał wpisać tytuł rę
 
 ---
 
-## 7. Etap 5 — Deduplikacja i ranking
+## 7. Etap 5 — Rozwiązanie przez AI (ręczny fallback ostateczny)
+
+Gdy **ani** wyszukiwanie podstawowe, **ani** słowny fallback OCR (Etap 4) nie znajdą żadnego kandydata dla detekcji, przy karcie pojawia się przycisk **„Rozwiąż przez AI"**. To jedyny etap kaskady, który **nie uruchamia się automatycznie** — wymaga świadomego kliknięcia, bo jest płatny i korzysta z Twojego własnego klucza API Anthropic (BYOK).
+
+### Jak działa
+
+1. Po potwierdzeniu w oknie dialogowym system wysyła do Claude (Anthropic) odczytany tytuł i autora wraz z narzędziem **web search** — model sam przeszukuje internet, próbując różnych wariantów zapytania (odmiana, literówki, sam autor), czego kaskada oparta na dokładnym dopasowaniu słów kluczowych nie potrafi.
+2. Jeśli Claude znajdzie konkretną książkę z wysoką pewnością, wynik trafia do tej samej puli kandydatów co Google Books/OpenLibrary/Biblioteka Narodowa — przechodzi przez ten sam wzór oceny dopasowania (Etap 3) i tę samą ścieżkę akceptacji/odrzucenia.
+3. Jeśli model nie jest pewien albo w ogóle nie znalazł książki, żaden kandydat nie zostaje dodany — zamiast tego dostajesz informację, że AI nie znalazła dopasowania, i możesz wpisać książkę ręcznie.
+
+### Ograniczenia
+
+- Dostępny wyłącznie z aktywnym kluczem **Anthropic** (inne providery BYOK dają czytelny komunikat zamiast cichego błędu).
+- Limit wywołań: maksymalnie 3 na zdjęcie i 20 dziennie na konto — chroni przed przypadkowym nadużyciem (np. wielokrotne kliknięcia).
+- Każde wywołanie (sukces, brak wyniku, błąd) jest audytowane kosztowo i widoczne w podsumowaniu kosztów na stronie `/account` oraz w panelu kosztów zdjęcia.
+
+---
+
+## 8. Etap 6 — Deduplikacja i ranking
 
 Po zebraniu wszystkich kandydatów (z wyszukiwania podstawowego + ewentualnego fallbacku):
 
@@ -150,7 +169,7 @@ Po zebraniu wszystkich kandydatów (z wyszukiwania podstawowego + ewentualnego f
 
 ---
 
-## 8. Co widzi użytkownik po całym procesie?
+## 9. Co widzi użytkownik po całym procesie?
 
 Na ekranie „Przeglądaj detekcje" każda rozpoznana pozycja z półki pokazuje:
 
@@ -158,12 +177,13 @@ Na ekranie „Przeglądaj detekcje" każda rozpoznana pozycja z półki pokazuje
 - **Wizualny wskaźnik pewności** — zielony (≥ 75%), żółty (55–75%), brak pre-zaznaczenia (poniżej).
 - **Okładki** z OpenLibrary (gdy dostępne).
 - **Przyciski akcji**: Akceptuj / Odrzuć / Popraw ręcznie / Szukaj ponownie.
+- **„Rozwiąż przez AI"** — widoczny wyłącznie gdy karta nie ma żadnego kandydata; jedyny płatny, ręcznie wyzwalany krok.
 
 Gdy system musiał uruchomić słowny fallback, użytkownik **nie widzi** żadnej dodatkowej informacji — rezultat wygląda tak samo jak normalne dopasowanie. Różnica jest widoczna tylko w wynikach: zamiast pustej listy użytkownik dostaje propozycję do zatwierdzenia.
 
 ---
 
-## 9. Podsumowanie — pełny diagram procesu
+## 10. Podsumowanie — pełny diagram procesu
 
 ```
 Zdjęcie półki
@@ -230,6 +250,8 @@ Zdjęcie półki
 └─────────────────────────────────────┘
 ```
 
+> Powyższy diagram opisuje ścieżkę **automatyczną**. Gdy nawet po niej detekcja zostaje bez kandydatów, użytkownik może ręcznie uruchomić Etap 5 („Rozwiąż przez AI") — jedyny płatny, świadomie wyzwalany krok kaskady.
+
 ---
 
-*Plik źródłowy algorytmu: `src/lib/matching/findCandidates.ts` + `src/lib/matching/normalizeQuery.ts` + `src/lib/matching/score.ts`.*
+*Plik źródłowy algorytmu: `src/lib/matching/findCandidates.ts` + `src/lib/matching/normalizeQuery.ts` + `src/lib/matching/score.ts` + `src/lib/resolution/client.ts` (S-50).*

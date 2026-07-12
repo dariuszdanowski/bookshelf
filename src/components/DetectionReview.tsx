@@ -130,6 +130,55 @@ function WebSearchButton({
   );
 }
 
+// ---------------------------------------------------------------------------
+// AiResolutionButton — „Rozwiąż przez AI" (S-50): ostatni poziom kaskady
+// matchingu, widoczny wyłącznie gdy detekcja nie ma żadnych kandydatów.
+// Ten sam idiom co RefineButton (label + widoczny cost-hint), ale bez bbox
+// (wywołanie tekstowe web_search, nie crop).
+// ---------------------------------------------------------------------------
+function AiResolutionButton({
+  busy,
+  onClick,
+  size = 'md',
+}: {
+  busy: boolean;
+  onClick: () => void;
+  size?: 'lg' | 'md' | 'sm';
+}) {
+  const sizeCls = size === 'lg' ? 'px-3 py-1.5' : size === 'sm' ? 'px-2 py-1' : 'px-2.5 py-1';
+  const label = busy ? 'Rozwiązuję...' : 'Rozwiąż przez AI';
+  return (
+    <span className="inline-flex items-center gap-1">
+      <button
+        data-testid="ai-resolution-button"
+        disabled={busy}
+        onClick={onClick}
+        title="Rozwiąż przez AI (web search) — dodatkowa analiza AI (płatne, wymaga klucza Anthropic)"
+        className={`rounded-md border border-purple-300 bg-purple-50 text-xs font-medium text-purple-700 hover:bg-purple-100 disabled:opacity-50 dark:border-purple-700 dark:bg-purple-900/20 dark:text-purple-300 dark:hover:bg-purple-900/40 ${sizeCls}`}
+      >
+        {label}
+      </button>
+      {size === 'lg' ? (
+        <span
+          data-testid="ai-resolution-cost-hint"
+          className="text-[10px] leading-tight text-gray-400"
+        >
+          dodatkowa analiza AI — płatne
+        </span>
+      ) : (
+        <span
+          data-testid="ai-resolution-cost-hint"
+          title="dodatkowa analiza AI — płatne"
+          aria-label="dodatkowa analiza AI — płatne"
+          className="cursor-help text-xs text-gray-400"
+        >
+          ⓘ
+        </span>
+      )}
+    </span>
+  );
+}
+
 const TIER_STYLES: Record<MatchTier, { border: string; badge: string; label: string }> = {
   high: {
     border: 'border-green-300 bg-green-50',
@@ -775,6 +824,71 @@ function useDetectionDecision(
     }
   }
 
+  const [confirmAiResolve, setConfirmAiResolve] = useState(false);
+
+  // S-50: ostatni poziom kaskady — woła Claude z web_search (BYOK). Widoczne
+  // wyłącznie gdy detection.candidates.length === 0 (renderowane w widokach).
+  async function handleAiResolve() {
+    setBusyLabel('Rozwiązywanie przez AI (web search)...');
+    setBusy(true);
+    setErrorMsg(null);
+    try {
+      const res = await fetch(`/api/detections/${detection.id}/resolve`, { method: 'POST' });
+      const json = (await res.json()) as {
+        data?: {
+          applied?: boolean;
+          detection?: Partial<DetectionWithCandidatesDTO>;
+          candidates?: BookCandidateDTO[];
+          duplicate?: DetectionWithCandidatesDTO['duplicate'];
+          resolution?: { status: 'found' | 'not_found'; reason?: string | null };
+        };
+        error?: { code?: string; message?: string };
+      };
+
+      if (res.status === 429) {
+        setErrorMsg(json.error?.message ?? 'Osiągnięto limit wywołań AI-resolution.');
+        return;
+      }
+      if (res.status === 403 && json.error?.code === 'NO_API_KEY') {
+        setErrorMsg('Brak klucza API. Dodaj klucz w ustawieniach konta (/account).');
+        return;
+      }
+      if (res.status === 403 && json.error?.code === 'AI_RESOLUTION_PROVIDER_UNSUPPORTED') {
+        setErrorMsg(
+          json.error?.message ??
+            'Rozwiązanie przez AI wymaga aktywnego klucza Anthropic. Przełącz klucz na /account.',
+        );
+        return;
+      }
+      if (!res.ok) {
+        setErrorMsg(json.error?.message ?? `Błąd (${res.status})`);
+        return;
+      }
+
+      if (json.data?.resolution?.status === 'not_found') {
+        setErrorMsg(
+          json.data.resolution.reason ?? 'AI nie znalazła dopasowania — wpisz książkę ręcznie.',
+        );
+        return;
+      }
+
+      const nextDetection = json.data?.detection;
+      if (nextDetection) {
+        onRefined?.({
+          ...detection,
+          ...nextDetection,
+          candidates: json.data?.candidates ?? detection.candidates,
+          duplicate: json.data?.duplicate ?? detection.duplicate,
+        });
+      }
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : 'Błąd sieci.');
+    } finally {
+      setBusyLabel(null);
+      setBusy(false);
+    }
+  }
+
   // Po sukcesie korekty: detekcja zdecydowana. Komponent przechodzi w widok
   // 'decided' (early return), więc reset lokalnego showCorrectForm jest zbędny.
   function handleCorrectSuccess() {
@@ -802,6 +916,9 @@ function useDetectionDecision(
     handleRefine,
     confirmRefine,
     setConfirmRefine,
+    handleAiResolve,
+    confirmAiResolve,
+    setConfirmAiResolve,
     handleRematch,
     handleCorrectSuccess,
   };
@@ -851,6 +968,9 @@ function DetectionCard({
     handleRefine,
     confirmRefine,
     setConfirmRefine,
+    handleAiResolve,
+    confirmAiResolve,
+    setConfirmAiResolve,
     handleRematch,
     handleCorrectSuccess,
   } = useDetectionDecision(detection, onDecided, onRefined, onUndecided);
@@ -1242,6 +1362,9 @@ function DetectionCard({
             onClick={() => setConfirmRefine(true)}
             size="lg"
           />
+          {!top && (
+            <AiResolutionButton busy={busy} onClick={() => setConfirmAiResolve(true)} size="lg" />
+          )}
         </div>
       )}
 
@@ -1286,6 +1409,19 @@ function DetectionCard({
         onConfirm={() => {
           setConfirmRefine(false);
           void handleRefine();
+        }}
+      />
+      <ConfirmDialog
+        open={confirmAiResolve}
+        title="Rozwiązać przez AI?"
+        message="Uruchomi wyszukiwanie w sieci przez AI (Claude web_search) w oparciu o odczytany tytuł/autora. Operacja jest płatna i wymaga aktywnego klucza Anthropic."
+        confirmLabel="Rozwiąż przez AI"
+        cancelLabel="Anuluj"
+        testIdPrefix="ai-resolution-confirm"
+        onCancel={() => setConfirmAiResolve(false)}
+        onConfirm={() => {
+          setConfirmAiResolve(false);
+          void handleAiResolve();
         }}
       />
       <ProgressModal open={busyLabel !== null} label={busyLabel ?? ''} />
@@ -1406,6 +1542,9 @@ export function DetectionRow({
     handleRefine,
     confirmRefine,
     setConfirmRefine,
+    handleAiResolve,
+    confirmAiResolve,
+    setConfirmAiResolve,
     handleRematch,
     handleCorrectSuccess,
   } = useDetectionDecision(detection, onDecided, onRefined, onUndecided);
@@ -1605,6 +1744,9 @@ export function DetectionRow({
           onClick={() => setConfirmRefine(true)}
           size="md"
         />
+        {!top && (
+          <AiResolutionButton busy={busy} onClick={() => setConfirmAiResolve(true)} size="md" />
+        )}
       </div>
 
       {showRematchForm && (
@@ -1646,6 +1788,19 @@ export function DetectionRow({
         onConfirm={() => {
           setConfirmRefine(false);
           void handleRefine();
+        }}
+      />
+      <ConfirmDialog
+        open={confirmAiResolve}
+        title="Rozwiązać przez AI?"
+        message="Uruchomi wyszukiwanie w sieci przez AI (Claude web_search) w oparciu o odczytany tytuł/autora. Operacja jest płatna i wymaga aktywnego klucza Anthropic."
+        confirmLabel="Rozwiąż przez AI"
+        cancelLabel="Anuluj"
+        testIdPrefix="ai-resolution-confirm"
+        onCancel={() => setConfirmAiResolve(false)}
+        onConfirm={() => {
+          setConfirmAiResolve(false);
+          void handleAiResolve();
         }}
       />
       <ProgressModal open={busyLabel !== null} label={busyLabel ?? ''} />
@@ -1696,6 +1851,9 @@ export function DetectionTile({
     handleRefine,
     confirmRefine,
     setConfirmRefine,
+    handleAiResolve,
+    confirmAiResolve,
+    setConfirmAiResolve,
     handleRematch,
     handleCorrectSuccess,
   } = useDetectionDecision(detection, onDecided, onRefined, onUndecided);
@@ -1920,6 +2078,9 @@ export function DetectionTile({
           onClick={() => setConfirmRefine(true)}
           size="sm"
         />
+        {!top && (
+          <AiResolutionButton busy={busy} onClick={() => setConfirmAiResolve(true)} size="sm" />
+        )}
       </div>
 
       {showRematchForm && (
@@ -1961,6 +2122,19 @@ export function DetectionTile({
         onConfirm={() => {
           setConfirmRefine(false);
           void handleRefine();
+        }}
+      />
+      <ConfirmDialog
+        open={confirmAiResolve}
+        title="Rozwiązać przez AI?"
+        message="Uruchomi wyszukiwanie w sieci przez AI (Claude web_search) w oparciu o odczytany tytuł/autora. Operacja jest płatna i wymaga aktywnego klucza Anthropic."
+        confirmLabel="Rozwiąż przez AI"
+        cancelLabel="Anuluj"
+        testIdPrefix="ai-resolution-confirm"
+        onCancel={() => setConfirmAiResolve(false)}
+        onConfirm={() => {
+          setConfirmAiResolve(false);
+          void handleAiResolve();
         }}
       />
       <ProgressModal open={busyLabel !== null} label={busyLabel ?? ''} />
