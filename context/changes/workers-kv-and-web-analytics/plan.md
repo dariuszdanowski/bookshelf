@@ -422,17 +422,17 @@ bez cache, jak dziś).
 
 #### Ręczne
 
-- [ ] 1.7 Deploy + dwukrotny rematch → KV odczyty rosną, brak duplikatu requestu do GB w logach
-- [ ] 1.8 Binding KV działa w `npm run dev` (fallback: `npm run preview`)
+- [x] 1.7 Deploy + dwukrotny rematch → KV odczyty rosną, brak duplikatu requestu do GB w logach (potwierdzone przez zawartość KV Pairs w dashboardzie + `wrangler kv key list/get` — 5 wpisów OpenLibrary poprawnie zapisanych; „Metrics" tab dashboardu 0 to znane opóźnienie analityki, nie brak danych; pełny test z Google Books odłożony do resetu wyczerpanego dziennego limitu GB, user zaakceptował dowód jako wystarczający)
+- [x] 1.8 Binding KV działa w `npm run dev` (fallback: `npm run preview`) — techniczny test przez `.wrangler/state/v3/kv/` (Miniflare lokalny) potwierdził inicjalizację namespace'u przy starcie dev servera; timing-based test dwóch identycznych wywołań `/api/books/candidates` nierozstrzygający (zdominowany przez realny rate-limit GB przez Promise.all z OL) — zaakceptowane jako low-risk przez analogię do 1.7 (identyczny mechanizm `@astrojs/cloudflare` już potwierdzony w produkcji)
 
 ### Faza 2: Cloudflare Web Analytics beacon
 
 #### Automatyczne
 
-- [ ] 2.1 `npm run typecheck` zielone
-- [ ] 2.2 `npm run lint` zielone
-- [ ] 2.3 `npm run build` zielone (z i bez `PUBLIC_CF_BEACON_TOKEN`)
-- [ ] 2.4 E2E (`tests/e2e/**`) zielone — brak regresji
+- [x] 2.1 `npm run typecheck` zielone
+- [x] 2.2 `npm run lint` zielone
+- [x] 2.3 `npm run build` zielone (z i bez `PUBLIC_CF_BEACON_TOKEN`)
+- [x] 2.4 E2E (`tests/e2e/**`) — 220/221 zielone; 1 fail w `admin.spec.ts:137` potwierdzony jako pre-existing (reprodukuje identycznie z `Layout.astro` cofniętym do stanu sprzed Fazy 2, `git stash` izolacja) — brak regresji z tej fazy
 
 #### Ręczne
 
