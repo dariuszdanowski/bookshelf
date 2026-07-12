@@ -374,8 +374,8 @@ Migracja czysto addytywna (nowa tabela + rozszerzone CHECKi) — brak ryzyka dla
 
 #### Automatyczne
 
-- [x] 3.1 `npm run lint`, `astro check`, `npm run build` przechodzą
-- [x] 3.2 Cała istniejąca suita Vitest nadal zielona
+- [x] 3.1 `npm run lint`, `astro check`, `npm run build` przechodzą — 07de548
+- [x] 3.2 Cała istniejąca suita Vitest nadal zielona — 07de548
 
 #### Ręczne
 
