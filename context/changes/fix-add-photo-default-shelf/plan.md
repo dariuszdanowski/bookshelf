@@ -125,17 +125,17 @@ Desktop (`Layout.astro`) i mobile (`MobileNav.tsx`) linki do `/upload` dołącza
 
 #### Automatyczne
 
-- [x] 1.1 Nowy test jednostkowy ekstrakcji/walidacji shelf-id z currentPath (Layout.astro) przechodzi
-- [x] 1.2 Nowy test E2E mobile (rozszerzony mobile-responsive.spec.ts) przechodzi
-- [x] 1.3 Nowy test E2E desktop (rozszerzony upload-flow.spec.ts) przechodzi
-- [x] 1.4 Pełny unit suite przechodzi
-- [x] 1.5 Typecheck przechodzi
-- [x] 1.6 Lint przechodzi
-- [x] 1.7 E2E golden path bez regresji — 16/16 zielone po naprawie środowiska (WSL keepalive session — VM wyłączał się między poszczególnymi `wsl -e` komendami, restartując Docker/Supabase; `sleep infinity` w tle rozwiązuje to trwale)
+- [x] 1.1 Nowy test jednostkowy ekstrakcji/walidacji shelf-id z currentPath (Layout.astro) przechodzi — eb739a3
+- [x] 1.2 Nowy test E2E mobile (rozszerzony mobile-responsive.spec.ts) przechodzi — eb739a3
+- [x] 1.3 Nowy test E2E desktop (rozszerzony upload-flow.spec.ts) przechodzi — eb739a3
+- [x] 1.4 Pełny unit suite przechodzi — eb739a3
+- [x] 1.5 Typecheck przechodzi — eb739a3
+- [x] 1.6 Lint przechodzi — eb739a3
+- [x] 1.7 E2E golden path bez regresji — 16/16 zielone po naprawie środowiska (WSL keepalive session — VM wyłączał się między poszczególnymi `wsl -e` komendami, restartując Docker/Supabase; `sleep infinity` w tle rozwiązuje to trwale) — eb739a3
 
 #### Ręczne
 
-- [x] 1.8 Desktop: nav „Dodaj zdjęcie” z widoku półki preselekcjonuje właściwą półkę
-- [x] 1.9 Mobile: „Skanuj półkę” z widoku półki preselekcjonuje właściwą półkę
-- [x] 1.10 Empty-state „Wgraj pierwsze →” z widoku półki bez zdjęć preselekcjonuje właściwą półkę
-- [x] 1.11 Brak regresji: nav „Dodaj zdjęcie” z `/library` zachowuje dotychczasowy fallback
+- [x] 1.8 Desktop: nav „Dodaj zdjęcie” z widoku półki preselekcjonuje właściwą półkę — eb739a3
+- [x] 1.9 Mobile: „Skanuj półkę” z widoku półki preselekcjonuje właściwą półkę — eb739a3
+- [x] 1.10 Empty-state „Wgraj pierwsze →” z widoku półki bez zdjęć preselekcjonuje właściwą półkę — eb739a3
+- [x] 1.11 Brak regresji: nav „Dodaj zdjęcie” z `/library` zachowuje dotychczasowy fallback — eb739a3
