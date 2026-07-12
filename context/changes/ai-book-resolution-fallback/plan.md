@@ -358,10 +358,10 @@ Migracja czysto addytywna (nowa tabela + rozszerzone CHECKi) — brak ryzyka dla
 
 #### Automatyczne
 
-- [x] 1.1 Migracja aplikuje się czysto lokalnie
-- [x] 1.2 `npx wrangler types && astro check` przechodzi
-- [x] 1.3 `npm run lint` przechodzi
-- [x] 1.4 `npm run build` przechodzi
+- [x] 1.1 Migracja aplikuje się czysto lokalnie — d63b12d
+- [x] 1.2 `npx wrangler types && astro check` przechodzi — d63b12d
+- [x] 1.3 `npm run lint` przechodzi — d63b12d
+- [x] 1.4 `npm run build` przechodzi — d63b12d
 
 ### Faza 2: Moduł `src/lib/resolution/`
 
