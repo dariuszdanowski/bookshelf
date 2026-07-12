@@ -45,8 +45,23 @@ describe('findBookCandidates — ISBN-first path', () => {
     expect(candidates[0].title).toBe('Solaris');
   });
 
-  it('title puste + ISBN bez flagi isbnOnly → pusta lista (gate 0.25 aktywny)', async () => {
+  it('title puste + ISBN bez flagi isbnOnly, ale ISBN dokładnie pasuje → kandydat przechodzi (S-153: EXACT_ISBN_MATCH_SCORE floor)', async () => {
+    // Zmiana zachowania od S-153: exact ISBN match daje score ≥0.97 (score.ts),
+    // co samo w sobie przechodzi gate 0.25 — flaga isbnOnly nie jest już
+    // jedynym sposobem na przepuszczenie trafienia po ISBN.
     vi.mocked(searchGoogleBooks).mockResolvedValue({ ok: true, candidates: [GB_CANDIDATE] });
+    const { candidates } = await findBookCandidates('', null, ISBN);
+    expect(candidates.length).toBeGreaterThan(0);
+    expect(candidates[0].title).toBe('Solaris');
+  });
+
+  it('title puste + ISBN NIE pasujący do kandydata, bez flagi isbnOnly → pusta lista (gate 0.25 aktywny)', async () => {
+    // Gdy ISBN zapytania nie zgadza się z ISBN kandydata, brak floora — normalny gate
+    // nadal filtruje niskoscore'owe "śmieciowe" trafienia.
+    vi.mocked(searchGoogleBooks).mockResolvedValue({
+      ok: true,
+      candidates: [{ ...GB_CANDIDATE, isbn13: '9999999999999' }],
+    });
     const { candidates } = await findBookCandidates('', null, ISBN);
     expect(candidates).toEqual([]);
   });

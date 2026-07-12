@@ -4,6 +4,7 @@ import {
   authorTokensMatch,
   MATCH_HIGH,
   MATCH_MID,
+  EXACT_ISBN_MATCH_SCORE,
 } from '../../../../src/lib/matching/score';
 
 const exactDetection = { raw_title: 'Solaris', raw_author: 'Stanisław Lem' };
@@ -163,6 +164,71 @@ describe('scoreCandidate', () => {
       { title: 'Opowiadania', authors: ['Jozef Hen'], isbn13: null, isbn10: null },
     );
     expect(withAccent).toBeCloseTo(withoutAccent, 2);
+  });
+
+  // S-153: sam ISBN (bez tytułu) dawał tylko ~0.20 (isbnBonus flat 0.05, niezależny
+  // od tego czy ISBN faktycznie pasuje do zapytania) — mylące jako "brak pewnego
+  // matchu" mimo identyfikacji po globalnie unikalnym numerze.
+  describe('EXACT_ISBN_MATCH_SCORE floor (S-153)', () => {
+    it('sam ISBN (bez tytułu/autora) — score wysoki, nie ~0.20', () => {
+      const score = scoreCandidate(
+        { raw_title: '', raw_author: null, isbn: '9788383100012' },
+        {
+          title: 'Przerwana kołysanka',
+          authors: ['Natasza Socha'],
+          isbn13: '9788383100012',
+          isbn10: null,
+        },
+      );
+      expect(score).toBeGreaterThanOrEqual(EXACT_ISBN_MATCH_SCORE);
+    });
+
+    it('ISBN pasuje, ale tytuł/autor się różnią — nadal wysoki score (ISBN autorytatywny)', () => {
+      const score = scoreCandidate(
+        { raw_title: 'Zupełnie inny tytuł', raw_author: 'Ktoś Inny', isbn: '9788383100012' },
+        {
+          title: 'Przerwana kołysanka',
+          authors: ['Natasza Socha'],
+          isbn13: '9788383100012',
+          isbn10: null,
+        },
+      );
+      expect(score).toBeGreaterThanOrEqual(EXACT_ISBN_MATCH_SCORE);
+    });
+
+    it('ISBN10 zapytania vs ISBN13 kandydata — konwersja formatu wykrywa match', () => {
+      const score = scoreCandidate(
+        { raw_title: '', raw_author: null, isbn: '0156027607' },
+        { title: 'Solaris', authors: ['Stanisław Lem'], isbn13: '9780156027601', isbn10: null },
+      );
+      expect(score).toBeGreaterThanOrEqual(EXACT_ISBN_MATCH_SCORE);
+    });
+
+    it('ISBN zapytania NIE pasuje do ISBN kandydata — brak floora, zwykła formuła', () => {
+      const score = scoreCandidate(
+        { raw_title: '', raw_author: null, isbn: '9999999999999' },
+        {
+          title: 'Przerwana kołysanka',
+          authors: ['Natasza Socha'],
+          isbn13: '9788383100012',
+          isbn10: null,
+        },
+      );
+      expect(score).toBeLessThan(MATCH_MID);
+    });
+
+    it('brak ISBN w zapytaniu — zachowanie niezmienione (brak floora)', () => {
+      const score = scoreCandidate(
+        { raw_title: '', raw_author: null },
+        {
+          title: 'Przerwana kołysanka',
+          authors: ['Natasza Socha'],
+          isbn13: '9788383100012',
+          isbn10: null,
+        },
+      );
+      expect(score).toBeLessThan(MATCH_MID);
+    });
   });
 });
 

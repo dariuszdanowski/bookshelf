@@ -1,7 +1,14 @@
 import { deCyrillic } from './normalizeQuery';
+import { isbn10to13, isbn13to10, normalizeIsbn } from './isbn';
 
 export const MATCH_HIGH = 0.75;
 export const MATCH_MID = 0.55;
+
+// ISBN to globalnie unikalny identyfikator — dokładny match jest niemal pewną
+// identyfikacją niezależnie od zaszumionego OCR tytułu/autora. Floor powyżej
+// MATCH_HIGH (0.75), ale poniżej 1.0 tak, by pełna zgodność tytuł+autor+isbn
+// nadal mogła osiągnąć 1.0 przez zwykłą formułę ważoną (S-153).
+export const EXACT_ISBN_MATCH_SCORE = 0.97;
 
 function levenshtein(a: string, b: string): number {
   const m = a.length;
@@ -143,15 +150,36 @@ export function authorTokensMatch(
   );
 }
 
-type Detection = { raw_title: string; raw_author: string | null };
+type Detection = { raw_title: string; raw_author: string | null; isbn?: string | null };
 type Candidate = { title: string; authors: string[]; isbn13: string | null; isbn10: string | null };
+
+/** Czy zapytany ISBN odpowiada dokładnie isbn10/isbn13 kandydata (po normalizacji i konwersji formatu). */
+function isbnExactMatch(queryIsbn: string | null | undefined, candidate: Candidate): boolean {
+  if (!queryIsbn) return false;
+  const normalized = normalizeIsbn(queryIsbn);
+  if (candidate.isbn13 && normalizeIsbn(candidate.isbn13) === normalized) return true;
+  if (candidate.isbn10 && normalizeIsbn(candidate.isbn10) === normalized) return true;
+  if (normalized.length === 10) {
+    const as13 = isbn10to13(normalized);
+    if (as13 && candidate.isbn13 && normalizeIsbn(candidate.isbn13) === as13) return true;
+  }
+  if (normalized.length === 13) {
+    const as10 = isbn13to10(normalized);
+    if (as10 && candidate.isbn10 && normalizeIsbn(candidate.isbn10) === as10) return true;
+  }
+  return false;
+}
 
 export function scoreCandidate(detection: Detection, candidate: Candidate): number {
   const isbnBonus = candidate.isbn13 || candidate.isbn10 ? 0.05 : 0;
-  return Math.min(
+  const weighted = Math.min(
     1,
     0.65 * titleSim(detection.raw_title, candidate.title) +
       0.3 * authorSim(detection.raw_author, candidate.authors) +
       isbnBonus,
   );
+  if (isbnExactMatch(detection.isbn, candidate)) {
+    return Math.max(weighted, EXACT_ISBN_MATCH_SCORE);
+  }
+  return weighted;
 }

@@ -75,7 +75,7 @@ export async function findBookCandidates(
   const scored: ScoredCandidate[] = allCandidates.map((c) => ({
     ...c,
     matchScore: scoreCandidate(
-      { raw_title: rawTitle, raw_author: rawAuthor },
+      { raw_title: rawTitle, raw_author: rawAuthor, isbn: rawIsbn },
       { title: c.title, authors: c.authors, isbn13: c.isbn13, isbn10: c.isbn10 },
     ),
   }));
