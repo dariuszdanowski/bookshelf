@@ -1,6 +1,7 @@
 import { PhotonImage, resize, SamplingFilter } from '@cf-wasm/photon/workerd';
 
 import { readExifOrientation, withExifOrientation } from './exif';
+import { MAX_PHOTON_INPUT_BYTES } from './limits';
 
 const TARGET_EDGE = 1568;
 
@@ -20,6 +21,11 @@ const THUMB_JPEG_QUALITY = 75;
 export async function deriveWorkingCopy(
   input: ArrayBuffer,
 ): Promise<{ bytes: Uint8Array; mediaType: 'image/jpeg' }> {
+  if (input.byteLength > MAX_PHOTON_INPUT_BYTES) {
+    throw new Error(
+      'Zdjęcie jest za duże do przetworzenia (max 8 MB). Użyj mniejszego pliku lub skompresuj je przed wgraniem.',
+    );
+  }
   const bytes = new Uint8Array(input);
   let image: PhotonImage | undefined;
   let resized: PhotonImage | undefined;
@@ -57,6 +63,11 @@ export async function deriveWorkingCopy(
  * domyślnie honoruje `image-orientation: from-image`.
  */
 export async function deriveThumbnail(input: ArrayBuffer): Promise<Uint8Array> {
+  if (input.byteLength > MAX_PHOTON_INPUT_BYTES) {
+    throw new Error(
+      'Zdjęcie jest za duże do przetworzenia (max 8 MB). Użyj mniejszego pliku lub skompresuj je przed wgraniem.',
+    );
+  }
   const bytes = new Uint8Array(input);
   const orientation = readExifOrientation(bytes);
   let image: PhotonImage | undefined;

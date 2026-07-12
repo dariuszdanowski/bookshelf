@@ -4,6 +4,7 @@ import { runMatchSSE } from '../lib/matching/runMatchSSE';
 import { runProcessSSE } from '../lib/vision/runProcessSSE';
 import type { PhotoDTO } from '../lib/photos/schema';
 import type { ShelfDTO } from '../lib/shelves/schema';
+import { MAX_PHOTON_INPUT_BYTES } from '../lib/images/limits';
 import CameraPreview from './CameraPreview';
 import HelpTip from './HelpTip';
 import ProgressModal from './ProgressModal';
@@ -17,8 +18,6 @@ type UploadStage =
   | 'done'
   | 'error'
   | 'duplicate';
-
-const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15 MB cap (photon pamięć Worker 128MB)
 
 // Dla plików > 4 MB pomijamy client-side SHA-256 (file.arrayBuffer() w browser na dużych
 // plikach może crashować tab na mobilnym Safari/Chrome z ograniczoną pamięcią).
@@ -652,8 +651,8 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
       setDuplicateCreatedAt(null);
 
       try {
-        if (file.size > MAX_FILE_SIZE_BYTES) {
-          throw new Error(`Plik jest za duży (max 15 MB). Wybierz mniejsze zdjęcie.`);
+        if (file.size > MAX_PHOTON_INPUT_BYTES) {
+          throw new Error(`Plik jest za duży (max 8 MB). Wybierz mniejsze zdjęcie.`);
         }
 
         const sha256 = await computeSha256(file);
@@ -873,7 +872,7 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
               Przeciągnij zdjęcie półki lub kliknij, by wybrać
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              JPEG, PNG, WebP — max 15 MB (serwer przetwarza oryginał)
+              JPEG, PNG, WebP — max 8 MB (serwer przetwarza oryginał)
             </p>
             <input
               ref={fileInputRef}
