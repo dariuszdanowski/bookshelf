@@ -385,8 +385,8 @@ Migracja czysto addytywna (nowa tabela + rozszerzone CHECKi) — brak ryzyka dla
 
 #### Automatyczne
 
-- [x] 4.1 `npm run lint`, `astro check` przechodzą
-- [x] 4.2 Istniejące testy `DetectionReview`/`CostPanel` nadal zielone
+- [x] 4.1 `npm run lint`, `astro check` przechodzą — 67261ad
+- [x] 4.2 Istniejące testy `DetectionReview`/`CostPanel` nadal zielone — 67261ad
 
 ### Faza 5: Testy
 
