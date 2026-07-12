@@ -23,11 +23,13 @@ const LINKS_AFTER = [
 export default function MobileNav({
   email,
   currentPath = '',
+  currentShelfId = null,
   isAdmin = false,
   shelves = [],
 }: {
   email: string;
   currentPath?: string;
+  currentShelfId?: string | null;
   isAdmin?: boolean;
   shelves?: Shelf[];
 }) {
@@ -167,18 +169,22 @@ export default function MobileNav({
               )}
             </li>
 
-            {LINKS_AFTER.map((l) => (
-              <li key={l.href}>
-                <a
-                  href={l.href}
-                  data-testid={l.testid}
-                  aria-current={isActive(l.href) ? 'page' : undefined}
-                  className={linkCls(isActive(l.href))}
-                >
-                  {l.label}
-                </a>
-              </li>
-            ))}
+            {LINKS_AFTER.map((l) => {
+              const href =
+                l.href === '/upload' && currentShelfId ? `/upload?shelf=${currentShelfId}` : l.href;
+              return (
+                <li key={l.href}>
+                  <a
+                    href={href}
+                    data-testid={l.testid}
+                    aria-current={isActive(l.href) ? 'page' : undefined}
+                    className={linkCls(isActive(l.href))}
+                  >
+                    {l.label}
+                  </a>
+                </li>
+              );
+            })}
 
             {isAdmin && (
               <li>

@@ -330,7 +330,10 @@ export default function PhotoListIsland({ shelfId }: Props) {
       >
         <p className="text-gray-500">Brak zdjęć dla tej półki.</p>
         <p className="mt-2">
-          <a href="/upload" className="text-sm text-blue-600 hover:text-blue-800">
+          <a
+            href={`/upload?shelf=${shelfId}`}
+            className="text-sm text-blue-600 hover:text-blue-800"
+          >
             Wgraj pierwsze →
           </a>
         </p>

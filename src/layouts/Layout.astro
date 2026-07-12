@@ -8,6 +8,7 @@ import UserMenu from '../components/UserMenu.tsx';
 import ThemeToggle from '../components/ThemeToggle.tsx';
 import EnvBadge from '../components/EnvBadge.astro';
 import { detectDbEnvironment, ENV_LABEL } from '../lib/db/environment';
+import { extractShelfIdFromPath } from '../lib/shelves/currentShelfFromPath';
 
 interface Props {
   title?: string;
@@ -27,6 +28,7 @@ const buildDate = new Date(__BUILD_TIME__).toLocaleString('pl-PL', {
   timeZone: 'Europe/Warsaw',
 });
 const currentPath = Astro.url.pathname;
+const currentShelfId = extractShelfIdFromPath(currentPath);
 
 let displayName: string | null = null;
 let isAdmin = false;
@@ -109,6 +111,7 @@ function navCls(href: string) {
             client:load
             email={user.email ?? ''}
             currentPath={currentPath}
+            currentShelfId={currentShelfId}
             isAdmin={isAdmin}
             shelves={navShelves}
           />
@@ -127,7 +130,7 @@ function navCls(href: string) {
             </a>
             <ShelvesDropdown client:load shelves={navShelves} currentPath={currentPath} />
             <a
-              href="/upload"
+              href={currentShelfId ? `/upload?shelf=${currentShelfId}` : '/upload'}
               class={navCls('/upload')}
               aria-current={currentPath.startsWith('/upload') ? 'page' : undefined}
               data-testid="nav-upload"

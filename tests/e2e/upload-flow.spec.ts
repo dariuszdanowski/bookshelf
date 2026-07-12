@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+import { createShelf } from './helpers/interactions';
+
 /**
  * Golden path E2E dla S-04:
  *  1. Auth: współdzielona sesja z auth.setup.ts (storageState) — bez signup.
@@ -343,4 +345,26 @@ test('upload flow: /upload → wybór półki → upload → redirect → propoz
   await expect(page.getByTestId('detection-card-1')).toBeVisible();
   // S-05: DetectionReview przepisany — tier-badge-high zastąpiony przez confirm-button + bulk
   await expect(page.getByTestId('confirm-button').first()).toBeVisible();
+});
+
+test('nav „Skanuj półkę" z widoku konkretnej półki preselekcjonuje tę półkę na /upload', async ({
+  page,
+}) => {
+  // fix-add-photo-default-shelf: globalny link nav musi dołączyć ?shelf=<id>
+  // gdy user jest na /shelves/<id> — inaczej PhotoUploader fallbackuje na
+  // list[0] (zawsze „Zakupione"), nie na półkę, na której user właśnie był.
+  const shelfName = `E2E Nav Upload ${Date.now()}`;
+  await page.goto('/shelves');
+  await expect(page.getByTestId('shelves-island')).toBeVisible();
+  await createShelf(page, shelfName);
+
+  const shelfRow = page.locator('[data-testid^="shelf-item-"]').filter({ hasText: shelfName });
+  await shelfRow.getByTestId('shelf-item-photos-link').click();
+  await page.waitForURL(/\/shelves\/[0-9a-f-]{36}$/);
+  const shelfId = page.url().split('/shelves/')[1];
+
+  await expect(page.getByTestId('nav-upload')).toHaveAttribute('href', `/upload?shelf=${shelfId}`);
+  await page.getByTestId('nav-upload').click();
+  await page.waitForURL(`/upload?shelf=${shelfId}`);
+  await expect(page.getByTestId('shelf-select')).toHaveValue(shelfId, { timeout: 5_000 });
 });
