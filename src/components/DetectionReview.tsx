@@ -381,7 +381,7 @@ function RematchForm({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim() && !isbn.trim()) return;
     onSubmit(title.trim(), author.trim() || null, isbn.trim() || null, publisher.trim() || null);
   }
 
@@ -399,7 +399,6 @@ function RematchForm({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
-            required
           />
         </label>
       </div>
@@ -451,7 +450,7 @@ function RematchForm({
         <button
           type="submit"
           data-testid="rematch-submit"
-          disabled={busy || !title.trim()}
+          disabled={busy || (!title.trim() && !isbn.trim())}
           className="flex-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
         >
           {busy ? 'Szukam...' : 'Szukaj'}
@@ -1994,7 +1993,7 @@ function AddMissedBookForm({ busy, errorMsg, onSubmit, onCancel }: AddMissedBook
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim() && !isbn.trim()) return;
     onSubmit(title.trim(), author.trim() || null, isbn.trim() || null, publisher.trim() || null);
   }
 
@@ -2013,7 +2012,6 @@ function AddMissedBookForm({ busy, errorMsg, onSubmit, onCancel }: AddMissedBook
             onChange={(e) => setTitle(e.target.value)}
             autoFocus
             className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
-            required
           />
         </label>
       </div>
@@ -2065,7 +2063,7 @@ function AddMissedBookForm({ busy, errorMsg, onSubmit, onCancel }: AddMissedBook
         <button
           data-testid="add-missed-submit"
           type="submit"
-          disabled={busy || !title.trim()}
+          disabled={busy || (!title.trim() && !isbn.trim())}
           className="flex-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
         >
           {busy ? 'Szukam...' : 'Szukaj'}

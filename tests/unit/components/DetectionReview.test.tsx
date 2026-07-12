@@ -937,6 +937,68 @@ describe('DetectionReview — rematch form close po sukcesie (M12)', () => {
 });
 
 // ---------------------------------------------------------------------------
+// S-153: "Szukaj" odblokowany gdy wypełniono TYLKO ISBN (bez tytułu)
+// ---------------------------------------------------------------------------
+
+describe('DetectionReview — rematch po samym ISBN (S-153)', () => {
+  it('rematch-submit odblokowany i wysyła pusty tytuł, gdy wypełniono tylko ISBN', async () => {
+    const fetchMock = vi.fn((url, init) => {
+      const u = typeof url === 'string' ? url : (url as Request).url;
+      if (u.includes('/rematch') && init?.method === 'POST') {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              data: {
+                applied: true,
+                detection: { id: detNoMatch.id, status: 'matched', raw_title: 'Nieznana' },
+                candidates: [],
+                duplicate: null,
+              },
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify(makePhotoResponse([detNoMatch])), { status: 200 }),
+      );
+    });
+    vi.spyOn(globalThis, 'fetch').mockImplementation(fetchMock);
+
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => screen.getByTestId('no-match-placeholder'));
+
+    fireEvent.click(screen.getByTestId('rematch-button'));
+    await waitFor(() => screen.getByTestId('rematch-form'));
+
+    // Formularz wystartował z detection.raw_title — czyścimy, by przetestować ISBN-only.
+    fireEvent.change(screen.getByTestId('rematch-title'), { target: { value: '' } });
+    expect(screen.getByTestId('rematch-submit')).toBeDisabled();
+
+    fireEvent.change(screen.getByTestId('rematch-isbn'), {
+      target: { value: '9788308073087' },
+    });
+    expect(screen.getByTestId('rematch-submit')).not.toBeDisabled();
+
+    fireEvent.click(screen.getByTestId('rematch-submit'));
+
+    await waitFor(() => {
+      const rematchCall = fetchMock.mock.calls.find(([url, init]) => {
+        const u = typeof url === 'string' ? url : (url as Request).url;
+        return u.includes('/rematch') && init?.method === 'POST';
+      });
+      expect(rematchCall).toBeTruthy();
+      const body = JSON.parse((rematchCall![1] as RequestInit).body as string) as {
+        title: string;
+        isbn: string | null;
+      };
+      expect(body.title).toBe('');
+      expect(body.isbn).toBe('9788308073087');
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
 // M19: parytet akcji „Szukaj" w trybach Lista i Kafelki — przy istniejącym
 // kandydacie (top) Karty miały „Szukaj", a Lista/Kafelki tylko „Popraw".
 // ---------------------------------------------------------------------------

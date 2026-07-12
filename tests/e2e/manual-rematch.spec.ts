@@ -108,6 +108,48 @@ test.describe('manual rematch — szukaj po tytule', () => {
     await expect(page.getByText('Przerwana kołysanka').first()).toBeVisible();
   });
 
+  test('S-153: Szukaj odblokowany i działa gdy wypełniono tylko ISBN (bez tytułu)', async ({
+    page,
+  }) => {
+    let requestBody: { title?: string; isbn?: string | null } | null = null;
+    await page.route(`**/api/detections/${DET_ID}/rematch`, (route) => {
+      requestBody = route.request().postDataJSON() as { title?: string; isbn?: string | null };
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            applied: true,
+            detection: {
+              id: DET_ID,
+              status: 'matched',
+              raw_title: 'Przerwana kołysanka',
+              raw_author: 'Natasza Socha',
+            },
+            candidates: [MOCK_REMATCH_RESULT],
+            duplicate: null,
+          },
+        }),
+      });
+    });
+
+    await page.getByTestId('rematch-button').first().click();
+    await expect(page.getByTestId('rematch-form')).toBeVisible();
+
+    // Formularz startuje z pre-wypełnionym tytułem (raw_title detekcji) — czyścimy dla testu ISBN-only.
+    await page.getByTestId('rematch-title').fill('');
+    await expect(page.getByTestId('rematch-submit')).toBeDisabled();
+
+    await page.getByTestId('rematch-isbn').fill('9788383100012');
+    await expect(page.getByTestId('rematch-submit')).toBeEnabled();
+
+    await page.getByTestId('rematch-submit').click();
+
+    await expect(page.getByTestId('no-match-placeholder')).not.toBeVisible();
+    await expect(page.getByText('Przerwana kołysanka').first()).toBeVisible();
+    expect(requestBody).toEqual(expect.objectContaining({ title: '', isbn: '9788383100012' }));
+  });
+
   test('brak wyników pokazuje komunikat i zamyka formularz', async ({ page }) => {
     await page.route(`**/api/detections/${DET_ID}/rematch`, (route) =>
       route.fulfill({

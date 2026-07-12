@@ -283,14 +283,19 @@ export const IdentifyBookSchema = z.discriminatedUnion('mode', [
 ]);
 export type IdentifyBookInput = z.infer<typeof IdentifyBookSchema>;
 
-// POST /api/detections/[id]/rematch — wyszukanie Google Books z poprawionym tytułem/autorem
-export const RematchDetectionSchema = z.object({
-  title: z.string().min(1, 'Tytuł nie może być pusty').max(300),
-  author: z.string().max(200).nullable().optional(),
-  isbn: z.string().max(20).nullable().optional(),
-  // M22: wydawnictwo z grzbietu — zawęża wyszukiwanie GB (inpublisher:)
-  publisher: z.string().max(200).nullable().optional(),
-});
+// POST /api/detections/[id]/rematch — wyszukanie Google Books z poprawionym tytułem/autorem.
+// Co najmniej tytuł lub ISBN wymagany (S-153: sam ISBN też wystarcza, wzorzec jak w SearchCandidatesSchema).
+export const RematchDetectionSchema = z
+  .object({
+    title: z.string().trim().max(300).optional(),
+    author: z.string().max(200).nullable().optional(),
+    isbn: z.string().max(20).nullable().optional(),
+    // M22: wydawnictwo z grzbietu — zawęża wyszukiwanie GB (inpublisher:)
+    publisher: z.string().max(200).nullable().optional(),
+  })
+  .refine((v) => !!(v.title || v.isbn), {
+    message: 'Podaj tytuł lub ISBN.',
+  });
 export type RematchDetectionInput = z.infer<typeof RematchDetectionSchema>;
 
 // POST /api/books/candidates — bezksiążkowe wyszukiwanie kandydatów (S-36).
