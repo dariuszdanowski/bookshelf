@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "skills": {
+    "github-issue-implement": {
+      "source": "https://gitlab-poz.asseco.pl/devtools/jira-task-implement.git",
+      "sourceUrl": "https://gitlab-poz.asseco.pl/devtools/jira-task-implement.git",
+      "sourceType": "git",
+      "skillPath": "skill-github-issue/SKILL.md",
+      "computedHash": "2618f52a8c15ca5bfc7dd2e96f6a66decb54f40926a578dd413b82694177c18e"
+    },
+    "gitlab-issue-implement": {
+      "source": "https://gitlab-poz.asseco.pl/devtools/jira-task-implement.git",
+      "sourceUrl": "https://gitlab-poz.asseco.pl/devtools/jira-task-implement.git",
+      "sourceType": "git",
+      "skillPath": "skill-gitlab-issue/SKILL.md",
+      "computedHash": "d6daea0ce680a967c7b7ad919af92001ca2283ce8971cd58a892ffcbd62ac762"
+    },
+    "jira-task-implement": {
+      "source": "https://gitlab-poz.asseco.pl/devtools/jira-task-implement.git",
+      "sourceUrl": "https://gitlab-poz.asseco.pl/devtools/jira-task-implement.git",
+      "sourceType": "git",
+      "skillPath": "skill/SKILL.md",
+      "computedHash": "8097453a83126632661252e6b2bb826b29825d22b58a4cddf4bb6599044f4d7d"
+    },
+    "jira-task-implement-control": {
+      "source": "https://gitlab-poz.asseco.pl/devtools/jira-task-implement.git",
+      "sourceUrl": "https://gitlab-poz.asseco.pl/devtools/jira-task-implement.git",
+      "sourceType": "git",
+      "skillPath": "skill-control/SKILL.md",
+      "computedHash": "28d3b723d40cf38d154061634c5c2edbe5605f15cd760659955eeb905146164a"
+    }
+  }
+}
