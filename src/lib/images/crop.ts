@@ -1,5 +1,7 @@
 import { PhotonImage, crop, grayscale, resize, SamplingFilter } from '@cf-wasm/photon/workerd';
 
+import { MAX_PHOTON_INPUT_BYTES } from './limits';
+
 type NormalizedBbox = {
   x1: number;
   y1: number;
@@ -14,8 +16,13 @@ function clamp01(value: number): number {
 export async function deriveDetectionCrop(
   input: ArrayBuffer,
   bbox: NormalizedBbox,
-  options?: { paddingPx?: number; maxEdge?: number }
+  options?: { paddingPx?: number; maxEdge?: number },
 ): Promise<{ bytes: Uint8Array; mediaType: 'image/jpeg' }> {
+  if (input.byteLength > MAX_PHOTON_INPUT_BYTES) {
+    throw new Error(
+      'Zdjęcie jest za duże do dopracowania detekcji (max 8 MB). Użyj mniejszego pliku lub skompresuj je przed wgraniem.',
+    );
+  }
   const bytes = new Uint8Array(input);
   const paddingPx = options?.paddingPx ?? 8;
   const maxEdge = options?.maxEdge ?? 1024;

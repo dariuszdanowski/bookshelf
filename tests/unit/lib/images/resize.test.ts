@@ -37,6 +37,7 @@ vi.mock('../../../../src/lib/images/exif', () => ({
 import { deriveThumbnail, deriveWorkingCopy } from '../../../../src/lib/images/resize';
 import { PhotonImage, resize } from '@cf-wasm/photon/workerd';
 import { readExifOrientation, withExifOrientation } from '../../../../src/lib/images/exif';
+import { MAX_PHOTON_INPUT_BYTES } from '../../../../src/lib/images/limits';
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -115,6 +116,20 @@ describe('deriveWorkingCopy', () => {
     const buf = new Uint8Array([1, 2, 3]).buffer;
     await deriveWorkingCopy(buf);
     expect(PhotonImage.new_from_byteslice).toHaveBeenCalledWith(expect.any(Uint8Array));
+  });
+
+  describe('size guard', () => {
+    it('rzuca dla bufora > MAX_PHOTON_INPUT_BYTES i NIE woła PhotonImage', async () => {
+      const buf = new ArrayBuffer(MAX_PHOTON_INPUT_BYTES + 1);
+      await expect(deriveWorkingCopy(buf)).rejects.toThrow(/za duże/);
+      expect(PhotonImage.new_from_byteslice).not.toHaveBeenCalled();
+    });
+
+    it('przechodzi normalnie dla bufora dokładnie na granicy', async () => {
+      const buf = new ArrayBuffer(MAX_PHOTON_INPUT_BYTES);
+      await expect(deriveWorkingCopy(buf)).resolves.toBeDefined();
+      expect(PhotonImage.new_from_byteslice).toHaveBeenCalled();
+    });
   });
 });
 
@@ -204,5 +219,19 @@ describe('deriveThumbnail', () => {
     mockFree.mockClear();
     await deriveThumbnail(new ArrayBuffer(100));
     expect(mockFree).toHaveBeenCalledTimes(2);
+  });
+
+  describe('size guard', () => {
+    it('rzuca dla bufora > MAX_PHOTON_INPUT_BYTES i NIE woła PhotonImage', async () => {
+      const buf = new ArrayBuffer(MAX_PHOTON_INPUT_BYTES + 1);
+      await expect(deriveThumbnail(buf)).rejects.toThrow(/za duże/);
+      expect(PhotonImage.new_from_byteslice).not.toHaveBeenCalled();
+    });
+
+    it('przechodzi normalnie dla bufora dokładnie na granicy', async () => {
+      const buf = new ArrayBuffer(MAX_PHOTON_INPUT_BYTES);
+      await expect(deriveThumbnail(buf)).resolves.toBeDefined();
+      expect(PhotonImage.new_from_byteslice).toHaveBeenCalled();
+    });
   });
 });
