@@ -188,10 +188,10 @@ Obniża globalny akceptowany rozmiar uploadu do progu bezpiecznego dla Photon, e
 
 #### Automatyczne
 
-- [x] 2.1 Pełny unit suite przechodzi
-- [x] 2.2 Typecheck przechodzi
-- [x] 2.3 Lint przechodzi
-- [x] 2.4 Build przechodzi (+ ręcznie zweryfikowano: zero `cf-wasm`/`workerd` w dist/client, komunikat „max 8 MB" obecny w PhotoUploader chunk)
+- [x] 2.1 Pełny unit suite przechodzi — 26359c6
+- [x] 2.2 Typecheck przechodzi — 26359c6
+- [x] 2.3 Lint przechodzi — 26359c6
+- [x] 2.4 Build przechodzi (+ ręcznie zweryfikowano: zero `cf-wasm`/`workerd` w dist/client, komunikat „max 8 MB" obecny w PhotoUploader chunk) — 26359c6
 - [ ] 2.5 E2E golden path bez regresji — lokalnie zablokowane znanym problemem sieciowym Windows→WSL (kontenery Supabase zdrowe, ale host Windows dostaje naprzemiennie 200/503/unreachable; zob. memory `local-supabase-blocked-by-corporate-av.md`). Zweryfikuje CI po pushu (job `e2e` na każdym PR, efemeryczna Supabase — nie ma tego problemu sieciowego).
 
 #### Ręczne

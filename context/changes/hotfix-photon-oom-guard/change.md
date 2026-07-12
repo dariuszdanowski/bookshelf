@@ -1,7 +1,7 @@
 ---
 change_id: hotfix-photon-oom-guard
 title: Hotfix — Photon OOM guard w pipeline zdjęć (Error 1102 produkcja)
-status: implementing
+status: implemented
 created: 2026-07-12
 updated: 2026-07-12
 archived_at: null
