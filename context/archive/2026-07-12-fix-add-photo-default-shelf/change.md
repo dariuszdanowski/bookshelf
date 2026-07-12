@@ -1,10 +1,10 @@
 ---
 change_id: fix-add-photo-default-shelf
 title: Domyślna półka przy "dodaj zdjęcie" powinna wybierać bieżącą półkę
-status: implemented
+status: archived
 created: 2026-07-12
 updated: 2026-07-12
-archived_at: null
+archived_at: 2026-07-12T13:31:41Z
 ---
 
 ## Notes
