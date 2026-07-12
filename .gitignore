@@ -193,3 +193,7 @@ docs/image-analysis/bbox-groundtruth/_*.jpg
 
 # Stryker mutation testing - raporty + incremental cache (lokalne artefakty)
 reports/
+
+# Wektorowy indeks context/ dla agenta (scripts/build-context-index.mjs) — zrzut stanu,
+# regenerowalny, per-worktree, nigdy niecommitowany
+.agents/
