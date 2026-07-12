@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import type { BookCandidate, BookSearchResult } from './schema';
+import { withApiCache } from './apiCache';
 import { cleanSearchTitle, deCyrillic } from '../matching/normalizeQuery';
 
 const OL_BASE = 'https://openlibrary.org/search.json';
@@ -82,6 +83,11 @@ async function fetchOL(url: string): Promise<BookSearchResult> {
   return { ok: true, candidates: docs.map(mapDoc) };
 }
 
+// S-51: cache KV przed realnym fetch — transparentny dla wywołujących.
+function fetchOLCached(url: string): Promise<BookSearchResult> {
+  return withApiCache(url, () => fetchOL(url));
+}
+
 /**
  * Search OpenLibrary by title + optional author.
  * Parallel source alongside Google Books — OL has broader Polish edition coverage.
@@ -99,7 +105,7 @@ export async function searchOpenLibraryByTitle(query: {
     limit: '5',
   });
   if (query.author) params.set('author', deCyrillic(query.author));
-  return fetchOL(`${OL_BASE}?${params.toString()}`);
+  return fetchOLCached(`${OL_BASE}?${params.toString()}`);
 }
 
 /**
@@ -115,5 +121,5 @@ export async function searchOpenLibrary(query: SearchQuery): Promise<BookSearchR
     fields: 'key,title,author_name,first_publish_year,isbn,cover_i,publisher',
     limit: '5',
   });
-  return fetchOL(`${OL_BASE}?${params.toString()}`);
+  return fetchOLCached(`${OL_BASE}?${params.toString()}`);
 }

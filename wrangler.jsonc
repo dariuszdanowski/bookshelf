@@ -10,4 +10,5 @@
   "observability": {
     "enabled": true,
   },
+  "kv_namespaces": [{ "binding": "BOOK_API_CACHE_KV", "id": "229d1e0656ec44faba16d4c2bbda1244" }],
 }

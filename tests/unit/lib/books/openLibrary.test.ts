@@ -1,5 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { env } from 'cloudflare:workers';
 import { searchOpenLibrary, searchOpenLibraryByTitle } from '../../../../src/lib/books/openLibrary';
+
+// S-51: mock KV in-memory — testuje integrację apiCache.ts przez searchOpenLibraryByTitle
+// (binding undefined domyślnie w stubie globalnym z vitest.config.ts).
+function makeMockKv() {
+  const store = new Map<string, string>();
+  return {
+    get: vi.fn(async (key: string) => {
+      const v = store.get(key);
+      return v ? JSON.parse(v) : null;
+    }),
+    put: vi.fn(async (key: string, value: string) => {
+      store.set(key, value);
+    }),
+  };
+}
 
 const VALID_DOC = {
   key: '/works/OL123W',
@@ -104,24 +120,36 @@ describe('searchOpenLibrary', () => {
   it('handles missing cover_i gracefully', async () => {
     const docNoCover = { ...VALID_DOC } as Record<string, unknown>;
     delete docNoCover['cover_i'];
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(
-      new Response(JSON.stringify({ docs: [docNoCover] }), { status: 200 })
-    ));
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ docs: [docNoCover] }), { status: 200 }),
+        ),
+    );
 
     const result = await searchOpenLibrary({ title: 'Solaris', isbn: '9780156027601' });
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     // When cover_i is missing but ISBN is present, falls back to OL ISBN cover URL
-    expect(result.candidates[0].coverUrl).toBe('https://covers.openlibrary.org/b/isbn/9780156027601-M.jpg?default=false');
+    expect(result.candidates[0].coverUrl).toBe(
+      'https://covers.openlibrary.org/b/isbn/9780156027601-M.jpg?default=false',
+    );
   });
 });
 
 describe('searchOpenLibraryByTitle', () => {
   it('returns mapped candidates for title search', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(
-      new Response(JSON.stringify({ docs: [VALID_DOC] }), { status: 200 })
-    ));
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify({ docs: [VALID_DOC] }), { status: 200 }),
+        ),
+    );
 
     const result = await searchOpenLibraryByTitle({ title: 'Solaris', author: 'Lem' });
 
@@ -132,9 +160,9 @@ describe('searchOpenLibraryByTitle', () => {
   });
 
   it('includes title and author params in URL', async () => {
-    const fetchMock = vi.fn().mockResolvedValueOnce(
-      new Response(JSON.stringify({ docs: [VALID_DOC] }), { status: 200 })
-    );
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ docs: [VALID_DOC] }), { status: 200 }));
     vi.stubGlobal('fetch', fetchMock);
 
     await searchOpenLibraryByTitle({ title: 'Usterka na skraju', author: 'Etgar Keret' });
@@ -145,9 +173,10 @@ describe('searchOpenLibraryByTitle', () => {
   });
 
   it('returns empty when no docs found', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(
-      new Response(JSON.stringify({ docs: [] }), { status: 200 })
-    ));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ docs: [] }), { status: 200 })),
+    );
 
     const result = await searchOpenLibraryByTitle({ title: 'NoSuchBook' });
 
@@ -157,14 +186,41 @@ describe('searchOpenLibraryByTitle', () => {
   });
 
   it('returns rate_limited on 429', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(
-      new Response('Too Many Requests', { status: 429 })
-    ));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValueOnce(new Response('Too Many Requests', { status: 429 })),
+    );
 
     const result = await searchOpenLibraryByTitle({ title: 'Solaris' });
 
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.reason).toBe('rate_limited');
+  });
+
+  // S-51: cache KV — mock podpięty przez mutację współdzielonego `env` (stub globalny
+  // z vitest.config.ts jest `{}`, więc bez tej mutacji binding jest zawsze undefined).
+  describe('apiCache integration (S-51)', () => {
+    afterEach(() => {
+      delete (env as unknown as Record<string, unknown>).BOOK_API_CACHE_KV;
+    });
+
+    it('drugi identyczny request nie woła fetch — serwowany z KV', async () => {
+      const kv = makeMockKv();
+      (env as unknown as Record<string, unknown>).BOOK_API_CACHE_KV = kv;
+
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValue(new Response(JSON.stringify({ docs: [VALID_DOC] }), { status: 200 }));
+      vi.stubGlobal('fetch', fetchMock);
+
+      const first = await searchOpenLibraryByTitle({ title: 'Solaris' });
+      const second = await searchOpenLibraryByTitle({ title: 'Solaris' });
+
+      expect(first.ok).toBe(true);
+      expect(second.ok).toBe(true);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(kv.put).toHaveBeenCalledTimes(1);
+    });
   });
 });

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { env } from 'cloudflare:workers';
 
 import type { BookCandidate, BookSearchResult } from './schema';
+import { withApiCache } from './apiCache';
 import { cleanSearchTitle, titleQueryVariants } from '../matching/normalizeQuery';
 
 const GOOGLE_BOOKS_BASE = 'https://www.googleapis.com/books/v1/volumes';
@@ -134,6 +135,11 @@ async function fetchBooks(url: string): Promise<BookSearchResult> {
   return { ok: true, candidates: items.map(mapItem) };
 }
 
+// S-51: cache KV przed retry-loop + realnym fetch — transparentny dla wywołujących.
+function fetchBooksCached(url: string): Promise<BookSearchResult> {
+  return withApiCache(url, () => fetchBooks(url));
+}
+
 /**
  * Search Google Books with cascade query strategy:
  * 1. isbn: lookup (most precise) — stop on first non-empty result
@@ -146,7 +152,7 @@ export async function searchGoogleBooks(query: SearchQuery): Promise<BookSearchR
   const apiKey = getApiKey();
 
   if (query.isbn) {
-    const result = await fetchBooks(buildUrl(`isbn:${query.isbn}`, apiKey));
+    const result = await fetchBooksCached(buildUrl(`isbn:${query.isbn}`, apiKey));
     if (result.ok || result.reason === 'rate_limited') return result;
   }
 
@@ -155,7 +161,7 @@ export async function searchGoogleBooks(query: SearchQuery): Promise<BookSearchR
   const cleanAuthor = query.author ? cleanSearchTitle(query.author) : null;
 
   if (cleanAuthor) {
-    const result = await fetchBooks(
+    const result = await fetchBooksCached(
       buildUrl(`intitle:"${cleanTitle}"+inauthor:"${cleanAuthor}"`, apiKey),
     );
     if (result.ok || result.reason === 'rate_limited') return result;
@@ -166,14 +172,14 @@ export async function searchGoogleBooks(query: SearchQuery): Promise<BookSearchR
   // bezbłędny; autor = dodatkowy sygnał, nie warunek konieczny znajdowania.
   // Robimy to PRZED publisher i free-text bo intitle: jest precyzyjniejsze.
   if (cleanAuthor) {
-    const result = await fetchBooks(buildUrl(`intitle:"${cleanTitle}"`, apiKey));
+    const result = await fetchBooksCached(buildUrl(`intitle:"${cleanTitle}"`, apiKey));
     if (result.ok || result.reason === 'rate_limited') return result;
   }
 
   // M22: wydawnictwo (z grzbietu) zawęża wyniki, gdy autor i sam tytuł nie pomogły.
   const cleanPublisher = query.publisher ? cleanSearchTitle(query.publisher) : null;
   if (cleanPublisher) {
-    const result = await fetchBooks(
+    const result = await fetchBooksCached(
       buildUrl(`intitle:"${cleanTitle}"+inpublisher:"${cleanPublisher}"`, apiKey),
     );
     if (result.ok || result.reason === 'rate_limited') return result;
@@ -184,7 +190,7 @@ export async function searchGoogleBooks(query: SearchQuery): Promise<BookSearchR
   // są terminalne (network = błąd transportu, nie powód by próbować węższe zapytanie).
   let lastResult: BookSearchResult = { ok: false, reason: 'empty' };
   for (const variant of titleQueryVariants(query.title)) {
-    lastResult = await fetchBooks(buildUrl(variant, apiKey));
+    lastResult = await fetchBooksCached(buildUrl(variant, apiKey));
     if (lastResult.ok || lastResult.reason !== 'empty') return lastResult;
   }
 
@@ -192,7 +198,7 @@ export async function searchGoogleBooks(query: SearchQuery): Promise<BookSearchR
   // Przydatne dla tłumaczeń: "Usterka na skraju" → Keret bibliography w j. angielskim.
   // Scorer dopasuje po autorze (~0.30 wagi) nawet gdy titleSim jest niski.
   if (cleanAuthor) {
-    const result = await fetchBooks(buildUrl(`inauthor:"${cleanAuthor}"`, apiKey));
+    const result = await fetchBooksCached(buildUrl(`inauthor:"${cleanAuthor}"`, apiKey));
     if (result.ok || result.reason === 'rate_limited') return result;
     lastResult = result;
   }

@@ -15,6 +15,9 @@ interface Props {
 }
 
 const { title = 'BookShelf Catalog' } = Astro.props;
+// S-51: browser-side channel (PUBLIC_* przez import.meta.env, nie cloudflare:workers) —
+// brak wartości (dev/CI/preview) = brak beacon scriptu.
+const cfBeaconToken = import.meta.env.PUBLIC_CF_BEACON_TOKEN;
 const user = Astro.locals.user;
 const dbEnv = detectDbEnvironment();
 const titleWithEnv = `[${ENV_LABEL[dbEnv]}] ${title}`;
@@ -88,6 +91,15 @@ function navCls(href: string) {
       })();
     </script>
     <title>{titleWithEnv}</title>
+    {
+      cfBeaconToken && (
+        <script
+          defer
+          src="https://static.cloudflareinsights.com/beacon.min.js"
+          data-cf-beacon={`{"token": "${cfBeaconToken}"}`}
+        />
+      )
+    }
   </head>
   <body>
     {/* S-38: header zawsze widoczny — Pomoc i logo dostępne też na ekranie logowania */}

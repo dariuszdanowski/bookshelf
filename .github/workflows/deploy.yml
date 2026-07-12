@@ -42,6 +42,10 @@ jobs:
           # i ANTHROPIC_API_KEY są server-only runtime, NIE idą do build env.
           PUBLIC_SUPABASE_URL: ${{ secrets.PUBLIC_SUPABASE_URL }}
           PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.PUBLIC_SUPABASE_ANON_KEY }}
+          # S-51: token Web Analytics nie jest sekretem (widoczny w źródle strony),
+          # ale build-time inlining wymaga go tak samo jak innych PUBLIC_*. Puste
+          # (sekret nieskonfigurowany) = brak beacon scriptu, zero błędu builda.
+          PUBLIC_CF_BEACON_TOKEN: ${{ secrets.PUBLIC_CF_BEACON_TOKEN }}
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1

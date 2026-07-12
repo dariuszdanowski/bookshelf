@@ -28,6 +28,9 @@ declare namespace Cloudflare {
     USER_KEYS_ENCRYPTION_KEY: string;
     GITHUB_TOKEN: string;
     GOOGLE_BOOKS_API_KEY?: string;
+    // S-51: cache odpowiedzi Google Books / OpenLibrary (apiCache.ts). Optional —
+    // niedostępny w Vitest/dev bez realnego namespace; withApiCache omija cache wtedy.
+    BOOK_API_CACHE_KV?: KVNamespace;
   }
 }
 

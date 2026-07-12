@@ -2,7 +2,23 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('cloudflare:workers', () => ({ env: { GOOGLE_BOOKS_API_KEY: undefined } }));
 
+import { env } from 'cloudflare:workers';
 import { searchGoogleBooks } from '../../../../src/lib/books/googleBooks';
+
+// S-51: mock KV in-memory — testuje integrację apiCache.ts przez searchGoogleBooks
+// (binding undefined w mocku powyżej dla wszystkich innych testów w tym pliku).
+function makeMockKv() {
+  const store = new Map<string, string>();
+  return {
+    get: vi.fn(async (key: string) => {
+      const v = store.get(key);
+      return v ? JSON.parse(v) : null;
+    }),
+    put: vi.fn(async (key: string, value: string) => {
+      store.set(key, value);
+    }),
+  };
+}
 
 const VALID_VOLUME = {
   id: 'abc123',
@@ -326,6 +342,30 @@ describe('searchGoogleBooks', () => {
       expect(result.ok).toBe(true);
       if (!result.ok) return;
       expect(result.candidates[0].description).toBeNull();
+    });
+  });
+
+  // S-51: cache KV — testuje przez searchGoogleBooks, nie bezpośrednio fetchBooks
+  // (nieeksportowane). Mock KV podpięty przez mutację współdzielonego `env`.
+  describe('apiCache integration (S-51)', () => {
+    afterEach(() => {
+      delete (env as unknown as Record<string, unknown>).BOOK_API_CACHE_KV;
+    });
+
+    it('drugi identyczny request nie woła fetch — serwowany z KV', async () => {
+      const kv = makeMockKv();
+      (env as unknown as Record<string, unknown>).BOOK_API_CACHE_KV = kv;
+
+      const fetchMock = vi.fn().mockResolvedValue(makeOkResponse());
+      vi.stubGlobal('fetch', fetchMock);
+
+      const first = await searchGoogleBooks({ title: 'Solaris' });
+      const second = await searchGoogleBooks({ title: 'Solaris' });
+
+      expect(first.ok).toBe(true);
+      expect(second.ok).toBe(true);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(kv.put).toHaveBeenCalledTimes(1);
     });
   });
 });
