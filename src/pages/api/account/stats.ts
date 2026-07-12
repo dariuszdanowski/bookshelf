@@ -15,7 +15,8 @@ export const prerender = false;
  * refine_calls nie jest w `database.types.ts` — types regen dopiero po `db push`
  * (precedens `photos/[id]/costs.ts`).
  *
- * Odpowiedź: { data: { total_vision_cost_usd, total_refine_cost_usd, vision_run_count, refine_call_count } }
+ * Odpowiedź: { data: { total_vision_cost_usd, total_refine_cost_usd, total_resolution_cost_usd,
+ *   vision_run_count, refine_call_count, resolution_call_count } }
  */
 export const GET: APIRoute = async ({ locals }) => {
   if (!locals.user) {
@@ -61,14 +62,27 @@ export const GET: APIRoute = async ({ locals }) => {
     return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Błąd pobierania statystyk.' });
   }
 
+  // resolution_calls: nowa tabela (S-50); tylko 'found'/'not_found' liczą się jako
+  // rozstrzygnięte wywołania kosztowe — 'error' też ma cost_usd (może być null),
+  // ale wliczamy wszystkie statusy (analogicznie do refine_calls: brak filtra status).
+  const resolutionResult = await selectCosts('resolution_calls', false);
+
+  if (resolutionResult.error) {
+    console.error('[api/account/stats GET] resolution_calls failed', {
+      message: resolutionResult.error.message,
+    });
+    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Błąd pobierania statystyk.' });
+  }
+
   const visionRuns = visionResult.data ?? [];
   const refineCalls = refineResult.data ?? [];
+  const resolutionCalls = resolutionResult.data ?? [];
 
-  // M27: suma kosztów per klucz (vision + refine razem) — /account pokazuje
-  // wartość przy każdym kluczu. Wywołania bez atrybucji (sprzed migracji
+  // M27: suma kosztów per klucz (vision + refine + resolution razem) — /account
+  // pokazuje wartość przy każdym kluczu. Wywołania bez atrybucji (sprzed migracji
   // 0020 / klucz env) nie wliczają się do żadnego klucza.
   const costByKey = new Map<string, { cost_usd: number; call_count: number }>();
-  for (const row of [...visionRuns, ...refineCalls]) {
+  for (const row of [...visionRuns, ...refineCalls, ...resolutionCalls]) {
     if (!row.api_key_id) continue;
     const agg = costByKey.get(row.api_key_id) ?? { cost_usd: 0, call_count: 0 };
     agg.cost_usd += row.cost_usd ?? 0;
@@ -80,8 +94,10 @@ export const GET: APIRoute = async ({ locals }) => {
     data: {
       total_vision_cost_usd: visionRuns.reduce((s, r) => s + (r.cost_usd ?? 0), 0),
       total_refine_cost_usd: refineCalls.reduce((s, r) => s + (r.cost_usd ?? 0), 0),
+      total_resolution_cost_usd: resolutionCalls.reduce((s, r) => s + (r.cost_usd ?? 0), 0),
       vision_run_count: visionRuns.length,
       refine_call_count: refineCalls.length,
+      resolution_call_count: resolutionCalls.length,
       cost_by_key: Object.fromEntries(costByKey),
     },
   });
