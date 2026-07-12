@@ -179,22 +179,22 @@ Obniża globalny akceptowany rozmiar uploadu do progu bezpiecznego dla Photon, e
 
 #### Automatyczne
 
-- [x] 1.1 Nowe i istniejące testy jednostkowe resize/crop przechodzą
-- [x] 1.2 Pełny unit suite przechodzi
-- [x] 1.3 Typecheck przechodzi
-- [x] 1.4 Lint przechodzi
+- [x] 1.1 Nowe i istniejące testy jednostkowe resize/crop przechodzą — c9f22d3
+- [x] 1.2 Pełny unit suite przechodzi — c9f22d3
+- [x] 1.3 Typecheck przechodzi — c9f22d3
+- [x] 1.4 Lint przechodzi — c9f22d3
 
 ### Faza 2: Wyrównanie limitu uploadu (15MB → 8MB) i sprzątnięcie duplikatów
 
 #### Automatyczne
 
-- [ ] 2.1 Pełny unit suite przechodzi
-- [ ] 2.2 Typecheck przechodzi
-- [ ] 2.3 Lint przechodzi
-- [ ] 2.4 Build przechodzi
-- [ ] 2.5 E2E golden path bez regresji
+- [x] 2.1 Pełny unit suite przechodzi
+- [x] 2.2 Typecheck przechodzi
+- [x] 2.3 Lint przechodzi
+- [x] 2.4 Build przechodzi (+ ręcznie zweryfikowano: zero `cf-wasm`/`workerd` w dist/client, komunikat „max 8 MB" obecny w PhotoUploader chunk)
+- [ ] 2.5 E2E golden path bez regresji — lokalnie zablokowane znanym problemem sieciowym Windows→WSL (kontenery Supabase zdrowe, ale host Windows dostaje naprzemiennie 200/503/unreachable; zob. memory `local-supabase-blocked-by-corporate-av.md`). Zweryfikuje CI po pushu (job `e2e` na każdym PR, efemeryczna Supabase — nie ma tego problemu sieciowego).
 
 #### Ręczne
 
-- [ ] 2.6 Upload >8MB → czytelny komunikat błędu, brak crasha
-- [ ] 2.7 Upload 5-7MB → pełny flow działa normalnie
+- [ ] 2.6 Upload >8MB → czytelny komunikat błędu, brak crasha — live browser test zablokowany tym samym problemem sieciowym WSL↔Windows co 2.5 (lokalny Supabase Auth zwracał `AuthRetryableFetchError` na signup, uniemożliwiając uzyskanie sesji do testu). Automatyczny odpowiednik: unit test `resize.test.ts`/`crop.test.ts` „size guard" potwierdza rzucenie błędu dokładnie na granicy 8MB; grep `dist/client` po `npm run build` potwierdza komunikat „za duży (max 8 MB)" faktycznie trafia do bundla klienta.
+- [ ] 2.7 Upload 5-7MB → pełny flow działa normalnie — jw., zablokowane środowiskowo; automatyczny odpowiednik: unit test potwierdza, że bufor dokładnie na granicy `MAX_PHOTON_INPUT_BYTES` przechodzi przez `deriveWorkingCopy`/`deriveThumbnail` bez rzucenia (guard nie fałszywie odrzuca poprawnych rozmiarów). Pełny pipeline (upload→miniatura→vision→detekcje) niezmieniony przez ten fix poza samym progiem rozmiaru.
