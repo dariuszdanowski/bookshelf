@@ -28,6 +28,28 @@ Defaults zwijające powtarzalne decyzje w pętli M2L2/L3 (`/10x-plan` → `/10x-
 - **Branch per change** (od 2026-05-26): każdy slice/foundation/fix wykonujemy w branchu `change/<change-id>`, NIE bezpośrednio na main. Cały cykl (plan → implement → impl-review → archive) ląduje w branchu. Po `/10x-archive` w branchu: `git push origin change/<change-id>` + `gh pr create --title "<change-id>: <title>" --body "<auto-gen z plan-brief + impl-review summary>"`. User mergeuje PR (z opcjonalnym review w PR comments); GitHub Actions deploy.yml deployuje main → prod. **Migracje Supabase**: `supabase db push` uruchamiany **automatycznie** przez `deploy.yml` po merge do main (krok migrate-first PRZED `wrangler deploy`; idempotentny — aplikuje tylko nowe migracje; walidowany pre-merge przez job `e2e` w `ci.yml` `supabase start`). Wymaga sekretów `SUPABASE_ACCESS_TOKEN` + `SUPABASE_DB_PASSWORD` (GitHub env `production`); bez nich krok pomija się z warningiem (miękki guard, nie psuje deployu). Nadal **nie pchać w branchu** ręcznie (odrzucony PR zostawiłby zombi schema); ręczny `npx supabase db push` tylko jako fallback/hotfix. Integration testy w branchu używają Vitest mocks; real DB integration odraczamy do po-merge. Wyjątki od reguły branch-only: planowanie/roadmapa edits (`/10x-plan`, `/10x-roadmap`) mogą lądować bezpośrednio na main jako standalone docs commits, gdy nie są związane z aktywnym implementation cycle. Reguła i precedens: [lessons.md → „Branch per change workflow"](context/foundation/lessons.md).
 - **Model per faza** (cost/quality split, M2L2 „opusplan"): **Opus** do `/10x-plan` i `/10x-impl-review` (reasoning-dense, niski wolumen tokenów — decyzje kontraktowe + wykrycie driftu); **Sonnet** do `/10x-implement` (gros tokenów: kontekst + edycje + iteracje; Opus ≈5× droższy per token). Model jest **stanem sesji, nie atrybutem skilla** — agent NIE przełącza go sam (`/model` to user-action). Na granicy fazy, gdy aktywny model nie pasuje: agent **przypomina** userowi `/model opus` (przed plan/review) lub `/model sonnet` (przed implement) ZANIM ruszy, i czeka na przełączenie. Przełączać na **czystej granicy kontekstu** (nowy kontekst per faza — M2L5), bo zmiana modelu unieważnia prompt cache. Alternatywa `opusplan` automatyzuje plan→Opus / implement→Sonnet, ale `/10x-impl-review` w trybie normalnym poleci Sonnet — wtedy i tak ręczny `/model opus`. Pełna ekonomia tokenów: `m1m2-lessons-audit-plan.md → E2` (zob. § Kontekst zewnętrzny).
 
+### Narzędzie agenta: wektorowy indeks `context/`
+
+Zanim sięgniesz po szerokie Grep po `context/` (278 archived changes + foundation) żeby
+znaleźć precedens/lesson po znaczeniu, a nie po dokładnej nazwie — sprawdź
+**`node scripts/query-context-index.mjs "opis czego szukam" [--limit N]`**.
+Zwraca ranking `plik:linie` wg podobieństwa semantycznego (LanceDB + embeddingi,
+`.agents/context-index/`, gitignored). Po trafieniu czytaj TYLKO wskazany zakres
+linii (`Read` z `offset`/`limit`), nie cały plik.
+
+**Odświeżanie** (`node scripts/build-context-index.mjs` / `npm run context:index`):
+inkrementalne przez hash pliku (plik bez zmian jest pomijany) — uruchamiaj na
+starcie sesji pracy nad `context/` albo po większym pociągnięciu zmian
+(pull/merge/archive). Wymaga `EMBEDDING_URL`/`EMBEDDING_MODEL` w `.env` (patrz
+`.env.example`) — domyślnie lokalny LM Studio (`nomic-embed-text-v2-moe`,
+wielojęzyczny — repo jest po polsku).
+
+**Ograniczenie:** zrzut stanu z momentu ostatniego builda, per worktree, nie
+aktualizuje się sam i nie obejmuje kodu (`src/`) — przy 150 plikach/27k LOC
+Grep/Explore-agent są tam już wystarczająco tanie, więc świadomie pominięte.
+Świeżo utworzony/edytowany plik w bieżącej sesji nie jest jeszcze w indeksie,
+dopóki nie odpalisz rebuildu.
+
 ## Cloudflare adapter — specyfika
 
 - Output `server` z `@astrojs/cloudflare` — endpointy w `src/pages/api/**.ts` działają jak Workers, nie Node. **Brak `process.env`** w runtime.
