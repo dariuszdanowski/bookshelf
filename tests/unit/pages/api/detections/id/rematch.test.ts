@@ -187,6 +187,36 @@ describe('POST /api/detections/[id]/rematch', () => {
     expect(detection.raw_title).toBe('Stary raw_title');
   });
 
+  it('ISBN-only zastępuje ISTNIEJĄCEGO, lepiej ocenionego (ale błędnego) kandydata mimo niższego matchScore', async () => {
+    // Regresja: przy pustym tytule matchScore trafienia po ISBN jest strukturalnie
+    // niski (titleSim=0 → score ~0.2 wg formuły w docs/prd.md §10). Konserwatywna
+    // polityka zastępowania (CONSERVATIVE_REPLACE_MARGIN=0.08) bez wyjątku dla
+    // isbnOnly odrzucałaby to trafienie, jeśli istnieje starszy kandydat o wyższym
+    // (ale błędnym) score — dokładnie scenariusz zgłoszony w manualnym teście #153.
+    vi.mocked(searchGoogleBooks).mockResolvedValue({
+      ok: true,
+      candidates: [MOCK_GOOGLE_CANDIDATE],
+    });
+    vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({ ok: false, reason: 'empty' });
+    vi.mocked(searchOpenLibrary).mockResolvedValue({ ok: false, reason: 'empty' });
+    const supabase = makeSupabase({
+      detection: { id: DET_ID, status: 'matched', raw_title: 'Nieznana' },
+      // Istniejący, wysoko oceniony (ale błędny) kandydat z wcześniejszej próby.
+      existingCandidates: [{ match_score: 0.6, rank: 1 }],
+    });
+    const ctx = makeContext({
+      supabase,
+      body: { title: '', isbn: '9788383100012' },
+    });
+    const res = await POST(ctx);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as ApiJson;
+    expect(json.data!['applied']).toBe(true);
+    const candidates = json.data!['candidates'] as { isbn13: string | null }[];
+    expect(candidates.length).toBeGreaterThan(0);
+    expect(candidates[0].isbn13).toBe('9788383100012');
+  });
+
   it('404 gdy detekcja nie istnieje', async () => {
     vi.mocked(searchGoogleBooks).mockResolvedValue({ ok: false, reason: 'empty' });
     vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({ ok: false, reason: 'empty' });

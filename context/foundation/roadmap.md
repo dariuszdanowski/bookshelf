@@ -3,7 +3,7 @@ project: "BookShelf Scanner"
 version: 1
 status: draft
 created: 2026-05-25
-updated: 2026-06-13
+updated: 2026-07-12
 prd_version: 1
 main_goal: speed
 top_blocker: time
@@ -78,6 +78,7 @@ BookShelf Scanner rozwiązuje **koszt onboardingu** katalogu dla kolekcjonerów 
 | S-47  | admin-technical-account-flag  | flaga `is_technical BOOLEAN DEFAULT false` na tabeli `profiles` (migracja + indeks `profiles_technical_idx WHERE is_technical`) + UI toggle w admin-panelu; zastąpi heurystykę email-prefix + `book_count === 0 && !display_name` w `isAutomatic` (aktualnie `AdminUsersIsland.tsx`) niezawodnym sygnałem DB-level. Przy wdrożeniu: backfill `is_technical = true` dla kont z prefiksami `e2e-`, `ux-verify-`, `debug-vision-`, `rls-test-`, `auth-trigger-`. Context: heurystyka email-prefix dodana w S-26 (admin-panel-filters) jako tymczasowy fix gdy okazało się, że `shelf_count` nie jest użytecznym sygnałem (każdy user dostaje „Zakupione" od `handle_new_user`). | S-26 | NFR (admin UX, testowalność) | proposed |
 | S-48  | word-level-ocr-fallback       | word-level fallback w silniku matchingu: gdy OCR garbles pierwszy wyraz tytułu (np. "Słowcy" zamiast "Siewcy"), pełna kaskada GB wyczerpuje się i spada na `inauthor:` zwracający losowe tytuły (~27%). Fallback wyodrębnia istotne słowa z rawTitle (≥5 znaków, najdłuższe pierwsze, max 3) i próbuje je osobno + autor dopóki nie znajdzie kandydata ≥ MATCH_MID (0.55). Zmiana czysto server-side: `normalizeQuery.ts` + `findCandidates.ts`, nowe testy jednostkowe. | S-04 | FR-015–018 (jakość matchingu) | planned |
 | S-49  | mobile-upload-crash-recovery  | stabilny upload na mobile (Android Chrome): `/process` jako SSE streaming (system nie ubija SSE keepalive jak blokujące HTTP), localStorage crash recovery z 30-min TTL (przeżywa ubicie taba przez OS), matchOffset persistowany i wznawia matching od przerwanego miejsca (nie od 1/N), clearStepLog na każdej pozytywnej ścieżce (brak fałszywych beaconów), beacon guard (nie odpala bez resume ID), skip SHA-256 i thumbnail dla >8 MB (zapobiega OOM mobile). Diagnostyczny endpoint `/api/client-log` + panel debug w UI. | S-03, S-04 | NFR (mobile UX, stabilność) | done |
+| S-50  | polish-grammatical-variants   | Wyszukiwanie tytułu w wariantach gramatycznych (liczba mnoga/pojedyncza, przypadki) gdy OCR odczyta poprawną, ale odmienioną formę słowa (np. „Złodziej książek" zamiast „Złodzieje książek" — BN zwraca zupełnie inne wyniki dla obu zapytań, bo to keyword search po ich stronie, nie lokalny fuzzy match). Wykryte przy manualnym teście #153 (2026-07-12): word-level fallback (S-48) nie pomaga, bo wymaga obecności autora. Ryzyko: naiwne heurystyki końcówek łatwo psują precyzję (fałszywe warianty) tyle samo, co brak wariantów psuje recall — pełna poprawność wymaga analizatora morfologicznego (np. Morfeusz), niebanalny koszt/rozmiar w Cloudflare Worker. Kierunek do doprecyzowania przy `/10x-plan`: lekki stemmer vs rozszerzenie word-level fallback o warianty bez wymogu autora. | S-04, S-48 | FR-015–018 (jakość matchingu) | proposed |
 
 ## Streams
 

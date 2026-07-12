@@ -142,7 +142,12 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       : null;
   const newTopScore = match.candidates.length > 0 ? match.candidates[0].matchScore : null;
 
+  // ISBN-only search jest jawną, świadomą akcją usera z zewnętrznym identyfikatorem —
+  // matchScore takiego wyniku jest strukturalnie niski (titleSim=0 przy pustym tytule,
+  // patrz docs/prd.md §10), więc margines konserwatywny prawie zawsze by go odrzucił
+  // mimo trafienia po dokładnym ISBN. Zawsze zastępuj w tym przypadku (S-153).
   const shouldReplace =
+    isbnOnly ||
     existingTopScore == null ||
     (newTopScore != null && newTopScore + CONSERVATIVE_REPLACE_MARGIN >= existingTopScore);
 
