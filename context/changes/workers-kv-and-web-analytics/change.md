@@ -1,6 +1,6 @@
 # workers-kv-and-web-analytics
 
-**Status:** implementing
+**Status:** implemented
 **Updated:** 2026-07-12
 
 ## Opis

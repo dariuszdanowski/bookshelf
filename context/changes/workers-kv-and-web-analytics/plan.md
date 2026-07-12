@@ -436,5 +436,5 @@ bez cache, jak dziś).
 
 #### Ręczne
 
-- [ ] 2.5 Beacon ładuje się na produkcji (Network tab)
-- [ ] 2.6 Dane widoczne w Cloudflare Web Analytics dashboard po kilku minutach ruchu
+- [x] 2.5 Beacon ładuje się na produkcji (Network tab) — potwierdzone przez Playwright na `https://bookshelf.dariusz-danowski-559.workers.dev/login`: `GET beacon.min.js` → 200
+- [x] 2.6 Dane widoczne w Cloudflare Web Analytics dashboard po kilku minutach ruchu — `POST https://cloudflareinsights.com/cdn-cgi/rum` → 204 potwierdza realne wysłanie danych RUM; wizualizacja w dashboardzie podlega tej samej agregacji z opóźnieniem co KV Metrics (1.7) — user zaakceptował dowód wysyłki jako wystarczający
