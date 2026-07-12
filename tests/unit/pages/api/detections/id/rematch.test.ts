@@ -39,7 +39,7 @@ const MOCK_GOOGLE_CANDIDATE = {
 };
 
 function makeSupabase(opts: {
-  detection?: { id: string; status: string } | null;
+  detection?: { id: string; status: string; raw_title?: string } | null;
   existingCandidates?: { match_score: number; rank: number }[];
   existingBooks?: {
     id: string;
@@ -80,29 +80,27 @@ function makeSupabase(opts: {
             eq: vi.fn().mockResolvedValue(opts.deleteResult ?? { error: null }),
           })),
           insert: vi.fn(() => ({
-            select: vi
-              .fn()
-              .mockResolvedValue(
-                opts.insertResult ?? {
-                  data: [
-                    {
-                      id: CAND_ID,
-                      source: 'google_books',
-                      external_id: 'gb-1',
-                      title: 'Przerwana kołysanka',
-                      authors: ['Natasza Socha'],
-                      isbn_10: null,
-                      isbn_13: '9788383100012',
-                      publisher: null,
-                      published_year: 2022,
-                      cover_url: null,
-                      match_score: 0.95,
-                      rank: 1,
-                    },
-                  ],
-                  error: null,
-                },
-              ),
+            select: vi.fn().mockResolvedValue(
+              opts.insertResult ?? {
+                data: [
+                  {
+                    id: CAND_ID,
+                    source: 'google_books',
+                    external_id: 'gb-1',
+                    title: 'Przerwana kołysanka',
+                    authors: ['Natasza Socha'],
+                    isbn_10: null,
+                    isbn_13: '9788383100012',
+                    publisher: null,
+                    published_year: 2022,
+                    cover_url: null,
+                    match_score: 0.95,
+                    rank: 1,
+                  },
+                ],
+                error: null,
+              },
+            ),
           })),
         };
       }
@@ -158,12 +156,35 @@ describe('POST /api/detections/[id]/rematch', () => {
     expect(res.status).toBe(404);
   });
 
-  it('400 gdy pusty tytuł', async () => {
+  it('400 gdy pusty tytuł i brak ISBN', async () => {
     const ctx = makeContext({ body: { title: '' } });
     const res = await POST(ctx);
     expect(res.status).toBe(400);
     const json = (await res.json()) as ApiJson;
     expect(json.error!.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('200 gdy podano tylko ISBN (bez tytułu) — isbnOnly przekazany do matchingu', async () => {
+    vi.mocked(searchGoogleBooks).mockResolvedValue({
+      ok: true,
+      candidates: [MOCK_GOOGLE_CANDIDATE],
+    });
+    vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({ ok: false, reason: 'empty' });
+    vi.mocked(searchOpenLibrary).mockResolvedValue({ ok: false, reason: 'empty' });
+    const supabase = makeSupabase({
+      detection: { id: DET_ID, status: 'pending', raw_title: 'Stary raw_title' },
+    });
+    const ctx = makeContext({
+      supabase,
+      body: { title: '', isbn: '9788383100012' },
+    });
+    const res = await POST(ctx);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as ApiJson;
+    expect(json.data!['applied']).toBe(true);
+    // raw_title nie zostaje nadpisany pustym stringiem — zachowuje istniejącą wartość.
+    const detection = json.data!['detection'] as { raw_title: string };
+    expect(detection.raw_title).toBe('Stary raw_title');
   });
 
   it('404 gdy detekcja nie istnieje', async () => {

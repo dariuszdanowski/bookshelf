@@ -58,10 +58,12 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     });
   }
 
-  const { title: rawTitle, author, isbn: rawIsbn, publisher } = parsed.data;
+  const { title: rawTitleInput, author, isbn: rawIsbn, publisher } = parsed.data;
+  const rawTitle = rawTitleInput ?? '';
   const rawAuthorFromForm = author ?? null;
   const rawIsbnFromForm = rawIsbn?.trim() || null;
   const rawPublisher = publisher?.trim() || null; // M22
+  const isbnOnly = !rawTitle && !!rawIsbnFromForm;
 
   // Auto-extract autora gdy tytuł zawiera wzorzec "Tytuł — Imię Nazwisko"
   // i pole autora jest puste (np. user wkleił pełny opis z grzbietem).
@@ -71,7 +73,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
 
   const { data: detection, error: detectionError } = await locals.supabase
     .from('detections')
-    .select('id, status')
+    .select('id, status, raw_title')
     .eq('id', detectionId)
     .maybeSingle();
 
@@ -124,6 +126,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
 
   const match = await findBookCandidates(title, rawAuthor, rawIsbnFromForm, {
     publisher: rawPublisher,
+    isbnOnly,
   });
   if (match.rateLimited) {
     return apiError({
@@ -144,10 +147,12 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     (newTopScore != null && newTopScore + CONSERVATIVE_REPLACE_MARGIN >= existingTopScore);
 
   const finalStatus = match.candidates.length > 0 ? 'matched' : 'pending';
+  // ISBN-only submit (title puste): nie nadpisuj raw_title pustym stringiem, zachowaj dotychczasowy.
+  const resolvedTitle = title || (detection.raw_title ?? '');
 
   const { error: updateError } = await locals.supabase
     .from('detections')
-    .update({ raw_title: title, raw_author: rawAuthor, status: finalStatus })
+    .update({ raw_title: resolvedTitle, raw_author: rawAuthor, status: finalStatus })
     .eq('id', detectionId);
 
   if (updateError) {
@@ -218,7 +223,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
           detection: {
             id: detectionId,
             status: finalStatus,
-            raw_title: title,
+            raw_title: resolvedTitle,
             raw_author: rawAuthor,
           },
           candidates: inserted.map((row) => ({
@@ -245,7 +250,12 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   return apiResponse({
     data: {
       applied: false,
-      detection: { id: detectionId, status: finalStatus, raw_title: title, raw_author: rawAuthor },
+      detection: {
+        id: detectionId,
+        status: finalStatus,
+        raw_title: resolvedTitle,
+        raw_author: rawAuthor,
+      },
       candidates: [],
       duplicate: null,
     },
