@@ -109,6 +109,26 @@
           }
         ]
       }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jira-task-implement hook-event --event=prompt-submit"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jira-task-implement hook-event --event=ai-stop"
+          }
+        ]
+      }
     ]
   }
 }
