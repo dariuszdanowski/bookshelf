@@ -9,7 +9,7 @@ import { SPINE_COLORS } from '../vision/prompt';
 // CACHE_KEY_VERSION w apiCache.ts (S-51) — inaczej stare wpisy KV serwują
 // niekompatybilny kształt do 30 dni po deployu.
 export type BookCandidate = {
-  source: 'google_books' | 'open_library' | 'national_library';
+  source: 'google_books' | 'open_library' | 'national_library' | 'ai_resolution';
   externalId: string;
   title: string;
   authors: string[];

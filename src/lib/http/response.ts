@@ -18,7 +18,9 @@ export type ApiErrorCode =
   | 'DUPLICATE_PHOTO'
   | 'AI_DISABLED'
   | 'NO_API_KEY'
-  | 'ADMIN_REQUIRED';
+  | 'ADMIN_REQUIRED'
+  | 'AI_RESOLUTION_PROVIDER_UNSUPPORTED'
+  | 'RESOLUTION_BUDGET_EXCEEDED';
 
 const DEFAULT_HEADERS = {
   'Content-Type': 'application/json',
