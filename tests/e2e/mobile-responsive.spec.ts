@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { createShelf } from './helpers/interactions';
+
 /**
  * E2E spec dla S-28: responsywność mobilna (375 px).
  *
@@ -83,6 +85,38 @@ test.describe('S-28: hamburger nav', () => {
     await page.goto('/library');
     await expect(page.getByTestId('nav-library')).toBeVisible({ timeout: 10_000 });
     await expect(page.getByTestId('mobile-nav-toggle')).not.toBeVisible();
+  });
+
+  test('375px: „Skanuj półkę" z widoku konkretnej półki preselekcjonuje tę półkę na /upload', async ({
+    page,
+  }) => {
+    // fix-add-photo-default-shelf: to samo co desktopowy nav-upload, ale przez
+    // hamburger — MobileNav.tsx dostaje currentShelfId jako prop z Layout.astro.
+    await page.setViewportSize(MOBILE);
+    const shelfName = `E2E Mobile Nav Upload ${Date.now()}`;
+    await page.goto('/shelves');
+    await expect(page.getByTestId('shelves-island')).toBeVisible();
+    await createShelf(page, shelfName);
+
+    const shelfRow = page.locator('[data-testid^="shelf-item-"]').filter({ hasText: shelfName });
+    await shelfRow.getByTestId('shelf-item-photos-link').click();
+    await page.waitForURL(/\/shelves\/[0-9a-f-]{36}$/);
+    const shelfId = page.url().split('/shelves/')[1];
+
+    // retry-click: hydration race islanda (wzorzec z testu hamburgera powyżej)
+    await expect(async () => {
+      await page.getByTestId('mobile-nav-toggle').click();
+      await expect(page.getByTestId('mobile-nav-toggle')).toHaveAttribute('aria-expanded', 'true', {
+        timeout: 1_000,
+      });
+    }).toPass({ timeout: 10_000 });
+    await expect(page.getByTestId('mobile-nav-upload')).toHaveAttribute(
+      'href',
+      `/upload?shelf=${shelfId}`,
+    );
+    await page.getByTestId('mobile-nav-upload').click();
+    await page.waitForURL(`/upload?shelf=${shelfId}`);
+    await expect(page.getByTestId('shelf-select')).toHaveValue(shelfId, { timeout: 5_000 });
   });
 });
 
