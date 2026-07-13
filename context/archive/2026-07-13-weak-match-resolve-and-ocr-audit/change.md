@@ -1,10 +1,10 @@
 ---
 change_id: weak-match-resolve-and-ocr-audit
 title: Weak-match AI-resolution gate + historia korekt OCR
-status: implemented
+status: archived
 created: 2026-07-13
 updated: 2026-07-13
-archived_at: null
+archived_at: 2026-07-13T13:25:50Z
 ---
 
 ## Notes
