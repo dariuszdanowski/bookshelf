@@ -200,6 +200,13 @@ const TIER_STYLES: Record<MatchTier, { border: string; badge: string; label: str
 
 function CoverImage({ url, title }: { url: string | null; title: string }) {
   const [failed, setFailed] = useState(false);
+  // Bez tego, zmiana `url` (np. zapis nowej okładki kandydata) na tej samej
+  // instancji komponentu (ten sam klucz listy) dziedziczyła `failed=true` po
+  // POPRZEDNIM, zepsutym linku i nigdy nie próbowała załadować nowego — user
+  // widział placeholder mimo poprawnego zapisu, dopóki nie zrobił F5 (remount).
+  useEffect(() => {
+    setFailed(false);
+  }, [url]);
 
   if (!url || failed) {
     return (
@@ -227,8 +234,11 @@ function CoverImage({ url, title }: { url: string | null; title: string }) {
 
 // Mapuje kandydata (propozycję) na wspólny kształt podglądu — ten sam modal
 // co dla książek zatwierdzonych (jednolity dostęp przez klik w okładkę).
-function candidateToDetail(c: BookCandidateDTO): BookModalBook {
+// id/detectionId (candidate-cover-override): cel dla PATCH /api/detections/[id]/cover.
+function candidateToDetail(c: BookCandidateDTO, detectionId: string): BookModalBook {
   return {
+    id: c.id,
+    detectionId,
     title: c.title,
     authors: c.authors,
     coverUrl: c.coverUrl,
@@ -1518,7 +1528,15 @@ function DetectionCard({
       {showCandidateDetail && activeCandidate && (
         <BookModal
           mode="propose"
-          book={candidateToDetail(activeCandidate)}
+          book={candidateToDetail(activeCandidate, detection.id)}
+          onCoverSaved={(patch) =>
+            onRefined?.({
+              ...detection,
+              candidates: detection.candidates.map((c) =>
+                c.id === activeCandidate.id ? { ...c, coverUrl: patch.coverUrl } : c,
+              ),
+            })
+          }
           onClose={() => setShowCandidateDetail(false)}
         />
       )}
@@ -2071,7 +2089,15 @@ export function DetectionTile({
       {showCandidateDetail && activeCandidate && (
         <BookModal
           mode="propose"
-          book={candidateToDetail(activeCandidate)}
+          book={candidateToDetail(activeCandidate, detection.id)}
+          onCoverSaved={(patch) =>
+            onRefined?.({
+              ...detection,
+              candidates: detection.candidates.map((c) =>
+                c.id === activeCandidate.id ? { ...c, coverUrl: patch.coverUrl } : c,
+              ),
+            })
+          }
           onClose={() => setShowCandidateDetail(false)}
         />
       )}

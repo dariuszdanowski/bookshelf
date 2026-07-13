@@ -111,8 +111,7 @@ describe('BookModal — tryb add', () => {
 
     const fetchSpy = globalThis.fetch as ReturnType<typeof vi.fn>;
     const postCall = fetchSpy.mock.calls.find(([url]) => url === '/api/books') as
-      | [string, RequestInit]
-      | undefined;
+      [string, RequestInit] | undefined;
     expect(postCall).toBeDefined();
     expect((postCall![1] as { method: string }).method).toBe('POST');
     const body = JSON.parse((postCall![1] as { body: string }).body);
@@ -195,8 +194,7 @@ describe('BookModal — tryb add', () => {
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
     const fetchSpy2 = globalThis.fetch as ReturnType<typeof vi.fn>;
     const postCall2 = fetchSpy2.mock.calls.find(([url]) => url === '/api/books') as
-      | [string, RequestInit]
-      | undefined;
+      [string, RequestInit] | undefined;
     const body = JSON.parse((postCall2![1] as { body: string }).body);
     expect(body.user_cover_url).toBe('https://user.jpg');
     expect(body.cover_source).toBe('url');
@@ -214,8 +212,7 @@ describe('BookModal — tryb add', () => {
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
     const fetchSpy = globalThis.fetch as ReturnType<typeof vi.fn>;
     const postCall = fetchSpy.mock.calls.find(([url]) => url === '/api/books') as
-      | [string, RequestInit]
-      | undefined;
+      [string, RequestInit] | undefined;
     expect(postCall).toBeDefined();
     const body = JSON.parse((postCall![1] as { body: string }).body);
     expect(body.purchase_price).toBe(29.99);
@@ -400,5 +397,140 @@ describe('BookModal — tryb propose (read-only)', () => {
     render(<BookModal mode="propose" book={BASE_BOOK} onClose={onClose} />);
     fireEvent.keyDown(document, { key: 'Escape' });
     await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+});
+
+// ---------------------------------------------------------------------------
+// propose mode — edycja okładki kandydata (candidate-cover-override)
+
+const DETECTION_ID = '00000000-0000-4000-8000-000000000070';
+const CANDIDATE_ID_VALUE = '00000000-0000-4000-8000-000000000071';
+const CANDIDATE_BOOK = {
+  ...BASE_BOOK,
+  id: CANDIDATE_ID_VALUE,
+  detectionId: DETECTION_ID,
+};
+
+describe('BookModal — tryb propose: edycja okładki kandydata', () => {
+  it('CoverEditor (3 sloty) jest widoczny — dziś brak w propose', () => {
+    render(<BookModal mode="propose" book={CANDIDATE_BOOK} onClose={vi.fn()} />);
+    expect(screen.getByTestId('propose-cover-section')).toBeTruthy();
+    expect(screen.getByTestId('propose-cover-source-auto')).toBeTruthy();
+    expect(screen.getByTestId('propose-cover-source-url')).toBeTruthy();
+    expect(screen.getByTestId('propose-cover-source-photo')).toBeTruthy();
+    expect(screen.getByTestId('propose-cover-url-input')).toBeTruthy();
+  });
+
+  it('klik „Zapisz okładkę" wysyła PATCH z candidate_id/cover_url i woła onCoverSaved', async () => {
+    mockFetch({ data: { candidate_id: CANDIDATE_BOOK.id, cover_url: 'https://user.jpg' } });
+    const onCoverSaved = vi.fn();
+    render(
+      <BookModal
+        mode="propose"
+        book={CANDIDATE_BOOK}
+        onCoverSaved={onCoverSaved}
+        onClose={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByTestId('propose-cover-url-input'), {
+      target: { value: 'https://user.jpg' },
+    });
+    fireEvent.click(screen.getByTestId('propose-cover-save'));
+
+    await waitFor(() =>
+      expect(onCoverSaved).toHaveBeenCalledWith({ coverUrl: 'https://user.jpg' }),
+    );
+
+    const fetchSpy = globalThis.fetch as ReturnType<typeof vi.fn>;
+    const patchCall = fetchSpy.mock.calls.find(
+      ([url]) => url === `/api/detections/${DETECTION_ID}/cover`,
+    ) as [string, RequestInit];
+    expect(patchCall).toBeDefined();
+    expect((patchCall[1] as { method: string }).method).toBe('PATCH');
+    const body = JSON.parse((patchCall[1] as { body: string }).body);
+    expect(body.candidate_id).toBe(CANDIDATE_BOOK.id);
+    expect(body.cover_url).toBe('https://user.jpg');
+
+    await waitFor(() => screen.getByTestId('propose-cover-saved'));
+  });
+
+  it('modal NIE zamyka się automatycznie po zapisie okładki', async () => {
+    mockFetch({ data: { candidate_id: CANDIDATE_BOOK.id, cover_url: 'https://user.jpg' } });
+    const onClose = vi.fn();
+    render(<BookModal mode="propose" book={CANDIDATE_BOOK} onClose={onClose} />);
+
+    fireEvent.change(screen.getByTestId('propose-cover-url-input'), {
+      target: { value: 'https://user.jpg' },
+    });
+    fireEvent.click(screen.getByTestId('propose-cover-save'));
+
+    await waitFor(() => screen.getByTestId('propose-cover-saved'));
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('błąd zapisu pokazuje propose-cover-error, nie woła onCoverSaved', async () => {
+    mockFetch({ error: { message: 'Nie znaleziono kandydata.' } }, 404);
+    const onCoverSaved = vi.fn();
+    render(
+      <BookModal
+        mode="propose"
+        book={CANDIDATE_BOOK}
+        onCoverSaved={onCoverSaved}
+        onClose={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('propose-cover-save'));
+
+    await waitFor(() => screen.getByTestId('propose-cover-error'));
+    expect(screen.getByTestId('propose-cover-error').textContent).toContain(
+      'Nie znaleziono kandydata.',
+    );
+    expect(onCoverSaved).not.toHaveBeenCalled();
+  });
+
+  it('przycisk „Zapisz okładkę" disabled gdy brak id/detectionId kandydata (defensywnie)', () => {
+    render(<BookModal mode="propose" book={BASE_BOOK} onClose={vi.fn()} />);
+    const btn = screen.getByTestId('propose-cover-save') as HTMLButtonElement;
+    expect(btn.disabled).toBe(true);
+  });
+
+  it('wpisanie URL od razu przełącza slot na „Wklejony URL" (bez osobnego kliku)', () => {
+    render(<BookModal mode="propose" book={CANDIDATE_BOOK} onClose={vi.fn()} />);
+    fireEvent.change(screen.getByTestId('propose-cover-url-input'), {
+      target: { value: 'https://user.jpg' },
+    });
+    expect(screen.getByTestId('propose-cover-source-url').getAttribute('aria-pressed')).toBe(
+      'true',
+    );
+  });
+
+  it('wybranie pustego slotu „Wklejony URL" (kandydat ma auto-okładkę) zapisuje brak okładki — bez fallbacku na auto (zgłoszenie usera)', async () => {
+    // CANDIDATE_BOOK dziedziczy z BASE_BOOK auto cover_url niepusty — dokładnie
+    // scenariusz, w którym pickCover() cichcem wracał do auto mimo wybranego,
+    // pustego slotu „url".
+    mockFetch({ data: { candidate_id: CANDIDATE_BOOK.id, cover_url: null } });
+    const onCoverSaved = vi.fn();
+    render(
+      <BookModal
+        mode="propose"
+        book={CANDIDATE_BOOK}
+        onCoverSaved={onCoverSaved}
+        onClose={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('propose-cover-source-url'));
+    fireEvent.click(screen.getByTestId('propose-cover-save'));
+
+    await waitFor(() => expect(onCoverSaved).toHaveBeenCalledWith({ coverUrl: null }));
+
+    const fetchSpy = globalThis.fetch as ReturnType<typeof vi.fn>;
+    const patchCall = fetchSpy.mock.calls.find(
+      ([url]) => url === `/api/detections/${DETECTION_ID}/cover`,
+    ) as [string, RequestInit];
+    const body = JSON.parse((patchCall[1] as { body: string }).body);
+    expect(body.cover_url).toBeNull();
   });
 });

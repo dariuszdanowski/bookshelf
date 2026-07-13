@@ -38,9 +38,26 @@ const MOCK_GOOGLE_CANDIDATE = {
   description: null,
 };
 
+// plan-review F2: findBookCandidates() syntetyzuje coverUrl z ISBN gdy źródło go
+// nie ma (src/lib/matching/findCandidates.ts:123-128) — żeby przetestować
+// „nowy wynik NAPRAWDĘ nie ma okładki" (nie tylko `coverUrl: null` z API),
+// kandydat musi też nie mieć ISBN.
+const MOCK_CANDIDATE_NO_ISBN_NO_COVER = {
+  source: 'google_books' as const,
+  externalId: 'gb-nocover',
+  title: 'Przerwana kołysanka',
+  authors: ['Natasza Socha'],
+  isbn10: null,
+  isbn13: null,
+  publisher: null,
+  publishedYear: 2022,
+  coverUrl: null,
+  description: null,
+};
+
 function makeSupabase(opts: {
   detection?: { id: string; status: string; raw_title?: string } | null;
-  existingCandidates?: { match_score: number; rank: number }[];
+  existingCandidates?: { match_score: number; rank: number; cover_url?: string | null }[];
   existingBooks?: {
     id: string;
     title: string;
@@ -60,6 +77,27 @@ function makeSupabase(opts: {
   const correctionsInsertMock = vi
     .fn()
     .mockResolvedValue(opts.correctionInsertResult ?? { error: null });
+  const candidatesInsertMock = vi.fn((rows: unknown) => ({
+    select: vi.fn().mockResolvedValue(
+      opts.insertResult ?? {
+        data: (rows as { cover_url: string | null }[]).map((r, idx) => ({
+          id: idx === 0 ? CAND_ID : `${CAND_ID}-${idx}`,
+          source: 'google_books',
+          external_id: 'gb-1',
+          title: 'Przerwana kołysanka',
+          authors: ['Natasza Socha'],
+          isbn_10: null,
+          isbn_13: '9788383100012',
+          publisher: null,
+          published_year: 2022,
+          cover_url: r.cover_url,
+          match_score: 0.95,
+          rank: idx + 1,
+        })),
+        error: null,
+      },
+    ),
+  }));
 
   return {
     from: vi.fn((table: string) => {
@@ -83,29 +121,7 @@ function makeSupabase(opts: {
           delete: vi.fn(() => ({
             eq: vi.fn().mockResolvedValue(opts.deleteResult ?? { error: null }),
           })),
-          insert: vi.fn(() => ({
-            select: vi.fn().mockResolvedValue(
-              opts.insertResult ?? {
-                data: [
-                  {
-                    id: CAND_ID,
-                    source: 'google_books',
-                    external_id: 'gb-1',
-                    title: 'Przerwana kołysanka',
-                    authors: ['Natasza Socha'],
-                    isbn_10: null,
-                    isbn_13: '9788383100012',
-                    publisher: null,
-                    published_year: 2022,
-                    cover_url: null,
-                    match_score: 0.95,
-                    rank: 1,
-                  },
-                ],
-                error: null,
-              },
-            ),
-          })),
+          insert: candidatesInsertMock,
         };
       }
       if (table === 'books') {
@@ -121,6 +137,7 @@ function makeSupabase(opts: {
       return {};
     }),
     correctionsInsertMock,
+    candidatesInsertMock,
   };
 }
 
@@ -446,5 +463,69 @@ describe('POST /api/detections/[id]/rematch', () => {
     expect(vi.mocked(searchGoogleBooks)).toHaveBeenCalledWith(
       expect.objectContaining({ title: 'Sto lat samotności', author: 'Gabriel García Márquez' }),
     );
+  });
+
+  // ---------------------------------------------------------------------------
+  // plan-review F2 (candidate-cover-override): dziedziczenie okładki rank-1
+  // przy zastąpieniu kandydatów, żeby ręcznie ustawiona okładka nie ginęła.
+  // ---------------------------------------------------------------------------
+
+  it('dziedziczy okładkę starego rank-1 gdy nowy top wynik jej nie ma', async () => {
+    vi.mocked(searchGoogleBooks).mockResolvedValue({
+      ok: true,
+      candidates: [MOCK_CANDIDATE_NO_ISBN_NO_COVER],
+    });
+    vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({ ok: false, reason: 'empty' });
+    vi.mocked(searchOpenLibrary).mockResolvedValue({ ok: false, reason: 'empty' });
+    const supabase = makeSupabase({
+      existingCandidates: [{ match_score: 0.9, rank: 1, cover_url: 'https://old-cover.jpg' }],
+    });
+    const ctx = makeContext({ supabase });
+    const res = await POST(ctx);
+    expect(res.status).toBe(200);
+
+    const insertedRows = supabase.candidatesInsertMock.mock.calls[0][0] as {
+      cover_url: string | null;
+    }[];
+    expect(insertedRows[0].cover_url).toBe('https://old-cover.jpg');
+  });
+
+  it('NIE nadpisuje okładki gdy nowy top wynik ma własną', async () => {
+    vi.mocked(searchGoogleBooks).mockResolvedValue({
+      ok: true,
+      candidates: [{ ...MOCK_GOOGLE_CANDIDATE, coverUrl: 'https://new-cover.jpg' }],
+    });
+    vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({ ok: false, reason: 'empty' });
+    vi.mocked(searchOpenLibrary).mockResolvedValue({ ok: false, reason: 'empty' });
+    const supabase = makeSupabase({
+      existingCandidates: [{ match_score: 0.9, rank: 1, cover_url: 'https://old-cover.jpg' }],
+    });
+    const ctx = makeContext({ supabase });
+    const res = await POST(ctx);
+    expect(res.status).toBe(200);
+
+    const insertedRows = supabase.candidatesInsertMock.mock.calls[0][0] as {
+      cover_url: string | null;
+    }[];
+    expect(insertedRows[0].cover_url).toBe('https://new-cover.jpg');
+  });
+
+  it('brak starej okładki → nowy kandydat zostaje bez okładki (null)', async () => {
+    vi.mocked(searchGoogleBooks).mockResolvedValue({
+      ok: true,
+      candidates: [MOCK_CANDIDATE_NO_ISBN_NO_COVER],
+    });
+    vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({ ok: false, reason: 'empty' });
+    vi.mocked(searchOpenLibrary).mockResolvedValue({ ok: false, reason: 'empty' });
+    const supabase = makeSupabase({
+      existingCandidates: [{ match_score: 0.9, rank: 1, cover_url: null }],
+    });
+    const ctx = makeContext({ supabase });
+    await POST(ctx);
+
+    const insertedRows = supabase.candidatesInsertMock.mock.calls[0][0] as {
+      cover_url: string | null;
+    }[];
+    expect(insertedRows[0].cover_url).toBeNull();
   });
 });

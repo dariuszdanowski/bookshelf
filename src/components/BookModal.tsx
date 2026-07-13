@@ -18,6 +18,24 @@ function pickCover(
   return slot ?? auto ?? (user.trim() || null) ?? photo ?? null;
 }
 
+/**
+ * Efektywna okładka BEZ fallbacku na inny slot — dokładnie to, co jest w wybranym
+ * slocie, albo null. `pickCover` celowo cofa się do innego slotu (podgląd add/edit
+ * nie ma znikać przy przełączaniu pustej zakładki), ale w propose mode zgłoszenie
+ * usera: wybranie pustego „Wklejony URL" i „Zapisz okładkę" cichcem zapisywało
+ * auto-okładkę zamiast braku okładki. Kandydat ma jedno pole `cover_url` (bez
+ * `cover_source`), więc to, co widać w podglądzie propose, MUSI być tym, co się
+ * zapisuje — bez fallbacku.
+ */
+function resolveCoverStrict(
+  source: CoverSource,
+  auto: string | null,
+  user: string,
+  photo: string | null,
+): string | null {
+  return source === 'url' ? user.trim() || null : source === 'photo' ? photo : (auto ?? null);
+}
+
 // ---------------------------------------------------------------------------
 // Typy wejściowe
 
@@ -36,6 +54,8 @@ export type BookModalBook = {
   user_cover_url?: string | null;
   cover_photo_url?: string | null;
   cover_source?: CoverSource;
+  /** Wymagane w propose mode — cel dla PATCH /api/detections/[id]/cover (candidate-cover-override). */
+  detectionId?: string;
   photoId?: string | null;
   source?: string | null;
   matchScore?: number | null;
@@ -53,6 +73,8 @@ export type BookModalProps = {
   /** Dane wstępne (edit/propose mode; w add opcjonalne — prefill z kandydata). */
   book?: BookModalBook;
   onSaved?: () => void;
+  /** propose mode: wywoływane po udanym zapisie okładki kandydata (candidate-cover-override). */
+  onCoverSaved?: (patch: { coverUrl: string | null }) => void;
   onClose: () => void;
 };
 
@@ -441,7 +463,14 @@ function SearchPanel({
  *       (własny save przez /api/books/:id, osobno od metadanych).
  * propose: read-only pola, „Szukaj w sieci", brak zapisu.
  */
-export default function BookModal({ mode, shelfId, book, onSaved, onClose }: BookModalProps) {
+export default function BookModal({
+  mode,
+  shelfId,
+  book,
+  onSaved,
+  onCoverSaved,
+  onClose,
+}: BookModalProps) {
   useBodyScrollLock(); // M5: bez przelewania scrolla na stronę pod modalem
   const [fields, setFields] = useState<BookFieldValues>(() => bookToFields(book));
   // Stan okładki (lifted z CoverEditor) — wspólny dla add i edit. Trafia do
@@ -464,6 +493,11 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
   );
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // candidate-cover-override: zapis okładki w trybie propose jest niezależny od
+  // reszty formularza (read-only, bez głównej stopki „Zapisz") — osobny stan.
+  const [savingCover, setSavingCover] = useState(false);
+  const [coverSaveErr, setCoverSaveErr] = useState<string | null>(null);
+  const [coverSaved, setCoverSaved] = useState(false);
   // S-17: opis z wybranego kandydata — UKRYTY stan (bez kontrolki UI; ekspozycja
   // opisu = follow-up). Sentinel: undefined = kandydata nie wybrano (PATCH pomija
   // pole, nie nadpisuje opisu); null = wybrano kandydata bez opisu (OL/BN — PATCH
@@ -537,7 +571,42 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
     if (patch.autoUrl !== undefined) setCoverAutoUrl(patch.autoUrl);
     if (patch.userUrl !== undefined) setCoverUserUrl(patch.userUrl);
     if (patch.photoUrl !== undefined) setCoverPhotoUrl(patch.photoUrl);
-    setDisplayCover(pickCover(nextSource, nextAuto, nextUser, nextPhoto));
+    // propose: kandydat ma jedno pole cover_url (bez cover_source) — podgląd musi
+    // pokazywać dokładnie to, co „Zapisz okładkę" zapisze, bez fallbacku na inny
+    // slot (zgłoszenie usera: pusty „Wklejony URL" pokazywał i zapisywał auto-okładkę).
+    setDisplayCover(
+      mode === 'propose'
+        ? resolveCoverStrict(nextSource, nextAuto, nextUser, nextPhoto)
+        : pickCover(nextSource, nextAuto, nextUser, nextPhoto),
+    );
+  }
+
+  // candidate-cover-override: zapis okładki kandydata PRZED zatwierdzeniem —
+  // niezależny od handleSave (reszta pól w propose mode zostaje read-only).
+  async function handleSaveCandidateCover() {
+    if (!book?.id || !book?.detectionId) return;
+    setSavingCover(true);
+    setCoverSaveErr(null);
+    setCoverSaved(false);
+    const resolved = resolveCoverStrict(coverSource, coverAutoUrl, coverUserUrl, coverPhotoUrl);
+    try {
+      const res = await fetch(`/api/detections/${book.detectionId}/cover`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ candidate_id: book.id, cover_url: resolved }),
+      });
+      const json = (await res.json()) as { error?: { message?: string } };
+      if (!res.ok) {
+        setCoverSaveErr(json.error?.message ?? `Błąd zapisu (${res.status})`);
+        return;
+      }
+      setCoverSaved(true);
+      onCoverSaved?.({ coverUrl: resolved });
+    } catch {
+      setCoverSaveErr('Błąd sieci.');
+    } finally {
+      setSavingCover(false);
+    }
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -683,18 +752,53 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
                   alt={authorsDisplay ? `${fields.title} — ${authorsDisplay}` : fields.title}
                 />
 
-                {/* Sekcja okładki — zawsze rozwinięta, identyczna w add i edit.
-                  Sloty w stanie BookModal → zapisywane jednym „Zapisz" (unify-book-save). */}
-                {canEdit && (
-                  <CoverEditor
-                    isbn={fields.isbn13 || fields.isbn10}
-                    source={coverSource}
-                    autoUrl={coverAutoUrl}
-                    userUrl={coverUserUrl}
-                    photoUrl={coverPhotoUrl}
-                    testIdPrefix={mode === 'edit' ? 'edit-cover' : 'add-cover'}
-                    onChange={handleCoverChange}
-                  />
+                {/* Sekcja okładki — zawsze rozwinięta, identyczna w add/edit/propose
+                  (candidate-cover-override). W add/edit sloty → zapisywane jednym
+                  „Zapisz" (unify-book-save); w propose → osobnym „Zapisz okładkę". */}
+                <CoverEditor
+                  isbn={fields.isbn13 || fields.isbn10}
+                  source={coverSource}
+                  autoUrl={coverAutoUrl}
+                  userUrl={coverUserUrl}
+                  photoUrl={coverPhotoUrl}
+                  testIdPrefix={
+                    mode === 'edit'
+                      ? 'edit-cover'
+                      : mode === 'propose'
+                        ? 'propose-cover'
+                        : 'add-cover'
+                  }
+                  onChange={handleCoverChange}
+                />
+                {mode === 'propose' && (
+                  <div className="w-full space-y-1">
+                    <button
+                      type="button"
+                      data-testid="propose-cover-save"
+                      disabled={savingCover || !book?.id || !book?.detectionId}
+                      onClick={() => void handleSaveCandidateCover()}
+                      className="w-full rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {savingCover ? 'Zapisuję...' : 'Zapisz okładkę'}
+                    </button>
+                    {coverSaveErr && (
+                      <p
+                        data-testid="propose-cover-error"
+                        className="text-xs text-red-600 dark:text-red-400"
+                        role="alert"
+                      >
+                        {coverSaveErr}
+                      </p>
+                    )}
+                    {coverSaved && (
+                      <p
+                        data-testid="propose-cover-saved"
+                        className="text-xs text-green-600 dark:text-green-400"
+                      >
+                        Okładka zapisana.
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
 

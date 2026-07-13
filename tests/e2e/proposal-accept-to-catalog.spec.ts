@@ -359,6 +359,178 @@ test.describe('S-05 — proposal-accept-to-catalog golden path (mock)', () => {
     await expect(modal).not.toBeVisible();
   });
 
+  test('okładka kandydata — wklej URL w podglądzie propozycji, zapisz, miniatura karty się odświeża, potwierdzona książka dziedziczy okładkę (candidate-cover-override)', async ({
+    page,
+  }) => {
+    let patchedCoverUrl: string | null | undefined;
+    const NEW_COVER_URL = 'https://example.com/solaris-cover.jpg';
+
+    // Prawdziwy obrazek pod mockowanym URL — bez tego <img onError> przełącza
+    // CoverImage/BookCard z powrotem na placeholder, bo example.com/*.jpg nie
+    // zwraca realnej bitmapy.
+    const ONE_PX_PNG = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+      'base64',
+    );
+    await page.route(NEW_COVER_URL, (route) => {
+      void route.fulfill({ status: 200, contentType: 'image/png', body: ONE_PX_PNG });
+    });
+
+    await page.route(`**/api/detections/${DET_HIGH}/cover`, (route) => {
+      const body = route.request().postDataJSON() as {
+        candidate_id: string;
+        cover_url: string | null;
+      };
+      patchedCoverUrl = body.cover_url;
+      void route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: { candidate_id: body.candidate_id, cover_url: body.cover_url },
+        }),
+      });
+    });
+
+    await page.goto(`/photos/${PHOTO_ID}`);
+
+    // CAND_HIGH startuje bez okładki — widoczny placeholder, brak <img>.
+    const card = page.getByTestId('detection-card-1');
+    const coverBtn = card.getByTestId('candidate-cover-button');
+    await expect(coverBtn.locator('img')).toHaveCount(0);
+
+    // Otwórz podgląd kandydata (propose mode) i wklej URL okładki.
+    await coverBtn.click();
+    const modal = page.getByTestId('book-modal');
+    await expect(modal).toBeVisible();
+    await expect(modal.getByTestId('propose-cover-section')).toBeVisible();
+    await modal.getByTestId('propose-cover-url-input').fill(NEW_COVER_URL);
+    // Wpisanie URL od razu wybiera slot „Wklejony URL" (bez osobnego kliku).
+    await expect(modal.getByTestId('propose-cover-source-url')).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await modal.getByTestId('propose-cover-save').click();
+    await expect(modal.getByTestId('propose-cover-saved')).toBeVisible();
+    await expect.poll(() => patchedCoverUrl).toBe(NEW_COVER_URL);
+
+    // Zamknij modal — karta pod spodem odświeża miniaturę bez przeładowania strony.
+    await modal.getByTestId('book-modal-close').click();
+    await expect(modal).not.toBeVisible();
+    await expect(coverBtn.locator('img')).toHaveAttribute('src', NEW_COVER_URL);
+
+    // Zaakceptuj detekcję — potwierdzona książka dziedziczy okładkę kandydata
+    // (confirm.ts czyta candidate.cover_url z DB; tu mock odzwierciedla PATCH).
+    let confirmedCoverUrl: string | null = null;
+    await page.route(`**/api/detections/${DET_HIGH}/confirm`, (route) => {
+      confirmedCoverUrl = patchedCoverUrl ?? null;
+      void route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { book_id: BOOK_HIGH, shelf_id: SHELF_ID } }),
+      });
+    });
+    await card.getByTestId('confirm-button').click();
+    await expect(card.getByTestId('undo-confirm-button')).toBeVisible();
+    expect(confirmedCoverUrl).toBe(NEW_COVER_URL);
+
+    // Widok półki (realna, istniejąca półka usera) — mock zwraca książkę
+    // z okładką odziedziczoną od kandydata.
+    await page.goto('/shelves');
+    const shelfHref = await page.locator('a[href^="/shelves/"]').first().getAttribute('href');
+    const realShelfId = shelfHref?.split('/shelves/')[1] ?? '';
+    await page.route(`**/api/shelves/${realShelfId}/books`, (route) => {
+      void route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: { books: [{ ...SHELF_BOOKS_AFTER[0], cover_url: NEW_COVER_URL }] },
+        }),
+      });
+    });
+    await page.goto(`/shelves/${realShelfId}`);
+    await expect(page.getByTestId('shelf-books-grid')).toBeVisible({ timeout: 10000 });
+    const bookCard = page.getByTestId(`book-card-${BOOK_HIGH}`);
+    await expect(bookCard).toBeVisible();
+    await expect(bookCard.locator('img')).toHaveAttribute('src', NEW_COVER_URL);
+  });
+
+  test('okładka kandydata — poprzedni (zepsuty) link nie blokuje wyświetlenia nowego po zapisie (regres: CoverImage nie resetował stanu "failed" przy zmianie url)', async ({
+    page,
+  }) => {
+    const BROKEN_COVER_URL = 'https://example.com/broken-cover-404.jpg';
+    const NEW_COVER_URL = 'https://example.com/good-cover.jpg';
+    const ONE_PX_PNG = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+      'base64',
+    );
+
+    await page.route(BROKEN_COVER_URL, (route) => void route.fulfill({ status: 404 }));
+    await page.route(
+      NEW_COVER_URL,
+      (route) => void route.fulfill({ status: 200, contentType: 'image/png', body: ONE_PX_PNG }),
+    );
+
+    // Nadpisz mock GET z beforeEach — CAND_HIGH startuje z okładką, która nie
+    // załaduje się (404), żeby CoverImage zdążyło ustawić `failed=true`.
+    await page.route(`**/api/photos/${PHOTO_ID}`, (route) => {
+      if (route.request().method() !== 'GET') return void route.continue();
+      const detectionsWithBrokenCover = MOCK_DETECTIONS.map((d) =>
+        d.id === DET_HIGH
+          ? { ...d, candidates: [{ ...d.candidates[0], coverUrl: BROKEN_COVER_URL }] }
+          : d,
+      );
+      void route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            photo: MOCK_PHOTO,
+            detections: detectionsWithBrokenCover,
+            vision_run: MOCK_VISION_RUN,
+          },
+        }),
+      });
+    });
+
+    let patchedCoverUrl: string | null | undefined;
+    await page.route(`**/api/detections/${DET_HIGH}/cover`, (route) => {
+      const body = route.request().postDataJSON() as {
+        candidate_id: string;
+        cover_url: string | null;
+      };
+      patchedCoverUrl = body.cover_url;
+      void route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: { candidate_id: body.candidate_id, cover_url: body.cover_url },
+        }),
+      });
+    });
+
+    await page.goto(`/photos/${PHOTO_ID}`);
+    const card = page.getByTestId('detection-card-1');
+    const coverBtn = card.getByTestId('candidate-cover-button');
+
+    // Czekaj aż zepsuty link faktycznie sfailuje (placeholder, brak <img>) —
+    // dokładnie ten stan, który wcześniej "zamrażał" CoverImage.
+    await expect(coverBtn.locator('img')).toHaveCount(0, { timeout: 10_000 });
+
+    await coverBtn.click();
+    const modal = page.getByTestId('book-modal');
+    await expect(modal).toBeVisible();
+    await modal.getByTestId('propose-cover-url-input').fill(NEW_COVER_URL);
+    await modal.getByTestId('propose-cover-save').click();
+    await expect(modal.getByTestId('propose-cover-saved')).toBeVisible();
+    await expect.poll(() => patchedCoverUrl).toBe(NEW_COVER_URL);
+    await modal.getByTestId('book-modal-close').click();
+    await expect(modal).not.toBeVisible();
+
+    // Bez fixa: nadal placeholder (failed=true przeżyło zmianę url). Z fixem:
+    // nowy, poprawny obrazek renderuje się od razu, bez F5.
+    await expect(coverBtn.locator('img')).toHaveAttribute('src', NEW_COVER_URL);
+  });
+
   test('web search — „Szukaj w sieci" linkuje do Google w nowej karcie', async ({ page }) => {
     await page.goto(`/photos/${PHOTO_ID}`);
     const link = page.getByTestId('detection-card-1').getByTestId('web-search-button');

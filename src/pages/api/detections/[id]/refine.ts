@@ -351,9 +351,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
   if (correctionError?.code === '42703' || correctionError?.code === 'PGRST204') {
     const { original_raw_author: _drop, ...withoutAuthor } = correctionInsert;
     const retry = await // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (locals.supabase as any)
-      .from('corrections')
-      .insert(withoutAuthor);
+    (locals.supabase as any).from('corrections').insert(withoutAuthor);
     if (retry.error) {
       console.error('[api/detections/refine POST] corrections insert failed', retry.error.message);
     }
@@ -409,6 +407,12 @@ export const POST: APIRoute = async ({ params, locals }) => {
   }
 
   if (shouldReplaceCandidates && finalCandidates.length > 0) {
+    // Dziedziczenie okładki rank-1 (plan-review F2, candidate-cover-override):
+    // refine USUWA i wstawia nowe wiersze book_candidates — bez tego ręcznie
+    // ustawiona okładka na starym topie ginie bezpowrotnie. Dotyczy tylko rank 1.
+    const oldTopCoverUrl =
+      (existingCandidateRows ?? []).find((r) => r.rank === 1)?.cover_url ?? null;
+
     const { error: insertCandidatesError } = await locals.supabase.from('book_candidates').insert(
       finalCandidates.map((c, idx) => ({
         detection_id: detection.id,
@@ -420,7 +424,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
         isbn_13: c.isbn13,
         publisher: c.publisher,
         published_year: c.publishedYear,
-        cover_url: c.coverUrl,
+        cover_url: idx === 0 && !c.coverUrl ? oldTopCoverUrl : c.coverUrl,
         description: c.description,
         match_score: c.matchScore,
         rank: idx + 1,

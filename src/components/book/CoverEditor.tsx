@@ -55,20 +55,29 @@ export default function CoverEditor({
   };
 
   async function handleUpload(file: File) {
-    if (file.size > MAX_COVER_BYTES) { setErr('Plik za duży (max 15 MB).'); return; }
+    if (file.size > MAX_COVER_BYTES) {
+      setErr('Plik za duży (max 15 MB).');
+      return;
+    }
     setBusy(true);
     setErr(null);
     try {
       const supabase = createBrowserSupabaseClient();
       const { data: auth } = await supabase.auth.getUser();
       const uid = auth.user?.id;
-      if (!uid) { setErr('Brak sesji — zaloguj się ponownie.'); return; }
+      if (!uid) {
+        setErr('Brak sesji — zaloguj się ponownie.');
+        return;
+      }
       const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg';
       const path = `${uid}/${crypto.randomUUID()}.${ext}`;
       const { error } = await supabase.storage
         .from('book-covers')
         .upload(path, file, { contentType: file.type || 'image/jpeg', upsert: false });
-      if (error) { setErr(error.message); return; }
+      if (error) {
+        setErr(error.message);
+        return;
+      }
       const { data: pub } = supabase.storage.from('book-covers').getPublicUrl(path);
       onChange({ photoUrl: pub.publicUrl, source: 'photo' });
     } catch (e) {
@@ -85,8 +94,14 @@ export default function CoverEditor({
     setErr(null);
     try {
       const res = await fetch(`/api/books/cover-suggestion?isbn=${encodeURIComponent(isbnVal)}`);
-      const json = (await res.json()) as { data?: { cover_url: string | null }; error?: { message?: string } };
-      if (!res.ok) { setErr(json.error?.message ?? 'Błąd sprawdzania okładki.'); return; }
+      const json = (await res.json()) as {
+        data?: { cover_url: string | null };
+        error?: { message?: string };
+      };
+      if (!res.ok) {
+        setErr(json.error?.message ?? 'Błąd sprawdzania okładki.');
+        return;
+      }
       const found = json.data?.cover_url ?? null;
       if (found) onChange({ autoUrl: found, source: 'auto' });
       else setErr('Nie znaleziono okładki automatycznie dla tego ISBN.');
@@ -134,7 +149,13 @@ export default function CoverEditor({
         <input
           data-testid={`${testIdPrefix}-url-input`}
           value={userUrl}
-          onChange={(e) => onChange({ userUrl: e.target.value })}
+          onChange={(e) => {
+            const value = e.target.value;
+            // Wpisanie niepustego URL od razu wybiera slot „Wklejony URL" — bez
+            // tego user musiał osobno kliknąć przycisk slotu, żeby zobaczyć podgląd
+            // tego, co właśnie wpisał (zgłoszenie usera, candidate-cover-override).
+            onChange(value.trim() ? { userUrl: value, source: 'url' } : { userUrl: value });
+          }}
           placeholder="https://..."
           className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs placeholder:text-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
         />
@@ -149,7 +170,10 @@ export default function CoverEditor({
             accept="image/*"
             className="hidden"
             disabled={busy}
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleUpload(f); }}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void handleUpload(f);
+            }}
           />
         </label>
         <button
@@ -164,7 +188,15 @@ export default function CoverEditor({
         </button>
       </div>
 
-      {err && <p data-testid={`${testIdPrefix}-error`} className="text-xs text-red-600 dark:text-red-400" role="alert">{err}</p>}
+      {err && (
+        <p
+          data-testid={`${testIdPrefix}-error`}
+          className="text-xs text-red-600 dark:text-red-400"
+          role="alert"
+        >
+          {err}
+        </p>
+      )}
     </div>
   );
 }
