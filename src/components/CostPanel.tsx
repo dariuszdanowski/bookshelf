@@ -22,12 +22,26 @@ type RefineCall = {
   created_at: string;
 };
 
+type ResolutionCall = {
+  id: string;
+  detection_id: string | null;
+  position_index: number | null;
+  raw_title: string | null;
+  model: string | null;
+  cost_usd: number | null;
+  latency_ms: number | null;
+  status: string;
+  created_at: string;
+};
+
 type CostData = {
   vision_runs: VisionRun[];
   refine_calls: RefineCall[];
+  resolution_calls: ResolutionCall[];
   totals: {
     vision_cost_usd: number;
     refine_cost_usd: number;
+    resolution_cost_usd: number;
     grand_total_usd: number;
     call_count: number;
   };
@@ -97,6 +111,9 @@ export default function CostPanel({
   const filteredRefine = detectionId
     ? (data?.refine_calls ?? []).filter((r) => r.detection_id === detectionId)
     : (data?.refine_calls ?? []);
+  const filteredResolution = detectionId
+    ? (data?.resolution_calls ?? []).filter((r) => r.detection_id === detectionId)
+    : (data?.resolution_calls ?? []);
 
   // Vision runs: preloadedVisionRun ma priorytet (już załadowany przy fetchowaniu foto),
   // fallback do danych z /costs (mogą być pełniejsze po archiwizacji)
@@ -109,8 +126,9 @@ export default function CostPanel({
 
   const filteredRefineTotal = filteredRefine.reduce((s, r) => s + (r.cost_usd ?? 0), 0);
   const filteredVisionTotal = filteredVision.reduce((s, r) => s + (r.cost_usd ?? 0), 0);
-  const filteredTotal = filteredRefineTotal + filteredVisionTotal;
-  const filteredCount = filteredRefine.length + filteredVision.length;
+  const filteredResolutionTotal = filteredResolution.reduce((s, r) => s + (r.cost_usd ?? 0), 0);
+  const filteredTotal = filteredRefineTotal + filteredVisionTotal + filteredResolutionTotal;
+  const filteredCount = filteredRefine.length + filteredVision.length + filteredResolution.length;
   const hasData = filteredCount > 0 || !!preloadedVisionRun;
 
   return (
@@ -215,6 +233,32 @@ export default function CostPanel({
                     OCR{rc.position_index != null ? ` #${rc.position_index}` : ''}
                     {rc.raw_title ? ` ${rc.raw_title}` : ''} · {formatDate(rc.created_at)} ·{' '}
                     {formatLatency(rc.latency_ms)}
+                  </span>
+                  <span className="flex-shrink-0 text-[11px] font-semibold text-gray-800">
+                    {formatCost(rc.cost_usd)}
+                  </span>
+                </div>
+              ))}
+
+              {/* AI-resolution calls (S-50) */}
+              {filteredResolution.map((rc) => (
+                <div
+                  key={rc.id}
+                  className="flex items-center gap-2 border-b border-gray-50 px-3 py-1.5"
+                >
+                  <svg
+                    className="flex-shrink-0 text-purple-500"
+                    width="10"
+                    height="10"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path d="M10 2a1 1 0 011 1v1.05a7.002 7.002 0 015.95 5.95H18a1 1 0 110 2h-1.05a7.002 7.002 0 01-5.95 5.95V19a1 1 0 11-2 0v-1.05a7.002 7.002 0 01-5.95-5.95H2a1 1 0 110-2h1.05A7.002 7.002 0 019 4.05V3a1 1 0 011-1z" />
+                  </svg>
+                  <span className="flex-1 truncate text-[11px] text-gray-600">
+                    AI{rc.position_index != null ? ` #${rc.position_index}` : ''}
+                    {rc.raw_title ? ` ${rc.raw_title}` : ''} · {rc.status} ·{' '}
+                    {formatDate(rc.created_at)} · {formatLatency(rc.latency_ms)}
                   </span>
                   <span className="flex-shrink-0 text-[11px] font-semibold text-gray-800">
                     {formatCost(rc.cost_usd)}

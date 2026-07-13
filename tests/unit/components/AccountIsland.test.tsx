@@ -20,8 +20,10 @@ const MOCK_STATS = {
   data: {
     total_vision_cost_usd: 0.015,
     total_refine_cost_usd: 0.002,
+    total_resolution_cost_usd: 0,
     vision_run_count: 2,
     refine_call_count: 1,
+    resolution_call_count: 0,
   },
 };
 
@@ -258,8 +260,10 @@ describe('AccountIsland — koszty per klucz (M27)', () => {
               data: {
                 total_vision_cost_usd: 0.0244,
                 total_refine_cost_usd: 0,
+                total_resolution_cost_usd: 0,
                 vision_run_count: 3,
                 refine_call_count: 0,
+                resolution_call_count: 0,
                 cost_by_key: { [KEY_A]: { cost_usd: 0.0244, call_count: 3 } },
               },
             }),

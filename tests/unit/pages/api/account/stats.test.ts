@@ -16,9 +16,17 @@ function builder(result: QResult) {
   return b;
 }
 
-function makeContext(opts: { vision: QResult; refine: QResult; user?: { id: string } | null }) {
+function makeContext(opts: {
+  vision: QResult;
+  refine: QResult;
+  resolution?: QResult;
+  user?: { id: string } | null;
+}) {
+  const resolution = opts.resolution ?? { data: [], error: null };
   const fromFn = vi.fn((table: string) =>
-    builder(table === 'vision_runs' ? opts.vision : opts.refine),
+    builder(
+      table === 'vision_runs' ? opts.vision : table === 'refine_calls' ? opts.refine : resolution,
+    ),
   );
 
   return {

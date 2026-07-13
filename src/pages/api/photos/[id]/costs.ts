@@ -19,7 +19,8 @@ export const GET: APIRoute = async ({ params, locals }) => {
     .select('id')
     .eq('id', photoId)
     .maybeSingle();
-  if (!photo) return apiError({ code: 'NOT_FOUND', status: 404, message: 'Nie znaleziono zdjęcia.' });
+  if (!photo)
+    return apiError({ code: 'NOT_FOUND', status: 404, message: 'Nie znaleziono zdjęcia.' });
 
   // Vision runs for this photo
   const { data: visionRuns, error: vrError } = await locals.supabase
@@ -30,19 +31,33 @@ export const GET: APIRoute = async ({ params, locals }) => {
 
   if (vrError) {
     console.error('[api/photos/costs GET] vision_runs failed', vrError.message);
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Błąd pobierania danych vision.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Błąd pobierania danych vision.',
+    });
   }
 
   // Refine calls for this photo (joined with detection position_index)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: refineCalls, error: rcError } = await (locals.supabase as any)
+  const { data: refineCalls, error: rcError } = (await (locals.supabase as any)
     .from('refine_calls')
-    .select('id, detection_id, model, cost_usd, latency_ms, created_at, detections(position_index, raw_title)')
+    .select(
+      'id, detection_id, model, cost_usd, latency_ms, created_at, detections(position_index, raw_title)',
+    )
     .eq('photo_id', photoId)
-    .order('created_at', { ascending: true }) as {
-      data: Array<{ id: string; detection_id: string; model: string | null; cost_usd: number | null; latency_ms: number | null; created_at: string; detections: { position_index: number; raw_title: string } | null }> | null;
-      error: { message: string } | null;
-    };
+    .order('created_at', { ascending: true })) as {
+    data: Array<{
+      id: string;
+      detection_id: string;
+      model: string | null;
+      cost_usd: number | null;
+      latency_ms: number | null;
+      created_at: string;
+      detections: { position_index: number; raw_title: string } | null;
+    }> | null;
+    error: { message: string } | null;
+  };
 
   if (rcError) {
     // Graceful degrade: tabela refine_calls może nie istnieć jeszcze w DB
@@ -50,8 +65,39 @@ export const GET: APIRoute = async ({ params, locals }) => {
     console.warn('[api/photos/costs GET] refine_calls unavailable — returning []', rcError.message);
   }
 
+  // Resolution calls for this photo (S-50) — ten sam wzorzec graceful-degrade co refine_calls
+  // (tabela nowa, database.types.ts nieregenerowany do czasu osobnego db push).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: resolutionCalls, error: rsError } = (await (locals.supabase as any)
+    .from('resolution_calls')
+    .select(
+      'id, detection_id, model, cost_usd, latency_ms, status, created_at, detections(position_index, raw_title)',
+    )
+    .eq('photo_id', photoId)
+    .order('created_at', { ascending: true })) as {
+    data: Array<{
+      id: string;
+      detection_id: string | null;
+      model: string | null;
+      cost_usd: number | null;
+      latency_ms: number | null;
+      status: string;
+      created_at: string;
+      detections: { position_index: number; raw_title: string } | null;
+    }> | null;
+    error: { message: string } | null;
+  };
+
+  if (rsError) {
+    console.warn(
+      '[api/photos/costs GET] resolution_calls unavailable — returning []',
+      rsError.message,
+    );
+  }
+
   const visionTotal = (visionRuns ?? []).reduce((s, r) => s + (r.cost_usd ?? 0), 0);
   const refineTotal = (refineCalls ?? []).reduce((s, r) => s + (r.cost_usd ?? 0), 0);
+  const resolutionTotal = (resolutionCalls ?? []).reduce((s, r) => s + (r.cost_usd ?? 0), 0);
 
   return apiResponse({
     data: {
@@ -76,11 +122,27 @@ export const GET: APIRoute = async ({ params, locals }) => {
           created_at: r.created_at,
         };
       }),
+      resolution_calls: (resolutionCalls ?? []).map((r) => {
+        const det = r.detections as { position_index: number; raw_title: string } | null;
+        return {
+          id: r.id,
+          detection_id: r.detection_id,
+          position_index: det?.position_index ?? null,
+          raw_title: det?.raw_title ?? null,
+          model: r.model,
+          cost_usd: r.cost_usd,
+          latency_ms: r.latency_ms,
+          status: r.status,
+          created_at: r.created_at,
+        };
+      }),
       totals: {
         vision_cost_usd: visionTotal,
         refine_cost_usd: refineTotal,
-        grand_total_usd: visionTotal + refineTotal,
-        call_count: (visionRuns?.length ?? 0) + (refineCalls?.length ?? 0),
+        resolution_cost_usd: resolutionTotal,
+        grand_total_usd: visionTotal + refineTotal + resolutionTotal,
+        call_count:
+          (visionRuns?.length ?? 0) + (refineCalls?.length ?? 0) + (resolutionCalls?.length ?? 0),
       },
     },
   });

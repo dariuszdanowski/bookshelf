@@ -11,8 +11,10 @@ import type { ApiKeyDTO, CreateKeyInput } from '../lib/keys/schema';
 type StatsData = {
   total_vision_cost_usd: number;
   total_refine_cost_usd: number;
+  total_resolution_cost_usd: number;
   vision_run_count: number;
   refine_call_count: number;
+  resolution_call_count: number;
   /** M27: suma kosztów per klucz API (vision + OCR); brak wpisu = $0 */
   cost_by_key?: Record<string, { cost_usd: number; call_count: number }>;
 };
@@ -602,9 +604,13 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
           {stats && (
             <div className="space-y-2" data-testid="account-stats-content">
               <div className="text-2xl font-bold" data-testid="account-stats-total">
-                {formatUsd(stats.total_vision_cost_usd + stats.total_refine_cost_usd)}
+                {formatUsd(
+                  stats.total_vision_cost_usd +
+                    stats.total_refine_cost_usd +
+                    stats.total_resolution_cost_usd,
+                )}
               </div>
-              <div className="grid grid-cols-1 gap-4 text-sm text-gray-700 sm:grid-cols-2 dark:text-gray-300">
+              <div className="grid grid-cols-1 gap-4 text-sm text-gray-700 sm:grid-cols-3 dark:text-gray-300">
                 <div>
                   <span className="font-medium">Vision:</span>{' '}
                   {formatUsd(stats.total_vision_cost_usd)} ({stats.vision_run_count} analiz)
@@ -612,6 +618,11 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
                 <div>
                   <span className="font-medium">Refine:</span>{' '}
                   {formatUsd(stats.total_refine_cost_usd)} ({stats.refine_call_count} wywołań)
+                </div>
+                <div>
+                  <span className="font-medium">AI-resolution:</span>{' '}
+                  {formatUsd(stats.total_resolution_cost_usd)} ({stats.resolution_call_count}{' '}
+                  wywołań)
                 </div>
               </div>
             </div>
