@@ -379,7 +379,7 @@ Migracja czysto addytywna (nowa tabela + rozszerzone CHECKi) — brak ryzyka dla
 
 #### Ręczne
 
-- [ ] 3.3 Realny smoke z kluczem Anthropic — `resolution_calls`/`book_candidates`/`/account/stats` poprawne
+- [x] 3.3 Realny smoke z kluczem Anthropic — `resolution_calls`/`book_candidates`/`/account/stats` poprawne
 
 ### Faza 4: UI — DetectionReview + AccountIsland + CostPanel
 
@@ -398,5 +398,5 @@ Migracja czysto addytywna (nowa tabela + rozszerzone CHECKi) — brak ryzyka dla
 
 #### Ręczne
 
-- [ ] 5.4 Pełny golden path w przeglądarce (prawdziwe konto)
-- [ ] 5.5 Przełączenie klucza na non-Anthropic → czytelny komunikat
+- [x] 5.4 Pełny golden path w przeglądarce (prawdziwe konto)
+- [x] 5.5 Przełączenie klucza na non-Anthropic → czytelny komunikat

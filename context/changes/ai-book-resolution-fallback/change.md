@@ -1,7 +1,7 @@
 ---
 change_id: ai-book-resolution-fallback
 title: Fallback identyfikacji książki przez AI z web search (S-50)
-status: implementing
+status: implemented
 created: 2026-07-13
 updated: 2026-07-13
 archived_at: null
