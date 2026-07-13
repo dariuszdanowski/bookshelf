@@ -370,9 +370,9 @@ Migracja czysto addytywna (rozszerzony CHECK) — brak ryzyka dla istniejących 
 
 #### Automatyczne
 
-- [x] 5.1 `npm run test` (adaptacja literalna vs `test:unit` z planu — skrypt w `package.json` nazywa się `test`) — nowe + cała suita zielone (96 plików / 1124 testów)
-- [x] 5.2 `npx playwright test` (adaptacja literalna vs `test:e2e` — realny skrypt uruchamia to samo przez `playwright test`) — nowe specy (ai-book-resolution rozszerzony, correction-history nowy) zielone; pełna suita 231 passed / 1 failed (`admin.spec.ts` — pre-istniejący gap lokalnego env: `test.skip()` gdy brak service-role admin clienta/`sharedUserId`, niepowiązane z tym slice'em, kaskadowo skipuje resztę pliku) / 12 skipped (screenshot specy) / 14 did not run (cascading z admin.spec.ts serial mode)
-- [x] 5.3 `npm run lint && astro check && npm run build` czysto
+- [x] 5.1 `npm run test` (adaptacja literalna vs `test:unit` z planu — skrypt w `package.json` nazywa się `test`) — nowe + cała suita zielone (96 plików / 1124 testów) — 43f3915
+- [x] 5.2 `npx playwright test` (adaptacja literalna vs `test:e2e` — realny skrypt uruchamia to samo przez `playwright test`) — nowe specy (ai-book-resolution rozszerzony, correction-history nowy) zielone; pełna suita 231 passed / 1 failed (`admin.spec.ts` — pre-istniejący gap lokalnego env: `test.skip()` gdy brak service-role admin clienta/`sharedUserId`, niepowiązane z tym slice'em, kaskadowo skipuje resztę pliku) / 12 skipped (screenshot specy) / 14 did not run (cascading z admin.spec.ts serial mode) — 43f3915
+- [x] 5.3 `npm run lint && astro check && npm run build` czysto — 43f3915
 
 #### Ręczne
 
@@ -384,10 +384,10 @@ Migracja czysto addytywna (rozszerzony CHECK) — brak ryzyka dla istniejących 
 
 #### Automatyczne
 
-- [x] 6.1 `npm run lint`, `astro check`, `npm run build` przechodzą
-- [x] 6.2 Nowe testy jednostkowe (`DetectionReview.test.tsx`) zielone (3 nowe: oryginał z historii, powrót do propozycji, fallback bez historii)
-- [x] 6.3 Nowy scenariusz E2E (`manual-rematch.spec.ts`) zielony
-- [x] 6.4 Cała suita (`npm test` 96 plików/1127 testów, targeted Playwright specy dotykające `DetectionReview.tsx`) zielona bez regresji
+- [x] 6.1 `npm run lint`, `astro check`, `npm run build` przechodzą — 9e38053
+- [x] 6.2 Nowe testy jednostkowe (`DetectionReview.test.tsx`) zielone (3 nowe: oryginał z historii, powrót do propozycji, fallback bez historii) — 9e38053
+- [x] 6.3 Nowy scenariusz E2E (`manual-rematch.spec.ts`) zielony — 9e38053
+- [x] 6.4 Cała suita (`npm test` 96 plików/1127 testów, targeted Playwright specy dotykające `DetectionReview.tsx`) zielona bez regresji — 9e38053
 
 #### Ręczne
 
@@ -397,10 +397,10 @@ Migracja czysto addytywna (rozszerzony CHECK) — brak ryzyka dla istniejących 
 
 #### Automatyczne
 
-- [x] 7.1 `npm run lint`, `astro check`, `npm run build` przechodzą
-- [x] 7.2 Nowe testy jednostkowe zielone (3 nowe w `DetectionReview.test.tsx`: ISBN podąża za alt, „Użyj kandydata" wypełnia pola, przycisk ukryty bez kandydata) — 44/44 w pliku
-- [x] 7.3 Nowy scenariusz E2E zielony (2 nowe testy w `manual-rematch.spec.ts`)
-- [x] 7.4 Cała suita zielona (96 plików/1130 testów unit; 75/75 targeted Playwright specs), S-19 bez regresji
+- [x] 7.1 `npm run lint`, `astro check`, `npm run build` przechodzą — 9e38053
+- [x] 7.2 Nowe testy jednostkowe zielone (3 nowe w `DetectionReview.test.tsx`: ISBN podąża za alt, „Użyj kandydata" wypełnia pola, przycisk ukryty bez kandydata) — 44/44 w pliku — 9e38053
+- [x] 7.3 Nowy scenariusz E2E zielony (2 nowe testy w `manual-rematch.spec.ts`) — 9e38053
+- [x] 7.4 Cała suita zielona (96 plików/1130 testów unit; 75/75 targeted Playwright specs), S-19 bez regresji — 9e38053
 
 #### Ręczne
 
