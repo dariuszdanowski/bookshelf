@@ -57,6 +57,9 @@ function makeSupabase(opts: {
     opts.detection !== undefined ? opts.detection : { id: DET_ID, status: 'pending' };
   const existingCandidates = opts.existingCandidates ?? [];
   const existingBooks = opts.existingBooks ?? [];
+  const correctionsInsertMock = vi
+    .fn()
+    .mockResolvedValue(opts.correctionInsertResult ?? { error: null });
 
   return {
     from: vi.fn((table: string) => {
@@ -113,12 +116,11 @@ function makeSupabase(opts: {
         };
       }
       if (table === 'corrections') {
-        return {
-          insert: vi.fn().mockResolvedValue(opts.correctionInsertResult ?? { error: null }),
-        };
+        return { insert: correctionsInsertMock };
       }
       return {};
     }),
+    correctionsInsertMock,
   };
 }
 
@@ -282,6 +284,54 @@ describe('POST /api/detections/[id]/rematch', () => {
     await POST(ctx);
     const updateCall = vi.mocked(supabase.from).mock.calls.find(([t]) => t === 'detections');
     expect(updateCall).toBeTruthy();
+  });
+
+  it('loguje oryginalny raw_title/raw_author do corrections PRZED nadpisaniem (weak-match-resolve-and-ocr-audit)', async () => {
+    vi.mocked(searchGoogleBooks).mockResolvedValue({
+      ok: true,
+      candidates: [MOCK_GOOGLE_CANDIDATE],
+    });
+    vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({ ok: false, reason: 'empty' });
+    vi.mocked(searchOpenLibrary).mockResolvedValue({ ok: false, reason: 'empty' });
+    const supabase = makeSupabase({
+      detection: {
+        id: DET_ID,
+        status: 'pending',
+        raw_title: 'Marowska Duchowska',
+      } as any,
+    });
+    const ctx = makeContext({
+      supabase,
+      body: { title: 'Przerwana kołysanka', author: 'Natasza Socha' },
+    });
+    await POST(ctx);
+
+    expect(supabase.correctionsInsertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        detection_id: DET_ID,
+        original_raw_title: 'Marowska Duchowska',
+        corrected_title: 'Przerwana kołysanka',
+        corrected_authors: ['Natasza Socha'],
+        correction_type: 'rematch',
+      }),
+    );
+  });
+
+  it('błąd insertu corrections nie blokuje głównej odpowiedzi (non-blocking)', async () => {
+    vi.mocked(searchGoogleBooks).mockResolvedValue({
+      ok: true,
+      candidates: [MOCK_GOOGLE_CANDIDATE],
+    });
+    vi.mocked(searchOpenLibraryByTitle).mockResolvedValue({ ok: false, reason: 'empty' });
+    vi.mocked(searchOpenLibrary).mockResolvedValue({ ok: false, reason: 'empty' });
+    const supabase = makeSupabase({
+      correctionInsertResult: { error: { name: 'Error', message: 'boom', code: '500' } },
+    });
+    const ctx = makeContext({ supabase });
+    const res = await POST(ctx);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as ApiJson;
+    expect(json.data!['applied']).toBe(true);
   });
 
   it('odfiltrowuje kandydata z zupełnie innym autorem (Agnieszka Lis vs Kazimierz Arendt)', async () => {
