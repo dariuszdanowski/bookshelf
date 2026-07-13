@@ -36,6 +36,8 @@ export type BookModalBook = {
   user_cover_url?: string | null;
   cover_photo_url?: string | null;
   cover_source?: CoverSource;
+  /** Wymagane w propose mode — cel dla PATCH /api/detections/[id]/cover (candidate-cover-override). */
+  detectionId?: string;
   photoId?: string | null;
   source?: string | null;
   matchScore?: number | null;
@@ -53,6 +55,8 @@ export type BookModalProps = {
   /** Dane wstępne (edit/propose mode; w add opcjonalne — prefill z kandydata). */
   book?: BookModalBook;
   onSaved?: () => void;
+  /** propose mode: wywoływane po udanym zapisie okładki kandydata (candidate-cover-override). */
+  onCoverSaved?: (patch: { coverUrl: string | null }) => void;
   onClose: () => void;
 };
 
@@ -441,7 +445,14 @@ function SearchPanel({
  *       (własny save przez /api/books/:id, osobno od metadanych).
  * propose: read-only pola, „Szukaj w sieci", brak zapisu.
  */
-export default function BookModal({ mode, shelfId, book, onSaved, onClose }: BookModalProps) {
+export default function BookModal({
+  mode,
+  shelfId,
+  book,
+  onSaved,
+  onCoverSaved,
+  onClose,
+}: BookModalProps) {
   useBodyScrollLock(); // M5: bez przelewania scrolla na stronę pod modalem
   const [fields, setFields] = useState<BookFieldValues>(() => bookToFields(book));
   // Stan okładki (lifted z CoverEditor) — wspólny dla add i edit. Trafia do
@@ -464,6 +475,11 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
   );
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // candidate-cover-override: zapis okładki w trybie propose jest niezależny od
+  // reszty formularza (read-only, bez głównej stopki „Zapisz") — osobny stan.
+  const [savingCover, setSavingCover] = useState(false);
+  const [coverSaveErr, setCoverSaveErr] = useState<string | null>(null);
+  const [coverSaved, setCoverSaved] = useState(false);
   // S-17: opis z wybranego kandydata — UKRYTY stan (bez kontrolki UI; ekspozycja
   // opisu = follow-up). Sentinel: undefined = kandydata nie wybrano (PATCH pomija
   // pole, nie nadpisuje opisu); null = wybrano kandydata bez opisu (OL/BN — PATCH
@@ -538,6 +554,34 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
     if (patch.userUrl !== undefined) setCoverUserUrl(patch.userUrl);
     if (patch.photoUrl !== undefined) setCoverPhotoUrl(patch.photoUrl);
     setDisplayCover(pickCover(nextSource, nextAuto, nextUser, nextPhoto));
+  }
+
+  // candidate-cover-override: zapis okładki kandydata PRZED zatwierdzeniem —
+  // niezależny od handleSave (reszta pól w propose mode zostaje read-only).
+  async function handleSaveCandidateCover() {
+    if (!book?.id || !book?.detectionId) return;
+    setSavingCover(true);
+    setCoverSaveErr(null);
+    setCoverSaved(false);
+    const resolved = pickCover(coverSource, coverAutoUrl, coverUserUrl, coverPhotoUrl);
+    try {
+      const res = await fetch(`/api/detections/${book.detectionId}/cover`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ candidate_id: book.id, cover_url: resolved }),
+      });
+      const json = (await res.json()) as { error?: { message?: string } };
+      if (!res.ok) {
+        setCoverSaveErr(json.error?.message ?? `Błąd zapisu (${res.status})`);
+        return;
+      }
+      setCoverSaved(true);
+      onCoverSaved?.({ coverUrl: resolved });
+    } catch {
+      setCoverSaveErr('Błąd sieci.');
+    } finally {
+      setSavingCover(false);
+    }
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -683,18 +727,53 @@ export default function BookModal({ mode, shelfId, book, onSaved, onClose }: Boo
                   alt={authorsDisplay ? `${fields.title} — ${authorsDisplay}` : fields.title}
                 />
 
-                {/* Sekcja okładki — zawsze rozwinięta, identyczna w add i edit.
-                  Sloty w stanie BookModal → zapisywane jednym „Zapisz" (unify-book-save). */}
-                {canEdit && (
-                  <CoverEditor
-                    isbn={fields.isbn13 || fields.isbn10}
-                    source={coverSource}
-                    autoUrl={coverAutoUrl}
-                    userUrl={coverUserUrl}
-                    photoUrl={coverPhotoUrl}
-                    testIdPrefix={mode === 'edit' ? 'edit-cover' : 'add-cover'}
-                    onChange={handleCoverChange}
-                  />
+                {/* Sekcja okładki — zawsze rozwinięta, identyczna w add/edit/propose
+                  (candidate-cover-override). W add/edit sloty → zapisywane jednym
+                  „Zapisz" (unify-book-save); w propose → osobnym „Zapisz okładkę". */}
+                <CoverEditor
+                  isbn={fields.isbn13 || fields.isbn10}
+                  source={coverSource}
+                  autoUrl={coverAutoUrl}
+                  userUrl={coverUserUrl}
+                  photoUrl={coverPhotoUrl}
+                  testIdPrefix={
+                    mode === 'edit'
+                      ? 'edit-cover'
+                      : mode === 'propose'
+                        ? 'propose-cover'
+                        : 'add-cover'
+                  }
+                  onChange={handleCoverChange}
+                />
+                {mode === 'propose' && (
+                  <div className="w-full space-y-1">
+                    <button
+                      type="button"
+                      data-testid="propose-cover-save"
+                      disabled={savingCover || !book?.id || !book?.detectionId}
+                      onClick={() => void handleSaveCandidateCover()}
+                      className="w-full rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {savingCover ? 'Zapisuję...' : 'Zapisz okładkę'}
+                    </button>
+                    {coverSaveErr && (
+                      <p
+                        data-testid="propose-cover-error"
+                        className="text-xs text-red-600 dark:text-red-400"
+                        role="alert"
+                      >
+                        {coverSaveErr}
+                      </p>
+                    )}
+                    {coverSaved && (
+                      <p
+                        data-testid="propose-cover-saved"
+                        className="text-xs text-green-600 dark:text-green-400"
+                      >
+                        Okładka zapisana.
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
 

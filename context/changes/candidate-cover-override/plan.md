@@ -250,15 +250,15 @@ Brak migracji — zmiana czysto aplikacyjna na istniejącej kolumnie i istnieją
 
 #### Automatyczne
 
-- [x] 1.1 `npm run lint`, `astro check` przechodzą
-- [x] 1.2 `npm run build` przechodzi
+- [x] 1.1 `npm run lint`, `astro check` przechodzą — 8a4e6a9
+- [x] 1.2 `npm run build` przechodzi — 8a4e6a9
 
 ### Faza 2: BookModal — CoverEditor w trybie propose + dedykowany zapis
 
 #### Automatyczne
 
-- [ ] 2.1 `npm run lint`, `astro check` przechodzą
-- [ ] 2.2 `npm run build` przechodzi
+- [x] 2.1 `npm run lint`, `astro check` przechodzą
+- [x] 2.2 `npm run build` przechodzi
 
 ### Faza 3: Wiring w DetectionReview.tsx
 
