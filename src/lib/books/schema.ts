@@ -254,6 +254,16 @@ export const MoveBookSchema = z
   .strict();
 export type MoveBookInput = z.infer<typeof MoveBookSchema>;
 
+// PATCH /api/detections/[id]/cover — nadpisanie okładki kandydata PRZED zatwierdzeniem
+// (candidate-cover-override). null = wyczyść okładkę kandydata.
+export const UpdateCandidateCoverSchema = z
+  .object({
+    candidate_id: z.uuid(),
+    cover_url: z.string().url('Nieprawidłowy URL').max(1000).nullable(),
+  })
+  .strict();
+export type UpdateCandidateCoverInput = z.infer<typeof UpdateCandidateCoverSchema>;
+
 // POST /api/books/[id]/identify — „Szukaj po tytule" dla zatwierdzonej książki
 // (re-identyfikacja). Tryb 'search' zwraca kandydatów; 'apply' zapisuje wybranego.
 const IdentifyCandidateShape = z.object({
