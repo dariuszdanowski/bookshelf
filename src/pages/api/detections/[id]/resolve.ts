@@ -29,8 +29,10 @@ type ExistingBook = {
  * Ostatni poziom kaskady matchingu (S-50): dla detekcji bez żadnych kandydatów
  * woła Claude z web_search (klucz Anthropic usera, BYOK). Wynik trafia jako
  * zwykły book_candidates (source ai_resolution), re-scored przez scoreCandidate.
- * `shouldReplace` jest zawsze true — przycisk jest widoczny wyłącznie gdy
- * book_candidates.length === 0 dla tej detekcji.
+ * `shouldReplace` jest zawsze true — przycisk jest widoczny gdy brak kandydatów
+ * LUB najlepszy kandydat ma matchScore < MATCH_MID (S-slice
+ * weak-match-resolve-and-ocr-audit); w obu przypadkach usunięcie istniejących
+ * (0 lub słabych) kandydatów przed insertem jest poprawne.
  */
 export const POST: APIRoute = async ({ params, locals }) => {
   if (!locals.user) {

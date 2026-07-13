@@ -101,6 +101,52 @@ const detNoMatch: DetectionWithCandidatesDTO = {
   duplicate: null,
 };
 
+// weak-match-resolve-and-ocr-audit (Faza 7): detekcja z top + alt kandydatem,
+// każdy z odrębnym ISBN/tytułem/autorem, żeby przetestować reaktywność RematchForm
+// na wybraną propozycję.
+const candTop = {
+  id: '00000000-0000-4000-8000-000000000050',
+  source: 'google_books' as const,
+  externalId: 'gb-top',
+  title: 'Zupełnie inna książka',
+  authors: ['Zły Autor'],
+  isbn10: null,
+  isbn13: '9788300000001',
+  publisher: null,
+  publishedYear: 2010,
+  coverUrl: null,
+  matchScore: 0.9,
+  rank: 1,
+};
+
+const candAlt = {
+  id: '00000000-0000-4000-8000-000000000051',
+  source: 'open_library' as const,
+  externalId: 'ol-alt',
+  title: 'Solaris',
+  authors: ['Stanisław Lem'],
+  isbn10: null,
+  isbn13: '9780156027601',
+  publisher: null,
+  publishedYear: 1961,
+  coverUrl: null,
+  matchScore: 0.6,
+  rank: 2,
+};
+
+const detWithAlts: DetectionWithCandidatesDTO = {
+  id: '00000000-0000-4000-8000-000000000013',
+  position_index: 4,
+  raw_title: 'Nieznana surowa',
+  raw_author: null,
+  vision_confidence: 0.7,
+  spine_color: null,
+  bbox: { x1: 0.1, y1: 0.05, x2: 0.2, y2: 0.95 },
+  status: 'matched',
+  candidates: [candTop, candAlt],
+  duplicate: null,
+};
+
 function makePhotoResponse(detections: DetectionWithCandidatesDTO[] = [detHigh, detLow]) {
   return {
     data: {
@@ -999,6 +1045,109 @@ describe('DetectionReview — rematch po samym ISBN (S-153)', () => {
 });
 
 // ---------------------------------------------------------------------------
+// weak-match-resolve-and-ocr-audit: formularz rematch pre-fillsował ostatnio
+// przypisaną wartość raw_title/raw_author (już nadpisaną przez poprzedni
+// rematch/refine) — bez dostępu do oryginalnego odczytu OCR user powielał
+// błąd. Przyciski „Ostatnia propozycja" / „Oryginalny odczyt OCR" naprawiają to.
+// ---------------------------------------------------------------------------
+
+describe('DetectionReview — rematch: oryginalny odczyt OCR vs ostatnia propozycja', () => {
+  it('klik „Oryginalny odczyt OCR" fetchuje historię i wypełnia pola najwcześniejszym original_raw_*', async () => {
+    const detWithLastProposal: DetectionWithCandidatesDTO = {
+      ...detNoMatch,
+      raw_title: 'Marowska Duchowska (błędny rematch)',
+      raw_author: null,
+    };
+    vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
+      const u = typeof url === 'string' ? url : (url as Request).url;
+      if (u.includes('/history')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              data: {
+                corrections: [
+                  {
+                    id: 'c1',
+                    correction_type: 'rematch',
+                    original_raw_title: 'Podroz zycia siostry Shergill',
+                    original_raw_author: 'Prawdziwy Autor',
+                    corrected_title: 'Marowska Duchowska (błędny rematch)',
+                    corrected_authors: null,
+                    created_at: '2026-07-13T10:00:00.000Z',
+                  },
+                ],
+              },
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify(makePhotoResponse([detWithLastProposal])), { status: 200 }),
+      );
+    });
+
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => screen.getByTestId('no-match-placeholder'));
+    fireEvent.click(screen.getByTestId('rematch-button'));
+    await waitFor(() => screen.getByTestId('rematch-form'));
+
+    expect(screen.getByTestId('rematch-title')).toHaveValue('Marowska Duchowska (błędny rematch)');
+
+    fireEvent.click(screen.getByTestId('rematch-use-original'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('rematch-title')).toHaveValue('Podroz zycia siostry Shergill');
+    });
+    expect(screen.getByTestId('rematch-author')).toHaveValue('Prawdziwy Autor');
+  });
+
+  it('klik „Ostatnia propozycja" po zmianie pól przywraca initialTitle/initialAuthor', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(makePhotoResponse([detNoMatch])), { status: 200 }),
+    );
+
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => screen.getByTestId('no-match-placeholder'));
+    fireEvent.click(screen.getByTestId('rematch-button'));
+    await waitFor(() => screen.getByTestId('rematch-form'));
+
+    fireEvent.change(screen.getByTestId('rematch-title'), { target: { value: 'Coś innego' } });
+    expect(screen.getByTestId('rematch-title')).toHaveValue('Coś innego');
+
+    fireEvent.click(screen.getByTestId('rematch-use-proposal'));
+    expect(screen.getByTestId('rematch-title')).toHaveValue(detNoMatch.raw_title);
+  });
+
+  it('brak historii → fallback do bieżących wartości (już oryginał) + hint, bez błędu', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
+      const u = typeof url === 'string' ? url : (url as Request).url;
+      if (u.includes('/history')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: { corrections: [] } }), { status: 200 }),
+        );
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify(makePhotoResponse([detNoMatch])), { status: 200 }),
+      );
+    });
+
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => screen.getByTestId('no-match-placeholder'));
+    fireEvent.click(screen.getByTestId('rematch-button'));
+    await waitFor(() => screen.getByTestId('rematch-form'));
+
+    fireEvent.click(screen.getByTestId('rematch-use-original'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('rematch-no-history-hint')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('rematch-title')).toHaveValue(detNoMatch.raw_title);
+    expect(screen.queryByTestId('rematch-original-error')).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // M19: parytet akcji „Szukaj" w trybach Lista i Kafelki — przy istniejącym
 // kandydacie (top) Karty miały „Szukaj", a Lista/Kafelki tylko „Popraw".
 // ---------------------------------------------------------------------------
@@ -1179,5 +1328,64 @@ describe('DetectionReview — rematch z wydawnictwem (M22)', () => {
       const body = JSON.parse(String(rematchCall![1]!.body));
       expect(body.publisher).toBeNull();
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// weak-match-resolve-and-ocr-audit (Faza 7): RematchForm reaguje na aktualnie
+// wybraną propozycję (activeCandidate), nie na sztywnego topa — ISBN prefill
+// podąża za wyborem, plus przycisk „Użyj kandydata" wciąga Tytuł/Autor/ISBN.
+// ---------------------------------------------------------------------------
+
+describe('DetectionReview — rematch: reaktywność na wybraną propozycję (Faza 7)', () => {
+  it('ISBN prefill podąża za wybranym alt-kandydatem, nie za topem', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(makePhotoResponse([detWithAlts])), { status: 200 }),
+    );
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => screen.getByTestId('detection-card-4'));
+
+    // Domyślnie top — otwórz i sprawdź ISBN topa.
+    fireEvent.click(screen.getByTestId('rematch-button'));
+    await waitFor(() => screen.getByTestId('rematch-form'));
+    expect(screen.getByTestId('rematch-isbn')).toHaveValue('9788300000001');
+    fireEvent.click(screen.getByTestId('rematch-cancel'));
+
+    // Wybierz alt kandydata, otwórz ponownie — ISBN powinno być alt-a.
+    fireEvent.click(screen.getByTestId(`candidate-select-${candAlt.id}`));
+    fireEvent.click(screen.getByTestId('rematch-button'));
+    await waitFor(() => screen.getByTestId('rematch-form'));
+    expect(screen.getByTestId('rematch-isbn')).toHaveValue('9780156027601');
+  });
+
+  it('klik „Użyj kandydata" wypełnia Tytuł/Autor/ISBN z aktualnie wybranej propozycji', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(makePhotoResponse([detWithAlts])), { status: 200 }),
+    );
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => screen.getByTestId('detection-card-4'));
+
+    fireEvent.click(screen.getByTestId(`candidate-select-${candAlt.id}`));
+    fireEvent.click(screen.getByTestId('rematch-button'));
+    await waitFor(() => screen.getByTestId('rematch-form'));
+
+    fireEvent.click(screen.getByTestId('rematch-use-candidate'));
+
+    expect(screen.getByTestId('rematch-title')).toHaveValue('Solaris');
+    expect(screen.getByTestId('rematch-author')).toHaveValue('Stanisław Lem');
+    expect(screen.getByTestId('rematch-isbn')).toHaveValue('9780156027601');
+  });
+
+  it('przycisk „Użyj kandydata" niewidoczny gdy detekcja nie ma kandydatów', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(makePhotoResponse([detNoMatch])), { status: 200 }),
+    );
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => screen.getByTestId('no-match-placeholder'));
+
+    fireEvent.click(screen.getByTestId('rematch-button'));
+    await waitFor(() => screen.getByTestId('rematch-form'));
+
+    expect(screen.queryByTestId('rematch-use-candidate')).not.toBeInTheDocument();
   });
 });

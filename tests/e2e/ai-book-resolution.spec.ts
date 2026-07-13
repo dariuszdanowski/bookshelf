@@ -12,7 +12,11 @@ const PHOTO_ID = '00000000-0000-4000-8000-0000000ab001';
 const SHELF_ID = '00000000-0000-4000-8000-0000000ab002';
 const DET_NO_CANDIDATES_ID = '00000000-0000-4000-8000-0000000ab010';
 const DET_WITH_CANDIDATE_ID = '00000000-0000-4000-8000-0000000ab011';
+const DET_WEAK_CANDIDATE_ID = '00000000-0000-4000-8000-0000000ab012';
 
+// matchScore 0.9 — WYSOKI, celowo (weak-match-resolve-and-ocr-audit): musi
+// zostać powyżej MATCH_MID żeby test „widoczny tylko dla detekcji bez/ze
+// słabym kandydatem" dalej weryfikował zamierzone ukrycie przycisku.
 const EXISTING_CANDIDATE = {
   id: '00000000-0000-4000-8000-0000000ab020',
   source: 'google_books',
@@ -25,6 +29,24 @@ const EXISTING_CANDIDATE = {
   publishedYear: 1961,
   coverUrl: null,
   matchScore: 0.9,
+  rank: 1,
+};
+
+// matchScore 0.3 — poniżej MATCH_MID (0.55): reprezentuje przypadek zgłoszony
+// w manualnej analizie (BN zwraca luźne dopasowania jak „Metrologia elektryczna"
+// dla „Podróż życia siostry Shergill", score 0.267–0.379).
+const WEAK_CANDIDATE = {
+  id: '00000000-0000-4000-8000-0000000ab021',
+  source: 'national_library',
+  externalId: 'bn-weak-1',
+  title: 'Metrologia elektryczna',
+  authors: ['Ktoś Inny'],
+  isbn10: null,
+  isbn13: null,
+  publisher: null,
+  publishedYear: null,
+  coverUrl: null,
+  matchScore: 0.3,
   rank: 1,
 };
 
@@ -57,7 +79,7 @@ async function setupPhotoRoute(page: Page) {
               id: PHOTO_ID,
               shelf_id: SHELF_ID,
               status: 'processed',
-              detected_count: 2,
+              detected_count: 3,
               error_message: null,
               vision_cost_usd: 0.01,
               vision_latency_ms: 2000,
@@ -67,6 +89,7 @@ async function setupPhotoRoute(page: Page) {
             detections: [
               makeDetection(DET_NO_CANDIDATES_ID, 1, []),
               makeDetection(DET_WITH_CANDIDATE_ID, 2, [EXISTING_CANDIDATE]),
+              makeDetection(DET_WEAK_CANDIDATE_ID, 3, [WEAK_CANDIDATE]),
             ],
             vision_run: null,
           },
@@ -83,15 +106,43 @@ test.describe('ai-book-resolution — przycisk „Rozwiąż przez AI"', () => {
     await expect(page.getByTestId('detection-review')).toBeVisible();
   });
 
-  test('widoczny tylko dla detekcji bez kandydatów', async ({ page }) => {
+  test('widoczny dla detekcji bez kandydatów LUB ze słabym kandydatem (matchScore < MATCH_MID)', async ({
+    page,
+  }) => {
     const cardNoCandidates = page.getByTestId('detection-card-1');
     await expect(cardNoCandidates).toBeVisible();
     await expect(cardNoCandidates.getByTestId('ai-resolution-button')).toBeVisible();
     await expect(cardNoCandidates.getByTestId('ai-resolution-cost-hint')).toBeVisible();
 
+    // matchScore 0.9 (wysoki) — przycisk ukryty, jak przed tym slice'em.
     const cardWithCandidate = page.getByTestId('detection-card-2');
     await expect(cardWithCandidate).toBeVisible();
     await expect(cardWithCandidate.getByTestId('ai-resolution-button')).not.toBeAttached();
+
+    // matchScore 0.3 (< MATCH_MID=0.55) — nowe zachowanie tego slice'a:
+    // przycisk widoczny mimo istniejącego (niepewnego) kandydata.
+    const cardWeakCandidate = page.getByTestId('detection-card-3');
+    await expect(cardWeakCandidate).toBeVisible();
+    await expect(cardWeakCandidate.getByTestId('ai-resolution-button')).toBeVisible();
+  });
+
+  test('dialog potwierdzenia ostrzega o zastąpieniu propozycji tylko gdy istnieje (słaby) kandydat', async ({
+    page,
+  }) => {
+    // Ze słabym kandydatem: dialog musi wspomnieć o zastąpieniu istniejących propozycji.
+    const cardWeakCandidate = page.getByTestId('detection-card-3');
+    await cardWeakCandidate.getByTestId('ai-resolution-button').click();
+    await expect(page.getByTestId('ai-resolution-confirm')).toContainText(
+      'Zastąpi obecne (niepewne) propozycje.',
+    );
+    await page.getByTestId('ai-resolution-confirm-cancel').click();
+
+    // Bez kandydatów: nic do zastąpienia — zdanie NIE powinno się pojawić.
+    const cardNoCandidates = page.getByTestId('detection-card-1');
+    await cardNoCandidates.getByTestId('ai-resolution-button').click();
+    await expect(page.getByTestId('ai-resolution-confirm')).not.toContainText(
+      'Zastąpi obecne (niepewne) propozycje.',
+    );
   });
 
   test('dialog potwierdzenia blokuje wysyłkę do kliknięcia confirm', async ({ page }) => {

@@ -7,6 +7,7 @@ import { runMatchSSE } from '../lib/matching/runMatchSSE';
 import { runProcessSSE } from '../lib/vision/runProcessSSE';
 import BookModal, { type BookModalBook } from './BookModal';
 import ConfirmDialog from './ConfirmDialog';
+import CorrectionHistoryPanel from './CorrectionHistoryPanel';
 import CostPanel from './CostPanel';
 import ProgressModal from './ProgressModal';
 import HelpTip from './HelpTip';
@@ -399,9 +400,12 @@ function CorrectForm({
 // ---------------------------------------------------------------------------
 
 type RematchFormProps = {
+  detectionId: string;
   initialTitle: string;
   initialAuthor: string;
   initialIsbn: string;
+  /** Aktualnie oglądana propozycja (top lub ręcznie wybrany alt) — null gdy detekcja nie ma kandydatów. */
+  activeCandidate: BookCandidateDTO | null;
   busy: boolean;
   errorMsg: string | null;
   onSubmit: (
@@ -413,10 +417,15 @@ type RematchFormProps = {
   onCancel: () => void;
 };
 
+// weak-match-resolve-and-ocr-audit: rematch/refine nadpisują raw_title/raw_author,
+// więc initialTitle/initialAuthor to ostatnia przypisana wartość, nie oryginalny
+// odczyt OCR — bez tego user powielał błąd poprzedniej (nietrafionej) korekty.
 function RematchForm({
+  detectionId,
   initialTitle,
   initialAuthor,
   initialIsbn,
+  activeCandidate,
   busy,
   errorMsg,
   onSubmit,
@@ -427,6 +436,70 @@ function RematchForm({
   const [isbn, setIsbn] = useState(initialIsbn);
   // M22: wydawnictwo z grzbietu (np. logo Naszej Księgarni) zawęża wyniki GB
   const [publisher, setPublisher] = useState('');
+  const [originalValues, setOriginalValues] = useState<{
+    title: string;
+    author: string;
+  } | null>(null);
+  const [loadingOriginal, setLoadingOriginal] = useState(false);
+  const [originalError, setOriginalError] = useState<string | null>(null);
+  const [noHistoryFound, setNoHistoryFound] = useState(false);
+
+  async function handleUseOriginal() {
+    if (originalValues) {
+      setTitle(originalValues.title);
+      setAuthor(originalValues.author);
+      setNoHistoryFound(false);
+      return;
+    }
+    setLoadingOriginal(true);
+    setOriginalError(null);
+    setNoHistoryFound(false);
+    try {
+      const res = await fetch(`/api/detections/${detectionId}/history`);
+      const json = (await res.json()) as {
+        data?: {
+          corrections: Array<{
+            original_raw_title: string | null;
+            original_raw_author: string | null;
+          }>;
+        };
+        error?: { message?: string };
+      };
+      if (!res.ok) throw new Error(json.error?.message ?? `HTTP ${res.status}`);
+      // API zwraca chronologicznie rosnąco — pierwszy wpis to najwcześniejszy original_*.
+      const earliest = json.data?.corrections?.[0];
+      if (!earliest) {
+        // Brak historii = detekcja nigdy nie była nadpisana rematch/refine —
+        // bieżąca wartość JEST oryginałem. Sygnalizujemy, żeby klik nie wyglądał
+        // na "nic się nie stało" (zgłoszenie usera z manualnej weryfikacji).
+        setNoHistoryFound(true);
+        return;
+      }
+      const resolvedTitle = earliest.original_raw_title ?? initialTitle;
+      const resolvedAuthor = earliest.original_raw_author ?? initialAuthor;
+      setOriginalValues({ title: resolvedTitle, author: resolvedAuthor });
+      setTitle(resolvedTitle);
+      setAuthor(resolvedAuthor);
+    } catch (e) {
+      setOriginalError(e instanceof Error ? e.message : 'Błąd ładowania historii');
+    } finally {
+      setLoadingOriginal(false);
+    }
+  }
+
+  function handleUseProposal() {
+    setTitle(initialTitle);
+    setAuthor(initialAuthor);
+    setNoHistoryFound(false);
+  }
+
+  function handleUseCandidate() {
+    if (!activeCandidate) return;
+    setTitle(activeCandidate.title);
+    setAuthor(activeCandidate.authors.join(', '));
+    setIsbn(activeCandidate.isbn13 ?? activeCandidate.isbn10 ?? '');
+    setNoHistoryFound(false);
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -440,6 +513,51 @@ function RematchForm({
       onSubmit={handleSubmit}
       className="mt-3 space-y-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-emerald-950"
     >
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          data-testid="rematch-use-proposal"
+          onClick={handleUseProposal}
+          className="rounded border border-gray-300 bg-white px-2 py-1 text-[11px] font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+        >
+          Bieżąca wartość
+        </button>
+        <button
+          type="button"
+          data-testid="rematch-use-original"
+          disabled={loadingOriginal}
+          onClick={() => void handleUseOriginal()}
+          className="rounded border border-gray-300 bg-white px-2 py-1 text-[11px] font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+        >
+          {loadingOriginal ? 'Ładowanie...' : 'Oryginalny odczyt OCR'}
+        </button>
+        {activeCandidate && (
+          <button
+            type="button"
+            data-testid="rematch-use-candidate"
+            onClick={handleUseCandidate}
+            className="rounded border border-gray-300 bg-white px-2 py-1 text-[11px] font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+          >
+            Użyj kandydata
+          </button>
+        )}
+      </div>
+      {originalError && (
+        <p
+          data-testid="rematch-original-error"
+          className="text-[11px] text-red-600 dark:text-red-400"
+        >
+          {originalError}
+        </p>
+      )}
+      {noHistoryFound && (
+        <p
+          data-testid="rematch-no-history-hint"
+          className="text-[11px] text-gray-500 dark:text-gray-400"
+        >
+          Brak historii korekt — to już jest oryginalny odczyt OCR.
+        </p>
+      )}
       <div>
         <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
           Tytuł
@@ -1148,9 +1266,11 @@ function DetectionCard({
       {/* Rematch form */}
       {!top && showRematchForm && (
         <RematchForm
+          detectionId={detection.id}
           initialTitle={detection.raw_title ?? ''}
           initialAuthor={detection.raw_author ?? ''}
           initialIsbn={''}
+          activeCandidate={activeCandidate}
           busy={busy}
           errorMsg={errorMsg}
           onSubmit={async (title, author, isbn, publisher) => {
@@ -1185,6 +1305,7 @@ function DetectionCard({
               <div className="flex flex-wrap gap-1">
                 <button
                   key={top.id}
+                  data-testid={`candidate-select-${top.id}`}
                   onClick={() => setSelectedCandidateId(top.id)}
                   className={`rounded border px-2 py-0.5 text-xs ${activeCandidateId === top.id ? 'border-blue-400 bg-blue-100 text-blue-700' : 'border-gray-200 bg-white text-gray-600'}`}
                 >
@@ -1193,6 +1314,7 @@ function DetectionCard({
                 {alts.map((alt) => (
                   <button
                     key={alt.id}
+                    data-testid={`candidate-select-${alt.id}`}
                     onClick={() => setSelectedCandidateId(alt.id)}
                     className={`rounded border px-2 py-0.5 text-xs ${activeCandidateId === alt.id ? 'border-blue-400 bg-blue-100 text-blue-700' : 'border-gray-200 bg-white text-gray-600'}`}
                   >
@@ -1362,18 +1484,21 @@ function DetectionCard({
             onClick={() => setConfirmRefine(true)}
             size="lg"
           />
-          {!top && (
+          {(!top || top.matchScore < MATCH_MID) && (
             <AiResolutionButton busy={busy} onClick={() => setConfirmAiResolve(true)} size="lg" />
           )}
+          <CorrectionHistoryPanel detectionId={detection.id} />
         </div>
       )}
 
       {/* Rematch form when candidates already exist */}
       {top && showRematchForm && (
         <RematchForm
+          detectionId={detection.id}
           initialTitle={detection.raw_title ?? ''}
           initialAuthor={detection.raw_author ?? ''}
-          initialIsbn={top.isbn13 ?? top.isbn10 ?? ''}
+          initialIsbn={activeCandidate?.isbn13 ?? activeCandidate?.isbn10 ?? ''}
+          activeCandidate={activeCandidate}
           busy={busy}
           errorMsg={errorMsg}
           onSubmit={async (title, author, isbn, publisher) => {
@@ -1414,7 +1539,7 @@ function DetectionCard({
       <ConfirmDialog
         open={confirmAiResolve}
         title="Rozwiązać przez AI?"
-        message="Uruchomi wyszukiwanie w sieci przez AI (Claude web_search) w oparciu o odczytany tytuł/autora. Operacja jest płatna i wymaga aktywnego klucza Anthropic."
+        message={`Uruchomi wyszukiwanie w sieci przez AI (Claude web_search) w oparciu o odczytany tytuł/autora. Operacja jest płatna i wymaga aktywnego klucza Anthropic.${top ? ' Zastąpi obecne (niepewne) propozycje.' : ''}`}
         confirmLabel="Rozwiąż przez AI"
         cancelLabel="Anuluj"
         testIdPrefix="ai-resolution-confirm"
@@ -1744,16 +1869,19 @@ export function DetectionRow({
           onClick={() => setConfirmRefine(true)}
           size="md"
         />
-        {!top && (
+        {(!top || top.matchScore < MATCH_MID) && (
           <AiResolutionButton busy={busy} onClick={() => setConfirmAiResolve(true)} size="md" />
         )}
+        <CorrectionHistoryPanel detectionId={detection.id} />
       </div>
 
       {showRematchForm && (
         <RematchForm
+          detectionId={detection.id}
           initialTitle={detection.raw_title ?? ''}
           initialAuthor={detection.raw_author ?? ''}
-          initialIsbn={detection.candidates?.[0]?.isbn13 ?? detection.candidates?.[0]?.isbn10 ?? ''}
+          initialIsbn={activeCandidate?.isbn13 ?? activeCandidate?.isbn10 ?? ''}
+          activeCandidate={activeCandidate}
           busy={busy}
           errorMsg={errorMsg}
           onSubmit={async (title, author, isbn, publisher) => {
@@ -1793,7 +1921,7 @@ export function DetectionRow({
       <ConfirmDialog
         open={confirmAiResolve}
         title="Rozwiązać przez AI?"
-        message="Uruchomi wyszukiwanie w sieci przez AI (Claude web_search) w oparciu o odczytany tytuł/autora. Operacja jest płatna i wymaga aktywnego klucza Anthropic."
+        message={`Uruchomi wyszukiwanie w sieci przez AI (Claude web_search) w oparciu o odczytany tytuł/autora. Operacja jest płatna i wymaga aktywnego klucza Anthropic.${top ? ' Zastąpi obecne (niepewne) propozycje.' : ''}`}
         confirmLabel="Rozwiąż przez AI"
         cancelLabel="Anuluj"
         testIdPrefix="ai-resolution-confirm"
@@ -2078,16 +2206,19 @@ export function DetectionTile({
           onClick={() => setConfirmRefine(true)}
           size="sm"
         />
-        {!top && (
+        {(!top || top.matchScore < MATCH_MID) && (
           <AiResolutionButton busy={busy} onClick={() => setConfirmAiResolve(true)} size="sm" />
         )}
+        <CorrectionHistoryPanel detectionId={detection.id} />
       </div>
 
       {showRematchForm && (
         <RematchForm
+          detectionId={detection.id}
           initialTitle={detection.raw_title ?? ''}
           initialAuthor={detection.raw_author ?? ''}
-          initialIsbn={detection.candidates?.[0]?.isbn13 ?? detection.candidates?.[0]?.isbn10 ?? ''}
+          initialIsbn={activeCandidate?.isbn13 ?? activeCandidate?.isbn10 ?? ''}
+          activeCandidate={activeCandidate}
           busy={busy}
           errorMsg={errorMsg}
           onSubmit={async (title, author, isbn, publisher) => {
@@ -2127,7 +2258,7 @@ export function DetectionTile({
       <ConfirmDialog
         open={confirmAiResolve}
         title="Rozwiązać przez AI?"
-        message="Uruchomi wyszukiwanie w sieci przez AI (Claude web_search) w oparciu o odczytany tytuł/autora. Operacja jest płatna i wymaga aktywnego klucza Anthropic."
+        message={`Uruchomi wyszukiwanie w sieci przez AI (Claude web_search) w oparciu o odczytany tytuł/autora. Operacja jest płatna i wymaga aktywnego klucza Anthropic.${top ? ' Zastąpi obecne (niepewne) propozycje.' : ''}`}
         confirmLabel="Rozwiąż przez AI"
         cancelLabel="Anuluj"
         testIdPrefix="ai-resolution-confirm"

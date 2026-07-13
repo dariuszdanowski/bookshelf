@@ -78,18 +78,60 @@ const goodCandidate = {
 };
 
 function makeSupabase(opts?: {
-  detectionResult?: { data: DetectionRow | null; error: { code?: string; name: string; message: string } | null };
-  photoResult?: { data: typeof photoRow | null; error: { code?: string; name: string; message: string } | null };
-  existingCandidatesResult?: { data: { match_score: number; source: string; external_id: string; title: string; authors: string[]; isbn_10: string | null; isbn_13: string | null; publisher: string | null; published_year: number | null; cover_url: string | null; rank: number }[] | null; error: { code?: string; name: string; message: string } | null };
-  booksResult?: { data: { id: string; title: string; authors: string[]; isbn_13: string | null; isbn_10: string | null }[] | null; error: { code?: string; name: string; message: string } | null };
-  track?: { detectionUpdatePayload: unknown[]; candidateInsertPayload: unknown[]; candidateDeleteCalls: number };
+  detectionResult?: {
+    data: DetectionRow | null;
+    error: { code?: string; name: string; message: string } | null;
+  };
+  photoResult?: {
+    data: typeof photoRow | null;
+    error: { code?: string; name: string; message: string } | null;
+  };
+  existingCandidatesResult?: {
+    data:
+      | {
+          match_score: number;
+          source: string;
+          external_id: string;
+          title: string;
+          authors: string[];
+          isbn_10: string | null;
+          isbn_13: string | null;
+          publisher: string | null;
+          published_year: number | null;
+          cover_url: string | null;
+          rank: number;
+        }[]
+      | null;
+    error: { code?: string; name: string; message: string } | null;
+  };
+  booksResult?: {
+    data:
+      | {
+          id: string;
+          title: string;
+          authors: string[];
+          isbn_13: string | null;
+          isbn_10: string | null;
+        }[]
+      | null;
+    error: { code?: string; name: string; message: string } | null;
+  };
+  track?: {
+    detectionUpdatePayload: unknown[];
+    candidateInsertPayload: unknown[];
+    candidateDeleteCalls: number;
+  };
   aiEnabled?: boolean;
+  correctionInsertResult?: { error: null | { name: string; message: string; code?: string } };
 }) {
   const detectionResult = opts?.detectionResult ?? { data: detectionRow, error: null };
   const photoResult = opts?.photoResult ?? { data: photoRow, error: null };
   const existingCandidatesResult = opts?.existingCandidatesResult ?? { data: [], error: null };
   const booksResult = opts?.booksResult ?? { data: [], error: null };
   const aiEnabled = opts?.aiEnabled ?? true;
+  const correctionsInsertMock = vi
+    .fn()
+    .mockResolvedValue(opts?.correctionInsertResult ?? { error: null });
 
   const from = vi.fn((table: string) => {
     if (table === 'profiles') {
@@ -149,9 +191,7 @@ function makeSupabase(opts?: {
     }
 
     if (table === 'corrections') {
-      return {
-        insert: vi.fn().mockResolvedValue({ error: null }),
-      };
+      return { insert: correctionsInsertMock };
     }
 
     if (table === 'refine_calls') {
@@ -167,12 +207,18 @@ function makeSupabase(opts?: {
     from,
     storage: {
       from: vi.fn(() => ({
-        download: vi.fn().mockResolvedValue({ data: new Blob(['img'], { type: 'image/jpeg' }), error: null }),
+        download: vi
+          .fn()
+          .mockResolvedValue({ data: new Blob(['img'], { type: 'image/jpeg' }), error: null }),
       })),
     },
-  } as never;
+    correctionsInsertMock,
+  };
 
-  return supabase;
+  return supabase as unknown as {
+    from: typeof from;
+    correctionsInsertMock: typeof correctionsInsertMock;
+  };
 }
 
 function makeContext(supabase: ReturnType<typeof makeSupabase>, user = true, id = DETECTION_ID) {
@@ -235,7 +281,9 @@ describe('POST /api/detections/[id]/refine', () => {
     const supabase = makeSupabase();
     const res = await POST(makeContext(supabase));
     expect(res.status).toBe(403);
-    const json = (await res.json()) as { error: { code: string; details: { account_url: string } } };
+    const json = (await res.json()) as {
+      error: { code: string; details: { account_url: string } };
+    };
     expect(json.error.code).toBe('NO_API_KEY');
     expect(json.error.details.account_url).toBe('/account');
   });
@@ -320,6 +368,54 @@ describe('POST /api/detections/[id]/refine', () => {
     expect(track.detectionUpdatePayload).toHaveLength(1);
     expect(track.candidateDeleteCalls).toBe(1);
     expect(track.candidateInsertPayload).toHaveLength(1);
+  });
+
+  it('loguje oryginalny raw_title/raw_author do corrections PRZED nadpisaniem (weak-match-resolve-and-ocr-audit)', async () => {
+    mockDetectSingleSpineFromCrop.mockResolvedValueOnce({
+      ok: true,
+      detection: {
+        position: 1,
+        title: 'Solaris',
+        author: 'Prawdziwy Autor',
+        confidence: 0.9,
+        spine_color: 'niebieski',
+        bbox: null,
+      },
+      model: 'claude-sonnet-4-6',
+      costUsd: 0.001,
+      latencyMs: 800,
+    });
+    const supabase = makeSupabase({
+      detectionResult: {
+        data: { ...detectionRow, raw_title: 'Marowska Duchowska', raw_author: null },
+        error: null,
+      },
+    });
+
+    const res = await POST(makeContext(supabase));
+    expect(res.status).toBe(200);
+
+    expect(supabase.correctionsInsertMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        detection_id: DETECTION_ID,
+        original_raw_title: 'Marowska Duchowska',
+        original_raw_author: null,
+        corrected_title: 'Solaris',
+        corrected_authors: ['Prawdziwy Autor'],
+        correction_type: 'refine',
+      }),
+    );
+  });
+
+  it('błąd insertu corrections nie blokuje głównej odpowiedzi refine (non-blocking)', async () => {
+    const supabase = makeSupabase({
+      correctionInsertResult: { error: { name: 'Error', message: 'boom', code: '500' } },
+    });
+
+    const res = await POST(makeContext(supabase));
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { data: { applied: boolean } };
+    expect(json.data.applied).toBe(true);
   });
 
   it('returns 429 when Google Books is rate limited for refined query', async () => {
