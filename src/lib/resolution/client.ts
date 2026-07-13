@@ -70,6 +70,18 @@ function stripCodeFences(text: string): string {
     .trim();
 }
 
+// Defense-in-depth: web_search tool ma silną tendencję do dołączania cytowań
+// źródeł i narracyjnego podsumowania obok (albo zamiast) czystego JSON, mimo
+// instrukcji promptu (zmierzone manualnie — patrz prompt.ts v2). AiResolutionResult
+// jest płaskim obiektem bez zagnieżdżonych `{}` (authors to tablica, nie obiekt),
+// więc wystarczy wyciągnąć OSTATNI blok `{...}` z odpowiedzi zamiast ufać, że
+// cała odpowiedź to czysty JSON.
+function extractLastJsonCandidate(text: string): string {
+  const matches = stripCodeFences(text).match(/\{[^{}]*\}/g);
+  if (matches && matches.length > 0) return matches[matches.length - 1];
+  return stripCodeFences(text);
+}
+
 function calcCost(usage: Anthropic.Usage): number {
   const searchCount = usage.server_tool_use?.web_search_requests ?? 0;
   return (
@@ -115,7 +127,7 @@ export async function resolveBookViaAI(
 
   let parsed: unknown;
   try {
-    parsed = JSON.parse(stripCodeFences(text));
+    parsed = JSON.parse(extractLastJsonCandidate(text));
   } catch (err) {
     console.error('[resolution:json-fail]', String(err));
     return { ok: false, reason: 'parse_failure', latencyMs };
