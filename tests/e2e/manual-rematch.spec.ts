@@ -77,6 +77,42 @@ test.describe('manual rematch — szukaj po tytule', () => {
     await expect(titleInput).toHaveValue('Poraniona blyskawica');
   });
 
+  test('weak-match-resolve-and-ocr-audit: „Oryginalny odczyt OCR" wypełnia pola z historii, „Ostatnia propozycja" wraca do bieżących', async ({
+    page,
+  }) => {
+    await page.route(`**/api/detections/${DET_ID}/history`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            corrections: [
+              {
+                id: 'corr-1',
+                correction_type: 'rematch',
+                original_raw_title: 'Prawdziwy Oryginalny Tytuł',
+                original_raw_author: 'Prawdziwy Oryginalny Autor',
+                corrected_title: 'Poraniona blyskawica',
+                corrected_authors: null,
+                created_at: '2026-07-13T09:00:00.000Z',
+              },
+            ],
+          },
+        }),
+      }),
+    );
+
+    await page.getByTestId('rematch-button').first().click();
+    await expect(page.getByTestId('rematch-title')).toHaveValue('Poraniona blyskawica');
+
+    await page.getByTestId('rematch-use-original').click();
+    await expect(page.getByTestId('rematch-title')).toHaveValue('Prawdziwy Oryginalny Tytuł');
+    await expect(page.getByTestId('rematch-author')).toHaveValue('Prawdziwy Oryginalny Autor');
+
+    await page.getByTestId('rematch-use-proposal').click();
+    await expect(page.getByTestId('rematch-title')).toHaveValue('Poraniona blyskawica');
+  });
+
   test('po wyszukaniu z wynikami kandydat pojawia się w karcie', async ({ page }) => {
     await page.route(`**/api/detections/${DET_ID}/rematch`, (route) =>
       route.fulfill({
@@ -374,5 +410,90 @@ test.describe('S-19: rematch przy ISTNIEJĄCYM kandydacie (zły auto-match)', ()
     await expect(page.getByText('Solaris').first()).toBeVisible();
     // Akceptacja nowego kandydata nadal dostępna (aktywny kandydat podmieniony)
     await expect(page.getByTestId('confirm-button').first()).toBeEnabled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// weak-match-resolve-and-ocr-audit (Faza 7): RematchForm reaguje na aktualnie
+// wybraną propozycję (top lub ręcznie wybrany alt) — ISBN prefill + przycisk
+// „Użyj kandydata" wciągający Tytuł/Autor/ISBN wybranej propozycji.
+// ---------------------------------------------------------------------------
+
+const ALT_CANDIDATE = {
+  id: '00000000-0000-4000-8000-000000000042',
+  source: 'open_library',
+  externalId: 'ol-alt',
+  title: 'Solaris',
+  authors: ['Stanisław Lem'],
+  isbn10: null,
+  isbn13: '9780156027601',
+  publisher: null,
+  publishedYear: 1961,
+  coverUrl: null,
+  matchScore: 0.6,
+  rank: 2,
+};
+
+test.describe('weak-match-resolve-and-ocr-audit: RematchForm reaktywny na propozycję', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route(`**/api/photos/${PHOTO_ID}`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            photo: {
+              id: PHOTO_ID,
+              shelf_id: 'shelf-1',
+              status: 'processed',
+              detected_count: 1,
+              error_message: null,
+              vision_cost_usd: 0.005,
+              vision_latency_ms: 3000,
+              created_at: new Date().toISOString(),
+            },
+            photo_url: 'https://example.com/shelf.jpg',
+            detections: [
+              {
+                ...MOCK_DETECTION_NO_CANDIDATES,
+                status: 'matched',
+                candidates: [WRONG_CANDIDATE, ALT_CANDIDATE],
+              },
+            ],
+            vision_run: {
+              id: 'vr-1',
+              model: 'claude-sonnet-4-6',
+              created_at: new Date().toISOString(),
+              cost_usd: 0.005,
+              latency_ms: 3000,
+            },
+          },
+        }),
+      }),
+    );
+    await page.goto(`/photos/${PHOTO_ID}`);
+    await page.waitForSelector('[data-testid="detection-card-1"]');
+  });
+
+  test('ISBN prefill podąża za wyborem alt-propozycji, nie za sztywnym topem', async ({ page }) => {
+    await page.getByTestId('rematch-button').first().click();
+    await expect(page.getByTestId('rematch-isbn')).toHaveValue(WRONG_CANDIDATE.isbn13);
+    await page.getByTestId('rematch-cancel').click();
+
+    await page.getByTestId(`candidate-select-${ALT_CANDIDATE.id}`).click();
+    await page.getByTestId('rematch-button').first().click();
+    await expect(page.getByTestId('rematch-isbn')).toHaveValue(ALT_CANDIDATE.isbn13);
+  });
+
+  test('„Użyj kandydata" wypełnia Tytuł/Autor/ISBN aktualnie wybranej propozycji', async ({
+    page,
+  }) => {
+    await page.getByTestId(`candidate-select-${ALT_CANDIDATE.id}`).click();
+    await page.getByTestId('rematch-button').first().click();
+    await page.getByTestId('rematch-use-candidate').click();
+
+    await expect(page.getByTestId('rematch-title')).toHaveValue(ALT_CANDIDATE.title);
+    await expect(page.getByTestId('rematch-author')).toHaveValue(ALT_CANDIDATE.authors[0]);
+    await expect(page.getByTestId('rematch-isbn')).toHaveValue(ALT_CANDIDATE.isbn13);
   });
 });

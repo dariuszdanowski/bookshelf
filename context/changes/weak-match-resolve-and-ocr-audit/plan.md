@@ -234,6 +234,72 @@ Vitest dla endpointu historii i insertów corrections w rematch/refine (mock Sup
 
 ---
 
+## Faza 6: RematchForm — wybór źródła wartości (oryginał vs propozycja)
+
+### Przegląd
+
+**Dodane podczas manualnej weryfikacji Fazy 5 (2026-07-13, decyzja usera: rozszerzyć plan zamiast follow-up slice'a).** `RematchForm` pre-fillsuje pola `Tytuł`/`Autor` z `detection.raw_title`/`raw_author` — czyli z OSTATNIO przypisanej wartości (potencjalnie już nadpisanej błędnym rematch/refine), nie z oryginalnego odczytu OCR. Bez dostępu do oryginału user powielał ten sam błąd przy kolejnej próbie (np. zły ISBN z poprzedniego rematch). Rozszerza granicę z „Czego NIE robimy" (panel historii **read-only**, brak jednoklikowego rollbacku) o osobną, kontrolowaną możliwość: formularz rematch może **wypełnić** się z historii, ale nie modyfikuje niczego w bazie — user nadal musi kliknąć „Szukaj", żeby cokolwiek zmienić. To nie jest rollback `detections.raw_title` — to tylko lepsze domyślne wartości w formularzu.
+
+### Wymagane zmiany:
+
+#### 1. `RematchForm` — przyciski „Ostatnia propozycja" / „Oryginalny odczyt OCR"
+
+**Plik**: `src/components/DetectionReview.tsx`
+
+**Cel**: Nowy prop `detectionId` na `RematchFormProps`. Dwa przyciski nad polami formularza: „Ostatnia propozycja" (reset do `initialTitle`/`initialAuthor` — status quo, zawsze dostępny bez fetcha) i „Oryginalny odczyt OCR" (lazy-fetch `GET /api/detections/[id]/history` przy pierwszym kliknięciu, cache w stanie lokalnym; bierze **najwcześniejszy** wpis — `corrections[0]` po sortowaniu chronologicznie rosnącym z endpointu Fazy 4 — i jego `original_raw_title`/`original_raw_author`; brak historii → fallback do `initialTitle`/`initialAuthor`, bez błędu, bo to już jest oryginał). Pola tekstowe pozostają zawsze edytowalne ręcznie (bez zmian — to już istniało).
+
+**Kontrakt**: `handleUseOriginal()` woła `fetch('/api/detections/${detectionId}/history')`, parsuje `{ data: { corrections: [...] } }`, `corrections[0]?.original_raw_title ?? initialTitle` / `corrections[0]?.original_raw_author ?? initialAuthor`. Błąd fetcha → `rematch-original-error` (nieblokujący, formularz zostaje w bieżącym stanie). `data-testid`: `rematch-use-proposal`, `rematch-use-original`, `rematch-original-error`.
+
+#### 2. Wiring `detectionId` w 4 miejscach renderujących `<RematchForm>`
+
+**Plik**: `src/components/DetectionReview.tsx`
+
+**Cel**: Wszystkie 4 wystąpienia (Karty bez kandydata, Karty z top, Lista, Kafelki) dostają `detectionId={detection.id}`.
+
+### Kryteria sukcesu:
+
+#### Weryfikacja automatyczna:
+
+- `npm run lint`, `astro check`, `npm run build` przechodzą
+- Nowe testy jednostkowe (`DetectionReview.test.tsx`): klik „Oryginalny odczyt OCR" fetchuje historię i wypełnia pola najwcześniejszym `original_raw_*`; „Ostatnia propozycja" przywraca `initialTitle`/`initialAuthor`; brak historii → fallback bez błędu
+- Nowy scenariusz E2E (`manual-rematch.spec.ts`): pełny przepływ oryginał→propozycja z mockowanym `/history`
+- Cała suita (`npm test`, `npx playwright test`) zielona, brak regresji w specach dotykających `DetectionReview.tsx`
+
+---
+
+## Faza 7: RematchForm — reaktywność na wybraną propozycję (kandydata)
+
+### Przegląd
+
+**Dodane podczas manualnej weryfikacji Fazy 6 (2026-07-13, decyzja usera: rozszerzyć plan).** Pole ISBN w `RematchForm` było na stałe pre-fillsowane z `top` (rank 1) kandydata, niezależnie od tego, którą propozycję (`activeCandidate` — top LUB ręcznie wybrany alt) user aktualnie ogląda w karcie. Klik w inną propozycję (alt) nie miał żadnego wpływu na formularz. Naprawka: ISBN prefill podąża za `activeCandidate` (nie za sztywnym `top`). Dodatkowo nowy przycisk „Użyj kandydata" pozwala świadomie wciągnąć tytuł/autora/ISBN aktualnie oglądanej propozycji do pól wyszukiwania — bez zmiany domyślnego zachowania formularza (Tytuł/Autor nadal startują z `detection.raw_title`/`raw_author`, **celowo** — S-19 pokazuje, że przy złym auto-matchu formularz ma zaczynać od surowego OCR, nie od błędnej propozycji).
+
+### Wymagane zmiany:
+
+#### 1. ISBN prefill podąża za `activeCandidate`, nie za sztywnym `top`
+
+**Plik**: `src/components/DetectionReview.tsx`
+
+**Cel**: W 3 miejscach renderujących `<RematchForm>` z istniejącym kandydatem (Karty-z-top, Lista, Kafelki) zmień `initialIsbn={top.isbn13 ?? top.isbn10 ?? ''}` / `initialIsbn={detection.candidates?.[0]?.isbn13 ?? detection.candidates?.[0]?.isbn10 ?? ''}` na `initialIsbn={activeCandidate?.isbn13 ?? activeCandidate?.isbn10 ?? ''}`. `activeCandidate` już jest w scope (destrukturyzowany z `useDetectionDecision` w każdym z 3 komponentów, potwierdzone przy analizie) — domyślnie równy `top`, więc zero regresji dla nietkniętego S-19 scenariusza (test nie wybiera alt).
+
+#### 2. Nowy przycisk „Użyj kandydata"
+
+**Plik**: `src/components/DetectionReview.tsx`
+
+**Cel**: Nowy prop `RematchFormProps.activeCandidate: BookCandidateDTO | null`. Trzeci przycisk obok „Bieżąca wartość" (przemianowane z „Ostatnia propozycja" — nazwa kolidowała znaczeniowo z nowym przyciskiem) i „Oryginalny odczyt OCR": „Użyj kandydata", renderowany TYLKO gdy `activeCandidate` istnieje. Klik ustawia `title = activeCandidate.title`, `author = activeCandidate.authors.join(', ')`, `isbn = activeCandidate.isbn13 ?? activeCandidate.isbn10 ?? ''`.
+
+**Kontrakt**: `data-testid="rematch-use-candidate"`. Przekaż `activeCandidate={activeCandidate}` do wszystkich 4 wystąpień `<RematchForm>` (dla gałęzi bez kandydata — `null`, przycisk się nie renderuje).
+
+### Kryteria sukcesu:
+
+#### Weryfikacja automatyczna:
+
+- `npm run lint`, `astro check`, `npm run build` przechodzą
+- Nowe/dostosowane testy jednostkowe (`DetectionReview.test.tsx`): ISBN prefill podąża za wybranym alt-kandydatem; klik „Użyj kandydata" wypełnia pola z `activeCandidate`; przycisk niewidoczny gdy brak kandydata
+- Zaktualizowany/nowy scenariusz E2E (`manual-rematch.spec.ts` lub `single-bbox-edit`-podobny): wybór alt-kandydata → otwarcie rematch → ISBN alt, nie top; klik „Użyj kandydata" wypełnia pola
+- Cała suita (`npm test`, targeted Playwright) zielona, brak regresji (w tym S-19: domyślny prefill Tytuł/Autor z OCR, nie z candidate, pozostaje bez zmian)
+
+---
+
 ## Strategia testowania
 
 ### Testy jednostkowe:
@@ -283,33 +349,59 @@ Migracja czysto addytywna (rozszerzony CHECK) — brak ryzyka dla istniejących 
 #### Automatyczne
 
 - [x] 2.1 `npm run lint`, `astro check` przechodzą — deecdcd
-- [ ] 2.2 Nowe testy jednostkowe dla obu endpointów zielone (dedykowane asercje — Faza 5)
+- [x] 2.2 Nowe testy jednostkowe dla obu endpointów zielone (dedykowane asercje — Faza 5)
 
 ### Faza 3: Bramka AI-resolution dla słabych dopasowań
 
 #### Automatyczne
 
 - [x] 3.1 `npm run lint`, `astro check` przechodzą — 6d71a0f
-- [ ] 3.2 Istniejący E2E scenariusz (dostosowany) nadal zielony (Faza 5)
-- [ ] 3.3 Nowy E2E scenariusz (słaby kandydat → przycisk widoczny) zielony (Faza 5)
+- [x] 3.2 Istniejący E2E scenariusz (dostosowany) nadal zielony (Faza 5)
+- [x] 3.3 Nowy E2E scenariusz (słaby kandydat → przycisk widoczny) zielony (Faza 5)
 
 ### Faza 4: UI — panel historii korekt
 
 #### Automatyczne
 
-- [x] 4.1 `npm run lint`, `astro check` przechodzą
-- [ ] 4.2 Nowe testy jednostkowe endpointu historii zielone (Faza 5)
+- [x] 4.1 `npm run lint`, `astro check` przechodzą — 14fc8e7
+- [x] 4.2 Nowe testy jednostkowe endpointu historii zielone (Faza 5)
 
 ### Faza 5: Testy
 
 #### Automatyczne
 
-- [ ] 5.1 `npm run test:unit` — nowe + cała suita zielone
-- [ ] 5.2 `npm run test:e2e` — nowe specy zielone, brak nowych flaków
-- [ ] 5.3 `npm run lint && astro check && npm run build` czysto
+- [x] 5.1 `npm run test` (adaptacja literalna vs `test:unit` z planu — skrypt w `package.json` nazywa się `test`) — nowe + cała suita zielone (96 plików / 1124 testów)
+- [x] 5.2 `npx playwright test` (adaptacja literalna vs `test:e2e` — realny skrypt uruchamia to samo przez `playwright test`) — nowe specy (ai-book-resolution rozszerzony, correction-history nowy) zielone; pełna suita 231 passed / 1 failed (`admin.spec.ts` — pre-istniejący gap lokalnego env: `test.skip()` gdy brak service-role admin clienta/`sharedUserId`, niepowiązane z tym slice'em, kaskadowo skipuje resztę pliku) / 12 skipped (screenshot specy) / 14 did not run (cascading z admin.spec.ts serial mode)
+- [x] 5.3 `npm run lint && astro check && npm run build` czysto
 
 #### Ręczne
 
 - [ ] 5.4 Detekcje #16/#19/#20 — przycisk AI-resolution teraz widoczny
 - [ ] 5.5 Rematch/refine → panel historii pokazuje poprawne dane
 - [ ] 5.6 Panel historii dla świeżej detekcji → „Brak historii korekt"
+
+### Faza 6: RematchForm — wybór źródła wartości (oryginał vs propozycja)
+
+#### Automatyczne
+
+- [x] 6.1 `npm run lint`, `astro check`, `npm run build` przechodzą
+- [x] 6.2 Nowe testy jednostkowe (`DetectionReview.test.tsx`) zielone (3 nowe: oryginał z historii, powrót do propozycji, fallback bez historii)
+- [x] 6.3 Nowy scenariusz E2E (`manual-rematch.spec.ts`) zielony
+- [x] 6.4 Cała suita (`npm test` 96 plików/1127 testów, targeted Playwright specy dotykające `DetectionReview.tsx`) zielona bez regresji
+
+#### Ręczne
+
+- [ ] 6.5 W formularzu „Szukaj po tytule" kliknięcie „Oryginalny odczyt OCR" pokazuje pierwotny odczyt vision (nie ostatnią błędną korektę); „Bieżąca wartość" wraca do bieżących wartości
+
+### Faza 7: RematchForm — reaktywność na wybraną propozycję (kandydata)
+
+#### Automatyczne
+
+- [x] 7.1 `npm run lint`, `astro check`, `npm run build` przechodzą
+- [x] 7.2 Nowe testy jednostkowe zielone (3 nowe w `DetectionReview.test.tsx`: ISBN podąża za alt, „Użyj kandydata" wypełnia pola, przycisk ukryty bez kandydata) — 44/44 w pliku
+- [x] 7.3 Nowy scenariusz E2E zielony (2 nowe testy w `manual-rematch.spec.ts`)
+- [x] 7.4 Cała suita zielona (96 plików/1130 testów unit; 75/75 targeted Playwright specs), S-19 bez regresji
+
+#### Ręczne
+
+- [ ] 7.5 Wybór innej propozycji (alt) w karcie → otwarcie „Szukaj po tytule" → ISBN odpowiada wybranej propozycji, nie zawsze topowi; „Użyj kandydata" wypełnia Tytuł/Autor/ISBN z aktualnie wybranej propozycji
