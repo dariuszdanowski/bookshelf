@@ -1,10 +1,10 @@
 ---
 change_id: candidate-cover-override
 title: Candidate cover override
-status: implemented
+status: archived
 created: 2026-07-13
 updated: 2026-07-13
-archived_at: null
+archived_at: 2026-07-13T20:42:57Z
 ---
 
 ## Notes
