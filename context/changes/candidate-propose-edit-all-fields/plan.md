@@ -291,21 +291,21 @@ Rozszerzamy `book_candidates` o `edited_at` + pola zakupu, uogólniamy endpoint 
 
 #### Automatyczne
 
-- [x] 1.1 `npx supabase migration up` aplikuje `0029` czysto
-- [x] 1.2 `npm run lint && astro check && npm run build` czysto
+- [x] 1.1 `npx supabase migration up` aplikuje `0029` czysto — 28408f1
+- [x] 1.2 `npm run lint && astro check && npm run build` czysto — 28408f1
 
 ### Faza 2: BookModal — propose w pełni edytowalny, trzy akcje
 
 #### Automatyczne
 
-- [ ] 2.1 `npm run lint && astro check && npm run build` czysto
+- [x] 2.1 `npm run lint && astro check && npm run build` czysto
 
 #### Ręczne
 
-- [ ] 2.2 Podgląd kandydata — wszystkie pola edytowalne, Wyszukaj po danych + sekcja zakupu widoczne
-- [ ] 2.3 Zmiana tytułu+ISBN → Zapisz → potwierdzenie, modal zostaje otwarty z zapisanymi wartościami
-- [ ] 2.4 Niezapisana zmiana → Zatwierdź → dialog niezapisanych zmian → Anuluj zostawia bez zmian w DB
-- [ ] 2.5 Ten sam scenariusz → potwierdź w dialogu → zapisuje i zatwierdza, karta „zdecydowana"
+- [x] 2.2 Podgląd kandydata — wszystkie pola edytowalne, Wyszukaj po danych + sekcja zakupu widoczne
+- [x] 2.3 Zmiana tytułu+ISBN → Zapisz → potwierdzenie, modal zostaje otwarty z zapisanymi wartościami
+- [x] 2.4 Niezapisana zmiana → Zatwierdź → dialog niezapisanych zmian → Anuluj zostawia bez zmian w DB
+- [ ] 2.5 Ten sam scenariusz → potwierdź w dialogu → zapisuje i zatwierdza, karta „zdecydowana" (zapis+zatwierdzenie zweryfikowane; „karta zdecydowana" wymaga `onConfirmed` → `onDecided` z Fazy 3 — dokończyć retest po Fazie 3)
 
 ### Faza 3: Wiring w DetectionReview.tsx (Karty/Lista/Kafelki)
 

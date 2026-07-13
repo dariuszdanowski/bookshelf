@@ -5,7 +5,7 @@ import type { PhotoDTO, DetectionWithCandidatesDTO, BboxEditSet } from '../lib/p
 import { classifyCropQuality } from '../lib/matching/fallbackPolicy';
 import { runMatchSSE } from '../lib/matching/runMatchSSE';
 import { runProcessSSE } from '../lib/vision/runProcessSSE';
-import BookModal, { type BookModalBook } from './BookModal';
+import BookModal, { type BookModalBook, type CandidatePatch } from './BookModal';
 import ConfirmDialog from './ConfirmDialog';
 import CorrectionHistoryPanel from './CorrectionHistoryPanel';
 import CostPanel from './CostPanel';
@@ -248,6 +248,23 @@ function candidateToDetail(c: BookCandidateDTO, detectionId: string): BookModalB
     publishedYear: c.publishedYear,
     source: c.source,
     matchScore: c.matchScore,
+  };
+}
+
+// candidate-propose-edit-all-fields: merge patcha z BookModal (onCandidateSaved) do
+// kandydata w stanie detekcji, żeby karta pod spodem odświeżyła podgląd bez reloadu.
+// Pola zakupu kandydata (purchase_*) dotrą do BookCandidateDTO w Fazie 3 — na razie
+// pomijane tu (brak miejsca w DTO), PATCH i tak je persystuje po stronie serwera.
+function applyCandidatePatch(c: BookCandidateDTO, patch: CandidatePatch): BookCandidateDTO {
+  return {
+    ...c,
+    ...(patch.title !== undefined ? { title: patch.title } : {}),
+    ...(patch.authors !== undefined ? { authors: patch.authors } : {}),
+    ...(patch.publisher !== undefined ? { publisher: patch.publisher } : {}),
+    ...(patch.publishedYear !== undefined ? { publishedYear: patch.publishedYear } : {}),
+    ...(patch.isbn13 !== undefined ? { isbn13: patch.isbn13 } : {}),
+    ...(patch.isbn10 !== undefined ? { isbn10: patch.isbn10 } : {}),
+    ...(patch.coverUrl !== undefined ? { coverUrl: patch.coverUrl } : {}),
   };
 }
 
@@ -1529,11 +1546,11 @@ function DetectionCard({
         <BookModal
           mode="propose"
           book={candidateToDetail(activeCandidate, detection.id)}
-          onCoverSaved={(patch) =>
+          onCandidateSaved={(patch) =>
             onRefined?.({
               ...detection,
               candidates: detection.candidates.map((c) =>
-                c.id === activeCandidate.id ? { ...c, coverUrl: patch.coverUrl } : c,
+                c.id === activeCandidate.id ? applyCandidatePatch(c, patch) : c,
               ),
             })
           }
@@ -2090,11 +2107,11 @@ export function DetectionTile({
         <BookModal
           mode="propose"
           book={candidateToDetail(activeCandidate, detection.id)}
-          onCoverSaved={(patch) =>
+          onCandidateSaved={(patch) =>
             onRefined?.({
               ...detection,
               candidates: detection.candidates.map((c) =>
-                c.id === activeCandidate.id ? { ...c, coverUrl: patch.coverUrl } : c,
+                c.id === activeCandidate.id ? applyCandidatePatch(c, patch) : c,
               ),
             })
           }

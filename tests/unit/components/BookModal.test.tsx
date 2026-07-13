@@ -421,14 +421,14 @@ describe('BookModal — tryb propose: edycja okładki kandydata', () => {
     expect(screen.getByTestId('propose-cover-url-input')).toBeTruthy();
   });
 
-  it('klik „Zapisz okładkę" wysyła PATCH z candidate_id/cover_url i woła onCoverSaved', async () => {
+  it('klik „Zapisz okładkę" wysyła PATCH z candidate_id/cover_url i woła onCandidateSaved', async () => {
     mockFetch({ data: { candidate_id: CANDIDATE_BOOK.id, cover_url: 'https://user.jpg' } });
-    const onCoverSaved = vi.fn();
+    const onCandidateSaved = vi.fn();
     render(
       <BookModal
         mode="propose"
         book={CANDIDATE_BOOK}
-        onCoverSaved={onCoverSaved}
+        onCandidateSaved={onCandidateSaved}
         onClose={vi.fn()}
       />,
     );
@@ -439,7 +439,7 @@ describe('BookModal — tryb propose: edycja okładki kandydata', () => {
     fireEvent.click(screen.getByTestId('propose-cover-save'));
 
     await waitFor(() =>
-      expect(onCoverSaved).toHaveBeenCalledWith({ coverUrl: 'https://user.jpg' }),
+      expect(onCandidateSaved).toHaveBeenCalledWith({ coverUrl: 'https://user.jpg' }),
     );
 
     const fetchSpy = globalThis.fetch as ReturnType<typeof vi.fn>;
@@ -469,14 +469,14 @@ describe('BookModal — tryb propose: edycja okładki kandydata', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it('błąd zapisu pokazuje propose-cover-error, nie woła onCoverSaved', async () => {
+  it('błąd zapisu pokazuje propose-cover-error, nie woła onCandidateSaved', async () => {
     mockFetch({ error: { message: 'Nie znaleziono kandydata.' } }, 404);
-    const onCoverSaved = vi.fn();
+    const onCandidateSaved = vi.fn();
     render(
       <BookModal
         mode="propose"
         book={CANDIDATE_BOOK}
-        onCoverSaved={onCoverSaved}
+        onCandidateSaved={onCandidateSaved}
         onClose={vi.fn()}
       />,
     );
@@ -487,7 +487,7 @@ describe('BookModal — tryb propose: edycja okładki kandydata', () => {
     expect(screen.getByTestId('propose-cover-error').textContent).toContain(
       'Nie znaleziono kandydata.',
     );
-    expect(onCoverSaved).not.toHaveBeenCalled();
+    expect(onCandidateSaved).not.toHaveBeenCalled();
   });
 
   it('przycisk „Zapisz okładkę" disabled gdy brak id/detectionId kandydata (defensywnie)', () => {
@@ -511,12 +511,12 @@ describe('BookModal — tryb propose: edycja okładki kandydata', () => {
     // scenariusz, w którym pickCover() cichcem wracał do auto mimo wybranego,
     // pustego slotu „url".
     mockFetch({ data: { candidate_id: CANDIDATE_BOOK.id, cover_url: null } });
-    const onCoverSaved = vi.fn();
+    const onCandidateSaved = vi.fn();
     render(
       <BookModal
         mode="propose"
         book={CANDIDATE_BOOK}
-        onCoverSaved={onCoverSaved}
+        onCandidateSaved={onCandidateSaved}
         onClose={vi.fn()}
       />,
     );
@@ -524,7 +524,7 @@ describe('BookModal — tryb propose: edycja okładki kandydata', () => {
     fireEvent.click(screen.getByTestId('propose-cover-source-url'));
     fireEvent.click(screen.getByTestId('propose-cover-save'));
 
-    await waitFor(() => expect(onCoverSaved).toHaveBeenCalledWith({ coverUrl: null }));
+    await waitFor(() => expect(onCandidateSaved).toHaveBeenCalledWith({ coverUrl: null }));
 
     const fetchSpy = globalThis.fetch as ReturnType<typeof vi.fn>;
     const patchCall = fetchSpy.mock.calls.find(

@@ -4,6 +4,7 @@ import type { CoverSource } from '../lib/books/schema';
 import BookFields from './book/BookFields';
 import type { BookFieldValues } from './book/BookFields';
 import CoverEditor, { type CoverEditorPatch } from './book/CoverEditor';
+import ConfirmDialog from './ConfirmDialog';
 import PurchaseSection from './PurchaseSection';
 import { useBodyScrollLock } from './useBodyScrollLock';
 
@@ -54,7 +55,7 @@ export type BookModalBook = {
   user_cover_url?: string | null;
   cover_photo_url?: string | null;
   cover_source?: CoverSource;
-  /** Wymagane w propose mode — cel dla PATCH /api/detections/[id]/cover (candidate-cover-override). */
+  /** Wymagane w propose mode — cel dla PATCH /api/detections/[id]/candidate (candidate-propose-edit-all-fields). */
   detectionId?: string;
   photoId?: string | null;
   source?: string | null;
@@ -66,6 +67,21 @@ export type BookModalBook = {
   purchase_event?: string | null;
 };
 
+/** Podzbiór pól kandydata faktycznie wysłanych w ostatnim PATCH /candidate (propose mode). */
+export type CandidatePatch = Partial<{
+  title: string;
+  authors: string[];
+  publisher: string | null;
+  publishedYear: number | null;
+  isbn13: string | null;
+  isbn10: string | null;
+  coverUrl: string | null;
+  purchaseDate: string | null;
+  purchasePrice: number | null;
+  purchaseCity: string | null;
+  purchaseEvent: string | null;
+}>;
+
 export type BookModalProps = {
   mode: 'add' | 'edit' | 'propose';
   /** Wymagany w add mode. */
@@ -73,8 +89,10 @@ export type BookModalProps = {
   /** Dane wstępne (edit/propose mode; w add opcjonalne — prefill z kandydata). */
   book?: BookModalBook;
   onSaved?: () => void;
-  /** propose mode: wywoływane po udanym zapisie okładki kandydata (candidate-cover-override). */
-  onCoverSaved?: (patch: { coverUrl: string | null }) => void;
+  /** propose mode: wywoływane po udanym zapisie pól kandydata (candidate-propose-edit-all-fields). */
+  onCandidateSaved?: (patch: CandidatePatch) => void;
+  /** propose mode: wywoływane po udanym POST /confirm — kandydat trafił do katalogu. */
+  onConfirmed?: () => void;
   onClose: () => void;
 };
 
@@ -128,6 +146,51 @@ function parseFields(f: BookFieldValues) {
     isbn_13: f.isbn13.trim() || null,
     isbn_10: f.isbn10.trim() || null,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Snapshot kandydata (propose mode) — dirty-check dla „Zatwierdź"
+// (candidate-propose-edit-all-fields). Porównanie wykonywane na surowych
+// wartościach formularza (nie parseFields()), żeby np. białe znaki w polu
+// nie liczyły się jako "brak zmian" po jednej stronie i "zmiana" po drugiej.
+
+type CandidateSnapshotShape = {
+  title: string;
+  authors: string;
+  publisher: string;
+  year: string;
+  isbn13: string;
+  isbn10: string;
+  coverUrl: string | null;
+  purchaseDate: string | null;
+  purchasePrice: number | null;
+  purchaseCity: string | null;
+  purchaseEvent: string | null;
+};
+
+function snapshotFromBook(b?: BookModalBook): CandidateSnapshotShape {
+  const fields = bookToFields(b);
+  const source = b?.cover_source ?? 'auto';
+  const auto = b?.cover_url ?? b?.coverUrl ?? null;
+  const user = b?.user_cover_url ?? '';
+  const photo = b?.cover_photo_url ?? null;
+  return {
+    title: fields.title,
+    authors: fields.authors,
+    publisher: fields.publisher,
+    year: fields.year,
+    isbn13: fields.isbn13,
+    isbn10: fields.isbn10,
+    coverUrl: resolveCoverStrict(source, auto, user, photo),
+    purchaseDate: b?.purchase_date ?? null,
+    purchasePrice: b?.purchase_price ?? null,
+    purchaseCity: b?.purchase_city ?? null,
+    purchaseEvent: b?.purchase_event ?? null,
+  };
+}
+
+function snapshotsEqual(a: CandidateSnapshotShape, b: CandidateSnapshotShape): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
 }
 
 // ---------------------------------------------------------------------------
@@ -455,26 +518,29 @@ function SearchPanel({
 
 /**
  * Unified modal książki — 3 tryby: add (nowa książka na półkę), edit (edycja
- * istniejącej), propose (read-only podgląd kandydata z detekcji).
+ * istniejącej), propose (pełna edycja propozycji kandydata przed zatwierdzeniem).
  *
  * add:  POST /api/books, „Wyszukaj po danych" → /api/books/candidates → prefill,
  *       „Wyszukaj okładkę" → /api/books/cover-suggestion?isbn= (read-only).
  * edit: PATCH /api/books/:id, identyczne wyszukiwanie kandydatów + CoverEditor
  *       (własny save przez /api/books/:id, osobno od metadanych).
- * propose: read-only pola, „Szukaj w sieci", brak zapisu.
+ * propose: PATCH /api/detections/[id]/candidate („Zapisz", bez zatwierdzania) +
+ *       POST /api/detections/[id]/confirm („Akceptuj propozycję", z dirty-check
+ *       dialogiem gdy są niezapisane zmiany) — candidate-propose-edit-all-fields.
  */
 export default function BookModal({
   mode,
   shelfId,
   book,
   onSaved,
-  onCoverSaved,
+  onCandidateSaved,
+  onConfirmed,
   onClose,
 }: BookModalProps) {
   useBodyScrollLock(); // M5: bez przelewania scrolla na stronę pod modalem
   const [fields, setFields] = useState<BookFieldValues>(() => bookToFields(book));
-  // Stan okładki (lifted z CoverEditor) — wspólny dla add i edit. Trafia do
-  // ujednoliconego zapisu: POST (add) / PATCH razem z metadanymi (edit).
+  // Stan okładki (lifted z CoverEditor) — wspólny dla add/edit/propose. Trafia do
+  // ujednoliconego zapisu: POST (add) / PATCH razem z metadanymi (edit/propose).
   const [coverSource, setCoverSource] = useState<CoverSource>(book?.cover_source ?? 'auto');
   const [coverAutoUrl, setCoverAutoUrl] = useState<string | null>(
     book?.cover_url ?? book?.coverUrl ?? null,
@@ -493,11 +559,15 @@ export default function BookModal({
   );
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  // candidate-cover-override: zapis okładki w trybie propose jest niezależny od
-  // reszty formularza (read-only, bez głównej stopki „Zapisz") — osobny stan.
-  const [savingCover, setSavingCover] = useState(false);
-  const [coverSaveErr, setCoverSaveErr] = useState<string | null>(null);
-  const [coverSaved, setCoverSaved] = useState(false);
+  // candidate-propose-edit-all-fields: snapshot ostatnio zapisanego stanu kandydata
+  // (propose mode) — dirty-check dla „Zatwierdź". `saved` steruje potwierdzeniem
+  // „Zapisano" obok przycisku; znika automatycznie gdy user znów coś zmieni
+  // (isDirty przestaje być false).
+  const [savedSnapshot, setSavedSnapshot] = useState<CandidateSnapshotShape>(() =>
+    snapshotFromBook(book),
+  );
+  const [saved, setSaved] = useState(false);
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   // S-17: opis z wybranego kandydata — UKRYTY stan (bez kontrolki UI; ekspozycja
   // opisu = follow-up). Sentinel: undefined = kandydata nie wybrano (PATCH pomija
   // pole, nie nadpisuje opisu); null = wybrano kandydata bez opisu (OL/BN — PATCH
@@ -514,6 +584,25 @@ export default function BookModal({
   const [cityHints, setCityHints] = useState<string[]>([]);
   const [eventHints, setEventHints] = useState<string[]>([]);
 
+  // Snapshot bieżącego stanu formularza — porównywany z savedSnapshot dla dirty-check.
+  function currentCandidateSnapshot(): CandidateSnapshotShape {
+    return {
+      title: fields.title,
+      authors: fields.authors,
+      publisher: fields.publisher,
+      year: fields.year,
+      isbn13: fields.isbn13,
+      isbn10: fields.isbn10,
+      coverUrl: resolveCoverStrict(coverSource, coverAutoUrl, coverUserUrl, coverPhotoUrl),
+      purchaseDate,
+      purchasePrice,
+      purchaseCity,
+      purchaseEvent,
+    };
+  }
+  const isCandidateDirty =
+    mode === 'propose' && !snapshotsEqual(currentCandidateSnapshot(), savedSnapshot);
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose();
@@ -523,7 +612,6 @@ export default function BookModal({
   }, [onClose]);
 
   useEffect(() => {
-    if (mode === 'propose') return;
     const ctrl = new AbortController();
     void fetch('/api/books/purchase-hints?type=city', { signal: ctrl.signal })
       .then((r) => r.json() as Promise<{ data?: { hints: string[] } }>)
@@ -538,7 +626,7 @@ export default function BookModal({
       })
       .catch(() => undefined);
     return () => ctrl.abort();
-  }, [mode]);
+  }, []);
 
   function handleField(field: keyof BookFieldValues, value: string) {
     setFields((prev) => ({ ...prev, [field]: value }));
@@ -581,36 +669,127 @@ export default function BookModal({
     );
   }
 
-  // candidate-cover-override: zapis okładki kandydata PRZED zatwierdzeniem —
-  // niezależny od handleSave (reszta pól w propose mode zostaje read-only).
-  async function handleSaveCandidateCover() {
-    if (!book?.id || !book?.detectionId) return;
-    setSavingCover(true);
-    setCoverSaveErr(null);
-    setCoverSaved(false);
-    const resolved = resolveCoverStrict(coverSource, coverAutoUrl, coverUserUrl, coverPhotoUrl);
+  // candidate-propose-edit-all-fields: „Zapisz" w propose mode — PATCH-uje
+  // WSZYSTKIE bieżące pola formularza (title/authors/isbn/publisher/year/cover/
+  // purchase) na raz do book_candidates, bez zatwierdzania. Zwraca sukces, żeby
+  // handleConfirmDialogConfirm mógł zsekwencjonować zapis → zatwierdzenie.
+  async function handleSaveCandidate(): Promise<boolean> {
+    if (!book?.id || !book?.detectionId) return false;
+    if (!fields.title.trim()) return false;
+    setBusy(true);
+    setErr(null);
+    setSaved(false);
+    const parsed = parseFields(fields);
+    const resolvedCover = resolveCoverStrict(
+      coverSource,
+      coverAutoUrl,
+      coverUserUrl,
+      coverPhotoUrl,
+    );
     try {
-      const res = await fetch(`/api/detections/${book.detectionId}/cover`, {
+      const res = await fetch(`/api/detections/${book.detectionId}/candidate`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ candidate_id: book.id, cover_url: resolved }),
+        body: JSON.stringify({
+          candidate_id: book.id,
+          title: parsed.title,
+          authors: parsed.authors,
+          publisher: parsed.publisher,
+          published_year: parsed.published_year,
+          isbn_13: parsed.isbn_13,
+          isbn_10: parsed.isbn_10,
+          cover_url: resolvedCover,
+          purchase_date: purchaseDate,
+          purchase_price: purchasePrice,
+          purchase_city: purchaseCity,
+          purchase_event: purchaseEvent,
+        }),
       });
       const json = (await res.json()) as { error?: { message?: string } };
       if (!res.ok) {
-        setCoverSaveErr(json.error?.message ?? `Błąd zapisu (${res.status})`);
+        setErr(json.error?.message ?? `Błąd zapisu (${res.status})`);
+        return false;
+      }
+      setSavedSnapshot(currentCandidateSnapshot());
+      setSaved(true);
+      onCandidateSaved?.({
+        title: parsed.title,
+        authors: parsed.authors,
+        publisher: parsed.publisher,
+        publishedYear: parsed.published_year,
+        isbn13: parsed.isbn_13,
+        isbn10: parsed.isbn_10,
+        coverUrl: resolvedCover,
+        purchaseDate,
+        purchasePrice,
+        purchaseCity,
+        purchaseEvent,
+      });
+      return true;
+    } catch {
+      setErr('Błąd sieci.');
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // „Zatwierdź" — POST /confirm. Bez niezapisanych zmian od razu; z nimi otwiera
+  // ConfirmDialog (patrz handleConfirmDialogConfirm) zamiast cicho zatwierdzać
+  // nieaktualne dane.
+  async function doConfirmCandidate() {
+    if (!book?.id || !book?.detectionId) return;
+    setBusy(true);
+    setErr(null);
+    try {
+      const res = await fetch(`/api/detections/${book.detectionId}/confirm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ candidate_id: book.id }),
+      });
+      const json = (await res.json()) as { error?: { message?: string } };
+      if (res.status === 409) {
+        setErr(json.error?.message ?? 'Masz już tę książkę w katalogu.');
         return;
       }
-      setCoverSaved(true);
-      onCoverSaved?.({ coverUrl: resolved });
+      if (!res.ok) {
+        setErr(json.error?.message ?? `Błąd zapisu (${res.status})`);
+        return;
+      }
+      onConfirmed?.();
+      onClose();
     } catch {
-      setCoverSaveErr('Błąd sieci.');
+      setErr('Błąd sieci.');
     } finally {
-      setSavingCover(false);
+      setBusy(false);
     }
+  }
+
+  async function handleConfirmClick() {
+    if (!book?.id || !book?.detectionId) return;
+    if (isCandidateDirty) {
+      setConfirmDialogOpen(true);
+      return;
+    }
+    await doConfirmCandidate();
+  }
+
+  // Dialog „Zapisz i zatwierdź": zapis MUSI się powieść zanim zawołamy /confirm —
+  // sekwencyjnie, nie równolegle (błąd zapisu nie może prowadzić do zatwierdzenia
+  // nieaktualnych danych).
+  async function handleConfirmDialogConfirm() {
+    setConfirmDialogOpen(false);
+    const ok = await handleSaveCandidate();
+    if (!ok) return;
+    await doConfirmCandidate();
   }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
+    if (mode === 'propose') {
+      await handleSaveCandidate();
+      return;
+    }
     if (!fields.title.trim()) return;
     setBusy(true);
     setErr(null);
@@ -706,156 +885,128 @@ export default function BookModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      onClick={onClose}
-    >
-      {/* Trójstrefowy layout dialogu: stały nagłówek + scrollowane TYLKO body +
+    <>
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+        onClick={onClose}
+      >
+        {/* Trójstrefowy layout dialogu: stały nagłówek + scrollowane TYLKO body +
           stały footer. Scroll całego kontenera z sticky footerem zasłaniał dół
           treści (sekcja okładki wyglądała na uciętą zaraz po otwarciu). */}
-      <div
-        data-testid="book-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label={MODAL_TITLES[mode]}
-        className="relative flex max-h-[90vh] w-full max-w-4xl flex-col rounded-xl bg-white shadow-xl dark:bg-gray-800"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Nagłówek */}
-        <div className="flex items-center justify-between px-5 pt-5 pb-4">
-          <h2
-            data-testid="book-modal-title"
-            className="text-base font-bold text-gray-900 dark:text-gray-50"
-          >
-            {MODAL_TITLES[mode]}
-          </h2>
-          <button
-            data-testid="book-modal-close"
-            onClick={onClose}
-            aria-label="Zamknij"
-            className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"
-          >
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-              <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-            </svg>
-          </button>
-        </div>
+        <div
+          data-testid="book-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-label={MODAL_TITLES[mode]}
+          className="relative flex max-h-[90vh] w-full max-w-4xl flex-col rounded-xl bg-white shadow-xl dark:bg-gray-800"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Nagłówek */}
+          <div className="flex items-center justify-between px-5 pt-5 pb-4">
+            <h2
+              data-testid="book-modal-title"
+              className="text-base font-bold text-gray-900 dark:text-gray-50"
+            >
+              {MODAL_TITLES[mode]}
+            </h2>
+            <button
+              data-testid="book-modal-close"
+              onClick={onClose}
+              aria-label="Zamknij"
+              className="rounded-md p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-gray-700"
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+              </svg>
+            </button>
+          </div>
 
-        <form onSubmit={handleSave} noValidate className="flex min-h-0 flex-1 flex-col">
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-5">
-            <div className="flex flex-col gap-4 sm:flex-row">
-              {/* Lewa kolumna — okładka. Stała szerokość na desktopie, by sekcja okładki
+          <form onSubmit={handleSave} noValidate className="flex min-h-0 flex-1 flex-col">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-5">
+              <div className="flex flex-col gap-4 sm:flex-row">
+                {/* Lewa kolumna — okładka. Stała szerokość na desktopie, by sekcja okładki
                 (zwłaszcza bez okładki) nie rozpychała się i nie ściskała pól + wyników po prawej. */}
-              <div className="flex w-full flex-col items-center gap-2 sm:w-72 sm:flex-shrink-0">
-                <CoverLarge
-                  url={displayCover}
-                  alt={authorsDisplay ? `${fields.title} — ${authorsDisplay}` : fields.title}
-                />
+                <div className="flex w-full flex-col items-center gap-2 sm:w-72 sm:flex-shrink-0">
+                  <CoverLarge
+                    url={displayCover}
+                    alt={authorsDisplay ? `${fields.title} — ${authorsDisplay}` : fields.title}
+                  />
 
-                {/* Sekcja okładki — zawsze rozwinięta, identyczna w add/edit/propose
-                  (candidate-cover-override). W add/edit sloty → zapisywane jednym
-                  „Zapisz" (unify-book-save); w propose → osobnym „Zapisz okładkę". */}
-                <CoverEditor
-                  isbn={fields.isbn13 || fields.isbn10}
-                  source={coverSource}
-                  autoUrl={coverAutoUrl}
-                  userUrl={coverUserUrl}
-                  photoUrl={coverPhotoUrl}
-                  testIdPrefix={
-                    mode === 'edit'
-                      ? 'edit-cover'
-                      : mode === 'propose'
-                        ? 'propose-cover'
-                        : 'add-cover'
-                  }
-                  onChange={handleCoverChange}
-                />
-                {mode === 'propose' && (
-                  <div className="w-full space-y-1">
-                    <button
-                      type="button"
-                      data-testid="propose-cover-save"
-                      disabled={savingCover || !book?.id || !book?.detectionId}
-                      onClick={() => void handleSaveCandidateCover()}
-                      className="w-full rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-                    >
-                      {savingCover ? 'Zapisuję...' : 'Zapisz okładkę'}
-                    </button>
-                    {coverSaveErr && (
-                      <p
-                        data-testid="propose-cover-error"
-                        className="text-xs text-red-600 dark:text-red-400"
-                        role="alert"
-                      >
-                        {coverSaveErr}
-                      </p>
-                    )}
-                    {coverSaved && (
-                      <p
-                        data-testid="propose-cover-saved"
-                        className="text-xs text-green-600 dark:text-green-400"
-                      >
-                        Okładka zapisana.
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
+                  {/* Sekcja okładki — zawsze rozwinięta, identyczna w add/edit/propose.
+                  Sloty zapisywane jednym „Zapisz" razem z resztą pól (unify-book-save
+                  dla add/edit; candidate-propose-edit-all-fields dla propose). */}
+                  <CoverEditor
+                    isbn={fields.isbn13 || fields.isbn10}
+                    source={coverSource}
+                    autoUrl={coverAutoUrl}
+                    userUrl={coverUserUrl}
+                    photoUrl={coverPhotoUrl}
+                    testIdPrefix={
+                      mode === 'edit'
+                        ? 'edit-cover'
+                        : mode === 'propose'
+                          ? 'propose-cover'
+                          : 'add-cover'
+                    }
+                    onChange={handleCoverChange}
+                  />
+                </div>
 
-              {/* Prawa kolumna — pola i akcje */}
-              <div className="min-w-0 flex-1 space-y-3">
-                {/* Metadane */}
-                <BookFields
-                  values={fields}
-                  onChange={canEdit ? handleField : undefined}
-                  readOnly={!canEdit}
-                />
+                {/* Prawa kolumna — pola i akcje */}
+                <div className="min-w-0 flex-1 space-y-3">
+                  {/* Metadane — edytowalne we wszystkich trybach (propose: pełna edycja
+                  przed zatwierdzeniem, candidate-propose-edit-all-fields). */}
+                  <BookFields values={fields} onChange={handleField} readOnly={false} />
 
-                {/* Dodatkowe info w propose mode */}
-                {mode === 'propose' && (
-                  <dl className="space-y-1 text-sm">
-                    {book?.spineColor && (
-                      <div className="flex gap-2">
-                        <dt className="w-24 flex-shrink-0 text-gray-400">Kolor grzbietu</dt>
-                        <dd className="font-medium text-gray-800 dark:text-gray-100">
-                          {book.spineColor}
-                        </dd>
-                      </div>
-                    )}
-                    {sourceLabel && (
-                      <div className="flex gap-2">
-                        <dt className="w-24 flex-shrink-0 text-gray-400">Źródło</dt>
-                        <dd className="font-medium text-gray-800 dark:text-gray-100">
-                          {sourceLabel}
-                        </dd>
-                      </div>
-                    )}
-                    {book?.matchScore != null && (
-                      <div className="flex gap-2">
-                        <dt className="w-24 flex-shrink-0 text-gray-400">Pewność</dt>
-                        <dd className="font-medium text-gray-800 dark:text-gray-100">
-                          {Math.round(book.matchScore * 100)}%
-                        </dd>
-                      </div>
-                    )}
-                  </dl>
-                )}
+                  {/* Dodatkowe info w propose mode */}
+                  {mode === 'propose' && (
+                    <dl className="space-y-1 text-sm">
+                      {book?.spineColor && (
+                        <div className="flex gap-2">
+                          <dt className="w-24 flex-shrink-0 text-gray-400">Kolor grzbietu</dt>
+                          <dd className="font-medium text-gray-800 dark:text-gray-100">
+                            {book.spineColor}
+                          </dd>
+                        </div>
+                      )}
+                      {sourceLabel && (
+                        <div className="flex gap-2">
+                          <dt className="w-24 flex-shrink-0 text-gray-400">Źródło</dt>
+                          <dd className="font-medium text-gray-800 dark:text-gray-100">
+                            {sourceLabel}
+                          </dd>
+                        </div>
+                      )}
+                      {book?.matchScore != null && (
+                        <div className="flex gap-2">
+                          <dt className="w-24 flex-shrink-0 text-gray-400">Pewność</dt>
+                          <dd className="font-medium text-gray-800 dark:text-gray-100">
+                            {Math.round(book.matchScore * 100)}%
+                          </dd>
+                        </div>
+                      )}
+                    </dl>
+                  )}
 
-                {/* Panel wyszukiwania kandydatów (add + edit). hideForm w OBU trybach:
-                  główny formularz już ma pola tytuł/ISBN/autor, więc panel szuka po nich
-                  (auto-search po toggle) zamiast renderować zdublowane inputy. */}
-                {canEdit && (
+                  {/* Panel wyszukiwania kandydatów (add + edit + propose). hideForm
+                  zawsze true: główny formularz już ma pola tytuł/ISBN/autor, więc
+                  panel szuka po nich (auto-search po toggle) zamiast renderować
+                  zdublowane inputy. */}
                   <SearchPanel
                     initialTitle={fields.title}
                     initialIsbn={fields.isbn13 || fields.isbn10}
                     initialAuthor={fields.authors}
-                    hideForm={canEdit}
+                    hideForm={true}
                     onSelect={handleCandidateSelect}
                   />
-                )}
 
-                {/* Sekcja informacji o zakupie (add + edit) */}
-                {canEdit && (
+                  {/* Sekcja informacji o zakupie (add + edit + propose) */}
                   <PurchaseSection
                     purchaseDate={purchaseDate}
                     purchasePrice={purchasePrice}
@@ -871,75 +1022,138 @@ export default function BookModal({
                       if (patch.purchaseEvent !== undefined) setPurchaseEvent(patch.purchaseEvent);
                     }}
                   />
-                )}
 
-                {/* Przyciski akcji */}
-                <div className="flex flex-wrap items-center gap-2 pt-1">
-                  {/* W trybie add — tylko gdy cokolwiek wpisano */}
-                  {(mode !== 'add' ||
-                    fields.title.trim() ||
-                    fields.isbn13.trim() ||
-                    fields.isbn10.trim() ||
-                    fields.authors.trim()) && (
-                    <a
-                      data-testid="book-modal-web-search"
-                      href={googleSearchUrl(fields)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="rounded-md border border-sky-300 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-900/20 dark:text-sky-300 dark:hover:bg-sky-900/40"
-                    >
-                      Szukaj w sieci
-                    </a>
-                  )}
+                  {/* Przyciski akcji */}
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    {/* W trybie add — tylko gdy cokolwiek wpisano */}
+                    {(mode !== 'add' ||
+                      fields.title.trim() ||
+                      fields.isbn13.trim() ||
+                      fields.isbn10.trim() ||
+                      fields.authors.trim()) && (
+                      <a
+                        data-testid="book-modal-web-search"
+                        href={googleSearchUrl(fields)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="rounded-md border border-sky-300 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-900/20 dark:text-sky-300 dark:hover:bg-sky-900/40"
+                      >
+                        Szukaj w sieci
+                      </a>
+                    )}
 
-                  {mode === 'edit' && book?.photoId && (
-                    <a
-                      data-testid="book-modal-source-photo"
-                      href={`/photos/${book.photoId}`}
-                      className="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
-                    >
-                      Źródłowe zdjęcie
-                    </a>
-                  )}
+                    {mode === 'edit' && book?.photoId && (
+                      <a
+                        data-testid="book-modal-source-photo"
+                        href={`/photos/${book.photoId}`}
+                        className="rounded-md border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
+                      >
+                        Źródłowe zdjęcie
+                      </a>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Footer poza obszarem scrolla — primary CTA zawsze widoczny niezależnie
+            {/* Footer poza obszarem scrolla — primary CTA zawsze widoczny niezależnie
               od długości treści (lista kandydatów potrafiła wypchnąć zapis poza
               viewport), a treść nigdy nie wsuwa się pod przyciski. */}
-          {canEdit && (
-            <div className="flex items-center justify-end gap-2 border-t border-gray-200 px-5 py-3 dark:border-gray-700">
-              {err && (
-                <p
-                  data-testid="book-modal-error"
-                  className="mr-auto text-xs text-red-600 dark:text-red-400"
-                  role="alert"
+            {canEdit ? (
+              <div className="flex items-center justify-end gap-2 border-t border-gray-200 px-5 py-3 dark:border-gray-700">
+                {err && (
+                  <p
+                    data-testid="book-modal-error"
+                    className="mr-auto text-xs text-red-600 dark:text-red-400"
+                    role="alert"
+                  >
+                    {err}
+                  </p>
+                )}
+                <button
+                  type="button"
+                  data-testid="book-modal-cancel"
+                  onClick={onClose}
+                  className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400"
                 >
-                  {err}
-                </p>
-              )}
-              <button
-                type="button"
-                data-testid="book-modal-cancel"
-                onClick={onClose}
-                className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400"
-              >
-                Anuluj
-              </button>
-              <button
-                type="submit"
-                data-testid="book-modal-save"
-                disabled={busy || !fields.title.trim()}
-                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-              >
-                {busy ? 'Zapisuję...' : mode === 'add' ? 'Dodaj na półkę' : 'Zapisz'}
-              </button>
-            </div>
-          )}
-        </form>
+                  Anuluj
+                </button>
+                <button
+                  type="submit"
+                  data-testid="book-modal-save"
+                  disabled={busy || !fields.title.trim()}
+                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {busy ? 'Zapisuję...' : mode === 'add' ? 'Dodaj na półkę' : 'Zapisz'}
+                </button>
+              </div>
+            ) : (
+              // propose: Zapisz (PATCH kandydata, modal zostaje otwarty) / Akceptuj propozycję
+              // (POST /confirm, dirty-check dialog) / Anuluj (candidate-propose-edit-all-fields).
+              <div className="flex items-center justify-end gap-2 border-t border-gray-200 px-5 py-3 dark:border-gray-700">
+                {err && (
+                  <p
+                    data-testid="book-modal-error"
+                    className="mr-auto text-xs text-red-600 dark:text-red-400"
+                    role="alert"
+                  >
+                    {err}
+                  </p>
+                )}
+                {saved && !isCandidateDirty && !err && (
+                  <p
+                    data-testid="propose-saved"
+                    className="mr-auto text-xs text-green-600 dark:text-green-400"
+                  >
+                    Zapisano.
+                  </p>
+                )}
+                <button
+                  type="button"
+                  data-testid="book-modal-cancel"
+                  onClick={onClose}
+                  className="rounded-md border border-gray-300 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400"
+                >
+                  Anuluj
+                </button>
+                <button
+                  type="submit"
+                  data-testid="book-modal-save"
+                  disabled={busy || !fields.title.trim() || !book?.id || !book?.detectionId}
+                  className="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-200"
+                >
+                  {busy ? 'Zapisuję...' : 'Zapisz'}
+                </button>
+                <button
+                  type="button"
+                  data-testid="book-modal-confirm"
+                  disabled={busy || !fields.title.trim() || !book?.id || !book?.detectionId}
+                  onClick={() => void handleConfirmClick()}
+                  title="Zaakceptuj propozycję jako książkę"
+                  className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  Akceptuj propozycję
+                </button>
+              </div>
+            )}
+          </form>
+        </div>
       </div>
-    </div>
+
+      {/* Poza backdropem BookModala — inaczej klik na backdrop ConfirmDialog
+          bąbelkowałby do onClick={onClose} rodzica i zamykał oba modale naraz. */}
+      {mode === 'propose' && (
+        <ConfirmDialog
+          open={confirmDialogOpen}
+          title="Niezapisane zmiany"
+          message="Masz niezapisane zmiany. Zapisać i zaakceptować propozycję?"
+          confirmLabel="Zapisz i zaakceptuj"
+          cancelLabel="Anuluj"
+          testIdPrefix="propose-confirm-dialog"
+          onConfirm={() => void handleConfirmDialogConfirm()}
+          onCancel={() => setConfirmDialogOpen(false)}
+        />
+      )}
+    </>
   );
 }
