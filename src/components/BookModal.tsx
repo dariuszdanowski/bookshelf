@@ -18,6 +18,24 @@ function pickCover(
   return slot ?? auto ?? (user.trim() || null) ?? photo ?? null;
 }
 
+/**
+ * Efektywna okładka BEZ fallbacku na inny slot — dokładnie to, co jest w wybranym
+ * slocie, albo null. `pickCover` celowo cofa się do innego slotu (podgląd add/edit
+ * nie ma znikać przy przełączaniu pustej zakładki), ale w propose mode zgłoszenie
+ * usera: wybranie pustego „Wklejony URL" i „Zapisz okładkę" cichcem zapisywało
+ * auto-okładkę zamiast braku okładki. Kandydat ma jedno pole `cover_url` (bez
+ * `cover_source`), więc to, co widać w podglądzie propose, MUSI być tym, co się
+ * zapisuje — bez fallbacku.
+ */
+function resolveCoverStrict(
+  source: CoverSource,
+  auto: string | null,
+  user: string,
+  photo: string | null,
+): string | null {
+  return source === 'url' ? user.trim() || null : source === 'photo' ? photo : (auto ?? null);
+}
+
 // ---------------------------------------------------------------------------
 // Typy wejściowe
 
@@ -553,7 +571,14 @@ export default function BookModal({
     if (patch.autoUrl !== undefined) setCoverAutoUrl(patch.autoUrl);
     if (patch.userUrl !== undefined) setCoverUserUrl(patch.userUrl);
     if (patch.photoUrl !== undefined) setCoverPhotoUrl(patch.photoUrl);
-    setDisplayCover(pickCover(nextSource, nextAuto, nextUser, nextPhoto));
+    // propose: kandydat ma jedno pole cover_url (bez cover_source) — podgląd musi
+    // pokazywać dokładnie to, co „Zapisz okładkę" zapisze, bez fallbacku na inny
+    // slot (zgłoszenie usera: pusty „Wklejony URL" pokazywał i zapisywał auto-okładkę).
+    setDisplayCover(
+      mode === 'propose'
+        ? resolveCoverStrict(nextSource, nextAuto, nextUser, nextPhoto)
+        : pickCover(nextSource, nextAuto, nextUser, nextPhoto),
+    );
   }
 
   // candidate-cover-override: zapis okładki kandydata PRZED zatwierdzeniem —
@@ -563,7 +588,7 @@ export default function BookModal({
     setSavingCover(true);
     setCoverSaveErr(null);
     setCoverSaved(false);
-    const resolved = pickCover(coverSource, coverAutoUrl, coverUserUrl, coverPhotoUrl);
+    const resolved = resolveCoverStrict(coverSource, coverAutoUrl, coverUserUrl, coverPhotoUrl);
     try {
       const res = await fetch(`/api/detections/${book.detectionId}/cover`, {
         method: 'PATCH',

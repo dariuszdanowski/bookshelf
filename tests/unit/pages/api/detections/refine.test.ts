@@ -77,6 +77,21 @@ const goodCandidate = {
   coverUrl: null,
 };
 
+// plan-review F2: matchOne() (lokalny helper w refine.ts) syntetyzuje coverUrl
+// z ISBN gdy źródło go nie ma — żeby przetestować „nowy wynik NAPRAWDĘ nie ma
+// okładki", kandydat musi też nie mieć ISBN (goodCandidate ma ISBN → dostałby auto-cover).
+const candidateNoIsbnNoCover = {
+  source: 'google_books' as const,
+  externalId: 'gb-nocover',
+  title: 'Solaris',
+  authors: ['Stanisław Lem'],
+  isbn10: null,
+  isbn13: null,
+  publisher: 'Harvest Books',
+  publishedYear: 1987,
+  coverUrl: null,
+};
+
 function makeSupabase(opts?: {
   detectionResult?: {
     data: DetectionRow | null;
@@ -426,5 +441,85 @@ describe('POST /api/detections/[id]/refine', () => {
     expect(res.status).toBe(429);
     const json = (await res.json()) as { error: { code: string } };
     expect(json.error.code).toBe('RATE_LIMITED');
+  });
+
+  // ---------------------------------------------------------------------------
+  // plan-review F2 (candidate-cover-override): dziedziczenie okładki rank-1
+  // przy zastąpieniu kandydatów, żeby ręcznie ustawiona okładka nie ginęła.
+  // ---------------------------------------------------------------------------
+
+  it('dziedziczy okładkę starego rank-1 gdy nowy top wynik jej nie ma', async () => {
+    mockSearchGoogleBooks.mockResolvedValue({ ok: true, candidates: [candidateNoIsbnNoCover] });
+    const track = {
+      detectionUpdatePayload: [] as unknown[],
+      candidateInsertPayload: [] as unknown[],
+      candidateDeleteCalls: 0,
+    };
+    const supabase = makeSupabase({
+      track,
+      existingCandidatesResult: {
+        data: [
+          {
+            match_score: 0.5,
+            source: 'google_books',
+            external_id: 'gb-old',
+            title: 'Solaris (stary)',
+            authors: ['Stanisław Lem'],
+            isbn_10: null,
+            isbn_13: null,
+            publisher: null,
+            published_year: null,
+            cover_url: 'https://old-cover.jpg',
+            rank: 1,
+          },
+        ],
+        error: null,
+      },
+    });
+
+    const res = await POST(makeContext(supabase));
+    expect(res.status).toBe(200);
+
+    const insertedRows = track.candidateInsertPayload[0] as { cover_url: string | null }[];
+    expect(insertedRows[0].cover_url).toBe('https://old-cover.jpg');
+  });
+
+  it('NIE nadpisuje okładki gdy nowy top wynik ma własną', async () => {
+    mockSearchGoogleBooks.mockResolvedValue({
+      ok: true,
+      candidates: [{ ...candidateNoIsbnNoCover, coverUrl: 'https://new-cover.jpg' }],
+    });
+    const track = {
+      detectionUpdatePayload: [] as unknown[],
+      candidateInsertPayload: [] as unknown[],
+      candidateDeleteCalls: 0,
+    };
+    const supabase = makeSupabase({
+      track,
+      existingCandidatesResult: {
+        data: [
+          {
+            match_score: 0.5,
+            source: 'google_books',
+            external_id: 'gb-old',
+            title: 'Solaris (stary)',
+            authors: ['Stanisław Lem'],
+            isbn_10: null,
+            isbn_13: null,
+            publisher: null,
+            published_year: null,
+            cover_url: 'https://old-cover.jpg',
+            rank: 1,
+          },
+        ],
+        error: null,
+      },
+    });
+
+    const res = await POST(makeContext(supabase));
+    expect(res.status).toBe(200);
+
+    const insertedRows = track.candidateInsertPayload[0] as { cover_url: string | null }[];
+    expect(insertedRows[0].cover_url).toBe('https://new-cover.jpg');
   });
 });

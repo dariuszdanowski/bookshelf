@@ -200,6 +200,13 @@ const TIER_STYLES: Record<MatchTier, { border: string; badge: string; label: str
 
 function CoverImage({ url, title }: { url: string | null; title: string }) {
   const [failed, setFailed] = useState(false);
+  // Bez tego, zmiana `url` (np. zapis nowej okładki kandydata) na tej samej
+  // instancji komponentu (ten sam klucz listy) dziedziczyła `failed=true` po
+  // POPRZEDNIM, zepsutym linku i nigdy nie próbowała załadować nowego — user
+  // widział placeholder mimo poprawnego zapisu, dopóki nie zrobił F5 (remount).
+  useEffect(() => {
+    setFailed(false);
+  }, [url]);
 
   if (!url || failed) {
     return (
