@@ -7,6 +7,7 @@ import { runMatchSSE } from '../lib/matching/runMatchSSE';
 import { runProcessSSE } from '../lib/vision/runProcessSSE';
 import BookModal, { type BookModalBook } from './BookModal';
 import ConfirmDialog from './ConfirmDialog';
+import CorrectionHistoryPanel from './CorrectionHistoryPanel';
 import CostPanel from './CostPanel';
 import ProgressModal from './ProgressModal';
 import HelpTip from './HelpTip';
@@ -1365,6 +1366,7 @@ function DetectionCard({
           {(!top || top.matchScore < MATCH_MID) && (
             <AiResolutionButton busy={busy} onClick={() => setConfirmAiResolve(true)} size="lg" />
           )}
+          <CorrectionHistoryPanel detectionId={detection.id} />
         </div>
       )}
 
@@ -1747,6 +1749,7 @@ export function DetectionRow({
         {(!top || top.matchScore < MATCH_MID) && (
           <AiResolutionButton busy={busy} onClick={() => setConfirmAiResolve(true)} size="md" />
         )}
+        <CorrectionHistoryPanel detectionId={detection.id} />
       </div>
 
       {showRematchForm && (
@@ -2081,6 +2084,7 @@ export function DetectionTile({
         {(!top || top.matchScore < MATCH_MID) && (
           <AiResolutionButton busy={busy} onClick={() => setConfirmAiResolve(true)} size="sm" />
         )}
+        <CorrectionHistoryPanel detectionId={detection.id} />
       </div>
 
       {showRematchForm && (

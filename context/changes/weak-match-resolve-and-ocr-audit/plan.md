@@ -289,7 +289,7 @@ Migracja czysto addytywna (rozszerzony CHECK) — brak ryzyka dla istniejących 
 
 #### Automatyczne
 
-- [x] 3.1 `npm run lint`, `astro check` przechodzą
+- [x] 3.1 `npm run lint`, `astro check` przechodzą — 6d71a0f
 - [ ] 3.2 Istniejący E2E scenariusz (dostosowany) nadal zielony (Faza 5)
 - [ ] 3.3 Nowy E2E scenariusz (słaby kandydat → przycisk widoczny) zielony (Faza 5)
 
@@ -297,8 +297,8 @@ Migracja czysto addytywna (rozszerzony CHECK) — brak ryzyka dla istniejących 
 
 #### Automatyczne
 
-- [ ] 4.1 `npm run lint`, `astro check` przechodzą
-- [ ] 4.2 Nowe testy jednostkowe endpointu historii zielone
+- [x] 4.1 `npm run lint`, `astro check` przechodzą
+- [ ] 4.2 Nowe testy jednostkowe endpointu historii zielone (Faza 5)
 
 ### Faza 5: Testy
 
