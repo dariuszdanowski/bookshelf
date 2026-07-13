@@ -282,16 +282,16 @@ Migracja czysto addytywna (rozszerzony CHECK) — brak ryzyka dla istniejących 
 
 #### Automatyczne
 
-- [x] 2.1 `npm run lint`, `astro check` przechodzą
+- [x] 2.1 `npm run lint`, `astro check` przechodzą — deecdcd
 - [ ] 2.2 Nowe testy jednostkowe dla obu endpointów zielone (dedykowane asercje — Faza 5)
 
 ### Faza 3: Bramka AI-resolution dla słabych dopasowań
 
 #### Automatyczne
 
-- [ ] 3.1 `npm run lint`, `astro check` przechodzą
-- [ ] 3.2 Istniejący E2E scenariusz (dostosowany) nadal zielony
-- [ ] 3.3 Nowy E2E scenariusz (słaby kandydat → przycisk widoczny) zielony
+- [x] 3.1 `npm run lint`, `astro check` przechodzą
+- [ ] 3.2 Istniejący E2E scenariusz (dostosowany) nadal zielony (Faza 5)
+- [ ] 3.3 Nowy E2E scenariusz (słaby kandydat → przycisk widoczny) zielony (Faza 5)
 
 ### Faza 4: UI — panel historii korekt
 

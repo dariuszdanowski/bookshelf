@@ -1362,7 +1362,7 @@ function DetectionCard({
             onClick={() => setConfirmRefine(true)}
             size="lg"
           />
-          {!top && (
+          {(!top || top.matchScore < MATCH_MID) && (
             <AiResolutionButton busy={busy} onClick={() => setConfirmAiResolve(true)} size="lg" />
           )}
         </div>
@@ -1414,7 +1414,7 @@ function DetectionCard({
       <ConfirmDialog
         open={confirmAiResolve}
         title="Rozwiązać przez AI?"
-        message="Uruchomi wyszukiwanie w sieci przez AI (Claude web_search) w oparciu o odczytany tytuł/autora. Operacja jest płatna i wymaga aktywnego klucza Anthropic."
+        message={`Uruchomi wyszukiwanie w sieci przez AI (Claude web_search) w oparciu o odczytany tytuł/autora. Operacja jest płatna i wymaga aktywnego klucza Anthropic.${top ? ' Zastąpi obecne (niepewne) propozycje.' : ''}`}
         confirmLabel="Rozwiąż przez AI"
         cancelLabel="Anuluj"
         testIdPrefix="ai-resolution-confirm"
@@ -1744,7 +1744,7 @@ export function DetectionRow({
           onClick={() => setConfirmRefine(true)}
           size="md"
         />
-        {!top && (
+        {(!top || top.matchScore < MATCH_MID) && (
           <AiResolutionButton busy={busy} onClick={() => setConfirmAiResolve(true)} size="md" />
         )}
       </div>
@@ -1793,7 +1793,7 @@ export function DetectionRow({
       <ConfirmDialog
         open={confirmAiResolve}
         title="Rozwiązać przez AI?"
-        message="Uruchomi wyszukiwanie w sieci przez AI (Claude web_search) w oparciu o odczytany tytuł/autora. Operacja jest płatna i wymaga aktywnego klucza Anthropic."
+        message={`Uruchomi wyszukiwanie w sieci przez AI (Claude web_search) w oparciu o odczytany tytuł/autora. Operacja jest płatna i wymaga aktywnego klucza Anthropic.${top ? ' Zastąpi obecne (niepewne) propozycje.' : ''}`}
         confirmLabel="Rozwiąż przez AI"
         cancelLabel="Anuluj"
         testIdPrefix="ai-resolution-confirm"
@@ -2078,7 +2078,7 @@ export function DetectionTile({
           onClick={() => setConfirmRefine(true)}
           size="sm"
         />
-        {!top && (
+        {(!top || top.matchScore < MATCH_MID) && (
           <AiResolutionButton busy={busy} onClick={() => setConfirmAiResolve(true)} size="sm" />
         )}
       </div>
@@ -2127,7 +2127,7 @@ export function DetectionTile({
       <ConfirmDialog
         open={confirmAiResolve}
         title="Rozwiązać przez AI?"
-        message="Uruchomi wyszukiwanie w sieci przez AI (Claude web_search) w oparciu o odczytany tytuł/autora. Operacja jest płatna i wymaga aktywnego klucza Anthropic."
+        message={`Uruchomi wyszukiwanie w sieci przez AI (Claude web_search) w oparciu o odczytany tytuł/autora. Operacja jest płatna i wymaga aktywnego klucza Anthropic.${top ? ' Zastąpi obecne (niepewne) propozycje.' : ''}`}
         confirmLabel="Rozwiąż przez AI"
         cancelLabel="Anuluj"
         testIdPrefix="ai-resolution-confirm"
