@@ -51,6 +51,7 @@ function makeSupabase(opts: {
   updateResult?: { error: null | { name: string; message: string; code?: string } };
   deleteResult?: { error: null | { name: string; message: string } };
   insertResult?: { data: { id: string }[] | null; error: null | { name: string; message: string } };
+  correctionInsertResult?: { error: null | { name: string; message: string; code?: string } };
 }) {
   const detection =
     opts.detection !== undefined ? opts.detection : { id: DET_ID, status: 'pending' };
@@ -109,6 +110,11 @@ function makeSupabase(opts: {
           select: vi.fn(() => ({
             eq: vi.fn().mockResolvedValue({ data: existingBooks, error: null }),
           })),
+        };
+      }
+      if (table === 'corrections') {
+        return {
+          insert: vi.fn().mockResolvedValue(opts.correctionInsertResult ?? { error: null }),
         };
       }
       return {};

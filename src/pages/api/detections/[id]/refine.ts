@@ -330,6 +330,40 @@ export const POST: APIRoute = async ({ params, locals }) => {
   const finalDuplicate =
     finalCandidates.length > 0 ? checkCatalogDuplicate(finalCandidates[0], catalog) : null;
 
+  // Zachowaj historię OCR PRZED nadpisaniem raw_title/raw_author — bez tego
+  // oryginalny odczyt vision ginie bezpowrotnie (weak-match-resolve-and-ocr-audit).
+  // Kolumna original_raw_author (migracja 0028) może nie być jeszcze w
+  // committowanym database.types.ts do czasu regeneracji — defensywny retry
+  // na 42703/PGRST204, wzorzec S-50 (account/stats.ts::selectCosts()).
+  const correctionInsert = {
+    user_id: locals.user.id,
+    detection_id: detection.id,
+    original_raw_title: detection.raw_title,
+    original_raw_author: detection.raw_author,
+    corrected_title: refinedTitle,
+    corrected_authors: refinedAuthor ? [refinedAuthor] : null,
+    correction_type: 'refine',
+  };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error: correctionError } = await (locals.supabase as any)
+    .from('corrections')
+    .insert(correctionInsert);
+  if (correctionError?.code === '42703' || correctionError?.code === 'PGRST204') {
+    const { original_raw_author: _drop, ...withoutAuthor } = correctionInsert;
+    const retry = await // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (locals.supabase as any)
+      .from('corrections')
+      .insert(withoutAuthor);
+    if (retry.error) {
+      console.error('[api/detections/refine POST] corrections insert failed', retry.error.message);
+    }
+  } else if (correctionError) {
+    console.error(
+      '[api/detections/refine POST] corrections insert failed',
+      correctionError.message,
+    );
+  }
+
   const { error: detectionUpdateError } = await locals.supabase
     .from('detections')
     .update({

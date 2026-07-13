@@ -273,17 +273,17 @@ Migracja czysto addytywna (rozszerzony CHECK) — brak ryzyka dla istniejących 
 
 #### Automatyczne
 
-- [x] 1.1 Migracja aplikuje się czysto lokalnie
-- [x] 1.2 `npx wrangler types && astro check` przechodzi
-- [x] 1.3 `npm run lint` przechodzi
-- [x] 1.4 `npm run build` przechodzi
+- [x] 1.1 Migracja aplikuje się czysto lokalnie — d96f9c6
+- [x] 1.2 `npx wrangler types && astro check` przechodzi — d96f9c6
+- [x] 1.3 `npm run lint` przechodzi — d96f9c6
+- [x] 1.4 `npm run build` przechodzi — d96f9c6
 
 ### Faza 2: Zachowanie historii OCR przy rematch/refine
 
 #### Automatyczne
 
-- [ ] 2.1 `npm run lint`, `astro check` przechodzą
-- [ ] 2.2 Nowe testy jednostkowe dla obu endpointów zielone
+- [x] 2.1 `npm run lint`, `astro check` przechodzą
+- [ ] 2.2 Nowe testy jednostkowe dla obu endpointów zielone (dedykowane asercje — Faza 5)
 
 ### Faza 3: Bramka AI-resolution dla słabych dopasowań
 
