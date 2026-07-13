@@ -271,12 +271,12 @@ Brak migracji — zmiana czysto aplikacyjna na istniejącej kolumnie i istnieją
 
 #### Automatyczne
 
-- [x] 4.1 `npm run test` — nowe + cała suita zielone
-- [x] 4.2 `npx playwright test` — nowy scenariusz zielony, brak nowych flaków
-- [x] 4.3 `npm run lint && astro check && npm run build` czysto
+- [x] 4.1 `npm run test` — nowe + cała suita zielone — 5af250a
+- [x] 4.2 `npx playwright test` — nowy scenariusz zielony, brak nowych flaków — 5af250a
+- [x] 4.3 `npm run lint && astro check && npm run build` czysto — 5af250a
 
 #### Ręczne
 
-- [x] 4.4 Detekcja #4 (zdjęcie `cc4eeff9-288c-40b3-95d7-30f6be67e221`) — link do okładki zapisany i widoczny na karcie
-- [x] 4.5 Zaakceptowana detekcja → potwierdzona książka ma tę okładkę w `/library`
-- [x] 4.6 Upload zdjęcia jako okładki kandydata działa identycznie jak URL
+- [x] 4.4 Detekcja #4 (zdjęcie `cc4eeff9-288c-40b3-95d7-30f6be67e221`) — link do okładki zapisany i widoczny na karcie — 5af250a
+- [x] 4.5 Zaakceptowana detekcja → potwierdzona książka ma tę okładkę w `/library` — 5af250a
+- [x] 4.6 Upload zdjęcia jako okładki kandydata działa identycznie jak URL — 5af250a
