@@ -134,7 +134,9 @@ export const ConfirmDetectionSchema = z.object({
 });
 export type ConfirmDetectionInput = z.infer<typeof ConfirmDetectionSchema>;
 
-// POST /api/detections/[id]/correct — edycja pól lub wpis ręczny (brak candidate)
+// POST /api/detections/[id]/correct — wpis ręczny (brak kandydata, brak matchu).
+// candidate-propose-edit-all-fields: wariant field_edit usunięty — zastąpiony przez
+// PATCH /api/detections/[id]/candidate (UpdateCandidateSchema) + istniejący /confirm.
 const CorrectedFieldsShape = {
   title: z.string().min(1, 'Tytuł nie może być pusty').max(300),
   authors: z
@@ -150,28 +152,18 @@ const CorrectedFieldsShape = {
     .optional(),
 };
 
-export const CorrectDetectionSchema = z.discriminatedUnion('mode', [
-  // Wariant A: edycja pól przy istniejącym kandydacie (telemetria: field_edit)
-  z.object({
-    mode: z.literal('field_edit'),
-    candidate_id: z.uuid(),
-    ...CorrectedFieldsShape,
-  }),
-  // Wariant B: ręczny wpis bez kandydata — brak matchu (telemetria: manual_entry)
-  z.object({
-    mode: z.literal('manual_entry'),
-    candidate_id: z.undefined().optional(),
-    ...CorrectedFieldsShape,
-    isbn_13: z
-      .string()
-      .regex(/^\d{13}$/)
-      .optional(),
-    isbn_10: z
-      .string()
-      .regex(/^\d{9}[\dX]$/)
-      .optional(),
-  }),
-]);
+export const CorrectDetectionSchema = z.object({
+  mode: z.literal('manual_entry'),
+  ...CorrectedFieldsShape,
+  isbn_13: z
+    .string()
+    .regex(/^\d{13}$/)
+    .optional(),
+  isbn_10: z
+    .string()
+    .regex(/^\d{9}[\dX]$/)
+    .optional(),
+});
 export type CorrectDetectionInput = z.infer<typeof CorrectDetectionSchema>;
 
 // POST /api/photos/[id]/confirm-batch — hurtowa akceptacja pre-zaznaczonych
@@ -254,15 +246,46 @@ export const MoveBookSchema = z
   .strict();
 export type MoveBookInput = z.infer<typeof MoveBookSchema>;
 
-// PATCH /api/detections/[id]/cover — nadpisanie okładki kandydata PRZED zatwierdzeniem
-// (candidate-cover-override). null = wyczyść okładkę kandydata.
-export const UpdateCandidateCoverSchema = z
+// PATCH /api/detections/[id]/candidate — pełna edycja kandydata PRZED zatwierdzeniem
+// (candidate-propose-edit-all-fields, następca candidate-cover-override). Każde pole
+// opcjonalne; `null` = wyczyść; wymaga ≥1 pola poza candidate_id. Wzorzec identyczny
+// do UpdateBookSchema.
+export const UpdateCandidateSchema = z
   .object({
     candidate_id: z.uuid(),
-    cover_url: z.string().url('Nieprawidłowy URL').max(1000).nullable(),
+    title: z.string().min(1, 'Tytuł nie może być pusty').max(300).optional(),
+    authors: z.array(z.string().min(1).max(200)).optional(),
+    publisher: z.string().max(300).nullable().optional(),
+    published_year: z
+      .number()
+      .int()
+      .min(1000, 'Rok po 1000')
+      .max(2100, 'Rok przed 2100')
+      .nullable()
+      .optional(),
+    isbn_13: z
+      .string()
+      .regex(/^\d{13}$/, 'ISBN-13 = 13 cyfr')
+      .nullable()
+      .optional(),
+    isbn_10: z
+      .string()
+      .regex(/^\d{9}[\dX]$/, 'ISBN-10 = 10 znaków')
+      .nullable()
+      .optional(),
+    cover_url: z.string().url('Nieprawidłowy URL').max(1000).nullable().optional(),
+    purchase_date: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, 'Data w formacie YYYY-MM-DD')
+      .nullable()
+      .optional(),
+    purchase_price: z.number().min(0).max(99999.99).nullable().optional(),
+    purchase_city: z.string().max(200).nullable().optional(),
+    purchase_event: z.string().max(200).nullable().optional(),
   })
-  .strict();
-export type UpdateCandidateCoverInput = z.infer<typeof UpdateCandidateCoverSchema>;
+  .strict()
+  .refine((v) => Object.keys(v).length > 1, { message: 'Podaj co najmniej jedno pole.' });
+export type UpdateCandidateInput = z.infer<typeof UpdateCandidateSchema>;
 
 // POST /api/books/[id]/identify — „Szukaj po tytule" dla zatwierdzonej książki
 // (re-identyfikacja). Tryb 'search' zwraca kandydatów; 'apply' zapisuje wybranego.

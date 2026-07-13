@@ -93,7 +93,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   const { data: candidate, error: candError } = await locals.supabase
     .from('book_candidates')
     .select(
-      'id, source, external_id, title, authors, isbn_10, isbn_13, publisher, published_year, cover_url, description',
+      'id, source, external_id, title, authors, isbn_10, isbn_13, publisher, published_year, cover_url, description, edited_at, purchase_date, purchase_price, purchase_city, purchase_event',
     )
     .eq('id', candidate_id)
     .eq('detection_id', detectionId)
@@ -110,6 +110,16 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
   if (!candidate) {
     return apiError({ code: 'NOT_FOUND', status: 404, message: 'Nie znaleziono kandydata.' });
   }
+
+  // candidate-propose-edit-all-fields: edited_at ustawiony przez PATCH /candidate
+  // oznacza, że kandydat był ręcznie edytowany przed zatwierdzeniem — telemetria
+  // rozróżnia to od "accept as-is". Bez porównania do wartości sprzed edycji (ta
+  // straciła się przy PATCH w miejscu) — świadomy kompromis telemetryczny.
+  const wasEdited = candidate.edited_at !== null;
+  const correctionType = wasEdited ? 'field_edit' : 'accept';
+  const correctedFields = wasEdited
+    ? { title: candidate.title, authors: candidate.authors }
+    : undefined;
 
   const result = await confirmDetectionToCatalog(locals.supabase, locals.user.id, {
     detection: {
@@ -132,11 +142,13 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
       source_external_id: candidate.external_id,
       spine_color: detection.spine_color,
       description: candidate.description,
-      purchase_date: photo.purchase_date ?? null,
-      purchase_city: photo.purchase_city ?? null,
-      purchase_event: photo.purchase_event ?? null,
+      purchase_date: candidate.purchase_date ?? photo.purchase_date ?? null,
+      purchase_city: candidate.purchase_city ?? photo.purchase_city ?? null,
+      purchase_event: candidate.purchase_event ?? photo.purchase_event ?? null,
+      purchase_price: candidate.purchase_price ?? null,
     },
-    correctionType: 'accept',
+    correctionType,
+    correctedFields,
   });
 
   if (!result.ok) {

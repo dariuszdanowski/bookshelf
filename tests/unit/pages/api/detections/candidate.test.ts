@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { PATCH } from '../../../../../src/pages/api/detections/[id]/cover';
+import { PATCH } from '../../../../../src/pages/api/detections/[id]/candidate';
 
 const DET_ID = '00000000-0000-4000-8000-000000000060';
 const CAND_ID = '00000000-0000-4000-8000-000000000061';
@@ -58,7 +58,7 @@ function makeContext(opts: {
   } as never;
 }
 
-describe('PATCH /api/detections/[id]/cover', () => {
+describe('PATCH /api/detections/[id]/candidate', () => {
   it('401 gdy brak użytkownika', async () => {
     const res = await PATCH(makeContext({ user: false }));
     expect(res.status).toBe(401);

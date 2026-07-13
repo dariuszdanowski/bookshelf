@@ -10,6 +10,7 @@ export type Database = {
           created_at: string;
           description: string | null;
           detection_id: string;
+          edited_at: string | null;
           external_id: string;
           id: string;
           isbn_10: string | null;
@@ -17,6 +18,10 @@ export type Database = {
           match_score: number | null;
           published_year: number | null;
           publisher: string | null;
+          purchase_city: string | null;
+          purchase_date: string | null;
+          purchase_event: string | null;
+          purchase_price: number | null;
           rank: number;
           source: string;
           title: string;
@@ -27,6 +32,7 @@ export type Database = {
           created_at?: string;
           description?: string | null;
           detection_id: string;
+          edited_at?: string | null;
           external_id: string;
           id?: string;
           isbn_10?: string | null;
@@ -34,6 +40,10 @@ export type Database = {
           match_score?: number | null;
           published_year?: number | null;
           publisher?: string | null;
+          purchase_city?: string | null;
+          purchase_date?: string | null;
+          purchase_event?: string | null;
+          purchase_price?: number | null;
           rank: number;
           source: string;
           title: string;
@@ -44,6 +54,7 @@ export type Database = {
           created_at?: string;
           description?: string | null;
           detection_id?: string;
+          edited_at?: string | null;
           external_id?: string;
           id?: string;
           isbn_10?: string | null;
@@ -51,6 +62,10 @@ export type Database = {
           match_score?: number | null;
           published_year?: number | null;
           publisher?: string | null;
+          purchase_city?: string | null;
+          purchase_date?: string | null;
+          purchase_event?: string | null;
+          purchase_price?: number | null;
           rank?: number;
           source?: string;
           title?: string;
@@ -80,10 +95,10 @@ export type Database = {
           notes: string | null;
           published_year: number | null;
           publisher: string | null;
-          purchase_city: string | null; // ręczna edycja — regeneruj po db push
+          purchase_city: string | null;
           purchase_date: string | null;
-          purchase_event: string | null; // ręczna edycja — regeneruj po db push
-          purchase_price: number | null; // ręczna edycja — regeneruj po db push
+          purchase_event: string | null;
+          purchase_price: number | null;
           search_text: string | null;
           source: string | null;
           source_external_id: string | null;
@@ -154,6 +169,7 @@ export type Database = {
           created_at: string;
           detection_id: string | null;
           id: string;
+          original_raw_author: string | null;
           original_raw_title: string | null;
           user_id: string;
         };
@@ -164,6 +180,7 @@ export type Database = {
           created_at?: string;
           detection_id?: string | null;
           id?: string;
+          original_raw_author?: string | null;
           original_raw_title?: string | null;
           user_id: string;
         };
@@ -174,6 +191,7 @@ export type Database = {
           created_at?: string;
           detection_id?: string | null;
           id?: string;
+          original_raw_author?: string | null;
           original_raw_title?: string | null;
           user_id?: string;
         };
@@ -267,9 +285,9 @@ export type Database = {
           file_hash_sha256: string | null;
           id: string;
           processed_at: string | null;
-          purchase_city: string | null; // ręczna edycja — regeneruj po db push
-          purchase_date: string | null; // ręczna edycja — regeneruj po db push
-          purchase_event: string | null; // ręczna edycja — regeneruj po db push
+          purchase_city: string | null;
+          purchase_date: string | null;
+          purchase_event: string | null;
           shelf_id: string;
           status: string;
           storage_path: string;
@@ -408,6 +426,70 @@ export type Database = {
           },
           {
             foreignKeyName: 'refine_calls_photo_id_fkey';
+            columns: ['photo_id'];
+            isOneToOne: false;
+            referencedRelation: 'photos';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      resolution_calls: {
+        Row: {
+          api_key_id: string | null;
+          cost_usd: number | null;
+          created_at: string;
+          detection_id: string | null;
+          id: string;
+          latency_ms: number | null;
+          model: string | null;
+          photo_id: string | null;
+          search_count: number | null;
+          status: string;
+          user_id: string;
+        };
+        Insert: {
+          api_key_id?: string | null;
+          cost_usd?: number | null;
+          created_at?: string;
+          detection_id?: string | null;
+          id?: string;
+          latency_ms?: number | null;
+          model?: string | null;
+          photo_id?: string | null;
+          search_count?: number | null;
+          status: string;
+          user_id: string;
+        };
+        Update: {
+          api_key_id?: string | null;
+          cost_usd?: number | null;
+          created_at?: string;
+          detection_id?: string | null;
+          id?: string;
+          latency_ms?: number | null;
+          model?: string | null;
+          photo_id?: string | null;
+          search_count?: number | null;
+          status?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'resolution_calls_api_key_id_fkey';
+            columns: ['api_key_id'];
+            isOneToOne: false;
+            referencedRelation: 'user_api_keys';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'resolution_calls_detection_id_fkey';
+            columns: ['detection_id'];
+            isOneToOne: false;
+            referencedRelation: 'detections';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'resolution_calls_photo_id_fkey';
             columns: ['photo_id'];
             isOneToOne: false;
             referencedRelation: 'photos';
@@ -631,6 +713,8 @@ export type Database = {
           p_authors: string[];
           p_description: string;
           p_publisher: string;
+          p_purchase_city?: string;
+          p_purchase_event?: string;
           p_title: string;
         };
         Returns: string;
@@ -653,12 +737,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema['Tables'] & DefaultSchema['Views'])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables'] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Views'])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -678,13 +762,12 @@ export type Tables<
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema['Tables']
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+    keyof DefaultSchema['Tables'] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -703,13 +786,12 @@ export type TablesInsert<
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema['Tables']
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+    keyof DefaultSchema['Tables'] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions['schema']]['Tables']
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -728,13 +810,12 @@ export type TablesUpdate<
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema['Enums']
-    | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    keyof DefaultSchema['Enums'] | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions['schema']]['Enums']
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -745,13 +826,12 @@ export type Enums<
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema['CompositeTypes']
-    | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    keyof DefaultSchema['CompositeTypes'] | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions['schema']]['CompositeTypes']
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }

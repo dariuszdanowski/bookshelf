@@ -104,6 +104,7 @@ const BASE_BOOK = {
   purchase_date: null,
   purchase_city: null,
   purchase_event: null,
+  purchase_price: null,
 };
 
 beforeEach(() => vi.clearAllMocks());
