@@ -257,15 +257,15 @@ Brak migracji — zmiana czysto aplikacyjna na istniejącej kolumnie i istnieją
 
 #### Automatyczne
 
-- [x] 2.1 `npm run lint`, `astro check` przechodzą
-- [x] 2.2 `npm run build` przechodzi
+- [x] 2.1 `npm run lint`, `astro check` przechodzą — 808b520
+- [x] 2.2 `npm run build` przechodzi — 808b520
 
 ### Faza 3: Wiring w DetectionReview.tsx
 
 #### Automatyczne
 
-- [ ] 3.1 `npm run lint`, `astro check` przechodzą
-- [ ] 3.2 `npm run build` przechodzi
+- [x] 3.1 `npm run lint`, `astro check` przechodzą
+- [x] 3.2 `npm run build` przechodzi
 
 ### Faza 4: Testy
 

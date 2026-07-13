@@ -227,8 +227,11 @@ function CoverImage({ url, title }: { url: string | null; title: string }) {
 
 // Mapuje kandydata (propozycję) na wspólny kształt podglądu — ten sam modal
 // co dla książek zatwierdzonych (jednolity dostęp przez klik w okładkę).
-function candidateToDetail(c: BookCandidateDTO): BookModalBook {
+// id/detectionId (candidate-cover-override): cel dla PATCH /api/detections/[id]/cover.
+function candidateToDetail(c: BookCandidateDTO, detectionId: string): BookModalBook {
   return {
+    id: c.id,
+    detectionId,
     title: c.title,
     authors: c.authors,
     coverUrl: c.coverUrl,
@@ -1518,7 +1521,15 @@ function DetectionCard({
       {showCandidateDetail && activeCandidate && (
         <BookModal
           mode="propose"
-          book={candidateToDetail(activeCandidate)}
+          book={candidateToDetail(activeCandidate, detection.id)}
+          onCoverSaved={(patch) =>
+            onRefined?.({
+              ...detection,
+              candidates: detection.candidates.map((c) =>
+                c.id === activeCandidate.id ? { ...c, coverUrl: patch.coverUrl } : c,
+              ),
+            })
+          }
           onClose={() => setShowCandidateDetail(false)}
         />
       )}
@@ -2071,7 +2082,15 @@ export function DetectionTile({
       {showCandidateDetail && activeCandidate && (
         <BookModal
           mode="propose"
-          book={candidateToDetail(activeCandidate)}
+          book={candidateToDetail(activeCandidate, detection.id)}
+          onCoverSaved={(patch) =>
+            onRefined?.({
+              ...detection,
+              candidates: detection.candidates.map((c) =>
+                c.id === activeCandidate.id ? { ...c, coverUrl: patch.coverUrl } : c,
+              ),
+            })
+          }
           onClose={() => setShowCandidateDetail(false)}
         />
       )}
