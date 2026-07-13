@@ -392,9 +392,9 @@ Migracja czysto addytywna (nowa tabela + rozszerzone CHECKi) — brak ryzyka dla
 
 #### Automatyczne
 
-- [ ] 5.1 `npm run test:unit` — nowe + cała suita zielone
-- [ ] 5.2 `npm run test:e2e` — nowy spec zielony, brak nowych flaków
-- [ ] 5.3 `npm run lint && astro check && npm run build` czysto
+- [x] 5.1 `npm run test:unit` — nowe + cała suita zielone
+- [x] 5.2 `npm run test:e2e` — nowy spec zielony, brak nowych flaków
+- [x] 5.3 `npm run lint && astro check && npm run build` czysto
 
 #### Ręczne
 

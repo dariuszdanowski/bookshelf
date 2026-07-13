@@ -81,8 +81,10 @@ async function setupAccountRoutes(
         data: {
           total_vision_cost_usd: 0.01,
           total_refine_cost_usd: 0.002,
+          total_resolution_cost_usd: 0,
           vision_run_count: 1,
           refine_call_count: 1,
+          resolution_call_count: 0,
           cost_by_key: { [MOCK_KEY.id]: { cost_usd: 0.01, call_count: 1 } },
         },
       }),
@@ -143,8 +145,10 @@ test('(2) chip klucza otwiera modal z prefiltrem na klucz', async ({ page }) => 
         data: {
           total_vision_cost_usd: 0.01,
           total_refine_cost_usd: 0,
+          total_resolution_cost_usd: 0,
           vision_run_count: 1,
           refine_call_count: 0,
+          resolution_call_count: 0,
           cost_by_key: { [MOCK_KEY.id]: { cost_usd: 0.01, call_count: 1 } },
         },
       }),
@@ -200,8 +204,10 @@ test('(3) zmiana filtra typu → refetch z type=refine', async ({ page }) => {
         data: {
           total_vision_cost_usd: 0,
           total_refine_cost_usd: 0,
+          total_resolution_cost_usd: 0,
           vision_run_count: 0,
           refine_call_count: 0,
+          resolution_call_count: 0,
         },
       }),
     }),
@@ -248,8 +254,10 @@ test('(4) paginacja Następna → request z page=2', async ({ page }) => {
         data: {
           total_vision_cost_usd: 0,
           total_refine_cost_usd: 0,
+          total_resolution_cost_usd: 0,
           vision_run_count: 0,
           refine_call_count: 0,
+          resolution_call_count: 0,
         },
       }),
     }),
