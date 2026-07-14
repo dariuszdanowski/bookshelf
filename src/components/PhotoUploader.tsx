@@ -10,14 +10,7 @@ import HelpTip from './HelpTip';
 import ProgressModal from './ProgressModal';
 
 type UploadStage =
-  | 'idle'
-  | 'uploading'
-  | 'recording'
-  | 'processing'
-  | 'matching'
-  | 'done'
-  | 'error'
-  | 'duplicate';
+  'idle' | 'uploading' | 'recording' | 'processing' | 'matching' | 'done' | 'error' | 'duplicate';
 
 // Dla plików > 4 MB pomijamy client-side SHA-256 (file.arrayBuffer() w browser na dużych
 // plikach może crashować tab na mobilnym Safari/Chrome z ograniczoną pamięcią).
@@ -205,6 +198,12 @@ async function computeSha256(file: File): Promise<string | null> {
 
 export default function PhotoUploader({ presetShelfId }: { presetShelfId?: string }) {
   const [hasActiveKey, setHasActiveKey] = useState<boolean | null>(null);
+  // resolution-openai-compatible-provider: pokazywane przy checkboxie "Analizuj od
+  // razu" żeby user wiedział którym kluczem/providerem pójdzie vision (i że koszt
+  // openai_compatible = $0, w przeciwieństwie do Anthropic).
+  const [activeKeyInfo, setActiveKeyInfo] = useState<{ label: string; provider: string } | null>(
+    null,
+  );
   const [shelves, setShelves] = useState<ShelfDTO[]>([]);
   const [selectedShelfId, setSelectedShelfId] = useState('');
   const [stage, setStage] = useState<UploadStage>('idle');
@@ -283,10 +282,16 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
 
   useEffect(() => {
     fetch('/api/account/keys')
-      .then((r) => r.json() as Promise<{ data?: { keys?: { is_active: boolean }[] } }>)
+      .then(
+        (r) =>
+          r.json() as Promise<{
+            data?: { keys?: { is_active: boolean; label: string; provider: string }[] };
+          }>,
+      )
       .then((body) => {
-        const active = (body.data?.keys ?? []).some((k) => k.is_active);
-        setHasActiveKey(active);
+        const active = (body.data?.keys ?? []).find((k) => k.is_active);
+        setHasActiveKey(!!active);
+        setActiveKeyInfo(active ? { label: active.label, provider: active.provider } : null);
       })
       .catch(() => {
         /* silent: don't block on key check failure */
@@ -842,7 +847,16 @@ export default function PhotoUploader({ presetShelfId }: { presetShelfId?: strin
               </span>
             ) : (
               <>
-                <span className="text-gray-500 dark:text-gray-400">(vision + match, płatne)</span>
+                <span className="text-gray-500 dark:text-gray-400">
+                  (vision + match
+                  {activeKeyInfo && activeKeyInfo.provider !== 'anthropic' ? '' : ', płatne'})
+                  {activeKeyInfo && (
+                    <span data-testid="auto-process-key-info">
+                      {' '}
+                      — klucz: {activeKeyInfo.label} ({activeKeyInfo.provider})
+                    </span>
+                  )}
+                </span>
                 <HelpTip label="auto-process">
                   Zaznaczone: po wgraniu zdjęcie jest od razu analizowane przez AI (vision) i
                   dopasowywane do baz książek — generuje koszt API. Odznaczone: zdjęcie zostaje

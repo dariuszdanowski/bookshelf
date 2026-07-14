@@ -31,6 +31,45 @@ describe('CreateKeySchema', () => {
     expect(result.success).toBe(true);
   });
 
+  // resolution-openai-compatible-provider: client.ts/probe.ts zawsze doklejają
+  // "/v1/..." do base_url — trailing "/v1" wpisany przez usera (częsty błąd)
+  // musi być ucięty przy zapisie, inaczej wołania trafiają w "/v1/v1/...".
+  it('normalizuje base_url z trailing /v1', () => {
+    const result = CreateKeySchema.safeParse({
+      label: 'Local LLM',
+      provider: 'openai_compatible',
+      key_value: 'test-key',
+      base_url: 'https://relay.example.com/v1',
+    });
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.base_url).toBe('https://relay.example.com');
+  });
+
+  it('normalizuje base_url z trailing /v1/', () => {
+    const result = CreateKeySchema.safeParse({
+      label: 'Local LLM',
+      provider: 'openai_compatible',
+      key_value: 'test-key',
+      base_url: 'https://relay.example.com/v1/',
+    });
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.base_url).toBe('https://relay.example.com');
+  });
+
+  it('nie zmienia base_url bez trailing /v1', () => {
+    const result = CreateKeySchema.safeParse({
+      label: 'Local LLM',
+      provider: 'openai_compatible',
+      key_value: 'test-key',
+      base_url: 'https://relay.example.com',
+    });
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.base_url).toBe('https://relay.example.com');
+  });
+
   it('odrzuca brak key_value', () => {
     const result = CreateKeySchema.safeParse({
       label: 'Test',

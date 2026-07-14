@@ -325,29 +325,29 @@ Migracja czysto addytywna (nowe nullable kolumny) — brak ryzyka dla istniejąc
 
 #### Ręczne
 
-- [ ] 2.3 Manualny smoke: krótki request_timeout_ms na wolnym modelu kończy się błędem zamiast wisieć
+- [x] 2.3 Manualny smoke: krótki request_timeout_ms na wolnym modelu kończy się błędem zamiast wisieć
 
 ### Faza 3: Resolution — branch openai_compatible
 
 #### Automatyczne
 
-- [x] 3.1 Nowe testy openai-compat branch w resolution client.test.ts
-- [x] 3.2 Test: openai_compatible provider nie zwraca już 403 w resolve.ts + resolution_calls.provider zapisany
-- [x] 3.3 npm run test/typecheck/lint przechodzą
+- [x] 3.1 Nowe testy openai-compat branch w resolution client.test.ts — cd75476
+- [x] 3.2 Test: openai_compatible provider nie zwraca już 403 w resolve.ts + resolution_calls.provider zapisany — cd75476
+- [x] 3.3 npm run test/typecheck/lint przechodzą — cd75476
 
 #### Ręczne
 
-- [ ] 3.4 Manualny smoke: resolution przez realny self-hosted relay trafia do book_candidates
-- [ ] 3.5 Manualny smoke: nieznana/wymyślona książka → not_found lub found z null w niepewnych polach
+- [x] 3.4 Manualny smoke: resolution przez realny self-hosted relay trafia do book_candidates
+- [x] 3.5 Manualny smoke: nieznana/wymyślona książka → not_found lub found z null w niepewnych polach
 
 ### Faza 4: UI
 
 #### Automatyczne
 
-- [ ] 4.1 Testy AccountIsland dla nowych pól (jeśli dotyczy) + typecheck/lint/build
-- [ ] 4.2 npm run test:e2e zielony (regresja account-keys + resolution flow)
+- [x] 4.1 Testy AccountIsland dla nowych pól (jeśli dotyczy) + typecheck/lint/build
+- [x] 4.2 npm run test:e2e zielony (regresja account-keys + resolution flow)
 
 #### Ręczne
 
-- [ ] 4.3 Przeglądarka: nowe pola formularza persystują
-- [ ] 4.4 Przeglądarka: tooltip/dialog dla openai_compatible bez „Anthropic”/„płatna”, z informacją o braku web-search
+- [x] 4.3 Przeglądarka: nowe pola formularza persystują
+- [x] 4.4 Przeglądarka: tooltip/dialog dla openai_compatible bez „Anthropic”/„płatna”, z informacją o braku web-search
