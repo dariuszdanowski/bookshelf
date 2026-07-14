@@ -298,27 +298,27 @@ Rozszerzamy `book_candidates` o `edited_at` + pola zakupu, uogólniamy endpoint 
 
 #### Automatyczne
 
-- [x] 2.1 `npm run lint && astro check && npm run build` czysto
+- [x] 2.1 `npm run lint && astro check && npm run build` czysto — ca1b8f2
 
 #### Ręczne
 
-- [x] 2.2 Podgląd kandydata — wszystkie pola edytowalne, Wyszukaj po danych + sekcja zakupu widoczne
-- [x] 2.3 Zmiana tytułu+ISBN → Zapisz → potwierdzenie, modal zostaje otwarty z zapisanymi wartościami
-- [x] 2.4 Niezapisana zmiana → Zatwierdź → dialog niezapisanych zmian → Anuluj zostawia bez zmian w DB
-- [ ] 2.5 Ten sam scenariusz → potwierdź w dialogu → zapisuje i zatwierdza, karta „zdecydowana" (zapis+zatwierdzenie zweryfikowane; „karta zdecydowana" wymaga `onConfirmed` → `onDecided` z Fazy 3 — dokończyć retest po Fazie 3)
+- [x] 2.2 Podgląd kandydata — wszystkie pola edytowalne, Wyszukaj po danych + sekcja zakupu widoczne — ca1b8f2
+- [x] 2.3 Zmiana tytułu+ISBN → Zapisz → potwierdzenie, modal zostaje otwarty z zapisanymi wartościami — ca1b8f2
+- [x] 2.4 Niezapisana zmiana → Zatwierdź → dialog niezapisanych zmian → Anuluj zostawia bez zmian w DB — ca1b8f2
+- [x] 2.5 Ten sam scenariusz → potwierdź w dialogu → zapisuje i zatwierdza, karta „zdecydowana" — retest po Fazie 3 potwierdzony przez usera
 
 ### Faza 3: Wiring w DetectionReview.tsx (Karty/Lista/Kafelki)
 
 #### Automatyczne
 
-- [ ] 3.1 `npm run lint && astro check && npm run build` czysto
+- [x] 3.1 `npm run lint && astro check && npm run build` czysto
 
 #### Ręczne
 
-- [ ] 3.2 Karty: Popraw otwiera pełny edytowalny modal
-- [ ] 3.3 Lista: Popraw otwiera modal (nowe zachowanie)
-- [ ] 3.4 Kafelki: Popraw i klik w okładkę prowadzą do tej samej instancji modala
-- [ ] 3.5 We wszystkich trzech widokach: Wpisz ręcznie działa bez zmian
+- [x] 3.2 Karty: Popraw otwiera pełny edytowalny modal
+- [x] 3.3 Lista: Popraw otwiera modal (nowe zachowanie)
+- [x] 3.4 Kafelki: Popraw i klik w okładkę prowadzą do tej samej instancji modala
+- [x] 3.5 We wszystkich trzech widokach: Wpisz ręcznie działa bez zmian
 
 ### Faza 4: Testy
 

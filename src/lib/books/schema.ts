@@ -48,6 +48,12 @@ export const BookCandidateDTOSchema = z.object({
   coverUrl: z.string().nullable(),
   matchScore: z.number(),
   rank: z.number(),
+  // Metadane zakupu kandydata (candidate-propose-edit-all-fields) — prefill dla
+  // PurchaseSection w BookModal mode="propose".
+  purchaseDate: z.string().nullable(),
+  purchasePrice: z.number().nullable(),
+  purchaseCity: z.string().nullable(),
+  purchaseEvent: z.string().nullable(),
 });
 
 export type BookCandidateDTO = z.infer<typeof BookCandidateDTOSchema>;

@@ -45,6 +45,10 @@ const candHigh = {
   coverUrl: null,
   matchScore: 0.9,
   rank: 1,
+  purchaseDate: null,
+  purchasePrice: null,
+  purchaseCity: null,
+  purchaseEvent: null,
 };
 
 const candLow = {
@@ -60,6 +64,10 @@ const candLow = {
   coverUrl: null,
   matchScore: 0.45,
   rank: 1,
+  purchaseDate: null,
+  purchasePrice: null,
+  purchaseCity: null,
+  purchaseEvent: null,
 };
 
 const detHigh: DetectionWithCandidatesDTO = {
@@ -117,6 +125,10 @@ const candTop = {
   coverUrl: null,
   matchScore: 0.9,
   rank: 1,
+  purchaseDate: null,
+  purchasePrice: null,
+  purchaseCity: null,
+  purchaseEvent: null,
 };
 
 const candAlt = {
@@ -132,6 +144,10 @@ const candAlt = {
   coverUrl: null,
   matchScore: 0.6,
   rank: 2,
+  purchaseDate: null,
+  purchasePrice: null,
+  purchaseCity: null,
+  purchaseEvent: null,
 };
 
 const detWithAlts: DetectionWithCandidatesDTO = {
@@ -496,6 +512,10 @@ describe('DetectionReview — web search', () => {
           coverUrl: null,
           matchScore: 0.36,
           rank: 1,
+          purchaseDate: null,
+          purchasePrice: null,
+          purchaseCity: null,
+          purchaseEvent: null,
         },
       ],
       duplicate: null,

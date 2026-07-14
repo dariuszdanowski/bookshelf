@@ -234,7 +234,7 @@ function CoverImage({ url, title }: { url: string | null; title: string }) {
 
 // Mapuje kandydata (propozycję) na wspólny kształt podglądu — ten sam modal
 // co dla książek zatwierdzonych (jednolity dostęp przez klik w okładkę).
-// id/detectionId (candidate-cover-override): cel dla PATCH /api/detections/[id]/cover.
+// id/detectionId: cel dla PATCH /api/detections/[id]/candidate (candidate-propose-edit-all-fields).
 function candidateToDetail(c: BookCandidateDTO, detectionId: string): BookModalBook {
   return {
     id: c.id,
@@ -248,13 +248,15 @@ function candidateToDetail(c: BookCandidateDTO, detectionId: string): BookModalB
     publishedYear: c.publishedYear,
     source: c.source,
     matchScore: c.matchScore,
+    purchase_date: c.purchaseDate,
+    purchase_price: c.purchasePrice,
+    purchase_city: c.purchaseCity,
+    purchase_event: c.purchaseEvent,
   };
 }
 
 // candidate-propose-edit-all-fields: merge patcha z BookModal (onCandidateSaved) do
 // kandydata w stanie detekcji, żeby karta pod spodem odświeżyła podgląd bez reloadu.
-// Pola zakupu kandydata (purchase_*) dotrą do BookCandidateDTO w Fazie 3 — na razie
-// pomijane tu (brak miejsca w DTO), PATCH i tak je persystuje po stronie serwera.
 function applyCandidatePatch(c: BookCandidateDTO, patch: CandidatePatch): BookCandidateDTO {
   return {
     ...c,
@@ -265,6 +267,10 @@ function applyCandidatePatch(c: BookCandidateDTO, patch: CandidatePatch): BookCa
     ...(patch.isbn13 !== undefined ? { isbn13: patch.isbn13 } : {}),
     ...(patch.isbn10 !== undefined ? { isbn10: patch.isbn10 } : {}),
     ...(patch.coverUrl !== undefined ? { coverUrl: patch.coverUrl } : {}),
+    ...(patch.purchaseDate !== undefined ? { purchaseDate: patch.purchaseDate } : {}),
+    ...(patch.purchasePrice !== undefined ? { purchasePrice: patch.purchasePrice } : {}),
+    ...(patch.purchaseCity !== undefined ? { purchaseCity: patch.purchaseCity } : {}),
+    ...(patch.purchaseEvent !== undefined ? { purchaseEvent: patch.purchaseEvent } : {}),
   };
 }
 
@@ -1438,21 +1444,6 @@ function DetectionCard({
         </>
       )}
 
-      {/* Correct form (field_edit mode) */}
-      {top && showCorrectForm && (
-        <CorrectForm
-          mode="field_edit"
-          candidateId={activeCandidateId ?? undefined}
-          detectionId={detection.id}
-          initialTitle={activeCandidate?.title ?? ''}
-          initialAuthors={activeCandidate?.authors.join(', ') ?? ''}
-          initialPublisher={activeCandidate?.publisher ?? ''}
-          initialYear={activeCandidate?.publishedYear ? String(activeCandidate.publishedYear) : ''}
-          onSuccess={handleCorrectSuccess}
-          onCancel={() => setShowCorrectForm(false)}
-        />
-      )}
-
       {/* Error message */}
       {errorMsg && (
         <p data-testid="detection-error" className="mt-2 text-xs text-red-600" role="alert">
@@ -1485,7 +1476,7 @@ function DetectionCard({
             <button
               data-testid="correct-button"
               disabled={busy}
-              onClick={() => setShowCorrectForm(true)}
+              onClick={() => setShowCandidateDetail(true)}
               className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
             >
               Popraw
@@ -1554,6 +1545,7 @@ function DetectionCard({
               ),
             })
           }
+          onConfirmed={handleCorrectSuccess}
           onClose={() => setShowCandidateDetail(false)}
         />
       )}
@@ -1627,32 +1619,23 @@ export function CorrectionModal({
   );
 }
 
-// Wspólny modal korekty dla trybów Lista/Kafelki — wybiera tryb field_edit vs
-// manual_entry na podstawie obecności kandydata i pre-wypełnia z activeCandidate.
+// Modal korekty dla trybów Lista/Kafelki — wyłącznie manual_entry (brak kandydata).
+// candidate-propose-edit-all-fields: gałąź field_edit usunięta — Lista/Kafelki
+// wołają dla istniejącego kandydata BookModal mode="propose" zamiast tego modala.
 function DetectionCorrectionModal({
   detection,
-  activeCandidate,
-  activeCandidateId,
   onClose,
   onSuccess,
 }: {
   detection: DetectionWithCandidatesDTO;
-  activeCandidate: BookCandidateDTO | null;
-  activeCandidateId: string | null;
   onClose: () => void;
   onSuccess: () => void;
 }) {
-  const hasMatch = detection.candidates.length > 0;
   return (
     <CorrectionModal onClose={onClose}>
       <CorrectForm
-        mode={hasMatch ? 'field_edit' : 'manual_entry'}
-        candidateId={hasMatch ? (activeCandidateId ?? undefined) : undefined}
+        mode="manual_entry"
         detectionId={detection.id}
-        initialTitle={activeCandidate?.title ?? ''}
-        initialAuthors={activeCandidate?.authors.join(', ') ?? ''}
-        initialPublisher={activeCandidate?.publisher ?? ''}
-        initialYear={activeCandidate?.publishedYear ? String(activeCandidate.publishedYear) : ''}
         onSuccess={onSuccess}
         onCancel={onClose}
       />
@@ -1686,6 +1669,7 @@ export function DetectionRow({
 }: DetectionRowProps) {
   const [showModal, setShowModal] = useState(false);
   const [showRematchForm, setShowRematchForm] = useState(false);
+  const [showCandidateDetail, setShowCandidateDetail] = useState(false);
   const {
     state,
     decidedKind,
@@ -1864,7 +1848,7 @@ export function DetectionRow({
             <button
               data-testid="correct-button"
               disabled={busy}
-              onClick={() => setShowModal(true)}
+              onClick={() => setShowCandidateDetail(true)}
               className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
             >
               Popraw
@@ -1930,13 +1914,28 @@ export function DetectionRow({
       {showModal && (
         <DetectionCorrectionModal
           detection={detection}
-          activeCandidate={activeCandidate}
-          activeCandidateId={activeCandidateId}
           onClose={() => setShowModal(false)}
           onSuccess={() => {
             setShowModal(false);
             handleCorrectSuccess();
           }}
+        />
+      )}
+
+      {showCandidateDetail && activeCandidate && (
+        <BookModal
+          mode="propose"
+          book={candidateToDetail(activeCandidate, detection.id)}
+          onCandidateSaved={(patch) =>
+            onRefined?.({
+              ...detection,
+              candidates: detection.candidates.map((c) =>
+                c.id === activeCandidate.id ? applyCandidatePatch(c, patch) : c,
+              ),
+            })
+          }
+          onConfirmed={handleCorrectSuccess}
+          onClose={() => setShowCandidateDetail(false)}
         />
       )}
 
@@ -2115,6 +2114,7 @@ export function DetectionTile({
               ),
             })
           }
+          onConfirmed={handleCorrectSuccess}
           onClose={() => setShowCandidateDetail(false)}
         />
       )}
@@ -2209,7 +2209,7 @@ export function DetectionTile({
             <button
               data-testid="correct-button"
               disabled={busy}
-              onClick={() => setShowModal(true)}
+              onClick={() => setShowCandidateDetail(true)}
               className="rounded border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
             >
               Popraw
@@ -2275,8 +2275,6 @@ export function DetectionTile({
       {showModal && (
         <DetectionCorrectionModal
           detection={detection}
-          activeCandidate={activeCandidate}
-          activeCandidateId={activeCandidateId}
           onClose={() => setShowModal(false)}
           onSuccess={() => {
             setShowModal(false);

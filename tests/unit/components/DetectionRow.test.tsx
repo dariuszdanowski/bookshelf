@@ -25,6 +25,10 @@ const candidate = {
   coverUrl: null,
   matchScore: 0.9,
   rank: 1,
+  purchaseDate: null,
+  purchasePrice: null,
+  purchaseCity: null,
+  purchaseEvent: null,
 };
 
 const detMatched: DetectionWithCandidatesDTO = {
