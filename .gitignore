@@ -198,3 +198,9 @@ reports/
 # Wektorowy indeks context/ dla agenta (scripts/build-context-index.mjs) — zrzut stanu,
 # regenerowalny, per-worktree, nigdy niecommitowany
 .agents/
+
+# code-review
+.code-reviews/
+
+# code-index
+.code-index/

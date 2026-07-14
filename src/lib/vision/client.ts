@@ -22,6 +22,9 @@ export type VisionProviderConfig = {
   baseUrl?: string | null;
   /** M27: id klucza (user_api_keys.id) do atrybucji kosztów per klucz */
   keyId?: string | null;
+  /** resolution-openai-compatible-provider: per-klucz override timeoutu/limitu tokenów dla openai-compat brancha */
+  requestTimeoutMs?: number | null;
+  maxTokensOverride?: number | null;
 };
 
 async function makeClient(apiKey: string) {

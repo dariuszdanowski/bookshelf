@@ -8,6 +8,8 @@ export const CreateKeySchema = z.object({
   key_value: z.string().min(1).max(500),
   model: z.string().max(100).nullish(),
   base_url: z.string().url().max(500).nullish(),
+  request_timeout_ms: z.number().int().positive().max(300_000).nullish(),
+  max_tokens_override: z.number().int().positive().max(32_000).nullish(),
 });
 
 export const UpdateKeySchema = z
@@ -18,6 +20,8 @@ export const UpdateKeySchema = z
     model: z.string().max(100).nullish(),
     base_url: z.string().url().max(500).nullish(),
     key_value: z.string().min(1).max(500).optional(),
+    request_timeout_ms: z.number().int().positive().max(300_000).nullish(),
+    max_tokens_override: z.number().int().positive().max(32_000).nullish(),
   })
   .refine(
     (d) =>
@@ -26,8 +30,10 @@ export const UpdateKeySchema = z
       d.provider !== undefined ||
       d.model !== undefined ||
       d.base_url !== undefined ||
-      d.key_value !== undefined,
-    { message: 'At least one field required' }
+      d.key_value !== undefined ||
+      d.request_timeout_ms !== undefined ||
+      d.max_tokens_override !== undefined,
+    { message: 'At least one field required' },
   );
 
 export const ApiKeyDTO = z.object({
@@ -40,6 +46,8 @@ export const ApiKeyDTO = z.object({
   last_tested_at: z.string().nullable(),
   last_test_result: z.enum(['ok', 'error']).nullable(),
   created_at: z.string(),
+  request_timeout_ms: z.number().nullable(),
+  max_tokens_override: z.number().nullable(),
 });
 
 export type ApiKeyDTO = z.infer<typeof ApiKeyDTO>;

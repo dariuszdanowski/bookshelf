@@ -62,6 +62,9 @@
     "esbuild": ">=0.28.1"
   },
   "devDependencies": {
+    "@asseco-poz/code-index": "^0.1.9",
+    "@asseco-poz/code-review": "^2.3.3",
+    "@asseco-poz/jira-task-implement": "^0.9.2",
     "@astrojs/check": "^0.9.9",
     "@eslint/js": "^9.39.4",
     "@lancedb/lancedb": "^0.31.0",

@@ -443,6 +443,7 @@ export type Database = {
           latency_ms: number | null;
           model: string | null;
           photo_id: string | null;
+          provider: string | null;
           search_count: number | null;
           status: string;
           user_id: string;
@@ -456,6 +457,7 @@ export type Database = {
           latency_ms?: number | null;
           model?: string | null;
           photo_id?: string | null;
+          provider?: string | null;
           search_count?: number | null;
           status: string;
           user_id: string;
@@ -469,6 +471,7 @@ export type Database = {
           latency_ms?: number | null;
           model?: string | null;
           photo_id?: string | null;
+          provider?: string | null;
           search_count?: number | null;
           status?: string;
           user_id?: string;
@@ -596,8 +599,10 @@ export type Database = {
           label: string;
           last_test_result: string | null;
           last_tested_at: string | null;
+          max_tokens_override: number | null;
           model: string | null;
           provider: string;
+          request_timeout_ms: number | null;
           user_id: string;
         };
         Insert: {
@@ -609,8 +614,10 @@ export type Database = {
           label: string;
           last_test_result?: string | null;
           last_tested_at?: string | null;
+          max_tokens_override?: number | null;
           model?: string | null;
           provider: string;
+          request_timeout_ms?: number | null;
           user_id: string;
         };
         Update: {
@@ -622,8 +629,10 @@ export type Database = {
           label?: string;
           last_test_result?: string | null;
           last_tested_at?: string | null;
+          max_tokens_override?: number | null;
           model?: string | null;
           provider?: string;
+          request_timeout_ms?: number | null;
           user_id?: string;
         };
         Relationships: [];

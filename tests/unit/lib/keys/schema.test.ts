@@ -66,6 +66,37 @@ describe('CreateKeySchema', () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it('akceptuje request_timeout_ms i max_tokens_override', () => {
+    const result = CreateKeySchema.safeParse({
+      label: 'Local LLM',
+      provider: 'openai_compatible',
+      key_value: 'key',
+      request_timeout_ms: 60_000,
+      max_tokens_override: 4000,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('odrzuca request_timeout_ms powyżej 300000', () => {
+    const result = CreateKeySchema.safeParse({
+      label: 'Test',
+      provider: 'openai_compatible',
+      key_value: 'key',
+      request_timeout_ms: 300_001,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('odrzuca max_tokens_override powyżej 32000', () => {
+    const result = CreateKeySchema.safeParse({
+      label: 'Test',
+      provider: 'openai_compatible',
+      key_value: 'key',
+      max_tokens_override: 32_001,
+    });
+    expect(result.success).toBe(false);
+  });
 });
 
 describe('UpdateKeySchema', () => {
@@ -84,6 +115,18 @@ describe('UpdateKeySchema', () => {
   it('odrzuca pusty obiekt (żadne pole nie podane)', () => {
     expect(UpdateKeySchema.safeParse({}).success).toBe(false);
   });
+
+  it('akceptuje tylko request_timeout_ms', () => {
+    expect(UpdateKeySchema.safeParse({ request_timeout_ms: 30_000 }).success).toBe(true);
+  });
+
+  it('akceptuje tylko max_tokens_override', () => {
+    expect(UpdateKeySchema.safeParse({ max_tokens_override: 2048 }).success).toBe(true);
+  });
+
+  it('akceptuje request_timeout_ms null (czyszczenie override)', () => {
+    expect(UpdateKeySchema.safeParse({ request_timeout_ms: null }).success).toBe(true);
+  });
 });
 
 describe('ApiKeyDTO', () => {
@@ -98,6 +141,8 @@ describe('ApiKeyDTO', () => {
       last_tested_at: null,
       last_test_result: null,
       created_at: '2026-01-01T00:00:00Z',
+      request_timeout_ms: null,
+      max_tokens_override: null,
     });
     expect(result.success).toBe(true);
   });
