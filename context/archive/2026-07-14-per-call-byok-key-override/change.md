@@ -1,10 +1,10 @@
 ---
 change_id: per-call-byok-key-override
 title: Per call byok key override
-status: impl_reviewed
+status: archived
 created: 2026-07-14
 updated: 2026-07-14
-archived_at: null
+archived_at: 2026-07-14T22:10:26Z
 ---
 
 ## Notes
