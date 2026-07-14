@@ -45,6 +45,10 @@ const candHigh = {
   coverUrl: null,
   matchScore: 0.9,
   rank: 1,
+  purchaseDate: null,
+  purchasePrice: null,
+  purchaseCity: null,
+  purchaseEvent: null,
 };
 
 const candLow = {
@@ -60,6 +64,10 @@ const candLow = {
   coverUrl: null,
   matchScore: 0.45,
   rank: 1,
+  purchaseDate: null,
+  purchasePrice: null,
+  purchaseCity: null,
+  purchaseEvent: null,
 };
 
 const detHigh: DetectionWithCandidatesDTO = {
@@ -117,6 +125,10 @@ const candTop = {
   coverUrl: null,
   matchScore: 0.9,
   rank: 1,
+  purchaseDate: null,
+  purchasePrice: null,
+  purchaseCity: null,
+  purchaseEvent: null,
 };
 
 const candAlt = {
@@ -132,6 +144,10 @@ const candAlt = {
   coverUrl: null,
   matchScore: 0.6,
   rank: 2,
+  purchaseDate: null,
+  purchasePrice: null,
+  purchaseCity: null,
+  purchaseEvent: null,
 };
 
 const detWithAlts: DetectionWithCandidatesDTO = {
@@ -496,6 +512,10 @@ describe('DetectionReview — web search', () => {
           coverUrl: null,
           matchScore: 0.36,
           rank: 1,
+          purchaseDate: null,
+          purchasePrice: null,
+          purchaseCity: null,
+          purchaseEvent: null,
         },
       ],
       duplicate: null,
@@ -603,54 +623,118 @@ describe('DetectionReview — refine', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Akcja: Popraw (field_edit)
+// Akcja: Popraw (candidate-propose-edit-all-fields) — BookModal mode="propose"
+// w pełni edytowalny zastępuje dawny inline CorrectForm mode="field_edit" we
+// wszystkich trzech widokach (Karty/Lista/Kafelki).
 // ---------------------------------------------------------------------------
 
-describe('DetectionReview — correct (field_edit)', () => {
-  it('klik Popraw otwiera formularz', async () => {
+describe('DetectionReview — Popraw otwiera BookModal (propose) — Karty', () => {
+  it('klik Popraw otwiera BookModal w pełni edytowalny, nie stary CorrectForm', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 }),
     );
     render(<DetectionReview photoId={PHOTO_ID} />);
     const correctBtn = await waitFor(() => screen.getByTestId('correct-button'));
     fireEvent.click(correctBtn);
-    expect(screen.getByTestId('correct-form')).toBeInTheDocument();
+
+    expect(screen.getByTestId('book-modal')).toBeInTheDocument();
+    expect(screen.queryByTestId('correct-form')).not.toBeInTheDocument();
+    const titleInput = screen.getByTestId('book-field-title') as HTMLInputElement;
+    expect(titleInput.readOnly).toBe(false);
+    expect(titleInput.value).toBe(candHigh.title);
   });
 
-  it('submit formularza woła POST /correct z field_edit i polami', async () => {
-    const fetchMock = vi
-      .spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 }),
-      )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ data: { book_id: 'b1', shelf_id: SHELF_ID } }), {
-          status: 200,
-        }),
-      );
+  it('Zapisz (PATCH /candidate) → Zatwierdź (POST /confirm) → karta przechodzi w stan „zdecydowana"', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
+      const u = typeof url === 'string' ? url : String(url);
+      if (u.includes(`/api/photos/${PHOTO_ID}`)) {
+        return Promise.resolve(
+          new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 }),
+        );
+      }
+      if (u.includes('/api/books/purchase-hints')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: { hints: [] } }), { status: 200 }),
+        );
+      }
+      if (u.includes(`/api/detections/${DET_ID_HIGH}/candidate`)) {
+        return Promise.resolve(new Response(JSON.stringify({ data: {} }), { status: 200 }));
+      }
+      if (u.includes(`/api/detections/${DET_ID_HIGH}/confirm`)) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: { book_id: 'b1', shelf_id: SHELF_ID } }), {
+            status: 200,
+          }),
+        );
+      }
+      return Promise.resolve(new Response(JSON.stringify({}), { status: 404 }));
+    });
 
     render(<DetectionReview photoId={PHOTO_ID} />);
     const correctBtn = await waitFor(() => screen.getByTestId('correct-button'));
     fireEvent.click(correctBtn);
 
-    const titleInput = screen.getByTestId('correct-title');
-    fireEvent.change(titleInput, { target: { value: 'Poprawiony Solaris' } });
-    fireEvent.click(screen.getByTestId('correct-submit'));
-
-    await waitFor(() => {
-      const correctCall = fetchMock.mock.calls.find(
-        ([url]) => typeof url === 'string' && url.includes('/correct'),
-      );
-      expect(correctCall).toBeDefined();
-      const body = JSON.parse(correctCall![1]!.body as string) as {
-        mode: string;
-        title: string;
-        candidate_id: string;
-      };
-      expect(body.mode).toBe('field_edit');
-      expect(body.title).toBe('Poprawiony Solaris');
-      expect(body.candidate_id).toBe(CAND_HIGH);
+    fireEvent.change(screen.getByTestId('book-field-title'), {
+      target: { value: 'Poprawiony Solaris' },
     });
+    fireEvent.click(screen.getByTestId('book-modal-save'));
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(
+          ([url]) =>
+            typeof url === 'string' && url.includes(`/api/detections/${DET_ID_HIGH}/candidate`),
+        ),
+      ).toBe(true),
+    );
+
+    fireEvent.click(screen.getByTestId('book-modal-confirm'));
+
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(
+          ([url]) =>
+            typeof url === 'string' && url.includes(`/api/detections/${DET_ID_HIGH}/confirm`),
+        ),
+      ).toBe(true),
+    );
+    await waitFor(() => expect(screen.getByTestId('confirmed-title')).toBeInTheDocument());
+  });
+});
+
+describe('DetectionReview — Popraw otwiera BookModal (propose) — Lista i Kafelki', () => {
+  beforeEach(() => localStorage.removeItem('bookshelf:detection-view-mode'));
+  afterEach(() => localStorage.removeItem('bookshelf:detection-view-mode'));
+
+  it('tryb lista: Popraw otwiera BookModal (nowe zachowanie — dawniej brak podglądu kandydata)', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 }),
+    );
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => screen.getByTestId('detection-card-1'));
+    fireEvent.click(screen.getByTestId('view-mode-list'));
+    await waitFor(() => screen.getByTestId('detection-row-1'));
+
+    fireEvent.click(screen.getByTestId('correct-button'));
+    expect(screen.getByTestId('book-modal')).toBeInTheDocument();
+    expect(screen.queryByTestId('correction-modal')).not.toBeInTheDocument();
+  });
+
+  it('tryb kafelki: Popraw i klik w okładkę prowadzą do tej samej instancji modala', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 }),
+    );
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => screen.getByTestId('detection-card-1'));
+    fireEvent.click(screen.getByTestId('view-mode-tiles'));
+    await waitFor(() => screen.getByTestId('detection-tile-1'));
+
+    fireEvent.click(screen.getByTestId('correct-button'));
+    expect(screen.getAllByTestId('book-modal')).toHaveLength(1);
+    fireEvent.click(screen.getByTestId('book-modal-cancel'));
+    await waitFor(() => expect(screen.queryByTestId('book-modal')).not.toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('candidate-cover-button'));
+    expect(screen.getAllByTestId('book-modal')).toHaveLength(1);
   });
 });
 

@@ -220,23 +220,25 @@ test.describe('S-25 detection list views', () => {
     await expect.poll(() => rejectCalled).toBe(true);
   });
 
-  test('„Popraw" otwiera modal w trybie Lista i Kafelki', async ({ page }) => {
+  test('„Popraw" otwiera BookModal w pełni edytowalny w trybie Lista i Kafelki (candidate-propose-edit-all-fields)', async ({
+    page,
+  }) => {
     // Lista
     await seedViewMode(page, 'list');
     await page.goto(`/photos/${PHOTO_ID}`);
-    await expect(page.getByTestId('correction-modal')).toHaveCount(0);
+    await expect(page.getByTestId('book-modal')).toHaveCount(0);
     await page.getByTestId('detection-row-1').getByTestId('correct-button').click();
-    await expect(page.getByTestId('correction-modal')).toBeVisible();
-    await expect(page.getByTestId('correct-form')).toBeVisible();
+    await expect(page.getByTestId('book-modal')).toBeVisible();
+    await expect(page.getByTestId('correction-modal')).toHaveCount(0);
     // Esc zamyka
     await page.keyboard.press('Escape');
-    await expect(page.getByTestId('correction-modal')).toHaveCount(0);
+    await expect(page.getByTestId('book-modal')).toHaveCount(0);
 
     // Kafelki
     await page.getByTestId('view-mode-tiles').click();
     await page.getByTestId('detection-tile-1').getByTestId('correct-button').click();
-    await expect(page.getByTestId('correction-modal')).toBeVisible();
-    await expect(page.getByTestId('correct-form')).toBeVisible();
+    await expect(page.getByTestId('book-modal')).toBeVisible();
+    await expect(page.getByTestId('correction-modal')).toHaveCount(0);
   });
 
   test('Refine działa w trybie Lista', async ({ page }) => {

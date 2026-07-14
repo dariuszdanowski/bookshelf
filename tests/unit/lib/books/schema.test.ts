@@ -5,6 +5,7 @@ import {
   ConfirmBatchSchema,
   UpdateBookReadSchema,
   UpdateBookSchema,
+  UpdateCandidateSchema,
   AddPurchaseSchema,
   SearchBooksQuerySchema,
 } from '../../../../src/lib/books/schema';
@@ -43,52 +44,124 @@ describe('ConfirmDetectionSchema', () => {
 });
 
 // ---------------------------------------------------------------------------
-// CorrectDetectionSchema — wariant field_edit
+// UpdateCandidateSchema (candidate-propose-edit-all-fields) — zastępuje
+// dawny wariant field_edit CorrectDetectionSchema (usunięty, zob. niżej)
 // ---------------------------------------------------------------------------
 
-describe('CorrectDetectionSchema — field_edit', () => {
-  const validBase = {
-    mode: 'field_edit' as const,
-    candidate_id: '550e8400-e29b-41d4-a716-446655440000',
-    title: 'Mistrz i Małgorzata',
-  };
+describe('UpdateCandidateSchema', () => {
+  const CAND_ID = '550e8400-e29b-41d4-a716-446655440000';
 
-  it('akceptuje minimalny field_edit (title + candidate_id)', () => {
-    const result = CorrectDetectionSchema.safeParse(validBase);
-    expect(result.success).toBe(true);
-  });
-
-  it('akceptuje field_edit z pełnymi opcjonalnymi polami', () => {
-    const result = CorrectDetectionSchema.safeParse({
-      ...validBase,
-      authors: ['Michaił Bułhakow'],
-      publisher: 'Czytelnik',
-      published_year: 1967,
+  it('akceptuje candidate_id + jedno pole (title)', () => {
+    const result = UpdateCandidateSchema.safeParse({
+      candidate_id: CAND_ID,
+      title: 'Mistrz i Małgorzata',
     });
     expect(result.success).toBe(true);
   });
 
-  it('odrzuca pusty tytuł', () => {
-    const result = CorrectDetectionSchema.safeParse({ ...validBase, title: '' });
-    expect(result.success).toBe(false);
+  it('akceptuje pełny zestaw pól, w tym zakup', () => {
+    const result = UpdateCandidateSchema.safeParse({
+      candidate_id: CAND_ID,
+      title: 'Mistrz i Małgorzata',
+      authors: ['Michaił Bułhakow'],
+      publisher: 'Czytelnik',
+      published_year: 1967,
+      isbn_13: '9788307032610',
+      isbn_10: '830703261X',
+      cover_url: 'https://example.com/cover.jpg',
+      purchase_date: '2026-05-29',
+      purchase_price: 42.5,
+      purchase_city: 'Kraków',
+      purchase_event: 'Targi Książki',
+    });
+    expect(result.success).toBe(true);
   });
 
-  it('odrzuca brakujący candidate_id w field_edit', () => {
-    const { candidate_id: _, ...withoutCandidate } = validBase;
-    const result = CorrectDetectionSchema.safeParse(withoutCandidate);
+  it('odrzuca brak candidate_id', () => {
+    const result = UpdateCandidateSchema.safeParse({ title: 'X' });
     expect(result.success).toBe(false);
   });
 
   it('odrzuca niepoprawny UUID candidate_id', () => {
-    const result = CorrectDetectionSchema.safeParse({ ...validBase, candidate_id: 'bad' });
+    const result = UpdateCandidateSchema.safeParse({ candidate_id: 'bad', title: 'X' });
     expect(result.success).toBe(false);
   });
 
-  it('odrzuca rok spoza zakresu', () => {
-    const result = CorrectDetectionSchema.safeParse({ ...validBase, published_year: 999 });
+  it('odrzuca samo candidate_id bez żadnego innego pola (refine ≥1 pole)', () => {
+    const result = UpdateCandidateSchema.safeParse({ candidate_id: CAND_ID });
     expect(result.success).toBe(false);
-    const result2 = CorrectDetectionSchema.safeParse({ ...validBase, published_year: 2101 });
-    expect(result2.success).toBe(false);
+  });
+
+  it('odrzuca pusty tytuł', () => {
+    const result = UpdateCandidateSchema.safeParse({ candidate_id: CAND_ID, title: '' });
+    expect(result.success).toBe(false);
+  });
+
+  it('akceptuje authors: [] (czyszczenie listy autorów)', () => {
+    const result = UpdateCandidateSchema.safeParse({ candidate_id: CAND_ID, authors: [] });
+    expect(result.success).toBe(true);
+  });
+
+  it('akceptuje null dla publisher/published_year/isbn/cover_url/purchase_*', () => {
+    const result = UpdateCandidateSchema.safeParse({
+      candidate_id: CAND_ID,
+      publisher: null,
+      published_year: null,
+      isbn_13: null,
+      isbn_10: null,
+      cover_url: null,
+      purchase_date: null,
+      purchase_price: null,
+      purchase_city: null,
+      purchase_event: null,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('odrzuca rok spoza zakresu', () => {
+    expect(
+      UpdateCandidateSchema.safeParse({ candidate_id: CAND_ID, published_year: 999 }).success,
+    ).toBe(false);
+    expect(
+      UpdateCandidateSchema.safeParse({ candidate_id: CAND_ID, published_year: 2101 }).success,
+    ).toBe(false);
+  });
+
+  it('odrzuca isbn_13 o złym formacie', () => {
+    expect(
+      UpdateCandidateSchema.safeParse({ candidate_id: CAND_ID, isbn_13: '978-83' }).success,
+    ).toBe(false);
+  });
+
+  it('odrzuca isbn_10 o złym formacie', () => {
+    expect(UpdateCandidateSchema.safeParse({ candidate_id: CAND_ID, isbn_10: '123' }).success).toBe(
+      false,
+    );
+  });
+
+  it('odrzuca cover_url który nie jest URL', () => {
+    expect(
+      UpdateCandidateSchema.safeParse({ candidate_id: CAND_ID, cover_url: 'nie-url' }).success,
+    ).toBe(false);
+  });
+
+  it('odrzuca złą datę zakupu (nie YYYY-MM-DD)', () => {
+    expect(
+      UpdateCandidateSchema.safeParse({ candidate_id: CAND_ID, purchase_date: '29-05-2026' })
+        .success,
+    ).toBe(false);
+  });
+
+  it('odrzuca ujemną cenę zakupu', () => {
+    expect(
+      UpdateCandidateSchema.safeParse({ candidate_id: CAND_ID, purchase_price: -1 }).success,
+    ).toBe(false);
+  });
+
+  it('odrzuca dodatkowe pola (.strict)', () => {
+    expect(
+      UpdateCandidateSchema.safeParse({ candidate_id: CAND_ID, title: 'X', hack: true }).success,
+    ).toBe(false);
   });
 });
 

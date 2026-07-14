@@ -9,17 +9,14 @@ export const prerender = false;
 /**
  * POST /api/detections/[id]/correct
  *
- * Dwa tryby (discriminated union wg `mode`):
- *   - field_edit: baza = kandydat, pola nadpisane przez usera (tytuł/autor/...)
- *     Telemetria: correction_type = 'field_edit'
- *   - manual_entry: brak kandydata, wszystko z formularza (np. brak matchu)
- *     Telemetria: correction_type = 'manual_entry'
- *
- * W obu przypadkach tworzy wpis w katalogu przez wspólny helper.
+ * Wyłącznie manual_entry (candidate-propose-edit-all-fields: wariant field_edit
+ * usunięty — zastąpiony przez PATCH /api/detections/[id]/candidate + /confirm):
+ * brak kandydata, wszystko z formularza (np. brak matchu).
+ * Telemetria: correction_type = 'manual_entry'.
  *
  * 200: { data: { book_id, shelf_id } }
  * 409: exact-dup lub already_confirmed
- * 404: detekcja / kandydat / zdjęcie nie istnieje lub cudze
+ * 404: detekcja / zdjęcie nie istnieje lub cudze
  * 400: walidacja Zod
  */
 export const POST: APIRoute = async ({ params, request, locals }) => {
@@ -93,75 +90,26 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
     return apiError({ code: 'NOT_FOUND', status: 404, message: 'Nie znaleziono zdjęcia.' });
   }
 
-  let bookInput: Parameters<typeof confirmDetectionToCatalog>[2]['book'];
-  let correctionType: 'field_edit' | 'manual_entry';
-  let correctedFields: { title?: string; authors?: string[] } | undefined;
-
-  if (input.mode === 'field_edit') {
-    // Pobierz bazowego kandydata — dane metadanych spoza edytowanych pól
-    const { data: candidate, error: candError } = await locals.supabase
-      .from('book_candidates')
-      .select(
-        'source, external_id, title, authors, isbn_10, isbn_13, publisher, published_year, cover_url, description',
-      )
-      .eq('id', input.candidate_id)
-      .eq('detection_id', detectionId)
-      .maybeSingle();
-
-    if (candError) {
-      console.error('[api/detections correct] book_candidates select failed', {
-        name: candError.name,
-        message: candError.message,
-        code: candError.code,
-      });
-      return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Błąd serwera.' });
-    }
-    if (!candidate) {
-      return apiError({ code: 'NOT_FOUND', status: 404, message: 'Nie znaleziono kandydata.' });
-    }
-
-    bookInput = {
-      title: input.title,
-      authors: input.authors ?? candidate.authors,
-      isbn_10: candidate.isbn_10,
-      isbn_13: candidate.isbn_13,
-      publisher: input.publisher ?? candidate.publisher,
-      published_year: input.published_year ?? candidate.published_year,
-      cover_url: candidate.cover_url,
-      source: candidate.source,
-      source_external_id: candidate.external_id,
-      spine_color: detection.spine_color,
-      description: candidate.description,
-      purchase_date: photo.purchase_date ?? null,
-      purchase_city: photo.purchase_city ?? null,
-      purchase_event: photo.purchase_event ?? null,
-    };
-    correctionType = 'field_edit';
-    correctedFields = {
-      title: input.title !== candidate.title ? input.title : undefined,
-      authors: input.authors,
-    };
-  } else {
-    // manual_entry — wszystko z formularza
-    bookInput = {
-      title: input.title,
-      authors: input.authors ?? [],
-      isbn_10: input.isbn_10 ?? null,
-      isbn_13: input.isbn_13 ?? null,
-      publisher: input.publisher ?? null,
-      published_year: input.published_year ?? null,
-      cover_url: null,
-      source: 'manual',
-      source_external_id: null,
-      spine_color: detection.spine_color,
-      description: null,
-      purchase_date: photo.purchase_date ?? null,
-      purchase_city: photo.purchase_city ?? null,
-      purchase_event: photo.purchase_event ?? null,
-    };
-    correctionType = 'manual_entry';
-    correctedFields = { title: input.title, authors: input.authors };
-  }
+  // manual_entry — wszystko z formularza, brak kandydata więc purchase_price zawsze null
+  const bookInput: Parameters<typeof confirmDetectionToCatalog>[2]['book'] = {
+    title: input.title,
+    authors: input.authors ?? [],
+    isbn_10: input.isbn_10 ?? null,
+    isbn_13: input.isbn_13 ?? null,
+    publisher: input.publisher ?? null,
+    published_year: input.published_year ?? null,
+    cover_url: null,
+    source: 'manual',
+    source_external_id: null,
+    spine_color: detection.spine_color,
+    description: null,
+    purchase_date: photo.purchase_date ?? null,
+    purchase_city: photo.purchase_city ?? null,
+    purchase_event: photo.purchase_event ?? null,
+    purchase_price: null,
+  };
+  const correctionType = 'manual_entry';
+  const correctedFields = { title: input.title, authors: input.authors };
 
   const result = await confirmDetectionToCatalog(locals.supabase, locals.user.id, {
     detection: {

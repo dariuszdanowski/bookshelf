@@ -194,7 +194,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
     locals.supabase
       .from('book_candidates')
       .select(
-        'id, detection_id, source, external_id, title, authors, isbn_10, isbn_13, publisher, published_year, cover_url, match_score, rank',
+        'id, detection_id, source, external_id, title, authors, isbn_10, isbn_13, publisher, published_year, cover_url, match_score, rank, purchase_date, purchase_price, purchase_city, purchase_event',
       )
       .in('detection_id', detectionIds)
       .order('rank', { ascending: true }),
@@ -249,6 +249,10 @@ export const GET: APIRoute = async ({ params, locals }) => {
       coverUrl: row.cover_url,
       matchScore: row.match_score ?? 0,
       rank: row.rank,
+      purchaseDate: row.purchase_date,
+      purchasePrice: row.purchase_price,
+      purchaseCity: row.purchase_city,
+      purchaseEvent: row.purchase_event,
     });
   }
 

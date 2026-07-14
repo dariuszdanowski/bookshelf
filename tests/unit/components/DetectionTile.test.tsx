@@ -25,6 +25,10 @@ const candidate = {
   coverUrl: null,
   matchScore: 0.9,
   rank: 1,
+  purchaseDate: null,
+  purchasePrice: null,
+  purchaseCity: null,
+  purchaseEvent: null,
 };
 
 const detMatched: DetectionWithCandidatesDTO = {
@@ -133,12 +137,27 @@ describe('DetectionTile — akcje', () => {
   });
 });
 
-describe('DetectionTile — Popraw przez modal', () => {
-  it('klik Popraw otwiera modal z formularzem', () => {
+describe('DetectionTile — Popraw przez BookModal (candidate-propose-edit-all-fields)', () => {
+  it('klik Popraw otwiera BookModal w pełni edytowalny (mode=propose), nie stary correction-modal', () => {
     render(<DetectionTile detection={detMatched} onDecided={() => {}} />);
-    expect(screen.queryByTestId('correction-modal')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('book-modal')).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId('correct-button'));
-    expect(screen.getByTestId('correction-modal')).toBeInTheDocument();
-    expect(screen.getByTestId('correct-form')).toBeInTheDocument();
+    expect(screen.getByTestId('book-modal')).toBeInTheDocument();
+    expect(screen.queryByTestId('correction-modal')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('correct-form')).not.toBeInTheDocument();
+    const titleInput = screen.getByTestId('book-field-title') as HTMLInputElement;
+    expect(titleInput.readOnly).toBe(false);
+    expect(titleInput.value).toBe(candidate.title);
+  });
+
+  it('Popraw i klik w okładkę prowadzą do tej samej instancji modala', () => {
+    render(<DetectionTile detection={detMatched} onDecided={() => {}} />);
+    fireEvent.click(screen.getByTestId('correct-button'));
+    expect(screen.getAllByTestId('book-modal')).toHaveLength(1);
+    fireEvent.click(screen.getByTestId('book-modal-cancel'));
+    expect(screen.queryByTestId('book-modal')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('candidate-cover-button'));
+    expect(screen.getAllByTestId('book-modal')).toHaveLength(1);
   });
 });
