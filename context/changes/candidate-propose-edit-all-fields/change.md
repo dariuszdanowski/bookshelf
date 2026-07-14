@@ -1,7 +1,7 @@
 ---
 change_id: candidate-propose-edit-all-fields
 title: Popraw jako pełna edycja propozycji kandydata przed zatwierdzeniem
-status: implementing
+status: implemented
 created: 2026-07-13
 updated: 2026-07-14
 archived_at: null

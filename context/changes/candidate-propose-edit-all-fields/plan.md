@@ -324,11 +324,11 @@ Rozszerzamy `book_candidates` o `edited_at` + pola zakupu, uogólniamy endpoint 
 
 #### Automatyczne
 
-- [x] 4.1 `npm run test` — nowe + cała suita zielone
-- [x] 4.2 `npx playwright test` — nowy scenariusz zielony, brak nowych flaków
-- [x] 4.3 `npm run lint && astro check && npm run build` czysto
+- [x] 4.1 `npm run test` — nowe + cała suita zielone — 4915f0e
+- [x] 4.2 `npx playwright test` — nowy scenariusz zielony, brak nowych flaków — 4915f0e
+- [x] 4.3 `npm run lint && astro check && npm run build` czysto — 4915f0e
 
 #### Ręczne
 
-- [x] 4.4 Pełny cykl na realnej detekcji — Popraw → edycja wszystkich pól + zakupu → Zapisz → Zatwierdź → książka w /library ma wszystkie wartości
-- [x] 4.5 Historia korekt pokazuje field_edit dla detekcji edytowanej tym flow
+- [x] 4.4 Pełny cykl na realnej detekcji — Popraw → edycja wszystkich pól + zakupu → Zapisz → Zatwierdź → książka w /library ma wszystkie wartości — 4915f0e
+- [x] 4.5 Historia korekt pokazuje field_edit dla detekcji edytowanej tym flow — 4915f0e
