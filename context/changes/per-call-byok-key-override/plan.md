@@ -307,14 +307,14 @@ Brak migracji SQL — `user_api_keys.id` + RLS już wystarczają do lookupu po k
 
 #### Automatyczne
 
-- [x] 3.1 `npm run typecheck` przechodzi
-- [x] 3.2 `npm run lint` przechodzi
-- [x] 3.3 Cały unit suite zielony (`npx vitest run`) — 1241/1241
-- [x] 3.4 Cały E2E suite (`npm run test:e2e`) — 246 passed + nowy `byok-key-override.spec.ts` (10/10) + 12 skipped (env-gated); 1 fail w `admin.spec.ts` potwierdzony jako pre-existing (identyczny fail na `git stash` bez zmian tego planu), niezwiązany z BYOK
-- [x] 3.5 `npm run build` przechodzi
+- [x] 3.1 `npm run typecheck` przechodzi — 01316d9
+- [x] 3.2 `npm run lint` przechodzi — 01316d9
+- [x] 3.3 Cały unit suite zielony (`npx vitest run`) — 1242/1242 — 01316d9
+- [x] 3.4 Cały E2E suite (`npm run test:e2e`) — 246 passed + `byok-key-override.spec.ts` (11/11) + `shelf-photo-pipeline-ui.spec.ts` z nowym testem (11/11) + 12 skipped (env-gated); 1 fail w `admin.spec.ts` potwierdzony jako pre-existing (identyczny fail na `git stash` bez zmian tego planu), niezwiązany z BYOK — 01316d9
+- [x] 3.5 `npm run build` przechodzi — 01316d9
 
 #### Ręczne
 
-- [ ] 3.6 Dropdown działa poprawnie na koncie z 2 kluczami (3 akcje)
-- [ ] 3.7 Dropdown ukryty na koncie z 1 kluczem (3 akcje)
-- [ ] 3.8 `is_active` niezmienione po użyciu override
+- [x] 3.6 Dropdown działa poprawnie na koncie z 2 kluczami (3 akcje) — potwierdzone przez usera (manualna weryfikacja na żywo w sesji)
+- [x] 3.7 Dropdown widoczny jako lista 1-pozycyjna na koncie z 1 kluczem (3 akcje) — zaktualizowane po manualnej weryfikacji: pierwotny plan zakładał ukrycie, user zdecydował inaczej (zob. commit p3)
+- [x] 3.8 `is_active` niezmienione po użyciu override — potwierdzone przez usera (Supabase Studio)
