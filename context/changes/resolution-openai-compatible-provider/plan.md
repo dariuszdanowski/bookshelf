@@ -307,10 +307,10 @@ Migracja czysto addytywna (nowe nullable kolumny) — brak ryzyka dla istniejąc
 
 #### Automatyczne
 
-- [x] 1.1 Migracja stosuje się czysto lokalnie
-- [x] 1.2 Typecheck przechodzi
-- [x] 1.3 Unit testy przechodzą
-- [x] 1.4 Lint przechodzi
+- [x] 1.1 Migracja stosuje się czysto lokalnie — e8769a8
+- [x] 1.2 Typecheck przechodzi — e8769a8
+- [x] 1.3 Unit testy przechodzą — e8769a8
+- [x] 1.4 Lint przechodzi — e8769a8
 
 #### Ręczne
 
@@ -320,8 +320,8 @@ Migracja czysto addytywna (nowe nullable kolumny) — brak ryzyka dla istniejąc
 
 #### Automatyczne
 
-- [ ] 2.1 Nowe testy timeout/max_tokens override w vision client.test.ts
-- [ ] 2.2 npm run test/typecheck/lint przechodzą
+- [x] 2.1 Nowe testy timeout/max_tokens override w vision client.test.ts
+- [x] 2.2 npm run test/typecheck/lint przechodzą
 
 #### Ręczne
 

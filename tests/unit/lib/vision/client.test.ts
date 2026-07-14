@@ -277,6 +277,90 @@ describe('detectSpines', () => {
     vi.unstubAllGlobals();
   });
 
+  it('OpenAI-compat path: uses maxTokensOverride in request body when set', async () => {
+    const openaiConfig: VisionProviderConfig = {
+      provider: 'openai_compatible',
+      apiKey: 'sk-test',
+      baseUrl: 'https://custom.example.com',
+      maxTokensOverride: 6000,
+    };
+    const mockFetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: JSON.stringify([validDetection]) } }] }),
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    await detectSpines({ base64: 'img', mediaType: 'image/jpeg' }, openaiConfig);
+
+    const call = mockFetch.mock.calls[0];
+    const body = JSON.parse(call[1].body);
+    expect(body.max_tokens).toBe(6000);
+
+    vi.unstubAllGlobals();
+  });
+
+  it('OpenAI-compat path: falls back to default MAX_TOKENS when no override', async () => {
+    const openaiConfig: VisionProviderConfig = {
+      provider: 'openai_compatible',
+      apiKey: 'sk-test',
+      baseUrl: 'https://custom.example.com',
+    };
+    const mockFetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: JSON.stringify([validDetection]) } }] }),
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    await detectSpines({ base64: 'img', mediaType: 'image/jpeg' }, openaiConfig);
+
+    const call = mockFetch.mock.calls[0];
+    const body = JSON.parse(call[1].body);
+    expect(body.max_tokens).toBe(4096);
+    expect(call[1].signal).toBeUndefined();
+
+    vi.unstubAllGlobals();
+  });
+
+  it('OpenAI-compat path: passes AbortSignal when requestTimeoutMs is set', async () => {
+    const openaiConfig: VisionProviderConfig = {
+      provider: 'openai_compatible',
+      apiKey: 'sk-test',
+      baseUrl: 'https://custom.example.com',
+      requestTimeoutMs: 5000,
+    };
+    const mockFetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: JSON.stringify([validDetection]) } }] }),
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    await detectSpines({ base64: 'img', mediaType: 'image/jpeg' }, openaiConfig);
+
+    const call = mockFetch.mock.calls[0];
+    expect(call[1].signal).toBeInstanceOf(AbortSignal);
+
+    vi.unstubAllGlobals();
+  });
+
+  it('OpenAI-compat path: returns ok:false when fetch aborts (timeout exceeded)', async () => {
+    const openaiConfig: VisionProviderConfig = {
+      provider: 'openai_compatible',
+      apiKey: 'sk-test',
+      baseUrl: 'https://custom.example.com',
+      requestTimeoutMs: 100,
+    };
+    const abortError = new DOMException('The operation was aborted', 'AbortError');
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValueOnce(abortError));
+
+    const result = await detectSpines({ base64: 'img', mediaType: 'image/jpeg' }, openaiConfig);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe('parse_failure');
+
+    vi.unstubAllGlobals();
+  });
+
   it('identity-response (v7): no bbox/orientation → bbox null, title preserved', async () => {
     const identityDetection = {
       position: 1,
