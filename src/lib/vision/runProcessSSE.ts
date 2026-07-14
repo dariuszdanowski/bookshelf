@@ -17,9 +17,17 @@ export interface ProcessSSEResult {
  */
 export async function runProcessSSE(
   photoId: string,
-  onStarted?: () => void,
+  opts?: { apiKeyId?: string | null; onStarted?: () => void },
 ): Promise<ProcessSSEResult> {
-  const res = await fetch(`/api/photos/${photoId}/process?skipMatch=1`, { method: 'POST' });
+  const res = await fetch(`/api/photos/${photoId}/process?skipMatch=1`, {
+    method: 'POST',
+    ...(opts?.apiKeyId
+      ? {
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ apiKeyId: opts.apiKeyId }),
+        }
+      : {}),
+  });
 
   if (!res.ok) {
     const json = (await res.json().catch(() => ({}))) as {
@@ -56,7 +64,7 @@ export async function runProcessSSE(
         }
 
         if (event === 'started') {
-          onStarted?.();
+          opts?.onStarted?.();
         } else if (event === 'done') {
           reader.cancel().catch(() => {});
           return JSON.parse(data) as ProcessSSEResult;

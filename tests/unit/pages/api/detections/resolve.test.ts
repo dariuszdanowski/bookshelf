@@ -135,10 +135,22 @@ function makeSupabase(opts?: {
   return { from } as unknown as { from: typeof from };
 }
 
-function makeContext(supabase: ReturnType<typeof makeSupabase>, user = true, id = DETECTION_ID) {
+function makeContext(
+  supabase: ReturnType<typeof makeSupabase>,
+  user = true,
+  id = DETECTION_ID,
+  body?: unknown,
+) {
   return {
     params: { id },
     locals: { user: user ? ({ id: USER_ID } as never) : null, supabase },
+    // per-call-byok-key-override: body opcjonalne — brak (undefined) reprodukuje
+    // dzisiejsze wywołania UI (fetch bez body), request.json() rzuca, endpoint
+    // łapie i traktuje jako "brak override" (zob. resolve.ts krytyczne szczegóły).
+    request:
+      body === undefined
+        ? undefined
+        : ({ json: () => Promise.resolve(body) } as unknown as Request),
   } as never;
 }
 
@@ -230,6 +242,44 @@ describe('POST /api/detections/[id]/resolve', () => {
     expect(res.status).toBe(429);
     const json = (await res.json()) as { error: { code: string } };
     expect(json.error.code).toBe('RESOLUTION_BUDGET_EXCEEDED');
+  });
+
+  // per-call-byok-key-override: body opcjonalne { apiKeyId } — override per-request.
+  it('brak body — getActiveProviderConfig wołany bez keyId (zachowanie dzisiejsze)', async () => {
+    await POST(makeContext(makeSupabase(), true, DETECTION_ID, undefined));
+    expect(mockGetActiveProviderConfig).toHaveBeenCalledWith(expect.anything(), USER_ID, undefined);
+  });
+
+  it('body z apiKeyId — przekazuje go do getActiveProviderConfig jako keyId', async () => {
+    const OTHER_KEY_ID = '00000000-0000-4000-8000-000000000099';
+    await POST(makeContext(makeSupabase(), true, DETECTION_ID, { apiKeyId: OTHER_KEY_ID }));
+    expect(mockGetActiveProviderConfig).toHaveBeenCalledWith(
+      expect.anything(),
+      USER_ID,
+      OTHER_KEY_ID,
+    );
+  });
+
+  it('apiKeyId podany, ale getActiveProviderConfig zwraca null — 404 NOT_FOUND (nie 403)', async () => {
+    const OTHER_KEY_ID = '00000000-0000-4000-8000-000000000099';
+    mockGetActiveProviderConfig.mockResolvedValueOnce(null);
+    const res = await POST(
+      makeContext(makeSupabase(), true, DETECTION_ID, { apiKeyId: OTHER_KEY_ID }),
+    );
+    expect(res.status).toBe(404);
+    const json = (await res.json()) as { error: { code: string } };
+    expect(json.error.code).toBe('NOT_FOUND');
+  });
+
+  it('body niepoprawny JSON — traktowany jak brak override, nie 400', async () => {
+    const badRequest = { json: () => Promise.reject(new Error('invalid json')) };
+    const res = await POST({
+      params: { id: DETECTION_ID },
+      locals: { user: { id: USER_ID } as never, supabase: makeSupabase() },
+      request: badRequest as unknown as Request,
+    } as never);
+    expect(res.status).not.toBe(400);
+    expect(mockGetActiveProviderConfig).toHaveBeenCalledWith(expect.anything(), USER_ID, undefined);
   });
 
   it('returns 200 applied=false gdy AI zwraca not_found', async () => {

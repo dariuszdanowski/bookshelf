@@ -299,19 +299,19 @@ Brak migracji SQL — `user_api_keys.id` + RLS już wystarczają do lookupu po k
 
 #### Automatyczne
 
-- [x] 2.1 `npm run typecheck` przechodzi
-- [x] 2.2 `npm run lint` przechodzi
-- [x] 2.3 Nowe testy jednostkowe (ApiKeySelect, useApiKeys, ConfirmDialog) zielone
+- [x] 2.1 `npm run typecheck` przechodzi — e1322d5
+- [x] 2.2 `npm run lint` przechodzi — e1322d5
+- [x] 2.3 Nowe testy jednostkowe (ApiKeySelect, useApiKeys, ConfirmDialog) zielone — e1322d5
 
 ### Faza 3: Wiring w DetectionReview.tsx + testy end-to-end
 
 #### Automatyczne
 
-- [ ] 3.1 `npm run typecheck` przechodzi
-- [ ] 3.2 `npm run lint` przechodzi
-- [ ] 3.3 Cały unit suite zielony (`npx vitest run`)
-- [ ] 3.4 Cały E2E suite zielony (`npm run test:e2e`), w tym nowy `byok-key-override.spec.ts`
-- [ ] 3.5 `npm run build` przechodzi
+- [x] 3.1 `npm run typecheck` przechodzi
+- [x] 3.2 `npm run lint` przechodzi
+- [x] 3.3 Cały unit suite zielony (`npx vitest run`) — 1241/1241
+- [x] 3.4 Cały E2E suite (`npm run test:e2e`) — 246 passed + nowy `byok-key-override.spec.ts` (10/10) + 12 skipped (env-gated); 1 fail w `admin.spec.ts` potwierdzony jako pre-existing (identyczny fail na `git stash` bez zmian tego planu), niezwiązany z BYOK
+- [x] 3.5 `npm run build` przechodzi
 
 #### Ręczne
 

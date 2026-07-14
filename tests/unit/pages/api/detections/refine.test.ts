@@ -236,13 +236,24 @@ function makeSupabase(opts?: {
   };
 }
 
-function makeContext(supabase: ReturnType<typeof makeSupabase>, user = true, id = DETECTION_ID) {
+function makeContext(
+  supabase: ReturnType<typeof makeSupabase>,
+  user = true,
+  id = DETECTION_ID,
+  body?: unknown,
+) {
   return {
     params: { id },
     locals: {
       user: user ? ({ id: USER_ID } as never) : null,
       supabase,
     },
+    // per-call-byok-key-override: body opcjonalne — brak (undefined) reprodukuje
+    // dzisiejsze wywołania UI (fetch bez body).
+    request:
+      body === undefined
+        ? undefined
+        : ({ json: () => Promise.resolve(body) } as unknown as Request),
   } as never;
 }
 
@@ -301,6 +312,34 @@ describe('POST /api/detections/[id]/refine', () => {
     };
     expect(json.error.code).toBe('NO_API_KEY');
     expect(json.error.details.account_url).toBe('/account');
+  });
+
+  // per-call-byok-key-override: body opcjonalne { apiKeyId } — override per-request.
+  it('brak body — getActiveProviderConfig wołany bez keyId (zachowanie dzisiejsze)', async () => {
+    const supabase = makeSupabase();
+    await POST(makeContext(supabase, true, DETECTION_ID, undefined));
+    expect(mockGetActiveProviderConfig).toHaveBeenCalledWith(expect.anything(), USER_ID, undefined);
+  });
+
+  it('body z apiKeyId — przekazuje go do getActiveProviderConfig jako keyId', async () => {
+    const OTHER_KEY_ID = '00000000-0000-4000-8000-000000000099';
+    const supabase = makeSupabase();
+    await POST(makeContext(supabase, true, DETECTION_ID, { apiKeyId: OTHER_KEY_ID }));
+    expect(mockGetActiveProviderConfig).toHaveBeenCalledWith(
+      expect.anything(),
+      USER_ID,
+      OTHER_KEY_ID,
+    );
+  });
+
+  it('apiKeyId podany, ale getActiveProviderConfig zwraca null — 404 NOT_FOUND (nie 403)', async () => {
+    const OTHER_KEY_ID = '00000000-0000-4000-8000-000000000099';
+    mockGetActiveProviderConfig.mockResolvedValueOnce(null);
+    const supabase = makeSupabase();
+    const res = await POST(makeContext(supabase, true, DETECTION_ID, { apiKeyId: OTHER_KEY_ID }));
+    expect(res.status).toBe(404);
+    const json = (await res.json()) as { error: { code: string } };
+    expect(json.error.code).toBe('NOT_FOUND');
   });
 
   it('returns 404 for malformed detection id', async () => {

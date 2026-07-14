@@ -35,19 +35,26 @@ describe('ApiKeySelect', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('nie renderuje nic gdy dostępny dokładnie 1 klucz', () => {
-    const { container } = render(
-      <ApiKeySelect keys={[KEY_1]} value={KEY_1.id} onChange={vi.fn()} />,
-    );
-    expect(container).toBeEmptyDOMElement();
+  it('renderuje listę 1-pozycyjną gdy dostępny dokładnie 1 klucz (decyzja po manualnej weryfikacji)', () => {
+    render(<ApiKeySelect keys={[KEY_1]} value={KEY_1.id} onChange={vi.fn()} />);
+    const select = screen.getByTestId('api-key-select');
+    expect(select).toBeInTheDocument();
+    expect(screen.getByText('glm-ocr (openai_compatible) ✓ aktywny')).toBeInTheDocument();
   });
 
   it('renderuje dropdown z opcjami "etykieta (provider)" gdy 2+ kluczy', () => {
     render(<ApiKeySelect keys={[KEY_1, KEY_2]} value={KEY_1.id} onChange={vi.fn()} />);
     const select = screen.getByTestId('api-key-select');
     expect(select).toBeInTheDocument();
-    expect(screen.getByText('glm-ocr (openai_compatible)')).toBeInTheDocument();
     expect(screen.getByText('qwen3.5-9b (openai_compatible)')).toBeInTheDocument();
+  });
+
+  it('oznacza aktywny klucz suffixem "✓ aktywny" w opcji listy', () => {
+    render(<ApiKeySelect keys={[KEY_1, KEY_2]} value={KEY_1.id} onChange={vi.fn()} />);
+    // KEY_1.is_active = true
+    expect(screen.getByText('glm-ocr (openai_compatible) ✓ aktywny')).toBeInTheDocument();
+    // KEY_2.is_active = false — brak suffixu
+    expect(screen.queryByText(/qwen3.5-9b.*✓ aktywny/)).not.toBeInTheDocument();
   });
 
   it('domyślnie zaznaczony jest przekazany value', () => {

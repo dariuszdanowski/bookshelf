@@ -290,6 +290,52 @@ describe('POST /api/photos/[id]/process', () => {
     expect(json.error.details.account_url).toBe('/account');
   });
 
+  // per-call-byok-key-override: body opcjonalne { apiKeyId } — override per-request.
+  it('brak body — getActiveProviderConfig wołany bez keyId (zachowanie dzisiejsze)', async () => {
+    const { supabase } = makeSupabase({});
+    await POST(makeContext(supabase) as never);
+    expect(mockGetActiveProviderConfig).toHaveBeenCalledWith(expect.anything(), USER_ID, undefined);
+  });
+
+  it('body z apiKeyId — przekazuje go do getActiveProviderConfig jako keyId', async () => {
+    const OTHER_KEY_ID = '00000000-0000-4000-8000-000000000099';
+    const { supabase } = makeSupabase({});
+    const req = new Request(`http://localhost/api/photos/${PHOTO_ID}/process`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ apiKeyId: OTHER_KEY_ID }),
+    });
+    await POST({
+      params: { id: PHOTO_ID },
+      locals: { supabase, user: { id: USER_ID } as never },
+      request: req,
+    } as never);
+    expect(mockGetActiveProviderConfig).toHaveBeenCalledWith(
+      expect.anything(),
+      USER_ID,
+      OTHER_KEY_ID,
+    );
+  });
+
+  it('apiKeyId podany, ale getActiveProviderConfig zwraca null — 404 NOT_FOUND (nie 403)', async () => {
+    const OTHER_KEY_ID = '00000000-0000-4000-8000-000000000099';
+    mockGetActiveProviderConfig.mockResolvedValueOnce(null);
+    const { supabase } = makeSupabase({});
+    const req = new Request(`http://localhost/api/photos/${PHOTO_ID}/process`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ apiKeyId: OTHER_KEY_ID }),
+    });
+    const res = await POST({
+      params: { id: PHOTO_ID },
+      locals: { supabase, user: { id: USER_ID } as never },
+      request: req,
+    } as never);
+    expect(res.status).toBe(404);
+    const json = (await res.json()) as { error: { code: string } };
+    expect(json.error.code).toBe('NOT_FOUND');
+  });
+
   it('returns 404 for malformed UUID', async () => {
     const { supabase } = makeSupabase({});
     const ctx = makeContext(supabase, 'not-a-uuid');

@@ -4,10 +4,12 @@ import { runMatchSSE } from '../lib/matching/runMatchSSE';
 import { runProcessSSE } from '../lib/vision/runProcessSSE';
 import type { PhotoListItemDTO } from '../lib/photos/schema';
 import type { ShelfDTO } from '../lib/shelves/schema';
+import ApiKeySelect from './ApiKeySelect';
 import ConfirmDialog from './ConfirmDialog';
 import CostPanel from './CostPanel';
 import ProgressModal from './ProgressModal';
 import Skeleton from './Skeleton';
+import { useApiKeys } from './useApiKeys';
 
 type Props = {
   shelfId: string;
@@ -52,6 +54,15 @@ export default function PhotoListIsland({ shelfId }: Props) {
   const [pendingDeletePhotoId, setPendingDeletePhotoId] = useState<string | null>(null);
   const [pendingVisionPhotoId, setPendingVisionPhotoId] = useState<string | null>(null);
   const [pendingMatchPhotoId, setPendingMatchPhotoId] = useState<string | null>(null);
+  // per-call-byok-key-override: drugi, niezależny trigger "Ponów vision" (obok
+  // DetectionReview.tsx) — ta sama lista zdjęć może otworzyć tylko jeden dialog
+  // naraz, więc jeden współdzielony useApiKeys()/selectedKeyId wystarcza (mirror
+  // wzorca z top-level DetectionReview). Lazy-on-open, bez eager fetch (zob.
+  // komentarz "KRYTYCZNE" w DetectionReview.tsx o ryzyku dla kolejności mocków).
+  const { keys: photoListKeys, fetchKeys: fetchPhotoListKeys } = useApiKeys();
+  const activeListKey = photoListKeys?.find((k) => k.is_active) ?? null;
+  const activeListKeyId = activeListKey?.id ?? null;
+  const [selectedListKeyId, setSelectedListKeyId] = useState<string | null>(null);
   const [pendingMovePhoto, setPendingMovePhoto] = useState<{
     photoId: string;
     targetShelfId: string;
@@ -175,12 +186,12 @@ export default function PhotoListIsland({ shelfId }: Props) {
   );
 
   const runVision = useCallback(
-    async (photoId: string) => {
+    async (photoId: string, apiKeyId?: string | null) => {
       setVisionPhase('vision');
       setBusyOpLabel('Analiza obrazu...');
       patchRow(photoId, { busy: true, toast: null });
       try {
-        await runProcessSSE(photoId);
+        await runProcessSSE(photoId, { apiKeyId });
         // Vision succeeded — run SSE matching for progress feedback
         setVisionPhase('matching');
         await runMatch(photoId);
@@ -259,12 +270,14 @@ export default function PhotoListIsland({ shelfId }: Props) {
   const handleRunVision = useCallback(
     (photoId: string, isRerun: boolean) => {
       if (isRerun) {
+        fetchPhotoListKeys();
+        setSelectedListKeyId(null);
         setPendingRerunPhotoId(photoId);
         return;
       }
-      void runVision(photoId);
+      void runVision(photoId, selectedListKeyId ?? activeListKeyId);
     },
-    [runVision],
+    [runVision, activeListKeyId, selectedListKeyId, fetchPhotoListKeys],
   );
 
   const pendingRerunPhoto = pendingRerunPhotoId
@@ -467,7 +480,11 @@ export default function PhotoListIsland({ shelfId }: Props) {
                       data-testid={`run-vision-${photo.id}`}
                       disabled={rowState.busy || isLocked}
                       title={isLocked ? 'Trwa analiza, poczekaj na zakończenie' : undefined}
-                      onClick={() => setPendingVisionPhotoId(photo.id)}
+                      onClick={() => {
+                        fetchPhotoListKeys();
+                        setSelectedListKeyId(null);
+                        setPendingVisionPhotoId(photo.id);
+                      }}
                       className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
                     >
                       {rowState.busy || isLocked ? 'Uruchamiam...' : 'Uruchom vision'}
@@ -579,10 +596,17 @@ export default function PhotoListIsland({ shelfId }: Props) {
         onConfirm={() => {
           if (!pendingRerunPhotoId) return;
           const nextPhotoId = pendingRerunPhotoId;
+          const keyId = selectedListKeyId ?? activeListKeyId;
           setPendingRerunPhotoId(null);
-          void runVision(nextPhotoId);
+          void runVision(nextPhotoId, keyId);
         }}
-      />
+      >
+        <ApiKeySelect
+          keys={photoListKeys}
+          value={selectedListKeyId ?? activeListKeyId}
+          onChange={setSelectedListKeyId}
+        />
+      </ConfirmDialog>
 
       <ConfirmDialog
         open={pendingDeletePhoto != null}
@@ -615,7 +639,13 @@ export default function PhotoListIsland({ shelfId }: Props) {
           setPendingVisionPhotoId(null);
           void handleRunVision(id, false);
         }}
-      />
+      >
+        <ApiKeySelect
+          keys={photoListKeys}
+          value={selectedListKeyId ?? activeListKeyId}
+          onChange={setSelectedListKeyId}
+        />
+      </ConfirmDialog>
 
       <ConfirmDialog
         open={pendingMatchPhotoId != null}

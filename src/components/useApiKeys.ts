@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import type { ApiKeyDTO } from '../lib/keys/schema';
 
@@ -10,14 +10,18 @@ import type { ApiKeyDTO } from '../lib/keys/schema';
 export function useApiKeys(): { keys: ApiKeyDTO[] | null; fetchKeys: () => void } {
   const [keys, setKeys] = useState<ApiKeyDTO[] | null>(null);
 
-  function fetchKeys() {
+  // useCallback (referencja stabilna) — konsumenci wołają fetchKeys z wnętrza
+  // useEffect (np. hasNoCandidates-gated fetch w useDetectionDecision); bez
+  // stabilnej referencji trzeba by albo pomijać ją w deps (lint), albo effect
+  // odpalałby się na każdym renderze.
+  const fetchKeys = useCallback(() => {
     fetch('/api/account/keys')
       .then((r) => r.json() as Promise<{ data?: { keys?: ApiKeyDTO[] } }>)
       .then((body) => setKeys(body.data?.keys ?? []))
       .catch(() => {
         /* silent — brak listy kluczy nie blokuje żadnego flow */
       });
-  }
+  }, []);
 
   return { keys, fetchKeys };
 }
