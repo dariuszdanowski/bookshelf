@@ -1,10 +1,10 @@
 ---
 change_id: resolution-openai-compatible-provider
 title: AI book resolution przez BYOK openai_compatible provider
-status: impl_reviewed
+status: archived
 created: 2026-07-14
 updated: 2026-07-14
-archived_at: null
+archived_at: 2026-07-14T15:53:32Z
 ---
 
 ## Notes
