@@ -81,21 +81,9 @@ export const POST: APIRoute = async ({ params, locals }) => {
       details: { account_url: '/account' },
     });
   }
-  if (providerConfig.provider !== 'anthropic') {
-    return apiError({
-      code: 'AI_RESOLUTION_PROVIDER_UNSUPPORTED',
-      status: 403,
-      message:
-        'Rozwiązanie przez AI wymaga aktywnego klucza Anthropic. Przełącz aktywny klucz na /account.',
-      details: { account_url: '/account' },
-    });
-  }
 
   const userId = locals.user.id;
-  // resolution_calls nie jest jeszcze w committowanym database.types.ts (Faza 1
-  // §2) — dostęp przez `as any`, analogicznie do account/stats.ts::selectCosts().
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const sb = locals.supabase as any;
+  const sb = locals.supabase;
 
   const todayStartUtc = new Date();
   todayStartUtc.setUTCHours(0, 0, 0, 0);
@@ -134,7 +122,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
 
   const outcome = await resolveBookViaAI(
     { rawTitle: detection.raw_title ?? '', rawAuthor: detection.raw_author },
-    { apiKey: providerConfig.apiKey, model: providerConfig.model, keyId: providerConfig.keyId },
+    providerConfig,
   );
 
   // Snapshot narrowed non-null values — TS narrowing on `detection`/`providerConfig`
@@ -142,6 +130,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
   const photoId = detection.photo_id;
   const apiKeyId = providerConfig.keyId ?? null;
   const requestedModel = providerConfig.model ?? null;
+  const requestedProvider = providerConfig.provider;
 
   async function insertAudit(
     status: 'found' | 'not_found' | 'error',
@@ -158,6 +147,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
       detection_id: detectionId,
       api_key_id: apiKeyId,
       model: extra.model ?? null,
+      provider: requestedProvider,
       status,
       search_count: extra.searchCount ?? null,
       cost_usd: extra.costUsd ?? null,

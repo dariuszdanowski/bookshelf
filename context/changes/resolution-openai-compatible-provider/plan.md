@@ -320,8 +320,8 @@ Migracja czysto addytywna (nowe nullable kolumny) — brak ryzyka dla istniejąc
 
 #### Automatyczne
 
-- [x] 2.1 Nowe testy timeout/max_tokens override w vision client.test.ts
-- [x] 2.2 npm run test/typecheck/lint przechodzą
+- [x] 2.1 Nowe testy timeout/max_tokens override w vision client.test.ts — df78155
+- [x] 2.2 npm run test/typecheck/lint przechodzą — df78155
 
 #### Ręczne
 
@@ -331,9 +331,9 @@ Migracja czysto addytywna (nowe nullable kolumny) — brak ryzyka dla istniejąc
 
 #### Automatyczne
 
-- [ ] 3.1 Nowe testy openai-compat branch w resolution client.test.ts
-- [ ] 3.2 Test: openai_compatible provider nie zwraca już 403 w resolve.ts + resolution_calls.provider zapisany
-- [ ] 3.3 npm run test/typecheck/lint przechodzą
+- [x] 3.1 Nowe testy openai-compat branch w resolution client.test.ts
+- [x] 3.2 Test: openai_compatible provider nie zwraca już 403 w resolve.ts + resolution_calls.provider zapisany
+- [x] 3.3 npm run test/typecheck/lint przechodzą
 
 #### Ręczne
 
