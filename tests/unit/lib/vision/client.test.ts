@@ -255,6 +255,34 @@ describe('detectSpines', () => {
     vi.unstubAllGlobals();
   });
 
+  // impl-review F1: resp.json() gdy body nie jest poprawnym JSON-em mimo 200 OK
+  // (typowe dla źle skonfigurowanego reverse-proxy self-hosted modelu) — nie
+  // powinno rzucać nieobsłużonego wyjątku, tylko zwrócić ok:false.
+  it('OpenAI-compat path: returns ok:false when response body is not valid JSON despite 200 OK', async () => {
+    const openaiConfig: VisionProviderConfig = {
+      provider: 'openai_compatible',
+      apiKey: 'sk-test',
+      baseUrl: 'https://custom.api.example.com',
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => {
+          throw new SyntaxError('Unexpected token < in JSON at position 0');
+        },
+      }),
+    );
+
+    const result = await detectSpines({ base64: 'img', mediaType: 'image/jpeg' }, openaiConfig);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe('parse_failure');
+
+    vi.unstubAllGlobals();
+  });
+
   it('OpenAI-compat path: uses custom baseUrl from config', async () => {
     const openaiConfig: VisionProviderConfig = {
       provider: 'openai_compatible',

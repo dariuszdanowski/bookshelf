@@ -159,7 +159,16 @@ async function detectSpinesOpenAICompat(
     console.error('[vision:openai-compat:http-error]', { status: resp.status, body });
     return { ok: false };
   }
-  const json = await resp.json();
+  let json: unknown;
+  try {
+    json = await resp.json();
+  } catch (err) {
+    console.error(
+      '[vision:openai-compat:invalid-json]',
+      err instanceof Error ? err.message : String(err),
+    );
+    return { ok: false };
+  }
   const content: unknown = (json as { choices?: { message?: { content?: unknown } }[] })
     ?.choices?.[0]?.message?.content;
   if (typeof content !== 'string') {

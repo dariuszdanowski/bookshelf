@@ -256,6 +256,12 @@ Formularz kluczy dostaje pola timeout/max_tokens; DetectionReview przestaje twie
 
 **Uwaga implementacyjna**: Po zakończeniu tej fazy i przejściu wszystkich automatycznych weryfikacji, zatrzymaj się tutaj po ręczne potwierdzenie od człowieka (Studio/przeglądarka/realny relay), zanim uznasz change za gotowy do `/10x-impl-review` i archiwizacji.
 
+**Aneks (adaptacje literalne odkryte podczas ręcznej weryfikacji, commit `9e3cc2d`)**:
+1. **Normalizacja `base_url`** (`src/lib/keys/schema.ts`) — user wpisał `base_url` z trailing `/v1` (częsty błąd, dostawcy często pokazują URL z tym sufiksem w dokumentacji), co powodowało 404 (`/v1/v1/...`) przy wywołaniach vision/resolution/probe. Dodano `.transform()` w Zod normalizujący trailing `/v1` i `/` przy zapisie klucza — jedno miejsce prawdy zamiast duplikowania strip-logiki w trzech konsumentach.
+2. **Fix `vision_runs.model`** (`src/pages/api/photos/[id]/process.ts`) — pre-istniejący bug (niezwiązany bezpośrednio z tym planem, ale ujawniony przez BYOK): `vision_runs` był insertowany z hardcodowanym placeholderem `VISION_MODEL='claude-sonnet-4-6'` i nigdy nie aktualizowany po sukcesie, więc „Analiza kosztów” zawsze pokazywała błędny model dla nie-Anthropic providerów. UPDATE przy `status:'succeeded'` teraz nadpisuje `model: visionResult.model`.
+
+Obie adaptacje zaaplikowane inline zgodnie z regułą CLAUDE.md „Adaptacje literalne wewnątrz fazy” — nie wymagały powrotu do `/10x-plan`.
+
 ---
 
 ## Strategia testowania

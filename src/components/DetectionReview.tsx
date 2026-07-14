@@ -154,6 +154,11 @@ function AiResolutionButton({
     activeProviderIsAnthropic === false
       ? 'Rozwiąż przez AI — dodatkowa analiza AI (bez dostępu do internetu, wynik może być mniej trafny dla niszowych wydań)'
       : 'Rozwiąż przez AI (web search) — dodatkowa analiza AI (płatne, wymaga klucza Anthropic)';
+  // impl-review F3: koszt jest realnie $0 dla openai_compatible (costUsd zawsze
+  // 0 w resolveViaOpenAICompat) — hint musi to odzwierciedlać, nie twierdzić
+  // "płatne" bezwarunkowo jak przed poprawką.
+  const costHintText =
+    activeProviderIsAnthropic === false ? 'dodatkowa analiza AI' : 'dodatkowa analiza AI — płatne';
   return (
     <span className="inline-flex items-center gap-1">
       <button
@@ -170,13 +175,13 @@ function AiResolutionButton({
           data-testid="ai-resolution-cost-hint"
           className="text-[10px] leading-tight text-gray-400"
         >
-          dodatkowa analiza AI — płatne
+          {costHintText}
         </span>
       ) : (
         <span
           data-testid="ai-resolution-cost-hint"
-          title="dodatkowa analiza AI — płatne"
-          aria-label="dodatkowa analiza AI — płatne"
+          title={costHintText}
+          aria-label={costHintText}
           className="cursor-help text-xs text-gray-400"
         >
           ⓘ
