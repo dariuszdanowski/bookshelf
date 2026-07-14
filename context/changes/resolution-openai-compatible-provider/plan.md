@@ -344,8 +344,8 @@ Migracja czysto addytywna (nowe nullable kolumny) — brak ryzyka dla istniejąc
 
 #### Automatyczne
 
-- [x] 4.1 Testy AccountIsland dla nowych pól (jeśli dotyczy) + typecheck/lint/build
-- [x] 4.2 npm run test:e2e zielony (regresja account-keys + resolution flow)
+- [x] 4.1 Testy AccountIsland dla nowych pól (jeśli dotyczy) + typecheck/lint/build — 9e3cc2d
+- [x] 4.2 npm run test:e2e zielony (regresja account-keys + resolution flow) — 9e3cc2d
 
 #### Ręczne
 
