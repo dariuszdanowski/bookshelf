@@ -255,6 +255,34 @@ describe('detectSpines', () => {
     vi.unstubAllGlobals();
   });
 
+  // impl-review F1: resp.json() gdy body nie jest poprawnym JSON-em mimo 200 OK
+  // (typowe dla źle skonfigurowanego reverse-proxy self-hosted modelu) — nie
+  // powinno rzucać nieobsłużonego wyjątku, tylko zwrócić ok:false.
+  it('OpenAI-compat path: returns ok:false when response body is not valid JSON despite 200 OK', async () => {
+    const openaiConfig: VisionProviderConfig = {
+      provider: 'openai_compatible',
+      apiKey: 'sk-test',
+      baseUrl: 'https://custom.api.example.com',
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => {
+          throw new SyntaxError('Unexpected token < in JSON at position 0');
+        },
+      }),
+    );
+
+    const result = await detectSpines({ base64: 'img', mediaType: 'image/jpeg' }, openaiConfig);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe('parse_failure');
+
+    vi.unstubAllGlobals();
+  });
+
   it('OpenAI-compat path: uses custom baseUrl from config', async () => {
     const openaiConfig: VisionProviderConfig = {
       provider: 'openai_compatible',
@@ -273,6 +301,90 @@ describe('detectSpines', () => {
       'https://custom.example.com/v1/chat/completions',
       expect.objectContaining({ method: 'POST' }),
     );
+
+    vi.unstubAllGlobals();
+  });
+
+  it('OpenAI-compat path: uses maxTokensOverride in request body when set', async () => {
+    const openaiConfig: VisionProviderConfig = {
+      provider: 'openai_compatible',
+      apiKey: 'sk-test',
+      baseUrl: 'https://custom.example.com',
+      maxTokensOverride: 6000,
+    };
+    const mockFetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: JSON.stringify([validDetection]) } }] }),
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    await detectSpines({ base64: 'img', mediaType: 'image/jpeg' }, openaiConfig);
+
+    const call = mockFetch.mock.calls[0];
+    const body = JSON.parse(call[1].body);
+    expect(body.max_tokens).toBe(6000);
+
+    vi.unstubAllGlobals();
+  });
+
+  it('OpenAI-compat path: falls back to default MAX_TOKENS when no override', async () => {
+    const openaiConfig: VisionProviderConfig = {
+      provider: 'openai_compatible',
+      apiKey: 'sk-test',
+      baseUrl: 'https://custom.example.com',
+    };
+    const mockFetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: JSON.stringify([validDetection]) } }] }),
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    await detectSpines({ base64: 'img', mediaType: 'image/jpeg' }, openaiConfig);
+
+    const call = mockFetch.mock.calls[0];
+    const body = JSON.parse(call[1].body);
+    expect(body.max_tokens).toBe(4096);
+    expect(call[1].signal).toBeUndefined();
+
+    vi.unstubAllGlobals();
+  });
+
+  it('OpenAI-compat path: passes AbortSignal when requestTimeoutMs is set', async () => {
+    const openaiConfig: VisionProviderConfig = {
+      provider: 'openai_compatible',
+      apiKey: 'sk-test',
+      baseUrl: 'https://custom.example.com',
+      requestTimeoutMs: 5000,
+    };
+    const mockFetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ choices: [{ message: { content: JSON.stringify([validDetection]) } }] }),
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    await detectSpines({ base64: 'img', mediaType: 'image/jpeg' }, openaiConfig);
+
+    const call = mockFetch.mock.calls[0];
+    expect(call[1].signal).toBeInstanceOf(AbortSignal);
+
+    vi.unstubAllGlobals();
+  });
+
+  it('OpenAI-compat path: returns ok:false when fetch aborts (timeout exceeded)', async () => {
+    const openaiConfig: VisionProviderConfig = {
+      provider: 'openai_compatible',
+      apiKey: 'sk-test',
+      baseUrl: 'https://custom.example.com',
+      requestTimeoutMs: 100,
+    };
+    const abortError = new DOMException('The operation was aborted', 'AbortError');
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValueOnce(abortError));
+
+    const result = await detectSpines({ base64: 'img', mediaType: 'image/jpeg' }, openaiConfig);
+
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.reason).toBe('parse_failure');
 
     vi.unstubAllGlobals();
   });

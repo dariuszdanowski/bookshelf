@@ -141,20 +141,31 @@ function AiResolutionButton({
   busy,
   onClick,
   size = 'md',
+  activeProviderIsAnthropic = null,
 }: {
   busy: boolean;
   onClick: () => void;
   size?: 'lg' | 'md' | 'sm';
+  activeProviderIsAnthropic?: boolean | null;
 }) {
   const sizeCls = size === 'lg' ? 'px-3 py-1.5' : size === 'sm' ? 'px-2 py-1' : 'px-2.5 py-1';
   const label = busy ? 'Rozwiązuję...' : 'Rozwiąż przez AI';
+  const title =
+    activeProviderIsAnthropic === false
+      ? 'Rozwiąż przez AI — dodatkowa analiza AI (bez dostępu do internetu, wynik może być mniej trafny dla niszowych wydań)'
+      : 'Rozwiąż przez AI (web search) — dodatkowa analiza AI (płatne, wymaga klucza Anthropic)';
+  // impl-review F3: koszt jest realnie $0 dla openai_compatible (costUsd zawsze
+  // 0 w resolveViaOpenAICompat) — hint musi to odzwierciedlać, nie twierdzić
+  // "płatne" bezwarunkowo jak przed poprawką.
+  const costHintText =
+    activeProviderIsAnthropic === false ? 'dodatkowa analiza AI' : 'dodatkowa analiza AI — płatne';
   return (
     <span className="inline-flex items-center gap-1">
       <button
         data-testid="ai-resolution-button"
         disabled={busy}
         onClick={onClick}
-        title="Rozwiąż przez AI (web search) — dodatkowa analiza AI (płatne, wymaga klucza Anthropic)"
+        title={title}
         className={`rounded-md border border-purple-300 bg-purple-50 text-xs font-medium text-purple-700 hover:bg-purple-100 disabled:opacity-50 dark:border-purple-700 dark:bg-purple-900/20 dark:text-purple-300 dark:hover:bg-purple-900/40 ${sizeCls}`}
       >
         {label}
@@ -164,13 +175,13 @@ function AiResolutionButton({
           data-testid="ai-resolution-cost-hint"
           className="text-[10px] leading-tight text-gray-400"
         >
-          dodatkowa analiza AI — płatne
+          {costHintText}
         </span>
       ) : (
         <span
           data-testid="ai-resolution-cost-hint"
-          title="dodatkowa analiza AI — płatne"
-          aria-label="dodatkowa analiza AI — płatne"
+          title={costHintText}
+          aria-label={costHintText}
           className="cursor-help text-xs text-gray-400"
         >
           ⓘ
@@ -764,6 +775,36 @@ function useDetectionDecision(
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // resolution-openai-compatible-provider: aktywny provider ≠ anthropic → resolution
+  // idzie bez web_search (self-hosted model, tylko wiedza treningowa) — UI musi to
+  // sygnalizować zamiast twierdzić "wymaga klucza Anthropic"/"web search" na sztywno.
+  // Fetch tylko gdy AiResolutionButton faktycznie może się wyrenderować (brak
+  // kandydatów) — inaczej ten wywołanie konkuruje o kolejkę mockResolvedValueOnce()
+  // w istniejących testach confirm/reject/unreject, które nigdy nie renderują tego
+  // przycisku (przesuwałoby kolejkę i psuło niepowiązane assercje).
+  const [activeProviderIsAnthropic, setActiveProviderIsAnthropic] = useState<boolean | null>(null);
+  const hasNoCandidates = detection.candidates.length === 0;
+  useEffect(() => {
+    if (!hasNoCandidates) return;
+    let cancelled = false;
+    fetch('/api/account/keys')
+      .then(
+        (r) =>
+          r.json() as Promise<{ data?: { keys?: { is_active: boolean; provider: string }[] } }>,
+      )
+      .then((body) => {
+        if (cancelled) return;
+        const active = (body.data?.keys ?? []).find((k) => k.is_active);
+        setActiveProviderIsAnthropic(active ? active.provider === 'anthropic' : null);
+      })
+      .catch(() => {
+        /* silent — brak informacji o providerze nie blokuje resolution flow */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [hasNoCandidates]);
+
   const top = detection.candidates[0] ?? null;
   const alts = detection.candidates.slice(1);
   const activeCandidateId = selectedCandidateId ?? top?.id ?? null;
@@ -980,7 +1021,11 @@ function useDetectionDecision(
   // S-50: ostatni poziom kaskady — woła Claude z web_search (BYOK). Widoczne
   // wyłącznie gdy detection.candidates.length === 0 (renderowane w widokach).
   async function handleAiResolve() {
-    setBusyLabel('Rozwiązywanie przez AI (web search)...');
+    setBusyLabel(
+      activeProviderIsAnthropic === false
+        ? 'Rozwiązywanie przez AI...'
+        : 'Rozwiązywanie przez AI (web search)...',
+    );
     setBusy(true);
     setErrorMsg(null);
     try {
@@ -1072,6 +1117,7 @@ function useDetectionDecision(
     setConfirmAiResolve,
     handleRematch,
     handleCorrectSuccess,
+    activeProviderIsAnthropic,
   };
 }
 
@@ -1124,6 +1170,7 @@ function DetectionCard({
     setConfirmAiResolve,
     handleRematch,
     handleCorrectSuccess,
+    activeProviderIsAnthropic,
   } = useDetectionDecision(detection, onDecided, onRefined, onUndecided);
 
   if (state === 'decided') {
@@ -1503,7 +1550,12 @@ function DetectionCard({
             size="lg"
           />
           {(!top || top.matchScore < MATCH_MID) && (
-            <AiResolutionButton busy={busy} onClick={() => setConfirmAiResolve(true)} size="lg" />
+            <AiResolutionButton
+              busy={busy}
+              onClick={() => setConfirmAiResolve(true)}
+              size="lg"
+              activeProviderIsAnthropic={activeProviderIsAnthropic}
+            />
           )}
           <CorrectionHistoryPanel detectionId={detection.id} />
         </div>
@@ -1566,7 +1618,11 @@ function DetectionCard({
       <ConfirmDialog
         open={confirmAiResolve}
         title="Rozwiązać przez AI?"
-        message={`Uruchomi wyszukiwanie w sieci przez AI (Claude web_search) w oparciu o odczytany tytuł/autora. Operacja jest płatna i wymaga aktywnego klucza Anthropic.${top ? ' Zastąpi obecne (niepewne) propozycje.' : ''}`}
+        message={`${
+          activeProviderIsAnthropic === false
+            ? 'Uruchomi dodatkową analizę AI w oparciu o odczytany tytuł/autora (bez dostępu do internetu — wynik może być mniej trafny dla niszowych wydań).'
+            : 'Uruchomi wyszukiwanie w sieci przez AI (Claude web_search) w oparciu o odczytany tytuł/autora. Operacja jest płatna i wymaga aktywnego klucza Anthropic.'
+        }${top ? ' Zastąpi obecne (niepewne) propozycje.' : ''}`}
         confirmLabel="Rozwiąż przez AI"
         cancelLabel="Anuluj"
         testIdPrefix="ai-resolution-confirm"
@@ -1691,6 +1747,7 @@ export function DetectionRow({
     setConfirmAiResolve,
     handleRematch,
     handleCorrectSuccess,
+    activeProviderIsAnthropic,
   } = useDetectionDecision(detection, onDecided, onRefined, onUndecided);
 
   if (state === 'decided') {
@@ -1889,7 +1946,12 @@ export function DetectionRow({
           size="md"
         />
         {(!top || top.matchScore < MATCH_MID) && (
-          <AiResolutionButton busy={busy} onClick={() => setConfirmAiResolve(true)} size="md" />
+          <AiResolutionButton
+            busy={busy}
+            onClick={() => setConfirmAiResolve(true)}
+            size="md"
+            activeProviderIsAnthropic={activeProviderIsAnthropic}
+          />
         )}
         <CorrectionHistoryPanel detectionId={detection.id} />
       </div>
@@ -1955,7 +2017,11 @@ export function DetectionRow({
       <ConfirmDialog
         open={confirmAiResolve}
         title="Rozwiązać przez AI?"
-        message={`Uruchomi wyszukiwanie w sieci przez AI (Claude web_search) w oparciu o odczytany tytuł/autora. Operacja jest płatna i wymaga aktywnego klucza Anthropic.${top ? ' Zastąpi obecne (niepewne) propozycje.' : ''}`}
+        message={`${
+          activeProviderIsAnthropic === false
+            ? 'Uruchomi dodatkową analizę AI w oparciu o odczytany tytuł/autora (bez dostępu do internetu — wynik może być mniej trafny dla niszowych wydań).'
+            : 'Uruchomi wyszukiwanie w sieci przez AI (Claude web_search) w oparciu o odczytany tytuł/autora. Operacja jest płatna i wymaga aktywnego klucza Anthropic.'
+        }${top ? ' Zastąpi obecne (niepewne) propozycje.' : ''}`}
         confirmLabel="Rozwiąż przez AI"
         cancelLabel="Anuluj"
         testIdPrefix="ai-resolution-confirm"
@@ -2018,6 +2084,7 @@ export function DetectionTile({
     setConfirmAiResolve,
     handleRematch,
     handleCorrectSuccess,
+    activeProviderIsAnthropic,
   } = useDetectionDecision(detection, onDecided, onRefined, onUndecided);
 
   if (state === 'decided') {
@@ -2250,7 +2317,12 @@ export function DetectionTile({
           size="sm"
         />
         {(!top || top.matchScore < MATCH_MID) && (
-          <AiResolutionButton busy={busy} onClick={() => setConfirmAiResolve(true)} size="sm" />
+          <AiResolutionButton
+            busy={busy}
+            onClick={() => setConfirmAiResolve(true)}
+            size="sm"
+            activeProviderIsAnthropic={activeProviderIsAnthropic}
+          />
         )}
         <CorrectionHistoryPanel detectionId={detection.id} />
       </div>
@@ -2299,7 +2371,11 @@ export function DetectionTile({
       <ConfirmDialog
         open={confirmAiResolve}
         title="Rozwiązać przez AI?"
-        message={`Uruchomi wyszukiwanie w sieci przez AI (Claude web_search) w oparciu o odczytany tytuł/autora. Operacja jest płatna i wymaga aktywnego klucza Anthropic.${top ? ' Zastąpi obecne (niepewne) propozycje.' : ''}`}
+        message={`${
+          activeProviderIsAnthropic === false
+            ? 'Uruchomi dodatkową analizę AI w oparciu o odczytany tytuł/autora (bez dostępu do internetu — wynik może być mniej trafny dla niszowych wydań).'
+            : 'Uruchomi wyszukiwanie w sieci przez AI (Claude web_search) w oparciu o odczytany tytuł/autora. Operacja jest płatna i wymaga aktywnego klucza Anthropic.'
+        }${top ? ' Zastąpi obecne (niepewne) propozycje.' : ''}`}
         confirmLabel="Rozwiąż przez AI"
         cancelLabel="Anuluj"
         testIdPrefix="ai-resolution-confirm"
@@ -2511,6 +2587,12 @@ export default function DetectionReview({
   const [visionRun, setVisionRun] = useState<VisionRunMeta | null>(null);
   // M26: pełny koszt zdjęcia (vision + OCR) z API — etykieta przycisku kosztów
   const [costsTotalUsd, setCostsTotalUsd] = useState<number | null>(null);
+  // resolution-openai-compatible-provider: aktywny klucz BYOK widoczny w dialogu
+  // "Ponowić vision?" — user musi wiedzieć KTÓRY klucz/provider poniesie koszt
+  // przed potwierdzeniem uruchomienia nowego runu.
+  const [activeKeyInfo, setActiveKeyInfo] = useState<{ label: string; provider: string } | null>(
+    null,
+  );
   const [actionBusy, setActionBusy] = useState(false);
   const [actionBusyLabel, setActionBusyLabel] = useState<string | null>(null);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
@@ -2819,6 +2901,24 @@ export default function DetectionReview({
   }
 
   function handleRerunVisionClick() {
+    // resolution-openai-compatible-provider: lazy fetch przy otwarciu dialogu (nie na
+    // mount) — inaczej ten fetch konkuruje o kolejkę mockResolvedValueOnce() w
+    // testach, które nigdy nie klikają "Ponów vision" (patrz analogiczna notatka
+    // przy useDetectionDecision).
+    fetch('/api/account/keys')
+      .then(
+        (r) =>
+          r.json() as Promise<{
+            data?: { keys?: { is_active: boolean; label: string; provider: string }[] };
+          }>,
+      )
+      .then((body) => {
+        const active = (body.data?.keys ?? []).find((k) => k.is_active);
+        setActiveKeyInfo(active ? { label: active.label, provider: active.provider } : null);
+      })
+      .catch(() => {
+        /* silent — brak informacji o kluczu nie blokuje rerun flow */
+      });
     setConfirmRerunOpen(true);
   }
 
@@ -2878,7 +2978,10 @@ export default function DetectionReview({
       : photo?.vision_cost_usd != null || photo?.vision_latency_ms != null
         ? 'na bazie cache zdjęcia'
         : 'wartość orientacyjna';
-  const rerunConfirmMessage = `Uruchomimy nowy vision run. Poprzednie wyniki zostaną w historii. Szacowany koszt: ${formatCostEstimate(estimatedCost)} i czas: ${formatDurationEstimate(estimatedLatencyMs)} (${estimateSource}).`;
+  const keyInfoLine = activeKeyInfo
+    ? `Klucz: ${activeKeyInfo.label} (${activeKeyInfo.provider}). `
+    : '';
+  const rerunConfirmMessage = `${keyInfoLine}Uruchomimy nowy vision run. Poprzednie wyniki zostaną w historii. Szacowany koszt: ${formatCostEstimate(estimatedCost)} i czas: ${formatDurationEstimate(estimatedLatencyMs)} (${estimateSource}).`;
 
   function handleRerunMatch() {
     setActionBusyLabel('Dopasowywanie do baz książek...');

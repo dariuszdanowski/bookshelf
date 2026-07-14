@@ -160,4 +160,143 @@ describe('resolveBookViaAI', () => {
     expect(call.messages[0].content).toContain('Stanisław Lem');
     expect(call.messages[0].content).toContain('Wydawnictwo Literackie');
   });
+
+  it('brak provider w configu → fallback na anthropic (regresja istniejącego zachowania)', async () => {
+    mockCreate.mockResolvedValueOnce(
+      makeResponse(JSON.stringify({ status: 'not_found', reason: null })),
+    );
+
+    const outcome = await resolveBookViaAI(query, { apiKey: 'sk-test' });
+
+    expect(outcome.ok).toBe(true);
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('resolveBookViaAI — openai_compatible branch', () => {
+  const openaiCompatConfig = {
+    provider: 'openai_compatible' as const,
+    apiKey: 'sk-test',
+    baseUrl: 'https://relay.example.com',
+  };
+
+  it('happy path: zwraca found, costUsd=0, searchCount=0', async () => {
+    const validJson = JSON.stringify({
+      status: 'found',
+      title: 'Solaris',
+      authors: ['Stanisław Lem'],
+      isbn10: null,
+      isbn13: null,
+      publisher: null,
+      publishedYear: 1961,
+      confidence: 0.9,
+    });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ choices: [{ message: { content: validJson } }] }),
+      }),
+    );
+
+    const outcome = await resolveBookViaAI(query, openaiCompatConfig);
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.status).toBe('found');
+    expect(outcome.costUsd).toBe(0);
+    expect(outcome.searchCount).toBe(0);
+    expect(mockCreate).not.toHaveBeenCalled();
+
+    vi.unstubAllGlobals();
+  });
+
+  it('zwraca parse_failure gdy odpowiedź nie jest poprawnym JSON', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ choices: [{ message: { content: 'not valid json' } }] }),
+      }),
+    );
+
+    const outcome = await resolveBookViaAI(query, openaiCompatConfig);
+
+    expect(outcome.ok).toBe(false);
+    if (outcome.ok) return;
+    expect(outcome.reason).toBe('parse_failure');
+
+    vi.unstubAllGlobals();
+  });
+
+  it('zwraca api_error gdy HTTP error', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValueOnce({ ok: false, status: 401, text: async () => 'Unauthorized' }),
+    );
+
+    const outcome = await resolveBookViaAI(query, openaiCompatConfig);
+
+    expect(outcome.ok).toBe(false);
+    if (outcome.ok) return;
+    expect(outcome.reason).toBe('api_error');
+
+    vi.unstubAllGlobals();
+  });
+
+  it('zwraca api_error gdy fetch odrzuca (timeout/AbortError)', async () => {
+    const abortError = new DOMException('The operation was aborted', 'AbortError');
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValueOnce(abortError));
+
+    const outcome = await resolveBookViaAI(query, { ...openaiCompatConfig, requestTimeoutMs: 100 });
+
+    expect(outcome.ok).toBe(false);
+    if (outcome.ok) return;
+    expect(outcome.reason).toBe('api_error');
+
+    vi.unstubAllGlobals();
+  });
+
+  it('używa custom baseUrl i maxTokensOverride z configu', async () => {
+    const mockFetch = vi.fn().mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        choices: [{ message: { content: JSON.stringify({ status: 'not_found', reason: null }) } }],
+      }),
+    });
+    vi.stubGlobal('fetch', mockFetch);
+
+    await resolveBookViaAI(query, { ...openaiCompatConfig, maxTokensOverride: 5000 });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://relay.example.com/v1/chat/completions',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body);
+    expect(body.max_tokens).toBe(5000);
+    expect(body.tools).toBeUndefined();
+
+    vi.unstubAllGlobals();
+  });
+
+  it('wyciąga ostatni blok JSON gdy model dołącza tekst przed odpowiedzią', async () => {
+    const json = JSON.stringify({ status: 'not_found', reason: 'brak pewności' });
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: `Oto co znalazłem.${json}` } }],
+        }),
+      }),
+    );
+
+    const outcome = await resolveBookViaAI(query, openaiCompatConfig);
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.status).toBe('not_found');
+
+    vi.unstubAllGlobals();
+  });
 });

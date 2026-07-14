@@ -427,10 +427,15 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
       const completedAt = new Date().toISOString();
 
       // 7. Mark vision_run as succeeded
+      // model: nadpisuje placeholder VISION_MODEL wstawiony przy insert (krok 2) —
+      // dla BYOK openai_compatible realny model różni się od hardcodowanego
+      // Anthropic defaultu, więc bez tego "Analiza kosztów" pokazywała stały,
+      // błędny model niezależnie od tego, co faktycznie odpowiedziało.
       await locals.supabase
         .from('vision_runs')
         .update({
           status: 'succeeded',
+          model: visionResult.model,
           cost_usd: visionResult.costUsd,
           latency_ms: visionResult.latencyMs,
           completed_at: completedAt,

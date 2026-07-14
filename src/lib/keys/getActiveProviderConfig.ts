@@ -10,7 +10,7 @@ export async function getActiveProviderConfig(
 ): Promise<VisionProviderConfig | null> {
   const { data: row, error } = await supabase
     .from('user_api_keys')
-    .select('id, provider, encrypted_key, model, base_url')
+    .select('id, provider, encrypted_key, model, base_url, request_timeout_ms, max_tokens_override')
     .eq('user_id', userId)
     .eq('is_active', true)
     .maybeSingle();
@@ -40,5 +40,7 @@ export async function getActiveProviderConfig(
     baseUrl: row.base_url,
     // M27: id klucza do atrybucji kosztów (vision_runs/refine_calls.api_key_id)
     keyId: row.id,
+    requestTimeoutMs: row.request_timeout_ms,
+    maxTokensOverride: row.max_tokens_override,
   };
 }

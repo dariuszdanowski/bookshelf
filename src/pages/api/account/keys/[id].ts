@@ -7,7 +7,8 @@ import { apiError, apiResponse, parseUuidParam } from '../../../../lib/http/resp
 
 export const prerender = false;
 
-const KEY_SELECT = 'id,label,provider,model,base_url,is_active,last_tested_at,last_test_result,created_at';
+const KEY_SELECT =
+  'id,label,provider,model,base_url,is_active,last_tested_at,last_test_result,created_at,request_timeout_ms,max_tokens_override';
 
 /**
  * PATCH /api/account/keys/[id]
@@ -59,7 +60,11 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
       message: fetchError.message,
       code: fetchError.code,
     });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się zaktualizować klucza.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się zaktualizować klucza.',
+    });
   }
 
   if (parsed.data.is_active === true) {
@@ -76,7 +81,11 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
         message: deactivateError.message,
         code: deactivateError.code,
       });
-      return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się zaktualizować klucza.' });
+      return apiError({
+        code: 'INTERNAL_ERROR',
+        status: 500,
+        message: 'Nie udało się zaktualizować klucza.',
+      });
     }
   }
 
@@ -87,12 +96,18 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
     model?: string | null;
     base_url?: string | null;
     encrypted_key?: string;
+    request_timeout_ms?: number | null;
+    max_tokens_override?: number | null;
   } = {};
   if (parsed.data.label !== undefined) updatePayload.label = parsed.data.label;
   if (parsed.data.is_active !== undefined) updatePayload.is_active = parsed.data.is_active;
   if (parsed.data.provider !== undefined) updatePayload.provider = parsed.data.provider;
   if (parsed.data.model !== undefined) updatePayload.model = parsed.data.model ?? null;
   if (parsed.data.base_url !== undefined) updatePayload.base_url = parsed.data.base_url ?? null;
+  if (parsed.data.request_timeout_ms !== undefined)
+    updatePayload.request_timeout_ms = parsed.data.request_timeout_ms ?? null;
+  if (parsed.data.max_tokens_override !== undefined)
+    updatePayload.max_tokens_override = parsed.data.max_tokens_override ?? null;
   if (parsed.data.key_value !== undefined) {
     updatePayload.encrypted_key = await encryptWithEnvKey(parsed.data.key_value);
   }
@@ -121,7 +136,11 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
       message: updateError.message,
       code: updateError.code,
     });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się zaktualizować klucza.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się zaktualizować klucza.',
+    });
   }
 
   return apiResponse({ data: { key: data } });
@@ -153,7 +172,11 @@ export const DELETE: APIRoute = async ({ params, locals }) => {
       message: error.message,
       code: error.code,
     });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się usunąć klucza.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się usunąć klucza.',
+    });
   }
 
   if (count === 0) {

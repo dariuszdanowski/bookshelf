@@ -104,7 +104,7 @@ const SOURCE_LABELS: Record<string, string> = {
   open_library: 'OpenLibrary',
   national_library: 'Biblioteka Narodowa',
   manual: 'Wpis ręczny',
-  ai_resolution: 'AI (web search)',
+  ai_resolution: 'AI (automatyczne rozwiązanie)',
 };
 
 // ---------------------------------------------------------------------------

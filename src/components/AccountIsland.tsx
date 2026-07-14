@@ -68,6 +68,7 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
     label: '',
     provider: 'anthropic',
     key_value: '',
+    base_url: undefined,
   });
   const [addError, setAddError] = useState<string | null>(null);
   const [addLoading, setAddLoading] = useState(false);
@@ -82,7 +83,17 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
     model: string;
     base_url: string;
     key_value: string;
-  }>({ label: '', provider: 'anthropic', model: '', base_url: '', key_value: '' });
+    request_timeout_ms: string;
+    max_tokens_override: string;
+  }>({
+    label: '',
+    provider: 'anthropic',
+    model: '',
+    base_url: '',
+    key_value: '',
+    request_timeout_ms: '',
+    max_tokens_override: '',
+  });
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   // Błąd akcji wierszowych (aktywuj/dezaktywuj/usuń) — wcześniej połykany po cichu.
@@ -245,7 +256,7 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
       if (res.ok && 'data' in json) {
         setKeys((prev) => [...prev, json.data.key]);
         setAddOpen(false);
-        setAddForm({ label: '', provider: 'anthropic', key_value: '' });
+        setAddForm({ label: '', provider: 'anthropic', key_value: '', base_url: undefined });
       } else {
         const err = json as KeyErr;
         setAddError(err.error?.message ?? 'Nie udało się dodać klucza.');
@@ -356,6 +367,8 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
       model: key.model ?? '',
       base_url: key.base_url ?? '',
       key_value: '',
+      request_timeout_ms: key.request_timeout_ms != null ? String(key.request_timeout_ms) : '',
+      max_tokens_override: key.max_tokens_override != null ? String(key.max_tokens_override) : '',
     });
     setEditError(null);
   }
@@ -366,6 +379,12 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
     const body: Record<string, unknown> = { label: editForm.label, provider: editForm.provider };
     body.model = editForm.model || null;
     body.base_url = editForm.base_url || null;
+    body.request_timeout_ms = editForm.request_timeout_ms
+      ? Number(editForm.request_timeout_ms)
+      : null;
+    body.max_tokens_override = editForm.max_tokens_override
+      ? Number(editForm.max_tokens_override)
+      : null;
     if (editForm.key_value) body.key_value = editForm.key_value;
     try {
       const res = await fetch(`/api/account/keys/${id}`, {
@@ -726,6 +745,50 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
                 data-testid="account-keys-model-input"
               />
             </div>
+            {addForm.provider !== 'anthropic' && (
+              <>
+                <div>
+                  <label htmlFor="key_timeout" className="block text-sm font-medium">
+                    Timeout żądania w ms (opcjonalnie)
+                  </label>
+                  <input
+                    id="key_timeout"
+                    type="number"
+                    min={1}
+                    value={addForm.request_timeout_ms ?? ''}
+                    onChange={(e) =>
+                      setAddForm((f) => ({
+                        ...f,
+                        request_timeout_ms: e.target.value ? Number(e.target.value) : undefined,
+                      }))
+                    }
+                    className={`mt-1 ${inputCls}`}
+                    placeholder="domyślnie: bez limitu czasu"
+                    data-testid="account-keys-timeout-input"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="key_max_tokens" className="block text-sm font-medium">
+                    Limit tokenów odpowiedzi (opcjonalnie)
+                  </label>
+                  <input
+                    id="key_max_tokens"
+                    type="number"
+                    min={1}
+                    value={addForm.max_tokens_override ?? ''}
+                    onChange={(e) =>
+                      setAddForm((f) => ({
+                        ...f,
+                        max_tokens_override: e.target.value ? Number(e.target.value) : undefined,
+                      }))
+                    }
+                    className={`mt-1 ${inputCls}`}
+                    placeholder="domyślnie: 2048-4096 tokenów"
+                    data-testid="account-keys-max-tokens-input"
+                  />
+                </div>
+              </>
+            )}
             <div>
               <label htmlFor="key_value" className="block text-sm font-medium">
                 Klucz API
@@ -759,7 +822,12 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
                 onClick={() => {
                   setAddOpen(false);
                   setAddError(null);
-                  setAddForm({ label: '', provider: 'anthropic', key_value: '' });
+                  setAddForm({
+                    label: '',
+                    provider: 'anthropic',
+                    key_value: '',
+                    base_url: undefined,
+                  });
                 }}
                 className="rounded border border-gray-300 px-4 py-2 text-sm dark:border-gray-600"
                 data-testid="account-keys-add-cancel"
@@ -855,6 +923,42 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
                       data-testid={`account-key-edit-model-${key.id}`}
                     />
                   </div>
+                  {editForm.provider !== 'anthropic' && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium">
+                          Timeout żądania w ms (opcjonalnie)
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={editForm.request_timeout_ms}
+                          onChange={(e) =>
+                            setEditForm((f) => ({ ...f, request_timeout_ms: e.target.value }))
+                          }
+                          className={`mt-1 ${inputCls}`}
+                          placeholder="domyślnie: bez limitu czasu"
+                          data-testid={`account-key-edit-timeout-${key.id}`}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium">
+                          Limit tokenów odpowiedzi (opcjonalnie)
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          value={editForm.max_tokens_override}
+                          onChange={(e) =>
+                            setEditForm((f) => ({ ...f, max_tokens_override: e.target.value }))
+                          }
+                          className={`mt-1 ${inputCls}`}
+                          placeholder="domyślnie: 2048-4096 tokenów"
+                          data-testid={`account-key-edit-max-tokens-${key.id}`}
+                        />
+                      </div>
+                    </>
+                  )}
                   <div>
                     <label className="block text-sm font-medium">
                       Nowy klucz API (opcjonalnie)

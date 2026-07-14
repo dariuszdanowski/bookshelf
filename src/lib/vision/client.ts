@@ -22,6 +22,9 @@ export type VisionProviderConfig = {
   baseUrl?: string | null;
   /** M27: id klucza (user_api_keys.id) do atrybucji kosztów per klucz */
   keyId?: string | null;
+  /** resolution-openai-compatible-provider: per-klucz override timeoutu/limitu tokenów dla openai-compat brancha */
+  requestTimeoutMs?: number | null;
+  maxTokensOverride?: number | null;
 };
 
 async function makeClient(apiKey: string) {
@@ -105,36 +108,67 @@ async function detectSpinesOpenAICompat(
 ): Promise<{ ok: true; text: string } | { ok: false }> {
   const baseUrl = config.baseUrl ?? 'https://api.openai.com';
   const model = config.model ?? DEFAULT_OPENAI_COMPAT_MODEL;
-  const resp = await fetch(`${baseUrl}/v1/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${config.apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: MAX_TOKENS,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'image_url',
-              image_url: { url: `data:${input.mediaType};base64,${input.base64}` },
-            },
-            { type: 'text', text: userText },
-          ],
-        },
-      ],
-    }),
-  });
+
+  // resolution-openai-compatible-provider: per-klucz timeout — self-hosted modele
+  // "thinking" (Qwen3-family) mogą wisieć bez odpowiedzi; brak timeoutu = brak abortu (jak dziś).
+  const controller = config.requestTimeoutMs != null ? new AbortController() : null;
+  const timeoutId =
+    controller && config.requestTimeoutMs != null
+      ? setTimeout(() => controller.abort(), config.requestTimeoutMs)
+      : null;
+
+  let resp: Response;
+  try {
+    resp = await fetch(`${baseUrl}/v1/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${config.apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: config.maxTokensOverride ?? MAX_TOKENS,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'image_url',
+                image_url: { url: `data:${input.mediaType};base64,${input.base64}` },
+              },
+              { type: 'text', text: userText },
+            ],
+          },
+        ],
+      }),
+      signal: controller?.signal,
+    });
+  } catch (err) {
+    console.error(
+      '[vision:openai-compat:fetch-error]',
+      err instanceof Error ? err.message : String(err),
+    );
+    return { ok: false };
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+
   if (!resp.ok) {
     const body = await resp.text().catch(() => '');
     console.error('[vision:openai-compat:http-error]', { status: resp.status, body });
     return { ok: false };
   }
-  const json = await resp.json();
+  let json: unknown;
+  try {
+    json = await resp.json();
+  } catch (err) {
+    console.error(
+      '[vision:openai-compat:invalid-json]',
+      err instanceof Error ? err.message : String(err),
+    );
+    return { ok: false };
+  }
   const content: unknown = (json as { choices?: { message?: { content?: unknown } }[] })
     ?.choices?.[0]?.message?.content;
   if (typeof content !== 'string') {

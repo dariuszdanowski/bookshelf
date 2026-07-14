@@ -7,7 +7,8 @@ import { apiError, apiResponse } from '../../../../lib/http/response';
 
 export const prerender = false;
 
-const KEY_SELECT = 'id,label,provider,model,base_url,is_active,last_tested_at,last_test_result,created_at';
+const KEY_SELECT =
+  'id,label,provider,model,base_url,is_active,last_tested_at,last_test_result,created_at,request_timeout_ms,max_tokens_override';
 
 /**
  * GET /api/account/keys
@@ -30,7 +31,11 @@ export const GET: APIRoute = async ({ locals }) => {
       message: error.message,
       code: error.code,
     });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się pobrać kluczy.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się pobrać kluczy.',
+    });
   }
 
   return apiResponse({ data: { keys: data } });
@@ -63,7 +68,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     });
   }
 
-  const { label, provider, key_value, model, base_url } = parsed.data;
+  const { label, provider, key_value, model, base_url, request_timeout_ms, max_tokens_override } =
+    parsed.data;
   const encrypted_key = await encryptWithEnvKey(key_value);
 
   const { data, error } = await locals.supabase
@@ -74,6 +80,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
       provider,
       model: model ?? null,
       base_url: base_url ?? null,
+      request_timeout_ms: request_timeout_ms ?? null,
+      max_tokens_override: max_tokens_override ?? null,
       encrypted_key,
     })
     .select(KEY_SELECT)
@@ -81,14 +89,22 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   if (error) {
     if (error.code === '23505') {
-      return apiError({ code: 'VALIDATION_ERROR', status: 400, message: 'Klucz z tymi danymi już istnieje.' });
+      return apiError({
+        code: 'VALIDATION_ERROR',
+        status: 400,
+        message: 'Klucz z tymi danymi już istnieje.',
+      });
     }
     console.error('[api/account/keys POST] supabase insert failed', {
       name: error.name,
       message: error.message,
       code: error.code,
     });
-    return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Nie udało się dodać klucza.' });
+    return apiError({
+      code: 'INTERNAL_ERROR',
+      status: 500,
+      message: 'Nie udało się dodać klucza.',
+    });
   }
 
   return apiResponse({ data: { key: data }, status: 201 });

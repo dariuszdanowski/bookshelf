@@ -291,3 +291,135 @@ describe('AccountIsland — koszty per klucz (M27)', () => {
     expect(screen.getByTestId(`account-key-cost-${KEY_B}`)).toHaveTextContent('$0.0000');
   });
 });
+
+// ---------------------------------------------------------------------------
+// resolution-openai-compatible-provider: pola request_timeout_ms / max_tokens_override
+// w formularzach add/edit klucza (widoczne tylko dla providera != anthropic).
+// ---------------------------------------------------------------------------
+
+describe('AccountIsland — formularz kluczy: timeout/max_tokens (resolution-openai-compatible-provider)', () => {
+  const KEY_ID = '00000000-0000-4000-8000-00000000cccc';
+
+  function stubKeysRoute(keys: unknown[]) {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const u = String(input);
+        if (u.includes('/api/account/stats')) {
+          return { ok: true, json: async () => MOCK_STATS };
+        }
+        if (u.includes('/api/account/keys') && (!init || init.method === undefined)) {
+          return { ok: true, json: async () => ({ data: { keys } }) };
+        }
+        if (u.includes('/api/account/keys') && init?.method === 'POST') {
+          const body = JSON.parse(String(init.body));
+          return { ok: true, json: async () => ({ data: { key: { id: 'new-key', ...body } } }) };
+        }
+        if (u.includes('/api/account/keys') && init?.method === 'PATCH') {
+          return { ok: true, json: async () => ({ data: { key: {} } }) };
+        }
+        return { ok: true, json: async () => ({ data: {} }) };
+      }),
+    );
+  }
+
+  it('pola timeout/max_tokens niewidoczne dla providera anthropic, widoczne po zmianie na openai_compatible', async () => {
+    stubKeysRoute([]);
+    render(<AccountIsland initialDisplayName={INITIAL_DISPLAY_NAME} userEmail={USER_EMAIL} />);
+
+    fireEvent.click(screen.getByTestId('account-keys-add-btn'));
+    expect(screen.queryByTestId('account-keys-timeout-input')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByTestId('account-keys-provider-select'), {
+      target: { value: 'openai_compatible' },
+    });
+
+    expect(screen.getByTestId('account-keys-timeout-input')).toBeInTheDocument();
+    expect(screen.getByTestId('account-keys-max-tokens-input')).toBeInTheDocument();
+  });
+
+  it('wysyła request_timeout_ms i max_tokens_override w POST przy dodawaniu klucza', async () => {
+    stubKeysRoute([]);
+    render(<AccountIsland initialDisplayName={INITIAL_DISPLAY_NAME} userEmail={USER_EMAIL} />);
+
+    fireEvent.click(screen.getByTestId('account-keys-add-btn'));
+    fireEvent.change(screen.getByTestId('account-keys-label-input'), {
+      target: { value: 'Self-hosted relay' },
+    });
+    fireEvent.change(screen.getByTestId('account-keys-provider-select'), {
+      target: { value: 'openai_compatible' },
+    });
+    fireEvent.change(screen.getByTestId('account-keys-base-url-input'), {
+      target: { value: 'https://relay.example.com' },
+    });
+    fireEvent.change(screen.getByTestId('account-keys-value-input'), {
+      target: { value: 'sk-relay' },
+    });
+    fireEvent.change(screen.getByTestId('account-keys-timeout-input'), {
+      target: { value: '60000' },
+    });
+    fireEvent.change(screen.getByTestId('account-keys-max-tokens-input'), {
+      target: { value: '4000' },
+    });
+    fireEvent.click(screen.getByTestId('account-keys-add-submit'));
+
+    await waitFor(() => {
+      const postCall = vi
+        .mocked(fetch)
+        .mock.calls.find(
+          (c) =>
+            String(c[0]).includes('/api/account/keys') && (c[1] as RequestInit)?.method === 'POST',
+        );
+      expect(postCall).toBeDefined();
+      const body = JSON.parse(String((postCall?.[1] as RequestInit).body));
+      expect(body.request_timeout_ms).toBe(60000);
+      expect(body.max_tokens_override).toBe(4000);
+    });
+  });
+
+  it('formularz edycji pokazuje istniejące wartości timeout/max_tokens i wysyła je w PATCH', async () => {
+    stubKeysRoute([
+      {
+        id: KEY_ID,
+        label: 'Self-hosted relay',
+        provider: 'openai_compatible',
+        model: 'qwen',
+        base_url: 'https://relay.example.com',
+        is_active: false,
+        last_tested_at: null,
+        last_test_result: null,
+        created_at: '2026-07-01T10:00:00Z',
+        request_timeout_ms: 90000,
+        max_tokens_override: 5000,
+      },
+    ]);
+    render(<AccountIsland initialDisplayName={INITIAL_DISPLAY_NAME} userEmail={USER_EMAIL} />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId(`account-key-edit-btn-${KEY_ID}`)).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByTestId(`account-key-edit-btn-${KEY_ID}`));
+
+    const timeoutInput = screen.getByTestId(
+      `account-key-edit-timeout-${KEY_ID}`,
+    ) as HTMLInputElement;
+    const maxTokensInput = screen.getByTestId(
+      `account-key-edit-max-tokens-${KEY_ID}`,
+    ) as HTMLInputElement;
+    expect(timeoutInput.value).toBe('90000');
+    expect(maxTokensInput.value).toBe('5000');
+
+    fireEvent.change(timeoutInput, { target: { value: '30000' } });
+    fireEvent.click(screen.getByTestId(`account-key-edit-save-${KEY_ID}`));
+
+    await waitFor(() => {
+      const patchCall = vi
+        .mocked(fetch)
+        .mock.calls.find((c) => (c[1] as RequestInit)?.method === 'PATCH');
+      expect(patchCall).toBeDefined();
+      const body = JSON.parse(String((patchCall?.[1] as RequestInit).body));
+      expect(body.request_timeout_ms).toBe(30000);
+      expect(body.max_tokens_override).toBe(5000);
+    });
+  });
+});
