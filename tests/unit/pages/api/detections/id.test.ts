@@ -43,9 +43,20 @@ const candidateRow = {
   publisher: 'Harvest',
   published_year: 1961,
   cover_url: null,
+  description: null,
+  edited_at: null as string | null,
+  purchase_date: null as string | null,
+  purchase_price: null as number | null,
+  purchase_city: null as string | null,
+  purchase_event: null as string | null,
 };
 
-const photoRow = { shelf_id: SHELF_ID };
+const photoRow = {
+  shelf_id: SHELF_ID,
+  purchase_date: null as string | null,
+  purchase_city: null as string | null,
+  purchase_event: null as string | null,
+};
 
 // ---------------------------------------------------------------------------
 // Helpers — konteksty
@@ -172,7 +183,11 @@ describe('POST /api/detections/[id]/confirm', () => {
   });
 
   it('409 gdy helper zwraca duplicate z shelfHint', async () => {
-    mockConfirmDetectionToCatalog.mockResolvedValue({ ok: false, reason: 'duplicate', shelfHint: 'Salon' });
+    mockConfirmDetectionToCatalog.mockResolvedValue({
+      ok: false,
+      reason: 'duplicate',
+      shelfHint: 'Salon',
+    });
     const ctx = makeContext({});
     const res = await confirmPost(ctx);
     expect(res.status).toBe(409);
@@ -205,7 +220,81 @@ describe('POST /api/detections/[id]/confirm', () => {
     expect(mockConfirmDetectionToCatalog).toHaveBeenCalledWith(
       expect.anything(),
       USER_ID,
-      expect.objectContaining({ correctionType: 'accept' })
+      expect.objectContaining({ correctionType: 'accept' }),
+    );
+  });
+
+  it('woła helper z correctionType field_edit gdy kandydat ma edited_at (był edytowany)', async () => {
+    const ctx = makeContext({
+      candResult: {
+        data: {
+          ...candidateRow,
+          edited_at: '2026-07-14T10:00:00.000Z',
+          title: 'Solaris (poprawiony)',
+        },
+        error: null,
+      },
+    });
+    await confirmPost(ctx);
+    expect(mockConfirmDetectionToCatalog).toHaveBeenCalledWith(
+      expect.anything(),
+      USER_ID,
+      expect.objectContaining({
+        correctionType: 'field_edit',
+        correctedFields: { title: 'Solaris (poprawiony)', authors: ['Stanisław Lem'] },
+      }),
+    );
+  });
+
+  it('purchase_date/city/event: fallback kandydat → photo → null', async () => {
+    const ctx = makeContext({
+      candResult: {
+        data: { ...candidateRow, purchase_city: 'Kraków' },
+        error: null,
+      },
+      photoResult: {
+        data: {
+          ...photoRow,
+          purchase_date: '2026-01-01',
+          purchase_city: 'Warszawa',
+          purchase_event: 'Kiermasz',
+        },
+        error: null,
+      },
+    });
+    await confirmPost(ctx);
+    expect(mockConfirmDetectionToCatalog).toHaveBeenCalledWith(
+      expect.anything(),
+      USER_ID,
+      expect.objectContaining({
+        book: expect.objectContaining({
+          purchase_date: '2026-01-01',
+          purchase_city: 'Kraków',
+          purchase_event: 'Kiermasz',
+        }),
+      }),
+    );
+  });
+
+  it('purchase_price: tylko z kandydata, bez fallbacku do photo (kolumna nie istnieje na photos)', async () => {
+    const ctx = makeContext({
+      candResult: { data: { ...candidateRow, purchase_price: 42.5 }, error: null },
+    });
+    await confirmPost(ctx);
+    expect(mockConfirmDetectionToCatalog).toHaveBeenCalledWith(
+      expect.anything(),
+      USER_ID,
+      expect.objectContaining({ book: expect.objectContaining({ purchase_price: 42.5 }) }),
+    );
+  });
+
+  it('purchase_price: null gdy kandydat go nie ma', async () => {
+    const ctx = makeContext({});
+    await confirmPost(ctx);
+    expect(mockConfirmDetectionToCatalog).toHaveBeenCalledWith(
+      expect.anything(),
+      USER_ID,
+      expect.objectContaining({ book: expect.objectContaining({ purchase_price: null }) }),
     );
   });
 
@@ -340,7 +429,7 @@ describe('POST /api/detections/[id]/unreject', () => {
 
   it('500 gdy update DB pada', async () => {
     const res = await unrejectPost(
-      makeUnrejectContext({ updateError: { name: 'PostgrestError', message: 'boom' } })
+      makeUnrejectContext({ updateError: { name: 'PostgrestError', message: 'boom' } }),
     );
     expect(res.status).toBe(500);
   });
@@ -357,19 +446,13 @@ describe('POST /api/detections/[id]/unreject', () => {
 
 describe('POST /api/detections/[id]/correct', () => {
   it('401 gdy brak użytkownika', async () => {
-    const ctx = makeContext({ user: false, body: { mode: 'field_edit', candidate_id: CAND_ID, title: 'T' } });
+    const ctx = makeContext({ user: false, body: { mode: 'manual_entry', title: 'T' } });
     const res = await correctPost(ctx);
     expect(res.status).toBe(401);
   });
 
   it('400 gdy brakuje mode w body', async () => {
-    const ctx = makeContext({ body: { candidate_id: CAND_ID, title: 'T' } });
-    const res = await correctPost(ctx);
-    expect(res.status).toBe(400);
-  });
-
-  it('400 gdy field_edit bez candidate_id', async () => {
-    const ctx = makeContext({ body: { mode: 'field_edit', title: 'T' } });
+    const ctx = makeContext({ body: { title: 'T' } });
     const res = await correctPost(ctx);
     expect(res.status).toBe(400);
   });
@@ -380,17 +463,12 @@ describe('POST /api/detections/[id]/correct', () => {
     expect(res.status).toBe(400);
   });
 
-  it('200 przy field_edit — woła helper z field_edit', async () => {
+  it('400 gdy mode=field_edit (wariant usunięty — candidate-propose-edit-all-fields)', async () => {
     const ctx = makeContext({
-      body: { mode: 'field_edit', candidate_id: CAND_ID, title: 'Poprawiony tytuł' },
+      body: { mode: 'field_edit', candidate_id: CAND_ID, title: 'T' },
     });
     const res = await correctPost(ctx);
-    expect(res.status).toBe(200);
-    expect(mockConfirmDetectionToCatalog).toHaveBeenCalledWith(
-      expect.anything(),
-      USER_ID,
-      expect.objectContaining({ correctionType: 'field_edit' })
-    );
+    expect(res.status).toBe(400);
   });
 
   it('200 przy manual_entry — source=manual, woła helper z manual_entry', async () => {
@@ -404,24 +482,24 @@ describe('POST /api/detections/[id]/correct', () => {
       USER_ID,
       expect.objectContaining({
         correctionType: 'manual_entry',
-        book: expect.objectContaining({ source: 'manual' }),
-      })
+        book: expect.objectContaining({ source: 'manual', purchase_price: null }),
+      }),
     );
   });
 
   it('409 przy duplicate', async () => {
     mockConfirmDetectionToCatalog.mockResolvedValue({ ok: false, reason: 'duplicate' });
     const ctx = makeContext({
-      body: { mode: 'field_edit', candidate_id: CAND_ID, title: 'T' },
+      body: { mode: 'manual_entry', title: 'T' },
     });
     const res = await correctPost(ctx);
     expect(res.status).toBe(409);
   });
 
-  it('404 gdy kandydat nie należy do detekcji (field_edit)', async () => {
+  it('404 gdy zdjęcie nie istnieje', async () => {
     const ctx = makeContext({
-      body: { mode: 'field_edit', candidate_id: CAND_ID, title: 'T' },
-      candResult: { data: null, error: null },
+      body: { mode: 'manual_entry', title: 'T' },
+      photoResult: { data: null, error: null },
     });
     const res = await correctPost(ctx);
     expect(res.status).toBe(404);

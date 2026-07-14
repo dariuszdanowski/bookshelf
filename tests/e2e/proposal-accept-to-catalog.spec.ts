@@ -6,7 +6,7 @@ import { expect, test } from '@playwright/test';
  *   upload → detect → match → review z propozycjami
  *   → bulk-accept pre-zaznaczonych (≥0.75)
  *   → single confirm
- *   → correct (field_edit)
+ *   → popraw (BookModal propose w pełni edytowalny — Zapisz/Zatwierdź, dirty-check)
  *   → manual entry (brak matchu)
  *   → reject
  *   → widok półki z okładkami (ShelfBooksIsland)
@@ -304,12 +304,83 @@ test.describe('S-05 — proposal-accept-to-catalog golden path (mock)', () => {
     await expect(page.getByTestId(`detection-card-1`)).toContainText('Solaris');
   });
 
-  test('correct (field_edit) — formularz otwiera się, wyświetla pola', async ({ page }) => {
+  test('Popraw → BookModal w pełni edytowalny → Zapisz → Zatwierdź → karta „zdecydowana"', async ({
+    page,
+  }) => {
+    await page.route(`**/api/detections/${DET_LOW}/candidate`, (route) => {
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      void route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { candidate_id: CAND_LOW, ...body } }),
+      });
+    });
+
     await page.goto(`/photos/${PHOTO_ID}`);
-    await page.getByTestId('detection-card-2').getByTestId('correct-button').click();
-    await expect(page.getByTestId('correct-form')).toBeVisible();
-    await expect(page.getByTestId('correct-title')).toBeVisible();
-    await expect(page.getByTestId('correct-authors')).toBeVisible();
+    const card = page.getByTestId('detection-card-2');
+    await card.getByTestId('correct-button').click();
+
+    const modal = page.getByTestId('book-modal');
+    await expect(modal).toBeVisible();
+    await expect(modal.getByTestId('book-field-title')).toBeEditable();
+    // SearchPanel + sekcja zakupu widoczne w propose (candidate-propose-edit-all-fields)
+    await expect(modal.getByTestId('search-candidates-toggle')).toBeVisible();
+    const purchaseSummary = modal.locator('details summary', { hasText: 'Informacje o zakupie' });
+    await expect(purchaseSummary).toBeVisible();
+    await purchaseSummary.click();
+    await expect(modal.getByTestId('purchase-price')).toBeVisible();
+
+    await modal.getByTestId('book-field-title').fill('Diuna (poprawiony tytuł)');
+    await modal.getByTestId('book-field-isbn13').fill('9780441172719');
+    await modal.getByTestId('book-modal-save').click();
+    await expect(modal.getByTestId('propose-saved')).toBeVisible();
+
+    await modal.getByTestId('book-modal-confirm').click();
+    await expect(modal).not.toBeVisible();
+    await expect(card.getByTestId('undo-confirm-button')).toBeVisible();
+  });
+
+  test('Popraw — niezapisane zmiany: Zatwierdź pokazuje dialog, Anuluj zostaje w modalu, potwierdzenie zapisuje-i-zatwierdza', async ({
+    page,
+  }) => {
+    let patchCalled = false;
+    await page.route(`**/api/detections/${DET_LOW}/candidate`, (route) => {
+      patchCalled = true;
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      void route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { candidate_id: CAND_LOW, ...body } }),
+      });
+    });
+
+    await page.goto(`/photos/${PHOTO_ID}`);
+    const card = page.getByTestId('detection-card-2');
+    await card.getByTestId('correct-button').click();
+    const modal = page.getByTestId('book-modal');
+    await expect(modal).toBeVisible();
+
+    await modal.getByTestId('book-field-title').fill('Diuna (niezapisana zmiana)');
+    await modal.getByTestId('book-modal-confirm').click();
+
+    const dialog = page.getByTestId('propose-confirm-dialog');
+    await expect(dialog).toBeVisible();
+    expect(patchCalled).toBe(false);
+
+    // Anuluj w dialogu — zostaje w modalu, zero akcji sieciowej.
+    await dialog.getByTestId('propose-confirm-dialog-cancel').click();
+    await expect(dialog).not.toBeVisible();
+    await expect(modal).toBeVisible();
+    expect(patchCalled).toBe(false);
+
+    // Ponowna próba — tym razem potwierdzenie zapisuje i zatwierdza sekwencyjnie.
+    await modal.getByTestId('book-modal-confirm').click();
+    await expect(page.getByTestId('propose-confirm-dialog')).toBeVisible();
+    await page.getByTestId('propose-confirm-dialog-confirm').click();
+
+    await expect.poll(() => patchCalled).toBe(true);
+    await expect(modal).not.toBeVisible();
+    await expect(card.getByTestId('undo-confirm-button')).toBeVisible();
   });
 
   test('manual entry — formularz otwiera się przy braku matchu', async ({ page }) => {
@@ -351,7 +422,7 @@ test.describe('S-05 — proposal-accept-to-catalog golden path (mock)', () => {
     await coverBtn.click();
     const modal = page.getByTestId('book-modal');
     await expect(modal).toBeVisible();
-    // Tytuł widoczny w nagłówku + ISBN w polu input (propose = read-only)
+    // Tytuł widoczny w nagłówku + ISBN prefillowany w polu (propose = w pełni edytowalny)
     await expect(modal).toContainText('Solaris');
     await expect(page.getByTestId('book-field-isbn13')).toHaveValue('9780156027601');
     // zamknięcie przez X
@@ -376,17 +447,17 @@ test.describe('S-05 — proposal-accept-to-catalog golden path (mock)', () => {
       void route.fulfill({ status: 200, contentType: 'image/png', body: ONE_PX_PNG });
     });
 
-    await page.route(`**/api/detections/${DET_HIGH}/cover`, (route) => {
+    await page.route(`**/api/detections/${DET_HIGH}/candidate`, (route) => {
       const body = route.request().postDataJSON() as {
         candidate_id: string;
-        cover_url: string | null;
+        cover_url?: string | null;
       };
       patchedCoverUrl = body.cover_url;
       void route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          data: { candidate_id: body.candidate_id, cover_url: body.cover_url },
+          data: { candidate_id: body.candidate_id, cover_url: body.cover_url ?? null },
         }),
       });
     });
@@ -409,8 +480,10 @@ test.describe('S-05 — proposal-accept-to-catalog golden path (mock)', () => {
       'aria-pressed',
       'true',
     );
-    await modal.getByTestId('propose-cover-save').click();
-    await expect(modal.getByTestId('propose-cover-saved')).toBeVisible();
+    // candidate-propose-edit-all-fields: okładka zapisuje się razem z resztą pól
+    // jednym „Zapisz" (dedykowany przycisk „Zapisz okładkę" usunięty).
+    await modal.getByTestId('book-modal-save').click();
+    await expect(modal.getByTestId('propose-saved')).toBeVisible();
     await expect.poll(() => patchedCoverUrl).toBe(NEW_COVER_URL);
 
     // Zamknij modal — karta pod spodem odświeża miniaturę bez przeładowania strony.
@@ -493,17 +566,17 @@ test.describe('S-05 — proposal-accept-to-catalog golden path (mock)', () => {
     });
 
     let patchedCoverUrl: string | null | undefined;
-    await page.route(`**/api/detections/${DET_HIGH}/cover`, (route) => {
+    await page.route(`**/api/detections/${DET_HIGH}/candidate`, (route) => {
       const body = route.request().postDataJSON() as {
         candidate_id: string;
-        cover_url: string | null;
+        cover_url?: string | null;
       };
       patchedCoverUrl = body.cover_url;
       void route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
-          data: { candidate_id: body.candidate_id, cover_url: body.cover_url },
+          data: { candidate_id: body.candidate_id, cover_url: body.cover_url ?? null },
         }),
       });
     });
@@ -520,8 +593,8 @@ test.describe('S-05 — proposal-accept-to-catalog golden path (mock)', () => {
     const modal = page.getByTestId('book-modal');
     await expect(modal).toBeVisible();
     await modal.getByTestId('propose-cover-url-input').fill(NEW_COVER_URL);
-    await modal.getByTestId('propose-cover-save').click();
-    await expect(modal.getByTestId('propose-cover-saved')).toBeVisible();
+    await modal.getByTestId('book-modal-save').click();
+    await expect(modal.getByTestId('propose-saved')).toBeVisible();
     await expect.poll(() => patchedCoverUrl).toBe(NEW_COVER_URL);
     await modal.getByTestId('book-modal-close').click();
     await expect(modal).not.toBeVisible();

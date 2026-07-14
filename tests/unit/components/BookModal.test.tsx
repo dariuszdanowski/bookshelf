@@ -367,41 +367,9 @@ describe('BookModal — tryb edit', () => {
 });
 
 // ---------------------------------------------------------------------------
-// propose mode
-
-describe('BookModal — tryb propose (read-only)', () => {
-  it('renderuje pola jako read-only', () => {
-    render(<BookModal mode="propose" book={BASE_BOOK} onClose={vi.fn()} />);
-    const titleInput = screen.getByTestId('book-field-title') as HTMLInputElement;
-    expect(titleInput.value).toBe('Solaris');
-    expect(titleInput.readOnly).toBe(true);
-  });
-
-  it('brak przycisku Zapisz', () => {
-    render(<BookModal mode="propose" book={BASE_BOOK} onClose={vi.fn()} />);
-    expect(screen.queryByTestId('book-modal-save')).toBeNull();
-  });
-
-  it('brak panelu wyszukiwania kandydatów', () => {
-    render(<BookModal mode="propose" book={BASE_BOOK} onClose={vi.fn()} />);
-    expect(screen.queryByTestId('search-candidates-toggle')).toBeNull();
-  });
-
-  it('pokazuje „Szukaj w sieci"', () => {
-    render(<BookModal mode="propose" book={BASE_BOOK} onClose={vi.fn()} />);
-    expect(screen.getByTestId('book-modal-web-search')).toBeTruthy();
-  });
-
-  it('Escape zamyka modal', async () => {
-    const onClose = vi.fn();
-    render(<BookModal mode="propose" book={BASE_BOOK} onClose={onClose} />);
-    fireEvent.keyDown(document, { key: 'Escape' });
-    await waitFor(() => expect(onClose).toHaveBeenCalled());
-  });
-});
-
-// ---------------------------------------------------------------------------
-// propose mode — edycja okładki kandydata (candidate-cover-override)
+// propose mode (candidate-propose-edit-all-fields) — w pełni edytowalny,
+// trzy akcje: Zapisz (PATCH /candidate) / Akceptuj propozycję (POST /confirm,
+// z dirty-check dialogiem) / Anuluj.
 
 const DETECTION_ID = '00000000-0000-4000-8000-000000000070';
 const CANDIDATE_ID_VALUE = '00000000-0000-4000-8000-000000000071';
@@ -411,8 +379,50 @@ const CANDIDATE_BOOK = {
   detectionId: DETECTION_ID,
 };
 
-describe('BookModal — tryb propose: edycja okładki kandydata', () => {
-  it('CoverEditor (3 sloty) jest widoczny — dziś brak w propose', () => {
+/** Router fetch mock: purchase-hints zawsze pusty; inne endpointy wg mapy zawierania URL. */
+function mockFetchRoutes(
+  routes: [string, { body: object; status?: number }][],
+): ReturnType<typeof vi.spyOn> {
+  return vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
+    const u = typeof url === 'string' ? url : String(url);
+    if (u.includes('/api/books/purchase-hints')) {
+      return Promise.resolve(
+        new Response(JSON.stringify({ data: { hints: [] } }), { status: 200 }),
+      );
+    }
+    const match = routes.find(([needle]) => u.includes(needle));
+    if (match) {
+      const [, { body, status }] = match;
+      return Promise.resolve(new Response(JSON.stringify(body), { status: status ?? 200 }));
+    }
+    return Promise.resolve(
+      new Response(JSON.stringify({ data: { candidates: [] } }), { status: 200 }),
+    );
+  });
+}
+
+describe('BookModal — tryb propose: pola w pełni edytowalne', () => {
+  it('pola NIE są read-only (tytuł edytowalny)', () => {
+    render(<BookModal mode="propose" book={CANDIDATE_BOOK} onClose={vi.fn()} />);
+    const titleInput = screen.getByTestId('book-field-title') as HTMLInputElement;
+    expect(titleInput.value).toBe('Solaris');
+    expect(titleInput.readOnly).toBe(false);
+    fireEvent.change(titleInput, { target: { value: 'Zmieniony tytuł' } });
+    expect(titleInput.value).toBe('Zmieniony tytuł');
+  });
+
+  it('SearchPanel („Wyszukaj po danych") widoczny w propose', () => {
+    render(<BookModal mode="propose" book={CANDIDATE_BOOK} onClose={vi.fn()} />);
+    expect(screen.getByTestId('search-candidates-toggle')).toBeTruthy();
+  });
+
+  it('sekcja zakupu (PurchaseSection) widoczna w propose', () => {
+    render(<BookModal mode="propose" book={CANDIDATE_BOOK} onClose={vi.fn()} />);
+    expect(screen.getByTestId('purchase-price')).toBeTruthy();
+    expect(screen.getByTestId('purchase-city')).toBeTruthy();
+  });
+
+  it('CoverEditor (3 sloty) widoczny w propose', () => {
     render(<BookModal mode="propose" book={CANDIDATE_BOOK} onClose={vi.fn()} />);
     expect(screen.getByTestId('propose-cover-section')).toBeTruthy();
     expect(screen.getByTestId('propose-cover-source-auto')).toBeTruthy();
@@ -421,8 +431,35 @@ describe('BookModal — tryb propose: edycja okładki kandydata', () => {
     expect(screen.getByTestId('propose-cover-url-input')).toBeTruthy();
   });
 
-  it('klik „Zapisz okładkę" wysyła PATCH z candidate_id/cover_url i woła onCandidateSaved', async () => {
-    mockFetch({ data: { candidate_id: CANDIDATE_BOOK.id, cover_url: 'https://user.jpg' } });
+  it('pokazuje „Szukaj w sieci"', () => {
+    render(<BookModal mode="propose" book={CANDIDATE_BOOK} onClose={vi.fn()} />);
+    expect(screen.getByTestId('book-modal-web-search')).toBeTruthy();
+  });
+
+  it('pokazuje przyciski Zapisz + Akceptuj propozycję + Anuluj', () => {
+    render(<BookModal mode="propose" book={CANDIDATE_BOOK} onClose={vi.fn()} />);
+    expect(screen.getByTestId('book-modal-save')).toBeTruthy();
+    expect(screen.getByTestId('book-modal-confirm')).toBeTruthy();
+    expect(screen.getByTestId('book-modal-cancel')).toBeTruthy();
+  });
+
+  it('Zapisz + Akceptuj propozycję disabled gdy brak id/detectionId kandydata (defensywnie)', () => {
+    render(<BookModal mode="propose" book={BASE_BOOK} onClose={vi.fn()} />);
+    expect((screen.getByTestId('book-modal-save') as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId('book-modal-confirm') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('Escape zamyka modal', async () => {
+    const onClose = vi.fn();
+    render(<BookModal mode="propose" book={CANDIDATE_BOOK} onClose={onClose} />);
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+});
+
+describe('BookModal — tryb propose: Zapisz (PATCH pełnej edycji kandydata)', () => {
+  it('„Zapisz" PATCH-uje wszystkie bieżące pola do /api/detections/[id]/candidate i woła onCandidateSaved z pełnym patchem', async () => {
+    mockFetchRoutes([[`/api/detections/${DETECTION_ID}/candidate`, { body: { data: {} } }]]);
     const onCandidateSaved = vi.fn();
     render(
       <BookModal
@@ -433,44 +470,56 @@ describe('BookModal — tryb propose: edycja okładki kandydata', () => {
       />,
     );
 
-    fireEvent.change(screen.getByTestId('propose-cover-url-input'), {
-      target: { value: 'https://user.jpg' },
+    fireEvent.change(screen.getByTestId('book-field-title'), {
+      target: { value: 'Solaris (poprawiony)' },
     });
-    fireEvent.click(screen.getByTestId('propose-cover-save'));
+    fireEvent.change(screen.getByTestId('book-field-isbn13'), {
+      target: { value: '9781111111111' },
+    });
+    fireEvent.click(screen.getByTestId('book-modal-save'));
 
-    await waitFor(() =>
-      expect(onCandidateSaved).toHaveBeenCalledWith({ coverUrl: 'https://user.jpg' }),
-    );
+    await waitFor(() => expect(onCandidateSaved).toHaveBeenCalled());
 
     const fetchSpy = globalThis.fetch as ReturnType<typeof vi.fn>;
     const patchCall = fetchSpy.mock.calls.find(
-      ([url]) => url === `/api/detections/${DETECTION_ID}/cover`,
+      ([url]) => url === `/api/detections/${DETECTION_ID}/candidate`,
     ) as [string, RequestInit];
     expect(patchCall).toBeDefined();
     expect((patchCall[1] as { method: string }).method).toBe('PATCH');
     const body = JSON.parse((patchCall[1] as { body: string }).body);
     expect(body.candidate_id).toBe(CANDIDATE_BOOK.id);
-    expect(body.cover_url).toBe('https://user.jpg');
+    expect(body.title).toBe('Solaris (poprawiony)');
+    expect(body.isbn_13).toBe('9781111111111');
+    // cover_url + purchase_* zawsze dołączane do tego samego PATCH — scalenie z okładką
+    expect(body).toHaveProperty('cover_url');
+    expect(body).toHaveProperty('purchase_date');
+    expect(body).toHaveProperty('purchase_price');
+    expect(body).toHaveProperty('purchase_city');
+    expect(body).toHaveProperty('purchase_event');
 
-    await waitFor(() => screen.getByTestId('propose-cover-saved'));
+    const patch = onCandidateSaved.mock.calls[0][0];
+    expect(patch.title).toBe('Solaris (poprawiony)');
+    expect(patch.isbn13).toBe('9781111111111');
   });
 
-  it('modal NIE zamyka się automatycznie po zapisie okładki', async () => {
-    mockFetch({ data: { candidate_id: CANDIDATE_BOOK.id, cover_url: 'https://user.jpg' } });
+  it('modal NIE zamyka się automatycznie po Zapisz', async () => {
+    mockFetchRoutes([[`/api/detections/${DETECTION_ID}/candidate`, { body: { data: {} } }]]);
     const onClose = vi.fn();
     render(<BookModal mode="propose" book={CANDIDATE_BOOK} onClose={onClose} />);
 
-    fireEvent.change(screen.getByTestId('propose-cover-url-input'), {
-      target: { value: 'https://user.jpg' },
-    });
-    fireEvent.click(screen.getByTestId('propose-cover-save'));
+    fireEvent.click(screen.getByTestId('book-modal-save'));
 
-    await waitFor(() => screen.getByTestId('propose-cover-saved'));
+    await waitFor(() => screen.getByTestId('propose-saved'));
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it('błąd zapisu pokazuje propose-cover-error, nie woła onCandidateSaved', async () => {
-    mockFetch({ error: { message: 'Nie znaleziono kandydata.' } }, 404);
+  it('błąd zapisu pokazuje book-modal-error, nie woła onCandidateSaved', async () => {
+    mockFetchRoutes([
+      [
+        `/api/detections/${DETECTION_ID}/candidate`,
+        { body: { error: { message: 'Nie znaleziono kandydata.' } }, status: 404 },
+      ],
+    ]);
     const onCandidateSaved = vi.fn();
     render(
       <BookModal
@@ -481,56 +530,160 @@ describe('BookModal — tryb propose: edycja okładki kandydata', () => {
       />,
     );
 
-    fireEvent.click(screen.getByTestId('propose-cover-save'));
+    fireEvent.click(screen.getByTestId('book-modal-save'));
 
-    await waitFor(() => screen.getByTestId('propose-cover-error'));
-    expect(screen.getByTestId('propose-cover-error').textContent).toContain(
+    await waitFor(() => screen.getByTestId('book-modal-error'));
+    expect(screen.getByTestId('book-modal-error').textContent).toContain(
       'Nie znaleziono kandydata.',
     );
     expect(onCandidateSaved).not.toHaveBeenCalled();
   });
+});
 
-  it('przycisk „Zapisz okładkę" disabled gdy brak id/detectionId kandydata (defensywnie)', () => {
-    render(<BookModal mode="propose" book={BASE_BOOK} onClose={vi.fn()} />);
-    const btn = screen.getByTestId('propose-cover-save') as HTMLButtonElement;
-    expect(btn.disabled).toBe(true);
-  });
-
-  it('wpisanie URL od razu przełącza slot na „Wklejony URL" (bez osobnego kliku)', () => {
-    render(<BookModal mode="propose" book={CANDIDATE_BOOK} onClose={vi.fn()} />);
-    fireEvent.change(screen.getByTestId('propose-cover-url-input'), {
-      target: { value: 'https://user.jpg' },
-    });
-    expect(screen.getByTestId('propose-cover-source-url').getAttribute('aria-pressed')).toBe(
-      'true',
-    );
-  });
-
-  it('wybranie pustego slotu „Wklejony URL" (kandydat ma auto-okładkę) zapisuje brak okładki — bez fallbacku na auto (zgłoszenie usera)', async () => {
-    // CANDIDATE_BOOK dziedziczy z BASE_BOOK auto cover_url niepusty — dokładnie
-    // scenariusz, w którym pickCover() cichcem wracał do auto mimo wybranego,
-    // pustego slotu „url".
-    mockFetch({ data: { candidate_id: CANDIDATE_BOOK.id, cover_url: null } });
-    const onCandidateSaved = vi.fn();
+describe('BookModal — tryb propose: Zatwierdź (POST /confirm) + dirty-check', () => {
+  it('bez niezapisanych zmian — Akceptuj propozycję woła od razu POST /confirm (bez PATCH)', async () => {
+    mockFetchRoutes([
+      [
+        `/api/detections/${DETECTION_ID}/confirm`,
+        { body: { data: { book_id: 'b1', shelf_id: 's1' } } },
+      ],
+    ]);
+    const onConfirmed = vi.fn();
+    const onClose = vi.fn();
     render(
       <BookModal
         mode="propose"
         book={CANDIDATE_BOOK}
-        onCandidateSaved={onCandidateSaved}
+        onConfirmed={onConfirmed}
+        onClose={onClose}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('book-modal-confirm'));
+
+    await waitFor(() => expect(onConfirmed).toHaveBeenCalled());
+    expect(onClose).toHaveBeenCalled();
+
+    const fetchSpy = globalThis.fetch as ReturnType<typeof vi.fn>;
+    const confirmCall = fetchSpy.mock.calls.find(
+      ([url]) => url === `/api/detections/${DETECTION_ID}/confirm`,
+    ) as [string, RequestInit];
+    expect(confirmCall).toBeDefined();
+    const body = JSON.parse((confirmCall[1] as { body: string }).body);
+    expect(body.candidate_id).toBe(CANDIDATE_BOOK.id);
+
+    // Bez dirty state — PATCH /candidate nie powinien zostać wywołany.
+    const patchCall = fetchSpy.mock.calls.find(
+      ([url]) => url === `/api/detections/${DETECTION_ID}/candidate`,
+    );
+    expect(patchCall).toBeUndefined();
+    expect(screen.queryByTestId('propose-confirm-dialog')).toBeNull();
+  });
+
+  it('z niezapisanymi zmianami — Akceptuj propozycję pokazuje dialog niezapisanych zmian zamiast wołać /confirm', async () => {
+    mockFetchRoutes([]);
+    render(<BookModal mode="propose" book={CANDIDATE_BOOK} onClose={vi.fn()} />);
+
+    fireEvent.change(screen.getByTestId('book-field-title'), {
+      target: { value: 'Zmieniony tytuł' },
+    });
+    fireEvent.click(screen.getByTestId('book-modal-confirm'));
+
+    await waitFor(() => screen.getByTestId('propose-confirm-dialog'));
+
+    const fetchSpy = globalThis.fetch as ReturnType<typeof vi.fn>;
+    expect(
+      fetchSpy.mock.calls.some(([url]) => url === `/api/detections/${DETECTION_ID}/confirm`),
+    ).toBe(false);
+  });
+
+  it('Anuluj w dialogu zamyka go bez żadnej akcji sieciowej', async () => {
+    mockFetchRoutes([]);
+    render(<BookModal mode="propose" book={CANDIDATE_BOOK} onClose={vi.fn()} />);
+
+    fireEvent.change(screen.getByTestId('book-field-title'), {
+      target: { value: 'Zmieniony tytuł' },
+    });
+    fireEvent.click(screen.getByTestId('book-modal-confirm'));
+    await waitFor(() => screen.getByTestId('propose-confirm-dialog'));
+
+    fireEvent.click(screen.getByTestId('propose-confirm-dialog-cancel'));
+
+    await waitFor(() => expect(screen.queryByTestId('propose-confirm-dialog')).toBeNull());
+    const fetchSpy = globalThis.fetch as ReturnType<typeof vi.fn>;
+    expect(
+      fetchSpy.mock.calls.some(
+        ([url]) =>
+          url === `/api/detections/${DETECTION_ID}/candidate` ||
+          url === `/api/detections/${DETECTION_ID}/confirm`,
+      ),
+    ).toBe(false);
+  });
+
+  it('potwierdzenie w dialogu zapisuje-i-zatwierdza sekwencyjnie (PATCH przed POST /confirm)', async () => {
+    mockFetchRoutes([
+      [`/api/detections/${DETECTION_ID}/candidate`, { body: { data: {} } }],
+      [
+        `/api/detections/${DETECTION_ID}/confirm`,
+        { body: { data: { book_id: 'b1', shelf_id: 's1' } } },
+      ],
+    ]);
+    const onConfirmed = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <BookModal
+        mode="propose"
+        book={CANDIDATE_BOOK}
+        onConfirmed={onConfirmed}
+        onClose={onClose}
+      />,
+    );
+
+    fireEvent.change(screen.getByTestId('book-field-title'), {
+      target: { value: 'Zmieniony tytuł' },
+    });
+    fireEvent.click(screen.getByTestId('book-modal-confirm'));
+    await waitFor(() => screen.getByTestId('propose-confirm-dialog'));
+
+    fireEvent.click(screen.getByTestId('propose-confirm-dialog-confirm'));
+
+    await waitFor(() => expect(onConfirmed).toHaveBeenCalled());
+    expect(onClose).toHaveBeenCalled();
+
+    const fetchSpy = globalThis.fetch as ReturnType<typeof vi.fn>;
+    const patchIndex = fetchSpy.mock.calls.findIndex(
+      ([url]) => url === `/api/detections/${DETECTION_ID}/candidate`,
+    );
+    const confirmIndex = fetchSpy.mock.calls.findIndex(
+      ([url]) => url === `/api/detections/${DETECTION_ID}/confirm`,
+    );
+    expect(patchIndex).toBeGreaterThanOrEqual(0);
+    expect(confirmIndex).toBeGreaterThan(patchIndex);
+  });
+
+  it('błąd /confirm (409) pokazuje book-modal-error, nie woła onConfirmed', async () => {
+    mockFetchRoutes([
+      [
+        `/api/detections/${DETECTION_ID}/confirm`,
+        { body: { error: { message: 'Masz już tę książkę w katalogu.' } }, status: 409 },
+      ],
+    ]);
+    const onConfirmed = vi.fn();
+    render(
+      <BookModal
+        mode="propose"
+        book={CANDIDATE_BOOK}
+        onConfirmed={onConfirmed}
         onClose={vi.fn()}
       />,
     );
 
-    fireEvent.click(screen.getByTestId('propose-cover-source-url'));
-    fireEvent.click(screen.getByTestId('propose-cover-save'));
+    fireEvent.click(screen.getByTestId('book-modal-confirm'));
 
-    await waitFor(() => expect(onCandidateSaved).toHaveBeenCalledWith({ coverUrl: null }));
-
-    const fetchSpy = globalThis.fetch as ReturnType<typeof vi.fn>;
-    const patchCall = fetchSpy.mock.calls.find(
-      ([url]) => url === `/api/detections/${DETECTION_ID}/cover`,
-    ) as [string, RequestInit];
-    const body = JSON.parse((patchCall[1] as { body: string }).body);
-    expect(body.cover_url).toBeNull();
+    await waitFor(() => screen.getByTestId('book-modal-error'));
+    expect(screen.getByTestId('book-modal-error').textContent).toContain(
+      'Masz już tę książkę w katalogu.',
+    );
+    expect(onConfirmed).not.toHaveBeenCalled();
   });
 });

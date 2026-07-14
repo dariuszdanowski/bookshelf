@@ -15,10 +15,10 @@ import { expect, test, type Page } from '@playwright/test';
  * Pattern from proposal-accept-to-catalog.spec.ts.
  */
 
-const BOOK_ID  = '00000000-0000-4000-8000-360000000050';
+const BOOK_ID = '00000000-0000-4000-8000-360000000050';
 const PHOTO_ID = '00000000-0000-4000-8000-360000000099';
-const DET_ID   = '00000000-0000-4000-8000-360000000010';
-const CAND_ID  = '00000000-0000-4000-8000-360000000020';
+const DET_ID = '00000000-0000-4000-8000-360000000010';
+const CAND_ID = '00000000-0000-4000-8000-360000000020';
 
 const MOCK_BOOK = {
   id: BOOK_ID,
@@ -55,7 +55,9 @@ async function getRealShelfId(page: Page): Promise<string> {
 // ---------------------------------------------------------------------------
 
 test.describe('S-36 BookModal — tryb add', () => {
-  test('otwieranie modala, walidacja (disabled przy pustym tytule), zamknięcie', async ({ page }) => {
+  test('otwieranie modala, walidacja (disabled przy pustym tytule), zamknięcie', async ({
+    page,
+  }) => {
     // Wildcard mock set up BEFORE any navigation — intercepts /api/shelves/<any>/books
     await page.route('**/api/shelves/*/books', (route) => {
       void route.fulfill({
@@ -81,7 +83,9 @@ test.describe('S-36 BookModal — tryb add', () => {
     await expect(page.getByTestId('book-modal')).not.toBeVisible();
   });
 
-  test('wypełnienie tytułu → aktywny przycisk → POST /api/books → modal zamknięty', async ({ page }) => {
+  test('wypełnienie tytułu → aktywny przycisk → POST /api/books → modal zamknięty', async ({
+    page,
+  }) => {
     await page.route('**/api/shelves/*/books', (route) => {
       void route.fulfill({
         status: 200,
@@ -130,18 +134,20 @@ test.describe('S-36 BookModal — tryb add', () => {
         contentType: 'application/json',
         body: JSON.stringify({
           data: {
-            candidates: [{
-              externalId: 'gb-test',
-              source: 'google_books',
-              title: 'Solaris',
-              authors: ['Stanisław Lem'],
-              isbn13: '9780156027601',
-              isbn10: null,
-              publisher: 'Solaris Press',
-              publishedYear: 1961,
-              coverUrl: null,
-              matchScore: 0.92,
-            }],
+            candidates: [
+              {
+                externalId: 'gb-test',
+                source: 'google_books',
+                title: 'Solaris',
+                authors: ['Stanisław Lem'],
+                isbn13: '9780156027601',
+                isbn10: null,
+                publisher: 'Solaris Press',
+                publishedYear: 1961,
+                coverUrl: null,
+                matchScore: 0.92,
+              },
+            ],
           },
         }),
       });
@@ -164,7 +170,9 @@ test.describe('S-36 BookModal — tryb add', () => {
     await expect(page.getByTestId('book-field-isbn13')).toHaveValue('9780156027601');
   });
 
-  test('UX: toggle disabled bez danych, autor w query, zapis widoczny przy otwartych wynikach', async ({ page }) => {
+  test('UX: toggle disabled bez danych, autor w query, zapis widoczny przy otwartych wynikach', async ({
+    page,
+  }) => {
     await page.route('**/api/shelves/*/books', (route) => {
       void route.fulfill({
         status: 200,
@@ -213,7 +221,10 @@ test.describe('S-36 BookModal — tryb add', () => {
     await page.getByTestId('search-candidates-toggle').click();
 
     // 2. Auto-search wysyła autora z głównego formularza (wcześniej ignorowany → słabe wyniki)
-    const candidatesBody = (await candidatesRequest).postDataJSON() as { author?: string; title?: string };
+    const candidatesBody = (await candidatesRequest).postDataJSON() as {
+      author?: string;
+      title?: string;
+    };
     expect(candidatesBody.author).toBe('Andrzej Sapkowski');
     expect(candidatesBody.title).toBe('Ostatnie życzenie');
     await expect(page.getByTestId('candidates-list')).toBeVisible({ timeout: 5000 });
@@ -294,7 +305,9 @@ test.describe('S-36 BookModal — tryb edit', () => {
     await expect(page.getByTestId('book-modal')).not.toBeVisible();
   });
 
-  test('Wyszukaj po danych w edit → brak zdublowanych pól, szuka po danych książki', async ({ page }) => {
+  test('Wyszukaj po danych w edit → brak zdublowanych pól, szuka po danych książki', async ({
+    page,
+  }) => {
     await page.route('**/api/shelves/*/books', (route) => {
       void route.fulfill({
         status: 200,
@@ -309,18 +322,20 @@ test.describe('S-36 BookModal — tryb edit', () => {
         contentType: 'application/json',
         body: JSON.stringify({
           data: {
-            candidates: [{
-              externalId: 'gb-edit',
-              source: 'google_books',
-              title: 'Solaris',
-              authors: ['Stanisław Lem'],
-              isbn13: '9788308062803',
-              isbn10: null,
-              publisher: 'Wydawnictwo Literackie',
-              publishedYear: 2016,
-              coverUrl: null,
-              matchScore: 0.95,
-            }],
+            candidates: [
+              {
+                externalId: 'gb-edit',
+                source: 'google_books',
+                title: 'Solaris',
+                authors: ['Stanisław Lem'],
+                isbn13: '9788308062803',
+                isbn10: null,
+                publisher: 'Wydawnictwo Literackie',
+                publishedYear: 2016,
+                coverUrl: null,
+                matchScore: 0.95,
+              },
+            ],
           },
         }),
       });
@@ -349,7 +364,8 @@ test.describe('S-36 BookModal — tryb edit', () => {
 });
 
 // ---------------------------------------------------------------------------
-// propose mode (podgląd kandydata w DetectionReview — read-only)
+// propose mode (podgląd kandydata w DetectionReview — w pełni edytowalny,
+// candidate-propose-edit-all-fields)
 // /photos/[id].astro degrades gracefully for missing photos (no redirect),
 // so a fake PHOTO_ID is safe here. Wait for UI element instead of
 // waitForResponse (which may fire during page.goto before the listener is set).
@@ -382,33 +398,37 @@ test.describe('S-36 BookModal — tryb propose', () => {
                 cost_usd: 0.005,
                 latency_ms: 3000,
               },
-              detections: [{
-                id: DET_ID,
-                photo_id: PHOTO_ID,
-                position_index: 1,
-                raw_title: 'Solaris',
-                raw_author: 'Stanisław Lem',
-                vision_confidence: 0.95,
-                spine_color: null,
-                bbox: null,
-                status: 'matched',
-                duplicate: null,
-                candidates: [{
-                  id: CAND_ID,
-                  detection_id: DET_ID,
-                  source: 'google_books',
-                  externalId: 'gb-s36',
-                  title: 'Solaris',
-                  authors: ['Stanisław Lem'],
-                  isbn13: '9780156027601',
-                  isbn10: null,
-                  publisher: 'Solaris Press',
-                  publishedYear: 1961,
-                  coverUrl: null,
-                  matchScore: 0.92,
-                  rank: 1,
-                }],
-              }],
+              detections: [
+                {
+                  id: DET_ID,
+                  photo_id: PHOTO_ID,
+                  position_index: 1,
+                  raw_title: 'Solaris',
+                  raw_author: 'Stanisław Lem',
+                  vision_confidence: 0.95,
+                  spine_color: null,
+                  bbox: null,
+                  status: 'matched',
+                  duplicate: null,
+                  candidates: [
+                    {
+                      id: CAND_ID,
+                      detection_id: DET_ID,
+                      source: 'google_books',
+                      externalId: 'gb-s36',
+                      title: 'Solaris',
+                      authors: ['Stanisław Lem'],
+                      isbn13: '9780156027601',
+                      isbn10: null,
+                      publisher: 'Solaris Press',
+                      publishedYear: 1961,
+                      coverUrl: null,
+                      matchScore: 0.92,
+                      rank: 1,
+                    },
+                  ],
+                },
+              ],
             },
           }),
         });
@@ -418,23 +438,28 @@ test.describe('S-36 BookModal — tryb propose', () => {
     });
   });
 
-  test('klik w okładkę kandydata → read-only modal, brak Zapisz, Szukaj w sieci widoczny, Escape zamyka', async ({ page }) => {
+  test('klik w okładkę kandydata → w pełni edytowalny modal (Zapisz + Zatwierdź), Szukaj w sieci widoczny, Escape zamyka (candidate-propose-edit-all-fields)', async ({
+    page,
+  }) => {
     await page.goto(`/photos/${PHOTO_ID}`);
     // Wait for candidate to appear (DetectionReview fetches /api/photos/${PHOTO_ID})
-    await expect(page.getByTestId('candidate-cover-button').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('candidate-cover-button').first()).toBeVisible({
+      timeout: 10000,
+    });
 
     await page.getByTestId('candidate-cover-button').first().click();
     await expect(page.getByTestId('book-modal')).toBeVisible();
 
-    // Pola read-only
+    // Pola edytowalne (nie read-only)
     await expect(page.getByTestId('book-field-title')).toHaveValue('Solaris');
-    await expect(page.getByTestId('book-field-title')).toHaveAttribute('readonly', '');
+    await expect(page.getByTestId('book-field-title')).not.toHaveAttribute('readonly');
 
     // ISBN widoczny w polu
     await expect(page.getByTestId('book-field-isbn13')).toHaveValue('9780156027601');
 
-    // Brak przycisku zapisu w propose mode
-    await expect(page.getByTestId('book-modal-save')).not.toBeVisible();
+    // Zapisz + Zatwierdź obecne w propose mode (candidate-propose-edit-all-fields)
+    await expect(page.getByTestId('book-modal-save')).toBeVisible();
+    await expect(page.getByTestId('book-modal-confirm')).toBeVisible();
 
     // Link „Szukaj w sieci" widoczny
     await expect(page.getByTestId('book-modal-web-search')).toBeVisible();

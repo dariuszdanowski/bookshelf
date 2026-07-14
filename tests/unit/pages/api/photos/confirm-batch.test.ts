@@ -18,36 +18,84 @@ const CAND_ID_2 = '00000000-0000-4000-8000-000000000021';
 const BOOK_ID_1 = '00000000-0000-4000-8000-000000000050';
 const BOOK_ID_2 = '00000000-0000-4000-8000-000000000051';
 
-const photoRow = { id: PHOTO_ID, shelf_id: SHELF_ID };
+const photoRow = {
+  id: PHOTO_ID,
+  shelf_id: SHELF_ID,
+  purchase_date: null as string | null,
+  purchase_city: null as string | null,
+  purchase_event: null as string | null,
+};
 
 const det1 = {
-  id: DET_ID_1, status: 'matched', photo_id: PHOTO_ID, position_index: 1, raw_title: 'Lem',
+  id: DET_ID_1,
+  status: 'matched',
+  photo_id: PHOTO_ID,
+  position_index: 1,
+  raw_title: 'Lem',
 };
 const det2 = {
-  id: DET_ID_2, status: 'matched', photo_id: PHOTO_ID, position_index: 2, raw_title: 'Herbert',
+  id: DET_ID_2,
+  status: 'matched',
+  photo_id: PHOTO_ID,
+  position_index: 2,
+  raw_title: 'Herbert',
 };
 
 const cand1 = {
-  id: CAND_ID_1, detection_id: DET_ID_1, source: 'google_books', external_id: 'gb-1',
-  title: 'Solaris', authors: ['S. Lem'], isbn_10: null, isbn_13: '9780000000001',
-  publisher: null, published_year: null, cover_url: null,
+  id: CAND_ID_1,
+  detection_id: DET_ID_1,
+  source: 'google_books',
+  external_id: 'gb-1',
+  title: 'Solaris',
+  authors: ['S. Lem'],
+  isbn_10: null,
+  isbn_13: '9780000000001',
+  publisher: null,
+  published_year: null,
+  cover_url: null,
+  description: null,
+  edited_at: null as string | null,
+  purchase_date: null as string | null,
+  purchase_price: null as number | null,
+  purchase_city: null as string | null,
+  purchase_event: null as string | null,
 };
 const cand2 = {
-  id: CAND_ID_2, detection_id: DET_ID_2, source: 'google_books', external_id: 'gb-2',
-  title: 'Diuna', authors: ['Frank Herbert'], isbn_10: null, isbn_13: '9780000000002',
-  publisher: null, published_year: null, cover_url: null,
+  id: CAND_ID_2,
+  detection_id: DET_ID_2,
+  source: 'google_books',
+  external_id: 'gb-2',
+  title: 'Diuna',
+  authors: ['Frank Herbert'],
+  isbn_10: null,
+  isbn_13: '9780000000002',
+  publisher: null,
+  published_year: null,
+  cover_url: null,
+  description: null,
+  edited_at: null as string | null,
+  purchase_date: null as string | null,
+  purchase_price: null as number | null,
+  purchase_city: null as string | null,
+  purchase_event: null as string | null,
 };
 
 type PgError = { code?: string; name: string; message: string } | null;
-type BatchJson = { data?: { confirmed: {detection_id:string; book_id:string}[]; skipped: {detection_id:string; reason:string}[] }; error?: { code: string; message: string } };
+type BatchJson = {
+  data?: {
+    confirmed: { detection_id: string; book_id: string }[];
+    skipped: { detection_id: string; reason: string }[];
+  };
+  error?: { code: string; message: string };
+};
 
 function makeContext(opts: {
   id?: string;
   body?: unknown;
   photoResult?: { data: typeof photoRow | null; error: PgError };
-  detRows?: typeof det1[];
+  detRows?: (typeof det1)[];
   detError?: PgError;
-  candRows?: typeof cand1[];
+  candRows?: (typeof cand1)[];
   candError?: PgError;
   user?: boolean;
 }) {
@@ -99,7 +147,7 @@ function makeContext(opts: {
             { detection_id: DET_ID_1, candidate_id: CAND_ID_1 },
             { detection_id: DET_ID_2, candidate_id: CAND_ID_2 },
           ],
-        }
+        },
       ),
     },
     locals: {
@@ -183,9 +231,77 @@ describe('POST /api/photos/[id]/confirm-batch', () => {
     const json = (await res.json()) as BatchJson;
     // DET_ID_2 → skipped (not_found), DET_ID_1 → confirmed
     const skippedItem = json.data!.skipped.find(
-      (s: { detection_id: string }) => s.detection_id === DET_ID_2
+      (s: { detection_id: string }) => s.detection_id === DET_ID_2,
     );
     expect(skippedItem?.reason).toBe('not_found');
+  });
+
+  it('woła helper z correctionType field_edit dla kandydata z edited_at ustawionym', async () => {
+    const editedCand1 = {
+      ...cand1,
+      edited_at: '2026-07-14T10:00:00.000Z',
+      title: 'Solaris (poprawiony)',
+    };
+    const ctx = makeContext({ candRows: [editedCand1, cand2] });
+    await POST(ctx);
+    expect(mockConfirmDetectionToCatalog).toHaveBeenNthCalledWith(
+      1,
+      expect.anything(),
+      USER_ID,
+      expect.objectContaining({
+        correctionType: 'field_edit',
+        correctedFields: { title: 'Solaris (poprawiony)', authors: ['S. Lem'] },
+      }),
+    );
+    expect(mockConfirmDetectionToCatalog).toHaveBeenNthCalledWith(
+      2,
+      expect.anything(),
+      USER_ID,
+      expect.objectContaining({ correctionType: 'accept' }),
+    );
+  });
+
+  it('purchase_*: fallback kandydat → photo → null, purchase_price bez fallbacku do photo', async () => {
+    const purchaseCand1 = { ...cand1, purchase_city: 'Kraków', purchase_price: 42.5 };
+    const ctx = makeContext({
+      candRows: [purchaseCand1, cand2],
+      photoResult: {
+        data: {
+          ...photoRow,
+          purchase_date: '2026-01-01',
+          purchase_city: 'Warszawa',
+          purchase_event: 'Kiermasz',
+        },
+        error: null,
+      },
+    });
+    await POST(ctx);
+    expect(mockConfirmDetectionToCatalog).toHaveBeenNthCalledWith(
+      1,
+      expect.anything(),
+      USER_ID,
+      expect.objectContaining({
+        book: expect.objectContaining({
+          purchase_date: '2026-01-01',
+          purchase_city: 'Kraków',
+          purchase_event: 'Kiermasz',
+          purchase_price: 42.5,
+        }),
+      }),
+    );
+    expect(mockConfirmDetectionToCatalog).toHaveBeenNthCalledWith(
+      2,
+      expect.anything(),
+      USER_ID,
+      expect.objectContaining({
+        book: expect.objectContaining({
+          purchase_date: '2026-01-01',
+          purchase_city: 'Warszawa',
+          purchase_event: 'Kiermasz',
+          purchase_price: null,
+        }),
+      }),
+    );
   });
 
   it('Cache-Control: private, no-store', async () => {
