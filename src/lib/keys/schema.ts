@@ -70,3 +70,9 @@ export const ApiKeyDTO = z.object({
 export type ApiKeyDTO = z.infer<typeof ApiKeyDTO>;
 export type CreateKeyInput = z.infer<typeof CreateKeySchema>;
 export type UpdateKeyInput = z.infer<typeof UpdateKeySchema>;
+
+// per-call-byok-key-override: opcjonalny per-request override aktywnego klucza.
+// Świadomie bez .nullable() na całym obiekcie — endpoint decyduje co zrobić
+// z brakiem/błędem JSON (body jest opcjonalne, nie wymagane).
+export const ApiKeyOverrideSchema = z.object({ apiKeyId: z.string().uuid().optional() });
+export type ApiKeyOverrideInput = z.infer<typeof ApiKeyOverrideSchema>;

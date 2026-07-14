@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 
 import { getActiveProviderConfig } from '../../../../lib/keys/getActiveProviderConfig';
+import { ApiKeyOverrideSchema } from '../../../../lib/keys/schema';
 import { detectSpines } from '../../../../lib/vision/client';
 import { deriveWorkingCopy } from '../../../../lib/images/resize';
 import { PROMPT_VERSION } from '../../../../lib/vision/prompt';
@@ -93,9 +94,25 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
     });
   }
 
+  // per-call-byok-key-override: opcjonalne body { apiKeyId } — puste/brakujące
+  // body (dzisiejsze wywołania UI) jest tolerowane jako "brak override", nie 400.
+  // Musi nastąpić PRZED wywołaniem getActiveProviderConfig poniżej, w fazie
+  // pre-stream (przed startem SSE / TransformStream).
+  let apiKeyId: string | undefined;
+  try {
+    const raw = await request.json();
+    const parsed = ApiKeyOverrideSchema.safeParse(raw);
+    if (parsed.success) apiKeyId = parsed.data.apiKeyId;
+  } catch {
+    // brak/niepoprawne body → brak override, dzisiejsze zachowanie
+  }
+
   // Guard: active API key required (S-33)
-  const providerConfig = await getActiveProviderConfig(locals.supabase, locals.user.id);
+  const providerConfig = await getActiveProviderConfig(locals.supabase, locals.user.id, apiKeyId);
   if (!providerConfig) {
+    if (apiKeyId) {
+      return apiError({ code: 'NOT_FOUND', status: 404, message: 'Wybrany klucz nie istnieje.' });
+    }
     return apiError({
       code: 'NO_API_KEY',
       status: 403,
