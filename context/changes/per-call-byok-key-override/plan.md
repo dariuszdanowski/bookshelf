@@ -291,17 +291,17 @@ Brak migracji SQL — `user_api_keys.id` + RLS już wystarczają do lookupu po k
 
 #### Automatyczne
 
-- [x] 1.1 `npm run typecheck` przechodzi
-- [x] 1.2 `npm run lint` przechodzi
-- [x] 1.3 Testy jednostkowe resolve/refine/process + getActiveProviderConfig zielone
+- [x] 1.1 `npm run typecheck` przechodzi — 3e89dc9
+- [x] 1.2 `npm run lint` przechodzi — 3e89dc9
+- [x] 1.3 Testy jednostkowe resolve/refine/process + getActiveProviderConfig zielone — 3e89dc9
 
 ### Faza 2: Frontend — infrastruktura (hook, dropdown, slot w dialogu)
 
 #### Automatyczne
 
-- [ ] 2.1 `npm run typecheck` przechodzi
-- [ ] 2.2 `npm run lint` przechodzi
-- [ ] 2.3 Nowe testy jednostkowe (ApiKeySelect, useApiKeys, ConfirmDialog) zielone
+- [x] 2.1 `npm run typecheck` przechodzi
+- [x] 2.2 `npm run lint` przechodzi
+- [x] 2.3 Nowe testy jednostkowe (ApiKeySelect, useApiKeys, ConfirmDialog) zielone
 
 ### Faza 3: Wiring w DetectionReview.tsx + testy end-to-end
 
