@@ -12,6 +12,10 @@ type Props = {
   testIdPrefix?: string;
   onConfirm: () => void;
   onCancel: () => void;
+  // per-call-byok-key-override: opcjonalny slot na dodatkową treść (np. dropdown
+  // wyboru klucza BYOK) między wiadomością a przyciskami. Bez children — render
+  // identyczny jak wcześniej.
+  children?: React.ReactNode;
 };
 
 export default function ConfirmDialog({
@@ -24,6 +28,7 @@ export default function ConfirmDialog({
   testIdPrefix = 'confirm-dialog',
   onConfirm,
   onCancel,
+  children,
 }: Props) {
   useBodyScrollLock(open); // M5: bez przelewania scrolla na stronę pod spodem
 
@@ -58,6 +63,7 @@ export default function ConfirmDialog({
       >
         <h3 className="text-base font-semibold text-gray-900">{title}</h3>
         <p className="mt-2 text-sm text-gray-600">{message}</p>
+        {children}
 
         <div className="mt-4 flex justify-end gap-2">
           <button

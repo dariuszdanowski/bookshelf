@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 
 import type { BookCandidate, ScoredCandidate } from '../../../../lib/books/schema';
 import { getActiveProviderConfig } from '../../../../lib/keys/getActiveProviderConfig';
+import { ApiKeyOverrideSchema } from '../../../../lib/keys/schema';
 import { searchGoogleBooks } from '../../../../lib/books/googleBooks';
 import { searchOpenLibrary } from '../../../../lib/books/openLibrary';
 import { apiError, apiResponse, parseUuidParam } from '../../../../lib/http/response';
@@ -89,7 +90,7 @@ async function matchOne(
   return { candidates, duplicate, rateLimited: false };
 }
 
-export const POST: APIRoute = async ({ params, locals }) => {
+export const POST: APIRoute = async ({ params, locals, request }) => {
   if (!locals.user) {
     return apiError({ code: 'UNAUTHENTICATED', status: 401, message: 'Authentication required.' });
   }
@@ -104,9 +105,23 @@ export const POST: APIRoute = async ({ params, locals }) => {
     return apiError({ code: 'AI_DISABLED', status: 403, message: 'Analiza AI jest wyłączona.' });
   }
 
+  // per-call-byok-key-override: opcjonalne body { apiKeyId } — puste/brakujące
+  // body (dzisiejsze wywołania UI) jest tolerowane jako "brak override", nie 400.
+  let apiKeyId: string | undefined;
+  try {
+    const raw = await request.json();
+    const parsed = ApiKeyOverrideSchema.safeParse(raw);
+    if (parsed.success) apiKeyId = parsed.data.apiKeyId;
+  } catch {
+    // brak/niepoprawne body → brak override, dzisiejsze zachowanie
+  }
+
   // Guard: active API key required (S-33)
-  const providerConfig = await getActiveProviderConfig(locals.supabase, locals.user.id);
+  const providerConfig = await getActiveProviderConfig(locals.supabase, locals.user.id, apiKeyId);
   if (!providerConfig) {
+    if (apiKeyId) {
+      return apiError({ code: 'NOT_FOUND', status: 404, message: 'Wybrany klucz nie istnieje.' });
+    }
     return apiError({
       code: 'NO_API_KEY',
       status: 403,

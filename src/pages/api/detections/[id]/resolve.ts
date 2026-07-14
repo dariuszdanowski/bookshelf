@@ -3,6 +3,7 @@ import type { APIRoute } from 'astro';
 import type { ScoredCandidate } from '../../../../lib/books/schema';
 import { apiError, apiResponse, parseUuidParam } from '../../../../lib/http/response';
 import { getActiveProviderConfig } from '../../../../lib/keys/getActiveProviderConfig';
+import { ApiKeyOverrideSchema } from '../../../../lib/keys/schema';
 import { checkCatalogDuplicate } from '../../../../lib/matching/dedupe';
 import { scoreCandidate } from '../../../../lib/matching/score';
 import { isAiResolutionBudgetAvailable } from '../../../../lib/resolution/budgetPolicy';
@@ -34,7 +35,7 @@ type ExistingBook = {
  * weak-match-resolve-and-ocr-audit); w obu przypadkach usunięcie istniejących
  * (0 lub słabych) kandydatów przed insertem jest poprawne.
  */
-export const POST: APIRoute = async ({ params, locals }) => {
+export const POST: APIRoute = async ({ params, locals, request }) => {
   if (!locals.user) {
     return apiError({ code: 'UNAUTHENTICATED', status: 401, message: 'Authentication required.' });
   }
@@ -72,8 +73,28 @@ export const POST: APIRoute = async ({ params, locals }) => {
     return apiError({ code: 'NOT_FOUND', status: 404, message: 'Nie znaleziono detekcji.' });
   }
 
-  const providerConfig = await getActiveProviderConfig(locals.supabase, locals.user.id);
+  // per-call-byok-key-override: opcjonalne body { apiKeyId } — puste/brakujące
+  // body (dzisiejsze wywołania UI) jest tolerowane jako "brak override", nie 400.
+  // Nazwa `requestedApiKeyId` (nie `apiKeyId`) — plik dalej (linia ~146) już ma
+  // `apiKeyId` = zapisany klucz z providerConfig do atrybucji kosztów audytu.
+  let requestedApiKeyId: string | undefined;
+  try {
+    const raw = await request.json();
+    const parsed = ApiKeyOverrideSchema.safeParse(raw);
+    if (parsed.success) requestedApiKeyId = parsed.data.apiKeyId;
+  } catch {
+    // brak/niepoprawne body → brak override, dzisiejsze zachowanie
+  }
+
+  const providerConfig = await getActiveProviderConfig(
+    locals.supabase,
+    locals.user.id,
+    requestedApiKeyId,
+  );
   if (!providerConfig) {
+    if (requestedApiKeyId) {
+      return apiError({ code: 'NOT_FOUND', status: 404, message: 'Wybrany klucz nie istnieje.' });
+    }
     return apiError({
       code: 'NO_API_KEY',
       status: 403,

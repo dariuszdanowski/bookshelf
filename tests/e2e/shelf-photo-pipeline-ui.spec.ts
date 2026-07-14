@@ -436,6 +436,93 @@ test('3.8 Re-run vision: confirm cancel → brak procesu; OK → wywołuje /proc
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
+//  TEST 4b — per-call-byok-key-override: "Ponów vision (nowy run)" z listy
+//  zdjęć (PhotoListIsland) — DRUGI, niezależny trigger obok /photos/[id]
+//  (DetectionReview.tsx). Zgłoszone przez usera jako pominięte podczas
+//  manualnej weryfikacji Fazy 3 — dropdown musi się pojawić i apiKeyId musi
+//  trafić do body /process, dokładnie jak dla triggera na /photos/[id].
+// ══════════════════════════════════════════════════════════════════════════════
+test('per-call-byok-key-override: "Ponów vision" z listy zdjęć wysyła wybrany apiKeyId', async ({
+  page,
+}) => {
+  await goToShelves(page);
+  await page.waitForSelector('[data-testid^="shelf-item-"]', { timeout: 10_000 });
+
+  const KEY_ACTIVE_ID = '00000000-0000-4000-8000-0000000ff010';
+  const KEY_OTHER_ID = '00000000-0000-4000-8000-0000000ff011';
+  await page.route('**/api/account/keys', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        data: {
+          keys: [
+            {
+              id: KEY_ACTIVE_ID,
+              label: 'Klucz aktywny',
+              provider: 'anthropic',
+              is_active: true,
+            },
+            {
+              id: KEY_OTHER_ID,
+              label: 'Klucz zapasowy',
+              provider: 'openai_compatible',
+              is_active: false,
+            },
+          ],
+        },
+      }),
+    }),
+  );
+  await page.route(`**/api/shelves/**/photos`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(MOCK_PHOTO_LIST_MATCH_DONE),
+    }),
+  );
+  let capturedBody: unknown = null;
+  await page.route(
+    (url) => url.pathname === `/api/photos/${PHOTO_ID}/process`,
+    async (route) => {
+      capturedBody = JSON.parse(route.request().postData() ?? '{}');
+      await route.fulfill({
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+        body: `event: started\ndata: {}\n\nevent: done\ndata: ${JSON.stringify(MOCK_PROCESS_RESPONSE.data)}\n\n`,
+      });
+    },
+  );
+  await page.route(`**/api/photos/${PHOTO_ID}/match-stream**`, (route) =>
+    route.fulfill({
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+      body: 'event: done\ndata: {"matched":0,"rate_limited":0}\n\n',
+    }),
+  );
+
+  const link = page.getByTestId(/^shelf-item-photos-link$/).first();
+  await link.click();
+  await page.waitForURL(/\/shelves\/[0-9a-f-]+$/, { timeout: 5_000 });
+  await revealPhotosTab(page);
+  await expect(page.getByTestId(`rerun-vision-${PHOTO_ID}`)).toBeVisible({ timeout: 10_000 });
+
+  await page.getByTestId(`rerun-vision-${PHOTO_ID}`).click();
+  await expect(page.getByTestId('photo-rerun-confirm-backdrop')).toBeVisible({ timeout: 5_000 });
+  const select = page.getByTestId('api-key-select');
+  await expect(select).toBeVisible();
+  await expect(select).toHaveValue(KEY_ACTIVE_ID);
+  await select.selectOption(KEY_OTHER_ID);
+
+  const processPromise = page.waitForResponse(
+    (r) => r.url().includes(`/photos/${PHOTO_ID}/process`) && r.request().method() === 'POST',
+  );
+  await page.getByTestId('photo-rerun-confirm-confirm').click();
+  await processPromise;
+  expect(capturedBody).toMatchObject({ apiKeyId: KEY_OTHER_ID });
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
 //  TEST 5 — Double-click Run vision → 409 toast
 // ══════════════════════════════════════════════════════════════════════════════
 test('3.9 Double-click Run vision → toast "Run już w toku"', async ({ page }) => {

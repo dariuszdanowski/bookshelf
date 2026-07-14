@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { CreateKeySchema, UpdateKeySchema, ApiKeyDTO } from '../../../../src/lib/keys/schema';
+import {
+  CreateKeySchema,
+  UpdateKeySchema,
+  ApiKeyDTO,
+  ApiKeyOverrideSchema,
+} from '../../../../src/lib/keys/schema';
 
 describe('CreateKeySchema', () => {
   it('akceptuje minimalny valid input', () => {
@@ -189,5 +194,24 @@ describe('ApiKeyDTO', () => {
   it('odrzuca brak wymaganych pól', () => {
     const result = ApiKeyDTO.safeParse({ id: '00000000-0000-4000-8000-000000000001' });
     expect(result.success).toBe(false);
+  });
+});
+
+describe('ApiKeyOverrideSchema', () => {
+  it('akceptuje pusty obiekt (brak override)', () => {
+    expect(ApiKeyOverrideSchema.safeParse({}).success).toBe(true);
+  });
+
+  it('akceptuje poprawny apiKeyId (UUID)', () => {
+    const result = ApiKeyOverrideSchema.safeParse({
+      apiKeyId: '00000000-0000-4000-8000-000000000002',
+    });
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect(result.data.apiKeyId).toBe('00000000-0000-4000-8000-000000000002');
+  });
+
+  it('odrzuca apiKeyId, który nie jest UUID', () => {
+    expect(ApiKeyOverrideSchema.safeParse({ apiKeyId: 'not-a-uuid' }).success).toBe(false);
   });
 });

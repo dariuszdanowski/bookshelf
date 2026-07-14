@@ -5,6 +5,7 @@ import type { PhotoDTO, DetectionWithCandidatesDTO, BboxEditSet } from '../lib/p
 import { classifyCropQuality } from '../lib/matching/fallbackPolicy';
 import { runMatchSSE } from '../lib/matching/runMatchSSE';
 import { runProcessSSE } from '../lib/vision/runProcessSSE';
+import ApiKeySelect from './ApiKeySelect';
 import BookModal, { type BookModalBook, type CandidatePatch } from './BookModal';
 import ConfirmDialog from './ConfirmDialog';
 import CorrectionHistoryPanel from './CorrectionHistoryPanel';
@@ -13,6 +14,7 @@ import ProgressModal from './ProgressModal';
 import HelpTip from './HelpTip';
 import PhotoDetectionOverlay from './PhotoDetectionOverlay';
 import Skeleton from './Skeleton';
+import { useApiKeys } from './useApiKeys';
 import { ViewModeSwitcher, useViewMode, type ViewMode } from './ViewModeSwitcher';
 
 const MATCH_HIGH = 0.75;
@@ -37,11 +39,15 @@ function RefineButton({
   busy,
   onClick,
   size = 'md',
+  noApiKey = false,
 }: {
   bbox: DetectionWithCandidatesDTO['bbox'];
   busy: boolean;
   onClick: () => void;
   size?: 'lg' | 'md' | 'sm';
+  // per-call-byok-key-override: user z 0 kluczami BYOK — przycisk disabled
+  // zamiast pozwalać kliknąć i dostać błąd NO_API_KEY po fakcie.
+  noApiKey?: boolean;
 }) {
   // identity-first: refine = crop re-OCR; bez bboxa nie ma co przycinać
   if (bbox === null) return null;
@@ -51,14 +57,16 @@ function RefineButton({
     ? 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100'
     : 'border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100';
   const label = busy ? 'Doprecyzowuję...' : isWeak ? '⚠ Doprecyzuj odczyt' : 'Doprecyzuj odczyt';
-  const title = isWeak
-    ? '⚠ Crop o niskiej jakości — wynik może być słaby. Dodatkowa analiza AI (płatne).'
-    : 'Doprecyzuj odczyt — dodatkowa analiza AI (płatne)';
+  const title = noApiKey
+    ? 'Brak klucza API — dodaj klucz w ustawieniach konta (/account)'
+    : isWeak
+      ? '⚠ Crop o niskiej jakości — wynik może być słaby. Dodatkowa analiza AI (płatne).'
+      : 'Doprecyzuj odczyt — dodatkowa analiza AI (płatne)';
   return (
     <span className="inline-flex items-center gap-1">
       <button
         data-testid="refine-button"
-        disabled={busy}
+        disabled={busy || noApiKey}
         onClick={onClick}
         title={title}
         className={`rounded-md border text-xs font-medium disabled:opacity-50 ${sizeCls} ${colorCls}`}
@@ -142,16 +150,21 @@ function AiResolutionButton({
   onClick,
   size = 'md',
   activeProviderIsAnthropic = null,
+  noApiKey = false,
 }: {
   busy: boolean;
   onClick: () => void;
   size?: 'lg' | 'md' | 'sm';
   activeProviderIsAnthropic?: boolean | null;
+  // per-call-byok-key-override: user z 0 kluczami BYOK — przycisk disabled
+  // zamiast pozwalać kliknąć i dostać błąd NO_API_KEY po fakcie.
+  noApiKey?: boolean;
 }) {
   const sizeCls = size === 'lg' ? 'px-3 py-1.5' : size === 'sm' ? 'px-2 py-1' : 'px-2.5 py-1';
   const label = busy ? 'Rozwiązuję...' : 'Rozwiąż przez AI';
-  const title =
-    activeProviderIsAnthropic === false
+  const title = noApiKey
+    ? 'Brak klucza API — dodaj klucz w ustawieniach konta (/account)'
+    : activeProviderIsAnthropic === false
       ? 'Rozwiąż przez AI — dodatkowa analiza AI (bez dostępu do internetu, wynik może być mniej trafny dla niszowych wydań)'
       : 'Rozwiąż przez AI (web search) — dodatkowa analiza AI (płatne, wymaga klucza Anthropic)';
   // impl-review F3: koszt jest realnie $0 dla openai_compatible (costUsd zawsze
@@ -163,7 +176,7 @@ function AiResolutionButton({
     <span className="inline-flex items-center gap-1">
       <button
         data-testid="ai-resolution-button"
-        disabled={busy}
+        disabled={busy || noApiKey}
         onClick={onClick}
         title={title}
         className={`rounded-md border border-purple-300 bg-purple-50 text-xs font-medium text-purple-700 hover:bg-purple-100 disabled:opacity-50 dark:border-purple-700 dark:bg-purple-900/20 dark:text-purple-300 dark:hover:bg-purple-900/40 ${sizeCls}`}
@@ -782,28 +795,40 @@ function useDetectionDecision(
   // kandydatów) — inaczej ten wywołanie konkuruje o kolejkę mockResolvedValueOnce()
   // w istniejących testach confirm/reject/unreject, które nigdy nie renderują tego
   // przycisku (przesuwałoby kolejkę i psuło niepowiązane assercje).
-  const [activeProviderIsAnthropic, setActiveProviderIsAnthropic] = useState<boolean | null>(null);
+  // per-call-byok-key-override: useApiKeys (Faza 2) zastępuje ad-hoc fetch —
+  // ta sama hasNoCandidates-gated semantyka zachowana, cardKeys zasila też
+  // nowy dropdown wyboru klucza w dialogach refine/resolve tej karty.
+  const { keys: cardKeys, fetchKeys: fetchCardKeys } = useApiKeys();
   const hasNoCandidates = detection.candidates.length === 0;
+  // KRYTYCZNE: gate zostaje WĄSKI (tylko hasNoCandidates), nie rozszerzać o
+  // detection.bbox — próba rozszerzenia (per-call-byok-key-override, manualna
+  // weryfikacja) złamała 37/46 testów DetectionReview.test.tsx (kolizja z
+  // kolejnością mockResolvedValueOnce() — "Body is unusable: Body has already
+  // been read"). RefineButton (widoczny gdy bbox != null, niezależnie od
+  // kandydatów) NIE dostaje proaktywnego disable — hasNoApiKeys zostaje false
+  // dopóki cardKeys się nie załaduje z INNEGO powodu (np. hasNoCandidates=true).
   useEffect(() => {
     if (!hasNoCandidates) return;
-    let cancelled = false;
-    fetch('/api/account/keys')
-      .then(
-        (r) =>
-          r.json() as Promise<{ data?: { keys?: { is_active: boolean; provider: string }[] } }>,
-      )
-      .then((body) => {
-        if (cancelled) return;
-        const active = (body.data?.keys ?? []).find((k) => k.is_active);
-        setActiveProviderIsAnthropic(active ? active.provider === 'anthropic' : null);
-      })
-      .catch(() => {
-        /* silent — brak informacji o providerze nie blokuje resolution flow */
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [hasNoCandidates]);
+    fetchCardKeys();
+  }, [hasNoCandidates, fetchCardKeys]);
+  const activeCardKey = cardKeys?.find((k) => k.is_active) ?? null;
+  const activeProviderIsAnthropic = activeCardKey ? activeCardKey.provider === 'anthropic' : null;
+  const activeCardKeyId = activeCardKey?.id ?? null;
+  const hasNoApiKeys = cardKeys !== null && cardKeys.length === 0;
+  // Jednorazowy override wyboru klucza dla refine/resolve tej karty — null
+  // oznacza "użyj activeCardKeyId" (sentinel, nie snapshot: unika wyścigu gdy
+  // dialog otwiera się zanim fetchCardKeys() zdąży dowieźć listę kluczy).
+  const [selectedCardKeyId, setSelectedCardKeyId] = useState<string | null>(null);
+  function openRefineConfirm() {
+    fetchCardKeys();
+    setSelectedCardKeyId(null);
+    setConfirmRefine(true);
+  }
+  function openAiResolveConfirm() {
+    fetchCardKeys();
+    setSelectedCardKeyId(null);
+    setConfirmAiResolve(true);
+  }
 
   const top = detection.candidates[0] ?? null;
   const alts = detection.candidates.slice(1);
@@ -967,7 +992,16 @@ function useDetectionDecision(
     setBusy(true);
     setErrorMsg(null);
     try {
-      const res = await fetch(`/api/detections/${detection.id}/refine`, { method: 'POST' });
+      const refineKeyId = selectedCardKeyId ?? activeCardKeyId;
+      const res = await fetch(`/api/detections/${detection.id}/refine`, {
+        method: 'POST',
+        ...(refineKeyId
+          ? {
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ apiKeyId: refineKeyId }),
+            }
+          : {}),
+      });
       const json = (await res.json()) as {
         data?: {
           applied?: boolean;
@@ -1029,7 +1063,16 @@ function useDetectionDecision(
     setBusy(true);
     setErrorMsg(null);
     try {
-      const res = await fetch(`/api/detections/${detection.id}/resolve`, { method: 'POST' });
+      const resolveKeyId = selectedCardKeyId ?? activeCardKeyId;
+      const res = await fetch(`/api/detections/${detection.id}/resolve`, {
+        method: 'POST',
+        ...(resolveKeyId
+          ? {
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ apiKeyId: resolveKeyId }),
+            }
+          : {}),
+      });
       const json = (await res.json()) as {
         data?: {
           applied?: boolean;
@@ -1112,12 +1155,19 @@ function useDetectionDecision(
     handleRefine,
     confirmRefine,
     setConfirmRefine,
+    openRefineConfirm,
     handleAiResolve,
     confirmAiResolve,
     setConfirmAiResolve,
+    openAiResolveConfirm,
     handleRematch,
     handleCorrectSuccess,
     activeProviderIsAnthropic,
+    cardKeys,
+    selectedCardKeyId,
+    setSelectedCardKeyId,
+    activeCardKeyId,
+    hasNoApiKeys,
   };
 }
 
@@ -1165,12 +1215,19 @@ function DetectionCard({
     handleRefine,
     confirmRefine,
     setConfirmRefine,
+    openRefineConfirm,
     handleAiResolve,
     confirmAiResolve,
     setConfirmAiResolve,
+    openAiResolveConfirm,
     handleRematch,
     handleCorrectSuccess,
     activeProviderIsAnthropic,
+    cardKeys,
+    selectedCardKeyId,
+    setSelectedCardKeyId,
+    activeCardKeyId,
+    hasNoApiKeys,
   } = useDetectionDecision(detection, onDecided, onRefined, onUndecided);
 
   if (state === 'decided') {
@@ -1546,15 +1603,17 @@ function DetectionCard({
           <RefineButton
             bbox={detection.bbox}
             busy={busy}
-            onClick={() => setConfirmRefine(true)}
+            onClick={openRefineConfirm}
             size="lg"
+            noApiKey={hasNoApiKeys}
           />
           {(!top || top.matchScore < MATCH_MID) && (
             <AiResolutionButton
               busy={busy}
-              onClick={() => setConfirmAiResolve(true)}
+              onClick={openAiResolveConfirm}
               size="lg"
               activeProviderIsAnthropic={activeProviderIsAnthropic}
+              noApiKey={hasNoApiKeys}
             />
           )}
           <CorrectionHistoryPanel detectionId={detection.id} />
@@ -1614,7 +1673,13 @@ function DetectionCard({
           setConfirmRefine(false);
           void handleRefine();
         }}
-      />
+      >
+        <ApiKeySelect
+          keys={cardKeys}
+          value={selectedCardKeyId ?? activeCardKeyId}
+          onChange={setSelectedCardKeyId}
+        />
+      </ConfirmDialog>
       <ConfirmDialog
         open={confirmAiResolve}
         title="Rozwiązać przez AI?"
@@ -1631,7 +1696,13 @@ function DetectionCard({
           setConfirmAiResolve(false);
           void handleAiResolve();
         }}
-      />
+      >
+        <ApiKeySelect
+          keys={cardKeys}
+          value={selectedCardKeyId ?? activeCardKeyId}
+          onChange={setSelectedCardKeyId}
+        />
+      </ConfirmDialog>
       <ProgressModal open={busyLabel !== null} label={busyLabel ?? ''} />
     </div>
   );
@@ -1742,12 +1813,19 @@ export function DetectionRow({
     handleRefine,
     confirmRefine,
     setConfirmRefine,
+    openRefineConfirm,
     handleAiResolve,
     confirmAiResolve,
     setConfirmAiResolve,
+    openAiResolveConfirm,
     handleRematch,
     handleCorrectSuccess,
     activeProviderIsAnthropic,
+    cardKeys,
+    selectedCardKeyId,
+    setSelectedCardKeyId,
+    activeCardKeyId,
+    hasNoApiKeys,
   } = useDetectionDecision(detection, onDecided, onRefined, onUndecided);
 
   if (state === 'decided') {
@@ -1942,15 +2020,17 @@ export function DetectionRow({
         <RefineButton
           bbox={detection.bbox}
           busy={busy}
-          onClick={() => setConfirmRefine(true)}
+          onClick={openRefineConfirm}
           size="md"
+          noApiKey={hasNoApiKeys}
         />
         {(!top || top.matchScore < MATCH_MID) && (
           <AiResolutionButton
             busy={busy}
-            onClick={() => setConfirmAiResolve(true)}
+            onClick={openAiResolveConfirm}
             size="md"
             activeProviderIsAnthropic={activeProviderIsAnthropic}
+            noApiKey={hasNoApiKeys}
           />
         )}
         <CorrectionHistoryPanel detectionId={detection.id} />
@@ -2013,7 +2093,13 @@ export function DetectionRow({
           setConfirmRefine(false);
           void handleRefine();
         }}
-      />
+      >
+        <ApiKeySelect
+          keys={cardKeys}
+          value={selectedCardKeyId ?? activeCardKeyId}
+          onChange={setSelectedCardKeyId}
+        />
+      </ConfirmDialog>
       <ConfirmDialog
         open={confirmAiResolve}
         title="Rozwiązać przez AI?"
@@ -2030,7 +2116,13 @@ export function DetectionRow({
           setConfirmAiResolve(false);
           void handleAiResolve();
         }}
-      />
+      >
+        <ApiKeySelect
+          keys={cardKeys}
+          value={selectedCardKeyId ?? activeCardKeyId}
+          onChange={setSelectedCardKeyId}
+        />
+      </ConfirmDialog>
       <ProgressModal open={busyLabel !== null} label={busyLabel ?? ''} />
     </div>
   );
@@ -2079,12 +2171,19 @@ export function DetectionTile({
     handleRefine,
     confirmRefine,
     setConfirmRefine,
+    openRefineConfirm,
     handleAiResolve,
     confirmAiResolve,
     setConfirmAiResolve,
+    openAiResolveConfirm,
     handleRematch,
     handleCorrectSuccess,
     activeProviderIsAnthropic,
+    cardKeys,
+    selectedCardKeyId,
+    setSelectedCardKeyId,
+    activeCardKeyId,
+    hasNoApiKeys,
   } = useDetectionDecision(detection, onDecided, onRefined, onUndecided);
 
   if (state === 'decided') {
@@ -2313,15 +2412,17 @@ export function DetectionTile({
         <RefineButton
           bbox={detection.bbox}
           busy={busy}
-          onClick={() => setConfirmRefine(true)}
+          onClick={openRefineConfirm}
           size="sm"
+          noApiKey={hasNoApiKeys}
         />
         {(!top || top.matchScore < MATCH_MID) && (
           <AiResolutionButton
             busy={busy}
-            onClick={() => setConfirmAiResolve(true)}
+            onClick={openAiResolveConfirm}
             size="sm"
             activeProviderIsAnthropic={activeProviderIsAnthropic}
+            noApiKey={hasNoApiKeys}
           />
         )}
         <CorrectionHistoryPanel detectionId={detection.id} />
@@ -2367,7 +2468,13 @@ export function DetectionTile({
           setConfirmRefine(false);
           void handleRefine();
         }}
-      />
+      >
+        <ApiKeySelect
+          keys={cardKeys}
+          value={selectedCardKeyId ?? activeCardKeyId}
+          onChange={setSelectedCardKeyId}
+        />
+      </ConfirmDialog>
       <ConfirmDialog
         open={confirmAiResolve}
         title="Rozwiązać przez AI?"
@@ -2384,7 +2491,13 @@ export function DetectionTile({
           setConfirmAiResolve(false);
           void handleAiResolve();
         }}
-      />
+      >
+        <ApiKeySelect
+          keys={cardKeys}
+          value={selectedCardKeyId ?? activeCardKeyId}
+          onChange={setSelectedCardKeyId}
+        />
+      </ConfirmDialog>
       <ProgressModal open={busyLabel !== null} label={busyLabel ?? ''} />
     </div>
   );
@@ -2590,9 +2703,24 @@ export default function DetectionReview({
   // resolution-openai-compatible-provider: aktywny klucz BYOK widoczny w dialogu
   // "Ponowić vision?" — user musi wiedzieć KTÓRY klucz/provider poniesie koszt
   // przed potwierdzeniem uruchomienia nowego runu.
-  const [activeKeyInfo, setActiveKeyInfo] = useState<{ label: string; provider: string } | null>(
-    null,
-  );
+  // per-call-byok-key-override: useApiKeys (Faza 2) zasila też dropdown wyboru
+  // klucza w tym samym dialogu — drugi, niezależny zasięg hooka (zob. plan-review
+  // F1): karty/wiersze/kafelki mają WŁASNY useApiKeys() wewnątrz useDetectionDecision,
+  // ten jest osobny bo "Ponów vision" żyje na poziomie całego zdjęcia, nie karty.
+  const { keys: photoKeys, fetchKeys: fetchPhotoKeys } = useApiKeys();
+  const activePhotoKey = photoKeys?.find((k) => k.is_active) ?? null;
+  const activePhotoKeyId = activePhotoKey?.id ?? null;
+  const hasNoPhotoApiKeys = photoKeys !== null && photoKeys.length === 0;
+  // Jednorazowy override — null = użyj activePhotoKeyId (sentinel, nie snapshot).
+  const [selectedPhotoKeyId, setSelectedPhotoKeyId] = useState<string | null>(null);
+  // KRYTYCZNE: BEZ eager fetch tutaj. Próba dodania unconditional useEffect(() =>
+  // fetchPhotoKeys(), [fetchPhotoKeys]) złamała 37/46 testów DetectionReview.test.tsx
+  // (kolizja z kolejnością mockResolvedValueOnce() — istniejący eager /api/shelves
+  // fetch niżej NIE jest bezpiecznym precedensem, bo testy już go uwzględniają w
+  // swoich kolejkach; nowy fetch tego nie ma). hasNoPhotoApiKeys zostaje false
+  // (nie disabled) dopóki photoKeys nie załaduje się przez lazy fetchPhotoKeys()
+  // wywołany w handleRerunVisionClick — proaktywny disable nie działa PRZED
+  // pierwszym kliknięciem na tym poziomie (akceptowany kompromis, zob. commit).
   const [actionBusy, setActionBusy] = useState(false);
   const [actionBusyLabel, setActionBusyLabel] = useState<string | null>(null);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
@@ -2873,7 +3001,8 @@ export default function DetectionReview({
     setActionBusy(true);
     setActionMsg(null);
     try {
-      await runProcessSSE(photoId);
+      const rerunKeyId = selectedPhotoKeyId ?? activePhotoKeyId;
+      await runProcessSSE(photoId, { apiKeyId: rerunKeyId });
       setRerunVisionPhase('matching');
       setMatchTitles([]);
       setMatchProgress(null);
@@ -2904,21 +3033,11 @@ export default function DetectionReview({
     // resolution-openai-compatible-provider: lazy fetch przy otwarciu dialogu (nie na
     // mount) — inaczej ten fetch konkuruje o kolejkę mockResolvedValueOnce() w
     // testach, które nigdy nie klikają "Ponów vision" (patrz analogiczna notatka
-    // przy useDetectionDecision).
-    fetch('/api/account/keys')
-      .then(
-        (r) =>
-          r.json() as Promise<{
-            data?: { keys?: { is_active: boolean; label: string; provider: string }[] };
-          }>,
-      )
-      .then((body) => {
-        const active = (body.data?.keys ?? []).find((k) => k.is_active);
-        setActiveKeyInfo(active ? { label: active.label, provider: active.provider } : null);
-      })
-      .catch(() => {
-        /* silent — brak informacji o kluczu nie blokuje rerun flow */
-      });
+    // przy useDetectionDecision). per-call-byok-key-override: fetchPhotoKeys()
+    // (useApiKeys) zastępuje ad-hoc fetch; selectedPhotoKeyId resetowany do
+    // sentinela null przy każdym otwarciu (jednorazowy override).
+    fetchPhotoKeys();
+    setSelectedPhotoKeyId(null);
     setConfirmRerunOpen(true);
   }
 
@@ -2978,8 +3097,8 @@ export default function DetectionReview({
       : photo?.vision_cost_usd != null || photo?.vision_latency_ms != null
         ? 'na bazie cache zdjęcia'
         : 'wartość orientacyjna';
-  const keyInfoLine = activeKeyInfo
-    ? `Klucz: ${activeKeyInfo.label} (${activeKeyInfo.provider}). `
+  const keyInfoLine = activePhotoKey
+    ? `Klucz: ${activePhotoKey.label} (${activePhotoKey.provider}). `
     : '';
   const rerunConfirmMessage = `${keyInfoLine}Uruchomimy nowy vision run. Poprzednie wyniki zostaną w historii. Szacowany koszt: ${formatCostEstimate(estimatedCost)} i czas: ${formatDurationEstimate(estimatedLatencyMs)} (${estimateSource}).`;
 
@@ -3271,7 +3390,12 @@ export default function DetectionReview({
             <button
               data-testid="process-now-button"
               onClick={handleRerunVisionClick}
-              disabled={actionBusy}
+              disabled={actionBusy || hasNoPhotoApiKeys}
+              title={
+                hasNoPhotoApiKeys
+                  ? 'Brak klucza API — dodaj klucz w ustawieniach konta (/account)'
+                  : undefined
+              }
               className="rounded-md bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
             >
               {actionBusy ? 'Przetwarzanie...' : btnLabel}
@@ -3298,7 +3422,13 @@ export default function DetectionReview({
             setConfirmRerunOpen(false);
             void runRerunVision();
           }}
-        />
+        >
+          <ApiKeySelect
+            keys={photoKeys}
+            value={selectedPhotoKeyId ?? activePhotoKeyId}
+            onChange={setSelectedPhotoKeyId}
+          />
+        </ConfirmDialog>
         <ProgressModal
           open={actionBusyLabel !== null}
           label={actionBusyLabel ?? ''}
@@ -3376,8 +3506,13 @@ export default function DetectionReview({
           <div className="mt-2 flex flex-wrap gap-2">
             <button
               data-testid="rerun-vision-button"
-              disabled={actionBusy || isBboxEditing || applyingEdits}
+              disabled={actionBusy || isBboxEditing || applyingEdits || hasNoPhotoApiKeys}
               onClick={handleRerunVisionClick}
+              title={
+                hasNoPhotoApiKeys
+                  ? 'Brak klucza API — dodaj klucz w ustawieniach konta (/account)'
+                  : undefined
+              }
               className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
             >
               {actionBusy ? 'Uruchamiam...' : 'Ponów vision (nowy run)'}
@@ -3635,7 +3770,13 @@ export default function DetectionReview({
           setConfirmRerunOpen(false);
           void runRerunVision();
         }}
-      />
+      >
+        <ApiKeySelect
+          keys={photoKeys}
+          value={selectedPhotoKeyId ?? activePhotoKeyId}
+          onChange={setSelectedPhotoKeyId}
+        />
+      </ConfirmDialog>
 
       <ConfirmDialog
         open={confirmRerunMatchOpen}
