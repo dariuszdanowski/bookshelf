@@ -689,9 +689,9 @@ describe('BookModal — tryb propose: Zatwierdź (POST /confirm) + dirty-check',
 });
 
 // ---------------------------------------------------------------------------
-// „Oryginalny odczyt OCR" w propose — port z RematchForm.handleUseOriginal
-// (unify-detection-edit-entrypoint, Faza 2). Dostępny niezależnie od tego, czy
-// kandydat jest świeżym draftem (no-match) czy prawdziwym matchem.
+// „Oryginalny odczyt OCR" w propose — port z dawnego formularza wyszukiwania po
+// tytule (unify-detection-edit-entrypoint, Faza 2). Dostępny niezależnie od tego,
+// czy kandydat jest świeżym draftem (no-match) czy prawdziwym matchem.
 
 describe('BookModal — Oryginalny odczyt OCR w propose', () => {
   it('niewidoczny gdy tryb != propose lub brak detectionId', () => {

@@ -4,8 +4,8 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { CorrectionModal } from '../../../src/components/DetectionReview';
 
 // ---------------------------------------------------------------------------
-// CorrectionModal — wrapper z zamknięciem Esc + klik w tło. Treść (CorrectForm)
-// testowana osobno; tu weryfikujemy mechanikę modala.
+// CorrectionModal — wrapper z zamknięciem Esc + klik w tło. Treść jest dowolna
+// (dziś: AddMissedBookForm) — tu weryfikujemy wyłącznie mechanikę modala.
 // ---------------------------------------------------------------------------
 
 afterEach(() => {
@@ -17,7 +17,7 @@ describe('CorrectionModal', () => {
     render(
       <CorrectionModal onClose={() => {}}>
         <p data-testid="modal-child">treść</p>
-      </CorrectionModal>
+      </CorrectionModal>,
     );
     const modal = screen.getByTestId('correction-modal');
     expect(modal).toBeInTheDocument();
@@ -30,7 +30,7 @@ describe('CorrectionModal', () => {
     render(
       <CorrectionModal onClose={onClose}>
         <span>x</span>
-      </CorrectionModal>
+      </CorrectionModal>,
     );
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledTimes(1);
@@ -41,7 +41,7 @@ describe('CorrectionModal', () => {
     render(
       <CorrectionModal onClose={onClose}>
         <span data-testid="inner">x</span>
-      </CorrectionModal>
+      </CorrectionModal>,
     );
     // klik na panelu (stopPropagation) NIE zamyka
     fireEvent.click(screen.getByTestId('correction-modal'));

@@ -12,7 +12,6 @@ vi.mock('../../../../../src/lib/books/confirm', () => ({
 import { POST as confirmPost } from '../../../../../src/pages/api/detections/[id]/confirm';
 import { POST as rejectPost } from '../../../../../src/pages/api/detections/[id]/reject';
 import { POST as unrejectPost } from '../../../../../src/pages/api/detections/[id]/unreject';
-import { POST as correctPost } from '../../../../../src/pages/api/detections/[id]/correct';
 
 // ---------------------------------------------------------------------------
 // Stałe testowe
@@ -437,71 +436,5 @@ describe('POST /api/detections/[id]/unreject', () => {
   it('Cache-Control header obecny', async () => {
     const res = await unrejectPost(makeUnrejectContext({}));
     expect(res.headers.get('Cache-Control')).toBe('private, no-store');
-  });
-});
-
-// ===========================================================================
-// CORRECT endpoint
-// ===========================================================================
-
-describe('POST /api/detections/[id]/correct', () => {
-  it('401 gdy brak użytkownika', async () => {
-    const ctx = makeContext({ user: false, body: { mode: 'manual_entry', title: 'T' } });
-    const res = await correctPost(ctx);
-    expect(res.status).toBe(401);
-  });
-
-  it('400 gdy brakuje mode w body', async () => {
-    const ctx = makeContext({ body: { title: 'T' } });
-    const res = await correctPost(ctx);
-    expect(res.status).toBe(400);
-  });
-
-  it('400 gdy manual_entry bez title', async () => {
-    const ctx = makeContext({ body: { mode: 'manual_entry' } });
-    const res = await correctPost(ctx);
-    expect(res.status).toBe(400);
-  });
-
-  it('400 gdy mode=field_edit (wariant usunięty — candidate-propose-edit-all-fields)', async () => {
-    const ctx = makeContext({
-      body: { mode: 'field_edit', candidate_id: CAND_ID, title: 'T' },
-    });
-    const res = await correctPost(ctx);
-    expect(res.status).toBe(400);
-  });
-
-  it('200 przy manual_entry — source=manual, woła helper z manual_entry', async () => {
-    const ctx = makeContext({
-      body: { mode: 'manual_entry', title: 'Ręczna książka' },
-    });
-    const res = await correctPost(ctx);
-    expect(res.status).toBe(200);
-    expect(mockConfirmDetectionToCatalog).toHaveBeenCalledWith(
-      expect.anything(),
-      USER_ID,
-      expect.objectContaining({
-        correctionType: 'manual_entry',
-        book: expect.objectContaining({ source: 'manual', purchase_price: null }),
-      }),
-    );
-  });
-
-  it('409 przy duplicate', async () => {
-    mockConfirmDetectionToCatalog.mockResolvedValue({ ok: false, reason: 'duplicate' });
-    const ctx = makeContext({
-      body: { mode: 'manual_entry', title: 'T' },
-    });
-    const res = await correctPost(ctx);
-    expect(res.status).toBe(409);
-  });
-
-  it('404 gdy zdjęcie nie istnieje', async () => {
-    const ctx = makeContext({
-      body: { mode: 'manual_entry', title: 'T' },
-      photoResult: { data: null, error: null },
-    });
-    const res = await correctPost(ctx);
-    expect(res.status).toBe(404);
   });
 });

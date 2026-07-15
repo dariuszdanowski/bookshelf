@@ -591,18 +591,18 @@ w `deploy.yml`).
 
 #### Automatyczne
 
-- [x] 4.1 `npm run typecheck` przechodzi
-- [x] 4.2 `npm run lint` przechodzi
-- [x] 4.3 Testy Fazy 3 dla Lista/Kafelki nadal zielone bez zmian treści testów
+- [x] 4.1 `npm run typecheck` przechodzi — ed83fe4
+- [x] 4.2 `npm run lint` przechodzi — ed83fe4
+- [x] 4.3 Testy Fazy 3 dla Lista/Kafelki nadal zielone bez zmian treści testów — ed83fe4
 
 ### Faza 5: Sprzątanie martwego kodu
 
 #### Automatyczne
 
-- [ ] 5.1 `npm run typecheck` przechodzi
-- [ ] 5.2 `npm run lint` przechodzi
-- [ ] 5.3 `npm run test` (pełna suita) zielone
-- [ ] 5.4 Grep potwierdza zero referencji do RematchForm/CorrectForm/correct.ts poza oczekiwanymi
+- [x] 5.1 `npm run typecheck` przechodzi
+- [x] 5.2 `npm run lint` przechodzi
+- [x] 5.3 `npm run test` (pełna suita) zielone
+- [x] 5.4 Grep potwierdza zero referencji do RematchForm/CorrectForm/correct.ts poza oczekiwanymi
 
 ### Faza 6: Finalny sweep E2E + manualny smoke test
 

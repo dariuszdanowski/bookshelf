@@ -1,4 +1,5 @@
 import type { BookCandidateDTO } from '../lib/books/schema';
+import { buildGoogleSearchUrl } from '../lib/books/webSearch';
 import type { DetectionWithCandidatesDTO } from '../lib/photos/schema';
 import { classifyCropQuality } from '../lib/matching/fallbackPolicy';
 import CorrectionHistoryPanel from './CorrectionHistoryPanel';
@@ -67,32 +68,34 @@ export function RefineButton({
 }
 
 // ---------------------------------------------------------------------------
-// WebSearchButton — „Szukaj w sieci": otwiera nową kartę z Google na naszych
-// danych (tytuł + autor). Ratunek gdy Google Books/OpenLibrary nie indeksują
-// danej edycji (małe polskie wydawnictwa), a zwykła wyszukiwarka ją znajduje.
-// Link <a target="_blank">, nie fetch — żadnego kosztu API, user wybiera ręcznie.
+// WebSearchButton — „Szukaj w sieci": otwiera nową kartę z Google na podanych
+// fragmentach (tytuł, autor, ISBN...). Ratunek gdy Google Books/OpenLibrary nie
+// indeksują danej edycji (małe polskie wydawnictwa), a zwykła wyszukiwarka ją
+// znajduje. Link <a target="_blank">, nie fetch — żadnego kosztu API, user
+// wybiera ręcznie. Jedna implementacja (unify-detection-edit-entrypoint, Faza 5)
+// używana zarówno tu (Karty/Lista/Kafelki) jak i w BookModal — `parts`/`testId`
+// dostosowują ją do obu miejsc bez duplikacji logiki budowania URL.
 // ---------------------------------------------------------------------------
 export function WebSearchButton({
-  title,
-  author,
+  parts,
   size = 'md',
+  testId = 'web-search-button',
 }: {
-  title: string;
-  author: string | null | undefined;
+  parts: Array<string | null | undefined>;
   size?: 'lg' | 'md' | 'sm';
+  testId?: string;
 }) {
-  const query = [title, author].filter(Boolean).join(' ').trim();
-  if (!query) return null;
-  const href = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+  const href = buildGoogleSearchUrl(parts);
+  if (!href) return null;
   const sizeCls = size === 'lg' ? 'px-3 py-1.5' : size === 'sm' ? 'px-2 py-1' : 'px-2.5 py-1';
   return (
     <a
-      data-testid="web-search-button"
+      data-testid={testId}
       href={href}
       target="_blank"
       rel="noopener noreferrer"
       onClick={(e) => e.stopPropagation()}
-      title={`Wyszukaj „${query}" w Google (nowa karta)`}
+      title="Szukaj w Google (nowa karta)"
       className={`inline-flex items-center gap-1 rounded-md border border-sky-300 bg-sky-50 text-xs font-medium text-sky-700 hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-900/20 dark:text-sky-300 dark:hover:bg-sky-900/40 ${sizeCls}`}
     >
       <svg
@@ -206,7 +209,6 @@ export type DetectionActionsRowProps = {
   onConfirm: () => void;
   onReject: () => void;
   onCorrect: () => void;
-  onRematch: () => void;
   onOpenRefineConfirm: () => void;
   onOpenAiResolveConfirm: () => void;
 };
@@ -223,7 +225,6 @@ export default function DetectionActionsRow({
   onConfirm,
   onReject,
   onCorrect,
-  onRematch,
   onOpenRefineConfirm,
   onOpenAiResolveConfirm,
 }: DetectionActionsRowProps) {
@@ -249,29 +250,16 @@ export default function DetectionActionsRow({
         Odrzuć
       </button>
       {top && (
-        // M19: parytet z Kartami — „Szukaj" także przy istniejącym kandydacie.
-        // Bez matcha: brak odpowiednika — klik okładki załatwia edycję
-        // (unify-detection-edit-entrypoint, Faza 3).
-        <>
-          <button
-            data-testid="correct-button"
-            disabled={busy}
-            onClick={onCorrect}
-            className={`rounded border border-gray-300 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 ${padCls}`}
-          >
-            Popraw
-          </button>
-          <button
-            data-testid="rematch-button"
-            disabled={busy}
-            onClick={onRematch}
-            className={`rounded border border-emerald-300 bg-emerald-50 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300 dark:hover:bg-emerald-900/40 ${padCls}`}
-          >
-            Szukaj
-          </button>
-        </>
+        <button
+          data-testid="correct-button"
+          disabled={busy}
+          onClick={onCorrect}
+          className={`rounded border border-gray-300 bg-white text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 ${padCls}`}
+        >
+          Popraw
+        </button>
       )}
-      <WebSearchButton title={detection.raw_title} author={detection.raw_author} size={size} />
+      <WebSearchButton parts={[detection.raw_title, detection.raw_author]} size={size} />
       <RefineButton
         bbox={detection.bbox}
         busy={busy}

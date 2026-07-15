@@ -140,38 +140,6 @@ export const ConfirmDetectionSchema = z.object({
 });
 export type ConfirmDetectionInput = z.infer<typeof ConfirmDetectionSchema>;
 
-// POST /api/detections/[id]/correct — wpis ręczny (brak kandydata, brak matchu).
-// candidate-propose-edit-all-fields: wariant field_edit usunięty — zastąpiony przez
-// PATCH /api/detections/[id]/candidate (UpdateCandidateSchema) + istniejący /confirm.
-const CorrectedFieldsShape = {
-  title: z.string().min(1, 'Tytuł nie może być pusty').max(300),
-  authors: z
-    .array(z.string().min(1).max(200))
-    .min(1, 'Podaj co najmniej jednego autora')
-    .optional(),
-  publisher: z.string().max(200).optional(),
-  published_year: z
-    .number()
-    .int()
-    .min(1000, 'Rok musi być po 1000')
-    .max(2100, 'Rok musi być przed 2100')
-    .optional(),
-};
-
-export const CorrectDetectionSchema = z.object({
-  mode: z.literal('manual_entry'),
-  ...CorrectedFieldsShape,
-  isbn_13: z
-    .string()
-    .regex(/^\d{13}$/)
-    .optional(),
-  isbn_10: z
-    .string()
-    .regex(/^\d{9}[\dX]$/)
-    .optional(),
-});
-export type CorrectDetectionInput = z.infer<typeof CorrectDetectionSchema>;
-
 // POST /api/photos/[id]/confirm-batch — hurtowa akceptacja pre-zaznaczonych
 export const ConfirmBatchSchema = z.object({
   items: z
