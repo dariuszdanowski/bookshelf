@@ -699,7 +699,7 @@ describe('BookModal — Oryginalny odczyt OCR w propose', () => {
     expect(screen.queryByTestId('book-modal-use-original')).toBeNull();
   });
 
-  it('z historią korekt: wypełnia title/authors najwcześniejszym original_raw_* i czyści publisher/isbn', async () => {
+  it('z historią korekt: wypełnia title/authors najwcześniejszym original_raw_* i czyści publisher/rok/isbn', async () => {
     mockFetchRoutes([
       [
         `/api/detections/${DETECTION_ID}/history`,
@@ -720,6 +720,7 @@ describe('BookModal — Oryginalny odczyt OCR w propose', () => {
     expect((screen.getByTestId('book-field-publisher') as HTMLInputElement).value).toBe(
       'Solaris Press',
     );
+    expect((screen.getByTestId('book-field-year') as HTMLInputElement).value).toBe('1961');
     expect((screen.getByTestId('book-field-isbn13') as HTMLInputElement).value).toBe(
       '9780156027601',
     );
@@ -733,12 +734,15 @@ describe('BookModal — Oryginalny odczyt OCR w propose', () => {
     );
     expect((screen.getByTestId('book-field-authors') as HTMLInputElement).value).toBe('S. Lem OCR');
     expect((screen.getByTestId('book-field-publisher') as HTMLInputElement).value).toBe('');
+    // Bug zgłoszony przez usera: rok wydania nie był czyszczony (DetectionSchema
+    // vision/prompt.ts nie ma published_year — OCR fizycznie go nie zwraca).
+    expect((screen.getByTestId('book-field-year') as HTMLInputElement).value).toBe('');
     expect((screen.getByTestId('book-field-isbn13') as HTMLInputElement).value).toBe('');
     expect((screen.getByTestId('book-field-isbn10') as HTMLInputElement).value).toBe('');
     expect(screen.queryByTestId('book-modal-no-history-hint')).toBeNull();
   });
 
-  it('bez historii: fallback do rawTitle/rawAuthor detekcji, pokazuje hint', async () => {
+  it('bez historii: fallback do rawTitle/rawAuthor detekcji, pokazuje hint, czyści rok', async () => {
     mockFetchRoutes([
       [`/api/detections/${DETECTION_ID}/history`, { body: { data: { corrections: [] } } }],
     ]);
@@ -755,6 +759,7 @@ describe('BookModal — Oryginalny odczyt OCR w propose', () => {
       'Surowy autor',
     );
     expect((screen.getByTestId('book-field-publisher') as HTMLInputElement).value).toBe('');
+    expect((screen.getByTestId('book-field-year') as HTMLInputElement).value).toBe('');
     expect((screen.getByTestId('book-field-isbn13') as HTMLInputElement).value).toBe('');
   });
 

@@ -642,7 +642,10 @@ export default function BookModal({
   // po tytule. ISBN jest ZAWSZE czyszczony: OCR czyta grzbiet, fizycznie nie ma tam
   // ISBN (ten jest na tylnej okładce, poza kadrem) — zob. commit c2ef75a. Publisher
   // czyszczony z tego samego powodu (60aaadd): wydawnictwo z OCR-owanego grzbietu,
-  // jeśli w ogóle było, wraca dopiero z historii korekt.
+  // jeśli w ogóle było, wraca dopiero z historii korekt. Rok wydania czyszczony z
+  // tego samego powodu — DetectionSchema (src/lib/vision/prompt.ts) nie ma pola
+  // published_year, więc OCR fizycznie go nigdy nie zwraca (pole istnieje tylko
+  // w BookModal, którego RematchForm nie miało — brak wcześniejszego precedensu).
   async function handleUseOriginal() {
     if (!book?.detectionId) return;
     const initialTitle = book.rawTitle ?? '';
@@ -653,6 +656,7 @@ export default function BookModal({
         title: originalValues.title,
         authors: originalValues.author,
         publisher: '',
+        year: '',
         isbn13: '',
         isbn10: '',
       }));
@@ -682,6 +686,7 @@ export default function BookModal({
           title: initialTitle,
           authors: initialAuthor,
           publisher: '',
+          year: '',
           isbn13: '',
           isbn10: '',
         }));
@@ -696,6 +701,7 @@ export default function BookModal({
         title: resolvedTitle,
         authors: resolvedAuthor,
         publisher: '',
+        year: '',
         isbn13: '',
         isbn10: '',
       }));
