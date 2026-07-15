@@ -570,9 +570,9 @@ w `deploy.yml`).
 
 #### Automatyczne
 
-- [ ] 2.1 `npm run typecheck` przechodzi
-- [ ] 2.2 `npm run lint` przechodzi
-- [ ] 2.3 Nowe testy „Oryginalny odczyt OCR w propose" zielone
+- [x] 2.1 `npm run typecheck` przechodzi
+- [x] 2.2 `npm run lint` przechodzi
+- [x] 2.3 Nowe testy „Oryginalny odczyt OCR w propose" zielone
 
 ### Faza 3: Placeholder okładki + wpięcie w Karty/Lista/Kafelki
 
