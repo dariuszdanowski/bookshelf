@@ -510,4 +510,11 @@ describe('stripCodeFences', () => {
   it('strips fence with trailing whitespace on opening line', () => {
     expect(stripCodeFences('```json  \n[1]\n```')).toBe('[1]');
   });
+
+  // Regresja manualnego smoke testu (2026-07-15): self-hosted model (LM Studio) zwrócił
+  // odpowiedź z wiodącym "\n" przed fence — `^` anchor nie dopasowywał się, JSON.parse
+  // wybuchał na pozostawionym "```json".
+  it('strips fence preceded by leading whitespace/newline', () => {
+    expect(stripCodeFences('\n```json\n[1,2,3]\n```')).toBe('[1,2,3]');
+  });
 });
