@@ -502,15 +502,17 @@ function RematchForm({
   const [noHistoryFound, setNoHistoryFound] = useState(false);
 
   async function handleUseOriginal() {
-    // Rewind do oryginalnego odczytu OCR czyści CAŁY formularz (title/author/publisher) —
-    // publisher nie ma odpowiednika "oryginału" w historii (corrections nie śledzi
-    // wydawnictwa), więc zostaje wyzerowany zamiast pozostawać jako stały fragment
-    // poprzedniej (nietrafionej) korekty. ISBN celowo NIE jest czyszczony — nie pochodzi
-    // z OCR (skan/kandydat), rewind tytułu/autora go nie dotyczy.
+    // Rewind do oryginalnego odczytu OCR pokazuje TYLKO to, co OCR faktycznie zwrócił —
+    // title/author/publisher (jeśli był) — i czyści resztę formularza. ISBN jest ZAWSZE
+    // czyszczony: OCR czyta grzbiet książki na zdjęciu, fizycznie nie ma tam kodu ISBN
+    // (ten jest na tylnej okładce) — detections.raw_isbn nie istnieje w schemacie
+    // (supabase/migrations/0001_initial_schema.sql). Zostawienie starej wartości ISBN
+    // po kliknięciu "Oryginalny odczyt OCR" fałszywie sugerowałoby, że ISBN pochodzi z OCR.
     if (originalValues) {
       setTitle(originalValues.title);
       setAuthor(originalValues.author);
       setPublisher('');
+      setIsbn('');
       setNoHistoryFound(false);
       return;
     }
@@ -533,8 +535,14 @@ function RematchForm({
       const earliest = json.data?.corrections?.[0];
       if (!earliest) {
         // Brak historii = detekcja nigdy nie była nadpisana rematch/refine —
-        // bieżąca wartość JEST oryginałem. Sygnalizujemy, żeby klik nie wyglądał
-        // na "nic się nie stało" (zgłoszenie usera z manualnej weryfikacji).
+        // initialTitle/initialAuthor JEST oryginałem. Mimo to formularz mógł zostać
+        // odchylony od initialTitle/initialAuthor (user wpisał coś ręcznie / kliknął
+        // "Użyj kandydata") — rewind i tak musi pokazać czysty stan OCR, więc resetujemy
+        // pola tak samo jak w gałęzi z historią, zamiast zostawiać bieżący stan formularza.
+        setTitle(initialTitle);
+        setAuthor(initialAuthor);
+        setPublisher('');
+        setIsbn('');
         setNoHistoryFound(true);
         return;
       }
@@ -544,6 +552,7 @@ function RematchForm({
       setTitle(resolvedTitle);
       setAuthor(resolvedAuthor);
       setPublisher('');
+      setIsbn('');
     } catch (e) {
       setOriginalError(e instanceof Error ? e.message : 'Błąd ładowania historii');
     } finally {

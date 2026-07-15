@@ -1186,7 +1186,7 @@ describe('DetectionReview — rematch: oryginalny odczyt OCR vs ostatnia propozy
     expect(screen.getByTestId('rematch-author')).toHaveValue('Prawdziwy Autor');
   });
 
-  it('klik „Oryginalny odczyt OCR" czyści publisher, ale NIE dotyka ISBN', async () => {
+  it('klik „Oryginalny odczyt OCR" czyści publisher i ISBN — OCR fizycznie nie ma ISBN', async () => {
     const detWithLastProposal: DetectionWithCandidatesDTO = {
       ...detNoMatch,
       raw_title: 'Marowska Duchowska (błędny rematch)',
@@ -1239,7 +1239,7 @@ describe('DetectionReview — rematch: oryginalny odczyt OCR vs ostatnia propozy
       expect(screen.getByTestId('rematch-title')).toHaveValue('Podroz zycia siostry Shergill');
     });
     expect(screen.getByTestId('rematch-publisher')).toHaveValue('');
-    expect(screen.getByTestId('rematch-isbn')).toHaveValue('9788308073087');
+    expect(screen.getByTestId('rematch-isbn')).toHaveValue('');
   });
 
   it('klik „Ostatnia propozycja" po zmianie pól przywraca initialTitle/initialAuthor', async () => {
@@ -1277,12 +1277,21 @@ describe('DetectionReview — rematch: oryginalny odczyt OCR vs ostatnia propozy
     fireEvent.click(screen.getByTestId('rematch-button'));
     await waitFor(() => screen.getByTestId('rematch-form'));
 
+    // Formularz odchylony od initial* (ręczny wpis) — rewind mimo braku historii
+    // musi i tak pokazać czysty stan OCR, nie zostawiać bieżącego odchylenia.
+    fireEvent.change(screen.getByTestId('rematch-publisher'), {
+      target: { value: 'Ręcznie wpisane wydawnictwo' },
+    });
+    fireEvent.change(screen.getByTestId('rematch-isbn'), { target: { value: '9788308073087' } });
+
     fireEvent.click(screen.getByTestId('rematch-use-original'));
 
     await waitFor(() => {
       expect(screen.getByTestId('rematch-no-history-hint')).toBeInTheDocument();
     });
     expect(screen.getByTestId('rematch-title')).toHaveValue(detNoMatch.raw_title);
+    expect(screen.getByTestId('rematch-publisher')).toHaveValue('');
+    expect(screen.getByTestId('rematch-isbn')).toHaveValue('');
     expect(screen.queryByTestId('rematch-original-error')).not.toBeInTheDocument();
   });
 });
