@@ -578,22 +578,22 @@ w `deploy.yml`).
 
 #### Automatyczne
 
-- [x] 3.1 `npm run typecheck` przechodzi
-- [x] 3.2 `npm run lint` przechodzi
-- [x] 3.3 Zaktualizowane testy dla 3 wariantów (placeholder→POST, close→DELETE, save→brak DELETE) zielone
+- [x] 3.1 `npm run typecheck` przechodzi — e8e158d
+- [x] 3.2 `npm run lint` przechodzi — e8e158d
+- [x] 3.3 Zaktualizowane testy dla 3 wariantów (placeholder→POST, close→DELETE, save→brak DELETE) zielone — e8e158d
 
 #### Ręczne
 
 - [x] 3.4 Dla każdego z 3 widoków: placeholder działa, BookModal się otwiera, zapis działa,
-      zamknięcie bez zapisu nie zostawia śmiecia w bazie
+      zamknięcie bez zapisu nie zostawia śmiecia w bazie — e8e158d
 
 ### Faza 4: Konsolidacja Lista + Kafelki
 
 #### Automatyczne
 
-- [ ] 4.1 `npm run typecheck` przechodzi
-- [ ] 4.2 `npm run lint` przechodzi
-- [ ] 4.3 Testy Fazy 3 dla Lista/Kafelki nadal zielone bez zmian treści testów
+- [x] 4.1 `npm run typecheck` przechodzi
+- [x] 4.2 `npm run lint` przechodzi
+- [x] 4.3 Testy Fazy 3 dla Lista/Kafelki nadal zielone bez zmian treści testów
 
 ### Faza 5: Sprzątanie martwego kodu
 
