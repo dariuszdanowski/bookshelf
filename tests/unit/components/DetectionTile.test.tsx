@@ -82,10 +82,10 @@ describe('DetectionTile — render', () => {
     expect(screen.getByTestId('refine-button')).toBeInTheDocument();
   });
 
-  it('dla braku matchu pokazuje placeholder + Wpisz ręcznie (bez Akceptuj)', () => {
+  it('dla braku matchu pokazuje klikalny placeholder okładki (bez Akceptuj) — Faza 3', () => {
     render(<DetectionTile detection={detNoMatch} onDecided={() => {}} />);
     expect(screen.getByTestId('no-match-placeholder')).toBeInTheDocument();
-    expect(screen.getByTestId('manual-entry-button')).toBeInTheDocument();
+    expect(screen.getByTestId('candidate-cover-button')).toBeInTheDocument();
     expect(screen.queryByTestId('confirm-button')).not.toBeInTheDocument();
   });
 });

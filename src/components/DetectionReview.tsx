@@ -259,10 +259,16 @@ function CoverImage({ url, title }: { url: string | null; title: string }) {
 // Mapuje kandydata (propozycję) na wspólny kształt podglądu — ten sam modal
 // co dla książek zatwierdzonych (jednolity dostęp przez klik w okładkę).
 // id/detectionId: cel dla PATCH /api/detections/[id]/candidate (candidate-propose-edit-all-fields).
-function candidateToDetail(c: BookCandidateDTO, detectionId: string): BookModalBook {
+// rawTitle/rawAuthor: fallback dla „Oryginalny odczyt OCR" w BookModal (Faza 2)
+// gdy detekcja nigdy nie miała korekty — różni się od c.title/c.authors, które
+// mogą pochodzić z dopasowania w zewnętrznej bazie, nie z surowego odczytu OCR.
+function candidateToDetail(
+  c: BookCandidateDTO,
+  detection: DetectionWithCandidatesDTO,
+): BookModalBook {
   return {
     id: c.id,
-    detectionId,
+    detectionId: detection.id,
     title: c.title,
     authors: c.authors,
     coverUrl: c.coverUrl,
@@ -276,7 +282,66 @@ function candidateToDetail(c: BookCandidateDTO, detectionId: string): BookModalB
     purchase_price: c.purchasePrice,
     purchase_city: c.purchaseCity,
     purchase_event: c.purchaseEvent,
+    rawTitle: detection.raw_title,
+    rawAuthor: detection.raw_author,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Draft-kandydat dla no-match (unify-detection-edit-entrypoint, Faza 3) — klik
+// na placeholder okładki tworzy minimalny wiersz book_candidates (source='manual')
+// i mapuje odpowiedź do BookCandidateDTO, żeby candidateToDetail() i append-branch
+// w onCandidateSaved (plan-review F1) działały bez specjalnego typu draftu.
+// ---------------------------------------------------------------------------
+
+async function createDraftCandidate(detectionId: string): Promise<BookCandidateDTO | null> {
+  try {
+    const res = await fetch(`/api/detections/${detectionId}/candidate`, { method: 'POST' });
+    if (!res.ok) return null;
+    const json = (await res.json()) as {
+      data?: {
+        candidate_id: string;
+        title: string;
+        authors: string[];
+        isbn_13: string | null;
+        isbn_10: string | null;
+        publisher: string | null;
+        published_year: number | null;
+        cover_url: string | null;
+      };
+    };
+    if (!json.data) return null;
+    return {
+      id: json.data.candidate_id,
+      source: 'manual',
+      externalId: `manual:${detectionId}`,
+      title: json.data.title,
+      authors: json.data.authors,
+      isbn10: json.data.isbn_10,
+      isbn13: json.data.isbn_13,
+      publisher: json.data.publisher,
+      publishedYear: json.data.published_year,
+      coverUrl: json.data.cover_url,
+      matchScore: 0,
+      rank: 1,
+      purchaseDate: null,
+      purchasePrice: null,
+      purchaseCity: null,
+      purchaseEvent: null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// Sprząta porzucony draft (BookModal zamknięty bez zapisu) — fire-and-forget,
+// modal jest już zamknięty, user nie czeka na wynik tego wywołania.
+function deleteDraftCandidate(detectionId: string, candidateId: string): void {
+  void fetch(`/api/detections/${detectionId}/candidate`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ candidate_id: candidateId }),
+  }).catch(() => undefined);
 }
 
 // candidate-propose-edit-all-fields: merge patcha z BookModal (onCandidateSaved) do
@@ -1246,6 +1311,31 @@ function DetectionCard({
     hasNoApiKeys,
   } = useDetectionDecision(detection, onDecided, onRefined, onUndecided);
 
+  // Draft-kandydat no-match (unify-detection-edit-entrypoint, Faza 3) — lokalny
+  // stan, NIE detection.candidates, dopóki user nie kliknie „Zapisz" w BookModal
+  // (plan-review F1: append do detection.candidates dopiero w onCandidateSaved).
+  const [draftCandidate, setDraftCandidate] = useState<BookCandidateDTO | null>(null);
+  const [draftBusy, setDraftBusy] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  // true gdy user zapisał/zatwierdził coś w BookModal dla bieżącego draftu —
+  // onClose bez tego sprząta (DELETE) porzucony, nigdy-nie-zapisany wiersz.
+  const draftSavedRef = useRef(false);
+  const detailCandidate = activeCandidate ?? draftCandidate;
+
+  async function handleOpenNoMatch() {
+    setDraftBusy(true);
+    setDraftError(null);
+    const draft = await createDraftCandidate(detection.id);
+    setDraftBusy(false);
+    if (!draft) {
+      setDraftError('Nie udało się utworzyć wpisu. Spróbuj ponownie.');
+      return;
+    }
+    draftSavedRef.current = false;
+    setDraftCandidate(draft);
+    setShowCandidateDetail(true);
+  }
+
   if (state === 'decided') {
     if (decidedKind === 'rejected') {
       return (
@@ -1382,37 +1472,28 @@ function DetectionCard({
         </div>
       )}
 
-      {/* No match → rematch + manual entry */}
+      {/* No match → klikalny placeholder okładki, otwiera BookModal.propose z
+          draft-kandydatem (unify-detection-edit-entrypoint, Faza 3). */}
       {!top && !showCorrectForm && !showRematchForm && (
-        <div>
-          <p
-            data-testid="no-match-placeholder"
-            className="rounded-lg border border-dashed border-gray-300 px-3 py-4 text-center text-sm text-gray-500"
+        <div className="flex flex-col items-center gap-1">
+          <button
+            type="button"
+            data-testid="candidate-cover-button"
+            disabled={draftBusy}
+            onClick={(e) => {
+              e.stopPropagation();
+              void handleOpenNoMatch();
+            }}
+            title="Pokaż szczegóły książki"
+            className="cursor-zoom-in rounded focus:ring-2 focus:ring-blue-400 focus:outline-none disabled:cursor-wait disabled:opacity-50"
           >
-            Brak pewnego matchu
-          </p>
-          {rematchNoResults && (
-            <p className="mt-1 text-center text-xs text-amber-600" data-testid="rematch-no-results">
-              Nie znaleziono wyników dla podanego tytułu
+            <CoverImage url={null} title="" />
+          </button>
+          {draftError && (
+            <p data-testid="draft-candidate-error" className="text-center text-xs text-red-600">
+              {draftError}
             </p>
           )}
-          <button
-            data-testid="rematch-button"
-            onClick={() => {
-              setShowRematchForm(true);
-              setRematchNoResults(false);
-            }}
-            className="mt-2 w-full rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
-          >
-            Szukaj po tytule
-          </button>
-          <button
-            data-testid="manual-entry-button"
-            onClick={() => setShowCorrectForm(true)}
-            className="mt-2 w-full rounded-md border border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
-          >
-            Wpisz ręcznie
-          </button>
         </div>
       )}
 
@@ -1660,20 +1741,34 @@ function DetectionCard({
         </p>
       )}
 
-      {showCandidateDetail && activeCandidate && (
+      {showCandidateDetail && detailCandidate && (
         <BookModal
           mode="propose"
-          book={candidateToDetail(activeCandidate, detection.id)}
-          onCandidateSaved={(patch) =>
+          book={candidateToDetail(detailCandidate, detection)}
+          onCandidateSaved={(patch) => {
+            draftSavedRef.current = true;
+            const exists = detection.candidates.some((c) => c.id === detailCandidate.id);
             onRefined?.({
               ...detection,
-              candidates: detection.candidates.map((c) =>
-                c.id === activeCandidate.id ? applyCandidatePatch(c, patch) : c,
-              ),
-            })
-          }
-          onConfirmed={handleCorrectSuccess}
-          onClose={() => setShowCandidateDetail(false)}
+              candidates: exists
+                ? detection.candidates.map((c) =>
+                    c.id === detailCandidate.id ? applyCandidatePatch(c, patch) : c,
+                  )
+                : [...detection.candidates, applyCandidatePatch(detailCandidate, patch)],
+            });
+          }}
+          onConfirmed={() => {
+            draftSavedRef.current = true;
+            handleCorrectSuccess();
+          }}
+          onClose={() => {
+            if (draftCandidate && !draftSavedRef.current) {
+              deleteDraftCandidate(detection.id, draftCandidate.id);
+            }
+            setDraftCandidate(null);
+            draftSavedRef.current = false;
+            setShowCandidateDetail(false);
+          }}
         />
       )}
 
@@ -1844,6 +1939,28 @@ export function DetectionRow({
     hasNoApiKeys,
   } = useDetectionDecision(detection, onDecided, onRefined, onUndecided);
 
+  // Draft-kandydat no-match (unify-detection-edit-entrypoint, Faza 3) — patrz
+  // komentarz w DetectionCard, ta sama logika.
+  const [draftCandidate, setDraftCandidate] = useState<BookCandidateDTO | null>(null);
+  const [draftBusy, setDraftBusy] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const draftSavedRef = useRef(false);
+  const detailCandidate = activeCandidate ?? draftCandidate;
+
+  async function handleOpenNoMatch() {
+    setDraftBusy(true);
+    setDraftError(null);
+    const draft = await createDraftCandidate(detection.id);
+    setDraftBusy(false);
+    if (!draft) {
+      setDraftError('Nie udało się utworzyć wpisu. Spróbuj ponownie.');
+      return;
+    }
+    draftSavedRef.current = false;
+    setDraftCandidate(draft);
+    setShowCandidateDetail(true);
+  }
+
   if (state === 'decided') {
     if (decidedKind === 'rejected') {
       return (
@@ -1936,6 +2053,26 @@ export function DetectionRow({
         </button>
       )}
 
+      {/* Miniatura okładki — klikalna, otwiera BookModal.propose (match: istniejący
+          kandydat; no-match: świeży draft, unify-detection-edit-entrypoint Faza 3). */}
+      <button
+        type="button"
+        data-testid="candidate-cover-button"
+        disabled={draftBusy}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (activeCandidate) {
+            setShowCandidateDetail(true);
+          } else {
+            void handleOpenNoMatch();
+          }
+        }}
+        title="Pokaż szczegóły książki"
+        className="flex-shrink-0 cursor-zoom-in rounded focus:ring-2 focus:ring-blue-400 focus:outline-none disabled:cursor-wait disabled:opacity-50"
+      >
+        <CoverImage url={activeCandidate?.coverUrl ?? null} title={displayTitle} />
+      </button>
+
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <span className="truncate text-sm font-medium text-gray-800">{displayTitle}</span>
         {displayAuthor && (
@@ -1967,6 +2104,12 @@ export function DetectionRow({
         </span>
       )}
 
+      {draftError && (
+        <span data-testid="draft-candidate-error" className="w-full text-xs text-red-600">
+          {draftError}
+        </span>
+      )}
+
       {errorMsg && (
         <span data-testid="detection-error" className="w-full text-xs text-red-600" role="alert">
           {errorMsg}
@@ -1993,8 +2136,10 @@ export function DetectionRow({
         >
           Odrzuć
         </button>
-        {top ? (
-          // M19: parytet z Kartami — „Szukaj" także przy istniejącym kandydacie
+        {top && (
+          // M19: parytet z Kartami — „Szukaj" także przy istniejącym kandydacie.
+          // Bez matcha: brak odpowiednika — klik okładki (wyżej) załatwia edycję
+          // (unify-detection-edit-entrypoint, Faza 3).
           <>
             <button
               data-testid="correct-button"
@@ -2011,24 +2156,6 @@ export function DetectionRow({
               className="rounded border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
             >
               Szukaj
-            </button>
-          </>
-        ) : (
-          <>
-            <button
-              data-testid="rematch-button"
-              disabled={busy}
-              onClick={() => setShowRematchForm(true)}
-              className="rounded border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
-            >
-              Szukaj
-            </button>
-            <button
-              data-testid="manual-entry-button"
-              onClick={() => setShowModal(true)}
-              className="rounded border border-blue-300 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
-            >
-              Wpisz ręcznie
             </button>
           </>
         )}
@@ -2080,20 +2207,34 @@ export function DetectionRow({
         />
       )}
 
-      {showCandidateDetail && activeCandidate && (
+      {showCandidateDetail && detailCandidate && (
         <BookModal
           mode="propose"
-          book={candidateToDetail(activeCandidate, detection.id)}
-          onCandidateSaved={(patch) =>
+          book={candidateToDetail(detailCandidate, detection)}
+          onCandidateSaved={(patch) => {
+            draftSavedRef.current = true;
+            const exists = detection.candidates.some((c) => c.id === detailCandidate.id);
             onRefined?.({
               ...detection,
-              candidates: detection.candidates.map((c) =>
-                c.id === activeCandidate.id ? applyCandidatePatch(c, patch) : c,
-              ),
-            })
-          }
-          onConfirmed={handleCorrectSuccess}
-          onClose={() => setShowCandidateDetail(false)}
+              candidates: exists
+                ? detection.candidates.map((c) =>
+                    c.id === detailCandidate.id ? applyCandidatePatch(c, patch) : c,
+                  )
+                : [...detection.candidates, applyCandidatePatch(detailCandidate, patch)],
+            });
+          }}
+          onConfirmed={() => {
+            draftSavedRef.current = true;
+            handleCorrectSuccess();
+          }}
+          onClose={() => {
+            if (draftCandidate && !draftSavedRef.current) {
+              deleteDraftCandidate(detection.id, draftCandidate.id);
+            }
+            setDraftCandidate(null);
+            draftSavedRef.current = false;
+            setShowCandidateDetail(false);
+          }}
         />
       )}
 
@@ -2202,6 +2343,28 @@ export function DetectionTile({
     hasNoApiKeys,
   } = useDetectionDecision(detection, onDecided, onRefined, onUndecided);
 
+  // Draft-kandydat no-match (unify-detection-edit-entrypoint, Faza 3) — patrz
+  // komentarz w DetectionCard, ta sama logika.
+  const [draftCandidate, setDraftCandidate] = useState<BookCandidateDTO | null>(null);
+  const [draftBusy, setDraftBusy] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const draftSavedRef = useRef(false);
+  const detailCandidate = activeCandidate ?? draftCandidate;
+
+  async function handleOpenNoMatch() {
+    setDraftBusy(true);
+    setDraftError(null);
+    const draft = await createDraftCandidate(detection.id);
+    setDraftBusy(false);
+    if (!draft) {
+      setDraftError('Nie udało się utworzyć wpisu. Spróbuj ponownie.');
+      return;
+    }
+    draftSavedRef.current = false;
+    setDraftCandidate(draft);
+    setShowCandidateDetail(true);
+  }
+
   if (state === 'decided') {
     if (decidedKind === 'rejected') {
       return (
@@ -2265,39 +2428,61 @@ export function DetectionTile({
       className={`flex flex-col rounded-xl border bg-white p-3 shadow-sm ${isSelected ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200' : 'border-gray-200'}`}
       onClick={() => onSelect?.(detection.id)}
     >
-      <div className="flex justify-center">
-        {activeCandidate ? (
-          <button
-            type="button"
-            data-testid="candidate-cover-button"
-            onClick={(e) => {
-              e.stopPropagation();
+      <div className="flex flex-col items-center gap-1">
+        {/* Klikalna okładka (match: istniejący kandydat; no-match: świeży draft) —
+            unify-detection-edit-entrypoint, Faza 3. */}
+        <button
+          type="button"
+          data-testid="candidate-cover-button"
+          disabled={draftBusy}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (activeCandidate) {
               setShowCandidateDetail(true);
-            }}
-            title="Pokaż szczegóły książki"
-            className="cursor-zoom-in rounded focus:ring-2 focus:ring-blue-400 focus:outline-none"
-          >
-            <CoverImage url={activeCandidate.coverUrl} title={displayTitle} />
-          </button>
-        ) : (
-          <CoverImage url={null} title={displayTitle} />
+            } else {
+              void handleOpenNoMatch();
+            }
+          }}
+          title="Pokaż szczegóły książki"
+          className="cursor-zoom-in rounded focus:ring-2 focus:ring-blue-400 focus:outline-none disabled:cursor-wait disabled:opacity-50"
+        >
+          <CoverImage url={activeCandidate?.coverUrl ?? null} title={displayTitle} />
+        </button>
+        {draftError && (
+          <p data-testid="draft-candidate-error" className="text-center text-[10px] text-red-600">
+            {draftError}
+          </p>
         )}
       </div>
 
-      {showCandidateDetail && activeCandidate && (
+      {showCandidateDetail && detailCandidate && (
         <BookModal
           mode="propose"
-          book={candidateToDetail(activeCandidate, detection.id)}
-          onCandidateSaved={(patch) =>
+          book={candidateToDetail(detailCandidate, detection)}
+          onCandidateSaved={(patch) => {
+            draftSavedRef.current = true;
+            const exists = detection.candidates.some((c) => c.id === detailCandidate.id);
             onRefined?.({
               ...detection,
-              candidates: detection.candidates.map((c) =>
-                c.id === activeCandidate.id ? applyCandidatePatch(c, patch) : c,
-              ),
-            })
-          }
-          onConfirmed={handleCorrectSuccess}
-          onClose={() => setShowCandidateDetail(false)}
+              candidates: exists
+                ? detection.candidates.map((c) =>
+                    c.id === detailCandidate.id ? applyCandidatePatch(c, patch) : c,
+                  )
+                : [...detection.candidates, applyCandidatePatch(detailCandidate, patch)],
+            });
+          }}
+          onConfirmed={() => {
+            draftSavedRef.current = true;
+            handleCorrectSuccess();
+          }}
+          onClose={() => {
+            if (draftCandidate && !draftSavedRef.current) {
+              deleteDraftCandidate(detection.id, draftCandidate.id);
+            }
+            setDraftCandidate(null);
+            draftSavedRef.current = false;
+            setShowCandidateDetail(false);
+          }}
         />
       )}
 
@@ -2385,8 +2570,10 @@ export function DetectionTile({
         >
           Odrzuć
         </button>
-        {top ? (
-          // M19: parytet z Kartami — „Szukaj" także przy istniejącym kandydacie
+        {top && (
+          // M19: parytet z Kartami — „Szukaj" także przy istniejącym kandydacie.
+          // Bez matcha: brak odpowiednika — klik okładki (wyżej) załatwia edycję
+          // (unify-detection-edit-entrypoint, Faza 3).
           <>
             <button
               data-testid="correct-button"
@@ -2403,24 +2590,6 @@ export function DetectionTile({
               className="rounded border border-emerald-300 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
             >
               Szukaj
-            </button>
-          </>
-        ) : (
-          <>
-            <button
-              data-testid="rematch-button"
-              disabled={busy}
-              onClick={() => setShowRematchForm(true)}
-              className="rounded border border-emerald-300 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
-            >
-              Szukaj
-            </button>
-            <button
-              data-testid="manual-entry-button"
-              onClick={() => setShowModal(true)}
-              className="rounded border border-blue-300 bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
-            >
-              Wpisz ręcznie
             </button>
           </>
         )}
