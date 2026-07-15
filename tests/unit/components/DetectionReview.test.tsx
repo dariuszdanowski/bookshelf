@@ -1186,6 +1186,62 @@ describe('DetectionReview — rematch: oryginalny odczyt OCR vs ostatnia propozy
     expect(screen.getByTestId('rematch-author')).toHaveValue('Prawdziwy Autor');
   });
 
+  it('klik „Oryginalny odczyt OCR" czyści publisher, ale NIE dotyka ISBN', async () => {
+    const detWithLastProposal: DetectionWithCandidatesDTO = {
+      ...detNoMatch,
+      raw_title: 'Marowska Duchowska (błędny rematch)',
+      raw_author: null,
+    };
+    vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
+      const u = typeof url === 'string' ? url : (url as Request).url;
+      if (u.includes('/history')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              data: {
+                corrections: [
+                  {
+                    id: 'c1',
+                    correction_type: 'rematch',
+                    original_raw_title: 'Podroz zycia siostry Shergill',
+                    original_raw_author: 'Prawdziwy Autor',
+                    corrected_title: 'Marowska Duchowska (błędny rematch)',
+                    corrected_authors: null,
+                    created_at: '2026-07-13T10:00:00.000Z',
+                  },
+                ],
+              },
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify(makePhotoResponse([detWithLastProposal])), { status: 200 }),
+      );
+    });
+
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => screen.getByTestId('no-match-placeholder'));
+    fireEvent.click(screen.getByTestId('rematch-button'));
+    await waitFor(() => screen.getByTestId('rematch-form'));
+
+    fireEvent.change(screen.getByTestId('rematch-publisher'), {
+      target: { value: 'Wydawnictwo z poprzedniej korekty' },
+    });
+    fireEvent.change(screen.getByTestId('rematch-isbn'), {
+      target: { value: '9788308073087' },
+    });
+
+    fireEvent.click(screen.getByTestId('rematch-use-original'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('rematch-title')).toHaveValue('Podroz zycia siostry Shergill');
+    });
+    expect(screen.getByTestId('rematch-publisher')).toHaveValue('');
+    expect(screen.getByTestId('rematch-isbn')).toHaveValue('9788308073087');
+  });
+
   it('klik „Ostatnia propozycja" po zmianie pól przywraca initialTitle/initialAuthor', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify(makePhotoResponse([detNoMatch])), { status: 200 }),

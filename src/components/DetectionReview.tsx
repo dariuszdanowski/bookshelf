@@ -502,9 +502,15 @@ function RematchForm({
   const [noHistoryFound, setNoHistoryFound] = useState(false);
 
   async function handleUseOriginal() {
+    // Rewind do oryginalnego odczytu OCR czyści CAŁY formularz (title/author/publisher) —
+    // publisher nie ma odpowiednika "oryginału" w historii (corrections nie śledzi
+    // wydawnictwa), więc zostaje wyzerowany zamiast pozostawać jako stały fragment
+    // poprzedniej (nietrafionej) korekty. ISBN celowo NIE jest czyszczony — nie pochodzi
+    // z OCR (skan/kandydat), rewind tytułu/autora go nie dotyczy.
     if (originalValues) {
       setTitle(originalValues.title);
       setAuthor(originalValues.author);
+      setPublisher('');
       setNoHistoryFound(false);
       return;
     }
@@ -537,6 +543,7 @@ function RematchForm({
       setOriginalValues({ title: resolvedTitle, author: resolvedAuthor });
       setTitle(resolvedTitle);
       setAuthor(resolvedAuthor);
+      setPublisher('');
     } catch (e) {
       setOriginalError(e instanceof Error ? e.message : 'Błąd ładowania historii');
     } finally {
