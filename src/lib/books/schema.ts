@@ -293,6 +293,14 @@ export const UpdateCandidateSchema = z
   .refine((v) => Object.keys(v).length > 1, { message: 'Podaj co najmniej jedno pole.' });
 export type UpdateCandidateInput = z.infer<typeof UpdateCandidateSchema>;
 
+// DELETE /api/detections/[id]/candidate — sprzątanie porzuconego draft-kandydata
+// (unify-detection-edit-entrypoint). POST (utworzenie draftu) nie ma body — wszystko
+// wyprowadzane server-side z detectionId.
+export const DeleteCandidateSchema = z.object({
+  candidate_id: z.uuid(),
+});
+export type DeleteCandidateInput = z.infer<typeof DeleteCandidateSchema>;
+
 // POST /api/books/[id]/identify — „Szukaj po tytule" dla zatwierdzonej książki
 // (re-identyfikacja). Tryb 'search' zwraca kandydatów; 'apply' zapisuje wybranego.
 const IdentifyCandidateShape = z.object({
