@@ -118,7 +118,10 @@ export const PATCH: APIRoute = async ({ params, request, locals }) => {
  * Tworzy minimalny draft-kandydat (`source: 'manual'`) dla detekcji bez matcha —
  * punkt wejścia dla placeholdera okładki w stanie no-match
  * (unify-detection-edit-entrypoint). Kształt odpowiedzi zgodny z `BookCandidateDTO`,
- * gotowy do `candidateToDetail()` bez zmian tej funkcji.
+ * gotowy do `candidateToDetail()` bez zmian tej funkcji. title/authors seedowane
+ * z detection.raw_title/raw_author — bez tego „Szukaj w sieci"/„Wyszukaj po
+ * danych" w BookModal startowały bez autora mimo że OCR go poprawnie odczytał
+ * (widoczny pod zdjęciem), zgłoszone przez usera podczas manualnego smoke testu.
  *
  * Body: puste — wszystko wyprowadzane server-side z `detectionId`.
  * 201: { data: { candidate_id, title, authors, isbn_13: null, isbn_10: null,
@@ -138,7 +141,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
 
   const { data: detection, error: detectionError } = await locals.supabase
     .from('detections')
-    .select('id, status, raw_title')
+    .select('id, status, raw_title, raw_author')
     .eq('id', detectionId)
     .maybeSingle();
 
@@ -170,7 +173,7 @@ export const POST: APIRoute = async ({ params, locals }) => {
       source: 'manual',
       external_id: manualExternalId(detectionId),
       title: detection.raw_title ?? '',
-      authors: [],
+      authors: detection.raw_author ? [detection.raw_author] : [],
       rank: 1,
     })
     .select('id, title, authors, isbn_13, isbn_10, publisher, published_year, cover_url');

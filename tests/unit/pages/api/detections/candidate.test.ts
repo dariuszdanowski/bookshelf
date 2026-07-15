@@ -239,7 +239,12 @@ describe('PATCH /api/detections/[id]/candidate', () => {
   });
 });
 
-type DetectionRow = { id: string; status: string; raw_title: string | null };
+type DetectionRow = {
+  id: string;
+  status: string;
+  raw_title: string | null;
+  raw_author: string | null;
+};
 
 function makePostSupabase(opts: {
   detectionResult?: { data: DetectionRow | null; error: DbError };
@@ -247,7 +252,7 @@ function makePostSupabase(opts: {
   captureInsert?: (payload: Record<string, unknown>) => void;
 }) {
   const detectionResult = opts.detectionResult ?? {
-    data: { id: DET_ID, status: 'pending', raw_title: 'Tytuł OCR' },
+    data: { id: DET_ID, status: 'pending', raw_title: 'Tytuł OCR', raw_author: null },
     error: null,
   };
   const insertResult = opts.insertResult ?? {
@@ -327,7 +332,10 @@ describe('POST /api/detections/[id]/candidate', () => {
 
   it('409 gdy detekcja ma już status != pending', async () => {
     const supabase = makePostSupabase({
-      detectionResult: { data: { id: DET_ID, status: 'matched', raw_title: 'X' }, error: null },
+      detectionResult: {
+        data: { id: DET_ID, status: 'matched', raw_title: 'X', raw_author: null },
+        error: null,
+      },
     });
     const res = await POST(makePostContext({ supabase }));
     expect(res.status).toBe(409);
@@ -370,13 +378,42 @@ describe('POST /api/detections/[id]/candidate', () => {
   it('201 używa pustego stringa gdy raw_title detekcji jest null', async () => {
     let captured: Record<string, unknown> | undefined;
     const supabase = makePostSupabase({
-      detectionResult: { data: { id: DET_ID, status: 'pending', raw_title: null }, error: null },
+      detectionResult: {
+        data: { id: DET_ID, status: 'pending', raw_title: null, raw_author: null },
+        error: null,
+      },
       captureInsert: (payload) => {
         captured = payload;
       },
     });
     await POST(makePostContext({ supabase }));
     expect(captured!['title']).toBe('');
+  });
+
+  it('201 seeduje authors z raw_author detekcji, gdy jest dostępny', async () => {
+    let captured: Record<string, unknown> | undefined;
+    const supabase = makePostSupabase({
+      detectionResult: {
+        data: { id: DET_ID, status: 'pending', raw_title: 'Wiedźma', raw_author: 'Anna Sokalska' },
+        error: null,
+      },
+      captureInsert: (payload) => {
+        captured = payload;
+      },
+    });
+    await POST(makePostContext({ supabase }));
+    expect(captured!['authors']).toEqual(['Anna Sokalska']);
+  });
+
+  it('201 zostawia authors: [] gdy raw_author detekcji jest null', async () => {
+    let captured: Record<string, unknown> | undefined;
+    const supabase = makePostSupabase({
+      captureInsert: (payload) => {
+        captured = payload;
+      },
+    });
+    await POST(makePostContext({ supabase }));
+    expect(captured!['authors']).toEqual([]);
   });
 
   it('500 gdy insert draftu zwraca błąd bazy', async () => {
