@@ -512,11 +512,11 @@ implementacji).
 
 #### Automatyczne
 
-- [x] 4.1 Lint zielony
-- [x] 4.2 Typecheck zielony
-- [x] 4.3 Pełna suita Vitest zielona (1280/1280)
-- [x] 4.4 Playwright account.spec.ts zielony (8/8, w tym 3 nowe); pełna suita lokalnie ma 37 pre-existing failures w niezwiązanych plikach (bbox/purchase/refine) — zgodnie z kontraktem fazy walidacja pełnej suity odroczona do CI (efemeryczny stack)
-- [x] 4.5 Build przechodzi
+- [x] 4.1 Lint zielony — 8a1489e
+- [x] 4.2 Typecheck zielony — 8a1489e
+- [x] 4.3 Pełna suita Vitest zielona (1280/1280) — 8a1489e
+- [x] 4.4 Playwright account.spec.ts zielony (8/8, w tym 3 nowe); pełna suita lokalnie ma 37 pre-existing failures w niezwiązanych plikach (bbox/purchase/refine) — zgodnie z kontraktem fazy walidacja pełnej suity odroczona do CI (efemeryczny stack) — 8a1489e
+- [x] 4.5 Build przechodzi — 8a1489e
 
 #### Ręczne
 

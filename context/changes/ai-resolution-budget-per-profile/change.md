@@ -1,9 +1,9 @@
 ---
 change_id: ai-resolution-budget-per-profile
 title: Limity budżetu AI-resolution konfigurowalne per-profil
-status: implementing
+status: implemented
 created: 2026-07-16
-updated: 2026-07-16
+updated: 2026-07-17
 ---
 
 ## Notes
