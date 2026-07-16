@@ -166,6 +166,10 @@ test('/account → wartość poza zakresem blokuje zapis walidacją klient-side'
 test('/account → "Wyzeruj dzisiejszy licznik" wykonuje realny POST i aktualizuje wskaźnik', async ({
   page,
 }) => {
+  // Brak sprzątania: ta akcja ustawia profiles.ai_resolution_daily_reset_at = now() na
+  // współdzielonym koncie testowym i nie ma endpointu "cofnij reset". Świadomie
+  // zaakceptowane — efekt jest nieszkodliwy (żaden inny spec nie liczy na realny stan
+  // resolution_calls tego konta) i samo-czyści się o północy UTC (effectiveDailyWindowStart).
   await page.goto('/account');
   await expect(
     page.getByTestId('account-stats-content').or(page.getByTestId('account-stats-error')),

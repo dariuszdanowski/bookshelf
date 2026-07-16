@@ -636,7 +636,8 @@ export default function AccountIsland({
             </button>
             <button
               onClick={handleRestoreDefaults}
-              className="rounded border border-gray-300 px-4 py-2 dark:border-gray-600"
+              disabled={limitsSaving}
+              className="rounded border border-gray-300 px-4 py-2 disabled:opacity-50 dark:border-gray-600"
               data-testid="account-resolution-restore-defaults"
             >
               Przywróć domyślne
