@@ -16,8 +16,7 @@ const SHELF_ID = '00000000-0000-4000-8000-0000000000f1';
 
 // Minimalne 1×1 GIF — zapobiega 404 i pozwala img.onLoad → imgLoaded=true
 // dzięki czemu renderMarkers() działa, a viewport ma treść do scrollowania.
-const TINY_GIF =
-  'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+const TINY_GIF = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 
 async function setupOverlayRoutes(page: Page) {
   await page.route(`**/api/photos/${PHOTO_ID}`, async (route) => {
@@ -238,8 +237,12 @@ test.describe('overlay zoom + pan', () => {
   });
 
   test('klik na detekcję ustawia fokus, clear-focus kasuje', async ({ page }) => {
-    // Klik w detekcję #1 na liście
-    await page.getByTestId('detection-card-1').click();
+    // Klik w detekcję #1 na liście — na tytule, nie na środku karty: ta fixture
+    // ma status 'matched' z pustą listą kandydatów (top=null), więc środek karty
+    // to teraz klikalny placeholder okładki (unify-detection-edit-entrypoint,
+    // Faza 3) z własnym stopPropagation — klik tam otwierałby BookModal zamiast
+    // ustawiać fokus karty.
+    await page.getByTestId('detection-card-1').getByText('Solaris').click();
     await expect(page.getByTestId('clear-focus-button')).toBeVisible();
     await expect(page.getByTestId('focused-bbox-diagnostics')).toBeVisible();
 

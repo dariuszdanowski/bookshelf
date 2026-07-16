@@ -209,26 +209,6 @@ test.describe('S-05 — proposal-accept-to-catalog golden path (mock)', () => {
       });
     });
 
-    // Mock POST /api/detections/*/correct
-    await page.route(`**/api/detections/${DET_LOW}/correct`, (route) => {
-      void route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          data: { book_id: '00000000-0000-4000-8000-f05f05f05f52', shelf_id: SHELF_ID },
-        }),
-      });
-    });
-    await page.route(`**/api/detections/${DET_MANUAL}/correct`, (route) => {
-      void route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          data: { book_id: '00000000-0000-4000-8000-f05f05f05f53', shelf_id: SHELF_ID },
-        }),
-      });
-    });
-
     // Mock POST /api/detections/*/reject
     await page.route(`**/api/detections/${DET_REJECT}/reject`, (route) => {
       void route.fulfill({
@@ -383,11 +363,64 @@ test.describe('S-05 — proposal-accept-to-catalog golden path (mock)', () => {
     await expect(card.getByTestId('undo-confirm-button')).toBeVisible();
   });
 
-  test('manual entry — formularz otwiera się przy braku matchu', async ({ page }) => {
+  test('brak matchu — placeholder okładki tworzy draft, BookModal Zapisz+Zatwierdź katalouje książkę', async ({
+    page,
+  }) => {
+    const DRAFT_ID = '00000000-0000-4000-8000-f05f05f05f60';
+    await page.route(`**/api/detections/${DET_MANUAL}/candidate`, (route) => {
+      if (route.request().method() === 'POST') {
+        return void route.fulfill({
+          status: 201,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            data: {
+              candidate_id: DRAFT_ID,
+              title: 'Starożytna Nieznana',
+              authors: [],
+              isbn_13: null,
+              isbn_10: null,
+              publisher: null,
+              published_year: null,
+              cover_url: null,
+            },
+          }),
+        });
+      }
+      if (route.request().method() === 'PATCH') {
+        const body = route.request().postDataJSON() as Record<string, unknown>;
+        return void route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ data: { candidate_id: DRAFT_ID, ...body } }),
+        });
+      }
+      return void route.continue();
+    });
+    await page.route(`**/api/detections/${DET_MANUAL}/confirm`, (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: { book_id: '00000000-0000-4000-8000-f05f05f05f53', shelf_id: SHELF_ID },
+        }),
+      }),
+    );
+
     await page.goto(`/photos/${PHOTO_ID}`);
-    await expect(page.getByTestId('no-match-placeholder')).toBeVisible();
-    await page.getByTestId('manual-entry-button').click();
-    await expect(page.getByTestId('correct-form')).toBeVisible();
+    const card = page.getByTestId('detection-card-3');
+    await card.getByTestId('candidate-cover-button').click();
+
+    const modal = page.getByTestId('book-modal');
+    await expect(modal).toBeVisible();
+    await expect(modal.getByTestId('book-field-title')).toHaveValue('Starożytna Nieznana');
+
+    await modal.getByTestId('book-field-title').fill('Starożytna Nieznana Książka');
+    await modal.getByTestId('book-modal-save').click();
+    await expect(modal.getByTestId('propose-saved')).toBeVisible();
+
+    await modal.getByTestId('book-modal-confirm').click();
+    await expect(modal).not.toBeVisible();
+    await expect(card.getByTestId('undo-confirm-button')).toBeVisible();
   });
 
   test('reject — karta pokazuje „Odrzucono" + Cofnij (nie zielony stan akceptacji)', async ({

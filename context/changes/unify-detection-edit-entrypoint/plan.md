@@ -599,21 +599,21 @@ w `deploy.yml`).
 
 #### Automatyczne
 
-- [x] 5.1 `npm run typecheck` przechodzi
-- [x] 5.2 `npm run lint` przechodzi
-- [x] 5.3 `npm run test` (pełna suita) zielone
-- [x] 5.4 Grep potwierdza zero referencji do RematchForm/CorrectForm/correct.ts poza oczekiwanymi
+- [x] 5.1 `npm run typecheck` przechodzi — 2fe02e9
+- [x] 5.2 `npm run lint` przechodzi — 2fe02e9
+- [x] 5.3 `npm run test` (pełna suita) zielone — 2fe02e9
+- [x] 5.4 Grep potwierdza zero referencji do RematchForm/CorrectForm/correct.ts poza oczekiwanymi — 2fe02e9
 
 ### Faza 6: Finalny sweep E2E + manualny smoke test
 
 #### Automatyczne
 
-- [ ] 6.1 `npm run test:e2e` zielone
-- [ ] 6.2 `npm run typecheck`, `npm run lint`, `npm run test` (pełny gate) zielone
+- [x] 6.1 `npm run test:e2e` zielone
+- [x] 6.2 `npm run typecheck`, `npm run lint`, `npm run test` (pełny gate) zielone
 
 #### Ręczne
 
-- [ ] 6.3 Golden path no-match dla 3 widoków (placeholder → BookModal → Wyszukaj po danych → Zapisz → Zatwierdź)
-- [ ] 6.4 Golden path match: Oryginalny odczyt OCR działa w BookModal
-- [ ] 6.5 Zamknięcie bez zapisu nie zostawia osieroconego wiersza (sprawdzone w Supabase Studio)
-- [ ] 6.6 „Szukaj w sieci" identyczny z obu miejsc
+- [x] 6.3 Golden path no-match dla 3 widoków (placeholder → BookModal → Wyszukaj po danych → Zapisz → Zatwierdź)
+- [x] 6.4 Golden path match: Oryginalny odczyt OCR działa w BookModal
+- [x] 6.5 Zamknięcie bez zapisu nie zostawia osieroconego wiersza (sprawdzone w Supabase Studio)
+- [x] 6.6 „Szukaj w sieci" identyczny z obu miejsc
