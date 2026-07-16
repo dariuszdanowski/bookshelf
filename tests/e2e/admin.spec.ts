@@ -29,7 +29,11 @@ function readDevVars(): Record<string, string> {
   try {
     const content = fs.readFileSync(path.join(process.cwd(), '.dev.vars'), 'utf-8');
     const result: Record<string, string> = {};
-    for (const line of content.split('\n')) {
+    // split(/\r?\n/) — nie split('\n'): .dev.vars ma CRLF, gołe split('\n')
+    // zostawia \r na końcu każdej linii, przez co (.+)$ (bez flagi /m/) nigdy
+    // nie dopasowuje — makeAdminClient() cicho zwracał null, więc promocja
+    // shared usera na admina (poniżej) nigdy się nie wykonywała lokalnie.
+    for (const line of content.split(/\r?\n/)) {
       const m = line.match(/^([A-Z_][A-Z0-9_]*)=(.+)$/);
       if (m) result[m[1]] = m[2].trim();
     }

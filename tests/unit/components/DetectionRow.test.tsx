@@ -83,10 +83,10 @@ describe('DetectionRow — render', () => {
     expect(screen.getByTestId('refine-button')).toBeInTheDocument();
   });
 
-  it('dla braku matchu pokazuje placeholder + Wpisz ręcznie (bez Akceptuj)', () => {
+  it('dla braku matchu pokazuje klikalny placeholder okładki (bez Akceptuj) — Faza 3', () => {
     render(<DetectionRow detection={detNoMatch} onDecided={() => {}} />);
     expect(screen.getByTestId('no-match-placeholder')).toBeInTheDocument();
-    expect(screen.getByTestId('manual-entry-button')).toBeInTheDocument();
+    expect(screen.getByTestId('candidate-cover-button')).toBeInTheDocument();
     expect(screen.queryByTestId('confirm-button')).not.toBeInTheDocument();
   });
 });
@@ -167,10 +167,33 @@ describe('DetectionRow — Popraw przez BookModal (candidate-propose-edit-all-fi
     expect(titleInput.value).toBe(candidate.title);
   });
 
-  it('klik Wpisz ręcznie (brak matchu) nadal otwiera correction-modal z CorrectForm manual_entry', () => {
+  it('klik placeholdera okładki (brak matchu) tworzy draft i otwiera BookModal (Faza 3)', async () => {
+    // mockImplementation (nie mockResolvedValue) — świeży Response per wywołanie;
+    // body stream jest jednorazowy, a hasNoCandidates=true dla detNoMatch już
+    // odpala fetchCardKeys() przy mouncie, więc dzielony Response padłby na
+    // drugim .json() ("body stream already read").
+    vi.spyOn(globalThis, 'fetch').mockImplementation(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({
+            data: {
+              candidate_id: '00000000-0000-4000-8000-000000000099',
+              title: detNoMatch.raw_title,
+              authors: [],
+              isbn_13: null,
+              isbn_10: null,
+              publisher: null,
+              published_year: null,
+              cover_url: null,
+            },
+          }),
+          { status: 201 },
+        ),
+      ),
+    );
     render(<DetectionRow detection={detNoMatch} onDecided={() => {}} />);
-    fireEvent.click(screen.getByTestId('manual-entry-button'));
-    expect(screen.getByTestId('correction-modal')).toBeInTheDocument();
-    expect(screen.getByTestId('correct-form')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('candidate-cover-button'));
+    await waitFor(() => expect(screen.getByTestId('book-modal')).toBeInTheDocument());
+    expect(screen.queryByTestId('correction-modal')).not.toBeInTheDocument();
   });
 });

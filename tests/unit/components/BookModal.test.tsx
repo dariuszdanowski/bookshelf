@@ -687,3 +687,126 @@ describe('BookModal — tryb propose: Zatwierdź (POST /confirm) + dirty-check',
     expect(onConfirmed).not.toHaveBeenCalled();
   });
 });
+
+// ---------------------------------------------------------------------------
+// „Oryginalny odczyt OCR" w propose — port z dawnego formularza wyszukiwania po
+// tytule (unify-detection-edit-entrypoint, Faza 2). Dostępny niezależnie od tego,
+// czy kandydat jest świeżym draftem (no-match) czy prawdziwym matchem.
+
+describe('BookModal — Oryginalny odczyt OCR w propose', () => {
+  it('niewidoczny gdy tryb != propose lub brak detectionId', () => {
+    render(<BookModal mode="edit" book={BASE_BOOK} onClose={vi.fn()} />);
+    expect(screen.queryByTestId('book-modal-use-original')).toBeNull();
+  });
+
+  it('z historią korekt: wypełnia title/authors najwcześniejszym original_raw_* i czyści publisher/rok/isbn', async () => {
+    mockFetchRoutes([
+      [
+        `/api/detections/${DETECTION_ID}/history`,
+        {
+          body: {
+            data: {
+              corrections: [
+                { original_raw_title: 'Solaris OCR', original_raw_author: 'S. Lem OCR' },
+                { original_raw_title: 'Solaris (rematch)', original_raw_author: 'Lem' },
+              ],
+            },
+          },
+        },
+      ],
+    ]);
+    render(<BookModal mode="propose" book={CANDIDATE_BOOK} onClose={vi.fn()} />);
+
+    expect((screen.getByTestId('book-field-publisher') as HTMLInputElement).value).toBe(
+      'Solaris Press',
+    );
+    expect((screen.getByTestId('book-field-year') as HTMLInputElement).value).toBe('1961');
+    expect((screen.getByTestId('book-field-isbn13') as HTMLInputElement).value).toBe(
+      '9780156027601',
+    );
+
+    fireEvent.click(screen.getByTestId('book-modal-use-original'));
+
+    await waitFor(() =>
+      expect((screen.getByTestId('book-field-title') as HTMLInputElement).value).toBe(
+        'Solaris OCR',
+      ),
+    );
+    expect((screen.getByTestId('book-field-authors') as HTMLInputElement).value).toBe('S. Lem OCR');
+    expect((screen.getByTestId('book-field-publisher') as HTMLInputElement).value).toBe('');
+    // Bug zgłoszony przez usera: rok wydania nie był czyszczony (DetectionSchema
+    // vision/prompt.ts nie ma published_year — OCR fizycznie go nie zwraca).
+    expect((screen.getByTestId('book-field-year') as HTMLInputElement).value).toBe('');
+    expect((screen.getByTestId('book-field-isbn13') as HTMLInputElement).value).toBe('');
+    expect((screen.getByTestId('book-field-isbn10') as HTMLInputElement).value).toBe('');
+    expect(screen.queryByTestId('book-modal-no-history-hint')).toBeNull();
+  });
+
+  it('bez historii: fallback do rawTitle/rawAuthor detekcji, pokazuje hint, czyści rok', async () => {
+    mockFetchRoutes([
+      [`/api/detections/${DETECTION_ID}/history`, { body: { data: { corrections: [] } } }],
+    ]);
+    const book = { ...CANDIDATE_BOOK, rawTitle: 'Surowy tytuł OCR', rawAuthor: 'Surowy autor' };
+    render(<BookModal mode="propose" book={book} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByTestId('book-modal-use-original'));
+
+    await waitFor(() => screen.getByTestId('book-modal-no-history-hint'));
+    expect((screen.getByTestId('book-field-title') as HTMLInputElement).value).toBe(
+      'Surowy tytuł OCR',
+    );
+    expect((screen.getByTestId('book-field-authors') as HTMLInputElement).value).toBe(
+      'Surowy autor',
+    );
+    expect((screen.getByTestId('book-field-publisher') as HTMLInputElement).value).toBe('');
+    expect((screen.getByTestId('book-field-year') as HTMLInputElement).value).toBe('');
+    expect((screen.getByTestId('book-field-isbn13') as HTMLInputElement).value).toBe('');
+  });
+
+  it('błąd sieci/API pokazuje book-modal-original-error', async () => {
+    mockFetchRoutes([
+      [
+        `/api/detections/${DETECTION_ID}/history`,
+        { body: { error: { message: 'Błąd pobierania historii.' } }, status: 500 },
+      ],
+    ]);
+    render(<BookModal mode="propose" book={CANDIDATE_BOOK} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByTestId('book-modal-use-original'));
+
+    await waitFor(() => screen.getByTestId('book-modal-original-error'));
+    expect(screen.getByTestId('book-modal-original-error').textContent).toContain(
+      'Błąd pobierania historii.',
+    );
+  });
+
+  it('drugie kliknięcie po zapamiętaniu original nie bije ponownie do /history', async () => {
+    const fetchSpy = mockFetchRoutes([
+      [
+        `/api/detections/${DETECTION_ID}/history`,
+        {
+          body: { data: { corrections: [{ original_raw_title: 'X', original_raw_author: 'Y' }] } },
+        },
+      ],
+    ]);
+    render(<BookModal mode="propose" book={CANDIDATE_BOOK} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByTestId('book-modal-use-original'));
+    await waitFor(() =>
+      expect((screen.getByTestId('book-field-title') as HTMLInputElement).value).toBe('X'),
+    );
+    const callsAfterFirst = (fetchSpy as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(
+      ([url]) => String(url).includes('/history'),
+    ).length;
+
+    fireEvent.change(screen.getByTestId('book-field-title'), { target: { value: 'coś innego' } });
+    fireEvent.click(screen.getByTestId('book-modal-use-original'));
+    await waitFor(() =>
+      expect((screen.getByTestId('book-field-title') as HTMLInputElement).value).toBe('X'),
+    );
+    const callsAfterSecond = (fetchSpy as unknown as ReturnType<typeof vi.fn>).mock.calls.filter(
+      ([url]) => String(url).includes('/history'),
+    ).length;
+    expect(callsAfterSecond).toBe(callsAfterFirst);
+  });
+});

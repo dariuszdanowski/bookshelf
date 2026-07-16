@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 
 import type { BookCandidateDTO } from '../lib/books/schema';
 import type { PhotoDTO, DetectionWithCandidatesDTO, BboxEditSet } from '../lib/photos/schema';
-import { classifyCropQuality } from '../lib/matching/fallbackPolicy';
 import { runMatchSSE } from '../lib/matching/runMatchSSE';
 import { runProcessSSE } from '../lib/vision/runProcessSSE';
 import ApiKeySelect from './ApiKeySelect';
@@ -10,6 +9,11 @@ import BookModal, { type BookModalBook, type CandidatePatch } from './BookModal'
 import ConfirmDialog from './ConfirmDialog';
 import CorrectionHistoryPanel from './CorrectionHistoryPanel';
 import CostPanel from './CostPanel';
+import DetectionActionsRow, {
+  AiResolutionButton,
+  RefineButton,
+  WebSearchButton,
+} from './DetectionActionsRow';
 import ProgressModal from './ProgressModal';
 import HelpTip from './HelpTip';
 import PhotoDetectionOverlay from './PhotoDetectionOverlay';
@@ -26,182 +30,6 @@ function getMatchTier(score: number): MatchTier {
   if (score >= MATCH_HIGH) return 'high';
   if (score >= MATCH_MID) return 'mid';
   return 'low';
-}
-
-// ---------------------------------------------------------------------------
-// RefineButton — wspólny przycisk „Doprecyzuj odczyt" dla wszystkich trybów
-// review. Jeden label (rozróżnialność weak/good po ⚠ prefixie, nie po kolorze
-// — M3L4), sygnał weak-crop (⚠ + amber + tooltip) i widoczna informacja o
-// koszcie (refine = dodatkowe płatne wywołanie AI). Likwiduje 3 kopie inline.
-// ---------------------------------------------------------------------------
-function RefineButton({
-  bbox,
-  busy,
-  onClick,
-  size = 'md',
-  noApiKey = false,
-}: {
-  bbox: DetectionWithCandidatesDTO['bbox'];
-  busy: boolean;
-  onClick: () => void;
-  size?: 'lg' | 'md' | 'sm';
-  // per-call-byok-key-override: user z 0 kluczami BYOK — przycisk disabled
-  // zamiast pozwalać kliknąć i dostać błąd NO_API_KEY po fakcie.
-  noApiKey?: boolean;
-}) {
-  // identity-first: refine = crop re-OCR; bez bboxa nie ma co przycinać
-  if (bbox === null) return null;
-  const isWeak = classifyCropQuality(bbox) === 'uncertain_localization';
-  const sizeCls = size === 'lg' ? 'px-3 py-1.5' : size === 'sm' ? 'px-2 py-1' : 'px-2.5 py-1';
-  const colorCls = isWeak
-    ? 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100'
-    : 'border-indigo-300 bg-indigo-50 text-indigo-700 hover:bg-indigo-100';
-  const label = busy ? 'Doprecyzowuję...' : isWeak ? '⚠ Doprecyzuj odczyt' : 'Doprecyzuj odczyt';
-  const title = noApiKey
-    ? 'Brak klucza API — dodaj klucz w ustawieniach konta (/account)'
-    : isWeak
-      ? '⚠ Crop o niskiej jakości — wynik może być słaby. Dodatkowa analiza AI (płatne).'
-      : 'Doprecyzuj odczyt — dodatkowa analiza AI (płatne)';
-  return (
-    <span className="inline-flex items-center gap-1">
-      <button
-        data-testid="refine-button"
-        disabled={busy || noApiKey}
-        onClick={onClick}
-        title={title}
-        className={`rounded-md border text-xs font-medium disabled:opacity-50 ${sizeCls} ${colorCls}`}
-      >
-        {label}
-      </button>
-      {size === 'lg' ? (
-        <span data-testid="refine-cost-hint" className="text-[10px] leading-tight text-gray-400">
-          dodatkowa analiza AI — płatne
-        </span>
-      ) : (
-        <span
-          data-testid="refine-cost-hint"
-          title="dodatkowa analiza AI — płatne"
-          aria-label="dodatkowa analiza AI — płatne"
-          className="cursor-help text-xs text-gray-400"
-        >
-          ⓘ
-        </span>
-      )}
-    </span>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// WebSearchButton — „Szukaj w sieci": otwiera nową kartę z Google na naszych
-// danych (tytuł + autor). Ratunek gdy Google Books/OpenLibrary nie indeksują
-// danej edycji (małe polskie wydawnictwa), a zwykła wyszukiwarka ją znajduje.
-// Link <a target="_blank">, nie fetch — żadnego kosztu API, user wybiera ręcznie.
-// ---------------------------------------------------------------------------
-function WebSearchButton({
-  title,
-  author,
-  size = 'md',
-}: {
-  title: string;
-  author: string | null | undefined;
-  size?: 'lg' | 'md' | 'sm';
-}) {
-  const query = [title, author].filter(Boolean).join(' ').trim();
-  if (!query) return null;
-  const href = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
-  const sizeCls = size === 'lg' ? 'px-3 py-1.5' : size === 'sm' ? 'px-2 py-1' : 'px-2.5 py-1';
-  return (
-    <a
-      data-testid="web-search-button"
-      href={href}
-      target="_blank"
-      rel="noopener noreferrer"
-      onClick={(e) => e.stopPropagation()}
-      title={`Wyszukaj „${query}" w Google (nowa karta)`}
-      className={`inline-flex items-center gap-1 rounded-md border border-sky-300 bg-sky-50 text-xs font-medium text-sky-700 hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-900/20 dark:text-sky-300 dark:hover:bg-sky-900/40 ${sizeCls}`}
-    >
-      <svg
-        width="12"
-        height="12"
-        viewBox="0 0 20 20"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <circle cx="8.5" cy="8.5" r="5.5" />
-        <line x1="13" y1="13" x2="18" y2="18" />
-      </svg>
-      Szukaj w sieci
-    </a>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// AiResolutionButton — „Rozwiąż przez AI" (S-50): ostatni poziom kaskady
-// matchingu, widoczny wyłącznie gdy detekcja nie ma żadnych kandydatów.
-// Ten sam idiom co RefineButton (label + widoczny cost-hint), ale bez bbox
-// (wywołanie tekstowe web_search, nie crop).
-// ---------------------------------------------------------------------------
-function AiResolutionButton({
-  busy,
-  onClick,
-  size = 'md',
-  activeProviderIsAnthropic = null,
-  noApiKey = false,
-}: {
-  busy: boolean;
-  onClick: () => void;
-  size?: 'lg' | 'md' | 'sm';
-  activeProviderIsAnthropic?: boolean | null;
-  // per-call-byok-key-override: user z 0 kluczami BYOK — przycisk disabled
-  // zamiast pozwalać kliknąć i dostać błąd NO_API_KEY po fakcie.
-  noApiKey?: boolean;
-}) {
-  const sizeCls = size === 'lg' ? 'px-3 py-1.5' : size === 'sm' ? 'px-2 py-1' : 'px-2.5 py-1';
-  const label = busy ? 'Rozwiązuję...' : 'Rozwiąż przez AI';
-  const title = noApiKey
-    ? 'Brak klucza API — dodaj klucz w ustawieniach konta (/account)'
-    : activeProviderIsAnthropic === false
-      ? 'Rozwiąż przez AI — dodatkowa analiza AI (bez dostępu do internetu, wynik może być mniej trafny dla niszowych wydań)'
-      : 'Rozwiąż przez AI (web search) — dodatkowa analiza AI (płatne, wymaga klucza Anthropic)';
-  // impl-review F3: koszt jest realnie $0 dla openai_compatible (costUsd zawsze
-  // 0 w resolveViaOpenAICompat) — hint musi to odzwierciedlać, nie twierdzić
-  // "płatne" bezwarunkowo jak przed poprawką.
-  const costHintText =
-    activeProviderIsAnthropic === false ? 'dodatkowa analiza AI' : 'dodatkowa analiza AI — płatne';
-  return (
-    <span className="inline-flex items-center gap-1">
-      <button
-        data-testid="ai-resolution-button"
-        disabled={busy || noApiKey}
-        onClick={onClick}
-        title={title}
-        className={`rounded-md border border-purple-300 bg-purple-50 text-xs font-medium text-purple-700 hover:bg-purple-100 disabled:opacity-50 dark:border-purple-700 dark:bg-purple-900/20 dark:text-purple-300 dark:hover:bg-purple-900/40 ${sizeCls}`}
-      >
-        {label}
-      </button>
-      {size === 'lg' ? (
-        <span
-          data-testid="ai-resolution-cost-hint"
-          className="text-[10px] leading-tight text-gray-400"
-        >
-          {costHintText}
-        </span>
-      ) : (
-        <span
-          data-testid="ai-resolution-cost-hint"
-          title={costHintText}
-          aria-label={costHintText}
-          className="cursor-help text-xs text-gray-400"
-        >
-          ⓘ
-        </span>
-      )}
-    </span>
-  );
 }
 
 const TIER_STYLES: Record<MatchTier, { border: string; badge: string; label: string }> = {
@@ -259,10 +87,16 @@ function CoverImage({ url, title }: { url: string | null; title: string }) {
 // Mapuje kandydata (propozycję) na wspólny kształt podglądu — ten sam modal
 // co dla książek zatwierdzonych (jednolity dostęp przez klik w okładkę).
 // id/detectionId: cel dla PATCH /api/detections/[id]/candidate (candidate-propose-edit-all-fields).
-function candidateToDetail(c: BookCandidateDTO, detectionId: string): BookModalBook {
+// rawTitle/rawAuthor: fallback dla „Oryginalny odczyt OCR" w BookModal (Faza 2)
+// gdy detekcja nigdy nie miała korekty — różni się od c.title/c.authors, które
+// mogą pochodzić z dopasowania w zewnętrznej bazie, nie z surowego odczytu OCR.
+function candidateToDetail(
+  c: BookCandidateDTO,
+  detection: DetectionWithCandidatesDTO,
+): BookModalBook {
   return {
     id: c.id,
-    detectionId,
+    detectionId: detection.id,
     title: c.title,
     authors: c.authors,
     coverUrl: c.coverUrl,
@@ -276,7 +110,66 @@ function candidateToDetail(c: BookCandidateDTO, detectionId: string): BookModalB
     purchase_price: c.purchasePrice,
     purchase_city: c.purchaseCity,
     purchase_event: c.purchaseEvent,
+    rawTitle: detection.raw_title,
+    rawAuthor: detection.raw_author,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Draft-kandydat dla no-match (unify-detection-edit-entrypoint, Faza 3) — klik
+// na placeholder okładki tworzy minimalny wiersz book_candidates (source='manual')
+// i mapuje odpowiedź do BookCandidateDTO, żeby candidateToDetail() i append-branch
+// w onCandidateSaved (plan-review F1) działały bez specjalnego typu draftu.
+// ---------------------------------------------------------------------------
+
+async function createDraftCandidate(detectionId: string): Promise<BookCandidateDTO | null> {
+  try {
+    const res = await fetch(`/api/detections/${detectionId}/candidate`, { method: 'POST' });
+    if (!res.ok) return null;
+    const json = (await res.json()) as {
+      data?: {
+        candidate_id: string;
+        title: string;
+        authors: string[];
+        isbn_13: string | null;
+        isbn_10: string | null;
+        publisher: string | null;
+        published_year: number | null;
+        cover_url: string | null;
+      };
+    };
+    if (!json.data) return null;
+    return {
+      id: json.data.candidate_id,
+      source: 'manual',
+      externalId: `manual:${detectionId}`,
+      title: json.data.title,
+      authors: json.data.authors,
+      isbn10: json.data.isbn_10,
+      isbn13: json.data.isbn_13,
+      publisher: json.data.publisher,
+      publishedYear: json.data.published_year,
+      coverUrl: json.data.cover_url,
+      matchScore: 0,
+      rank: 1,
+      purchaseDate: null,
+      purchasePrice: null,
+      purchaseCity: null,
+      purchaseEvent: null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+// Sprząta porzucony draft (BookModal zamknięty bez zapisu) — fire-and-forget,
+// modal jest już zamknięty, user nie czeka na wynik tego wywołania.
+function deleteDraftCandidate(detectionId: string, candidateId: string): void {
+  void fetch(`/api/detections/${detectionId}/candidate`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ candidate_id: candidateId }),
+  }).catch(() => undefined);
 }
 
 // candidate-propose-edit-all-fields: merge patcha z BookModal (onCandidateSaved) do
@@ -296,400 +189,6 @@ function applyCandidatePatch(c: BookCandidateDTO, patch: CandidatePatch): BookCa
     ...(patch.purchaseCity !== undefined ? { purchaseCity: patch.purchaseCity } : {}),
     ...(patch.purchaseEvent !== undefined ? { purchaseEvent: patch.purchaseEvent } : {}),
   };
-}
-
-// ---------------------------------------------------------------------------
-// Formularz korekty / ręcznego wpisu
-// ---------------------------------------------------------------------------
-
-type CorrectFormProps = {
-  initialTitle?: string;
-  initialAuthors?: string;
-  initialPublisher?: string;
-  initialYear?: string;
-  mode: 'field_edit' | 'manual_entry';
-  candidateId?: string;
-  detectionId: string;
-  onSuccess: () => void;
-  onCancel: () => void;
-};
-
-function CorrectForm({
-  initialTitle = '',
-  initialAuthors = '',
-  initialPublisher = '',
-  initialYear = '',
-  mode,
-  candidateId,
-  detectionId,
-  onSuccess,
-  onCancel,
-}: CorrectFormProps) {
-  const [title, setTitle] = useState(initialTitle);
-  const [authors, setAuthors] = useState(initialAuthors);
-  const [publisher, setPublisher] = useState(initialPublisher);
-  const [year, setYear] = useState(initialYear);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!title.trim()) return;
-    setBusy(true);
-    setErr(null);
-    try {
-      const body: Record<string, unknown> = {
-        mode,
-        title: title.trim(),
-      };
-      if (candidateId) body.candidate_id = candidateId;
-      if (authors.trim())
-        body.authors = authors
-          .split(',')
-          .map((a) => a.trim())
-          .filter(Boolean);
-      if (publisher.trim()) body.publisher = publisher.trim();
-      if (year.trim()) body.published_year = parseInt(year, 10);
-
-      const res = await fetch(`/api/detections/${detectionId}/correct`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const json = (await res.json()) as { error?: { message?: string } };
-      if (res.status === 409) {
-        setErr(json.error?.message ?? 'Masz już tę książkę w katalogu.');
-        return;
-      }
-      if (!res.ok) {
-        setErr(json.error?.message ?? `Błąd (${res.status})`);
-        return;
-      }
-      onSuccess();
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Błąd sieci.');
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <form
-      data-testid="correct-form"
-      onSubmit={(e) => void handleSubmit(e)}
-      className="mt-3 space-y-2 rounded-lg border border-gray-200 bg-gray-50 p-3"
-    >
-      <div>
-        <label className="block text-xs font-medium text-gray-700">
-          Tytuł <span className="text-red-500">*</span>
-        </label>
-        <input
-          data-testid="correct-title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          required
-          className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:ring-1 focus:ring-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
-        />
-      </div>
-      <div>
-        <label className="block text-xs font-medium text-gray-700">
-          Autor(zy) <span className="text-gray-400">(oddzielone przecinkiem)</span>
-        </label>
-        <input
-          data-testid="correct-authors"
-          value={authors}
-          onChange={(e) => setAuthors(e.target.value)}
-          className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:ring-1 focus:ring-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
-        />
-      </div>
-      <div className="flex gap-2">
-        <div className="flex-1">
-          <label className="block text-xs font-medium text-gray-700">Wydawnictwo</label>
-          <input
-            data-testid="correct-publisher"
-            value={publisher}
-            onChange={(e) => setPublisher(e.target.value)}
-            className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:ring-1 focus:ring-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
-          />
-        </div>
-        <div className="w-24">
-          <label className="block text-xs font-medium text-gray-700">Rok</label>
-          <input
-            data-testid="correct-year"
-            type="number"
-            min="1000"
-            max="2100"
-            value={year}
-            onChange={(e) => setYear(e.target.value)}
-            className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 focus:ring-1 focus:ring-blue-500 focus:outline-none dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
-          />
-        </div>
-      </div>
-      {err && (
-        <p data-testid="correct-error" className="text-xs text-red-600" role="alert">
-          {err}
-        </p>
-      )}
-      <div className="flex gap-2">
-        <button
-          type="submit"
-          data-testid="correct-submit"
-          disabled={busy || !title.trim()}
-          className="rounded bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-        >
-          {busy ? 'Zapisuję...' : 'Zapisz'}
-        </button>
-        <button
-          type="button"
-          data-testid="correct-cancel"
-          onClick={onCancel}
-          className="rounded border border-gray-300 bg-white px-3 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-        >
-          Anuluj
-        </button>
-      </div>
-    </form>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Formularz wyszukiwania po tytule (rematch)
-// ---------------------------------------------------------------------------
-
-type RematchFormProps = {
-  detectionId: string;
-  initialTitle: string;
-  initialAuthor: string;
-  initialIsbn: string;
-  /** Aktualnie oglądana propozycja (top lub ręcznie wybrany alt) — null gdy detekcja nie ma kandydatów. */
-  activeCandidate: BookCandidateDTO | null;
-  busy: boolean;
-  errorMsg: string | null;
-  onSubmit: (
-    title: string,
-    author: string | null,
-    isbn: string | null,
-    publisher: string | null,
-  ) => void;
-  onCancel: () => void;
-};
-
-// weak-match-resolve-and-ocr-audit: rematch/refine nadpisują raw_title/raw_author,
-// więc initialTitle/initialAuthor to ostatnia przypisana wartość, nie oryginalny
-// odczyt OCR — bez tego user powielał błąd poprzedniej (nietrafionej) korekty.
-function RematchForm({
-  detectionId,
-  initialTitle,
-  initialAuthor,
-  initialIsbn,
-  activeCandidate,
-  busy,
-  errorMsg,
-  onSubmit,
-  onCancel,
-}: RematchFormProps) {
-  const [title, setTitle] = useState(initialTitle);
-  const [author, setAuthor] = useState(initialAuthor);
-  const [isbn, setIsbn] = useState(initialIsbn);
-  // M22: wydawnictwo z grzbietu (np. logo Naszej Księgarni) zawęża wyniki GB
-  const [publisher, setPublisher] = useState('');
-  const [originalValues, setOriginalValues] = useState<{
-    title: string;
-    author: string;
-  } | null>(null);
-  const [loadingOriginal, setLoadingOriginal] = useState(false);
-  const [originalError, setOriginalError] = useState<string | null>(null);
-  const [noHistoryFound, setNoHistoryFound] = useState(false);
-
-  async function handleUseOriginal() {
-    if (originalValues) {
-      setTitle(originalValues.title);
-      setAuthor(originalValues.author);
-      setNoHistoryFound(false);
-      return;
-    }
-    setLoadingOriginal(true);
-    setOriginalError(null);
-    setNoHistoryFound(false);
-    try {
-      const res = await fetch(`/api/detections/${detectionId}/history`);
-      const json = (await res.json()) as {
-        data?: {
-          corrections: Array<{
-            original_raw_title: string | null;
-            original_raw_author: string | null;
-          }>;
-        };
-        error?: { message?: string };
-      };
-      if (!res.ok) throw new Error(json.error?.message ?? `HTTP ${res.status}`);
-      // API zwraca chronologicznie rosnąco — pierwszy wpis to najwcześniejszy original_*.
-      const earliest = json.data?.corrections?.[0];
-      if (!earliest) {
-        // Brak historii = detekcja nigdy nie była nadpisana rematch/refine —
-        // bieżąca wartość JEST oryginałem. Sygnalizujemy, żeby klik nie wyglądał
-        // na "nic się nie stało" (zgłoszenie usera z manualnej weryfikacji).
-        setNoHistoryFound(true);
-        return;
-      }
-      const resolvedTitle = earliest.original_raw_title ?? initialTitle;
-      const resolvedAuthor = earliest.original_raw_author ?? initialAuthor;
-      setOriginalValues({ title: resolvedTitle, author: resolvedAuthor });
-      setTitle(resolvedTitle);
-      setAuthor(resolvedAuthor);
-    } catch (e) {
-      setOriginalError(e instanceof Error ? e.message : 'Błąd ładowania historii');
-    } finally {
-      setLoadingOriginal(false);
-    }
-  }
-
-  function handleUseProposal() {
-    setTitle(initialTitle);
-    setAuthor(initialAuthor);
-    setNoHistoryFound(false);
-  }
-
-  function handleUseCandidate() {
-    if (!activeCandidate) return;
-    setTitle(activeCandidate.title);
-    setAuthor(activeCandidate.authors.join(', '));
-    setIsbn(activeCandidate.isbn13 ?? activeCandidate.isbn10 ?? '');
-    setNoHistoryFound(false);
-  }
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!title.trim() && !isbn.trim()) return;
-    onSubmit(title.trim(), author.trim() || null, isbn.trim() || null, publisher.trim() || null);
-  }
-
-  return (
-    <form
-      data-testid="rematch-form"
-      onSubmit={handleSubmit}
-      className="mt-3 space-y-2 rounded-lg border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-800 dark:bg-emerald-950"
-    >
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          data-testid="rematch-use-proposal"
-          onClick={handleUseProposal}
-          className="rounded border border-gray-300 bg-white px-2 py-1 text-[11px] font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
-        >
-          Bieżąca wartość
-        </button>
-        <button
-          type="button"
-          data-testid="rematch-use-original"
-          disabled={loadingOriginal}
-          onClick={() => void handleUseOriginal()}
-          className="rounded border border-gray-300 bg-white px-2 py-1 text-[11px] font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
-        >
-          {loadingOriginal ? 'Ładowanie...' : 'Oryginalny odczyt OCR'}
-        </button>
-        {activeCandidate && (
-          <button
-            type="button"
-            data-testid="rematch-use-candidate"
-            onClick={handleUseCandidate}
-            className="rounded border border-gray-300 bg-white px-2 py-1 text-[11px] font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
-          >
-            Użyj kandydata
-          </button>
-        )}
-      </div>
-      {originalError && (
-        <p
-          data-testid="rematch-original-error"
-          className="text-[11px] text-red-600 dark:text-red-400"
-        >
-          {originalError}
-        </p>
-      )}
-      {noHistoryFound && (
-        <p
-          data-testid="rematch-no-history-hint"
-          className="text-[11px] text-gray-500 dark:text-gray-400"
-        >
-          Brak historii korekt — to już jest oryginalny odczyt OCR.
-        </p>
-      )}
-      <div>
-        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
-          Tytuł
-          <input
-            data-testid="rematch-title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
-          />
-        </label>
-      </div>
-      <div>
-        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
-          Autor (opcjonalnie)
-          <input
-            data-testid="rematch-author"
-            value={author}
-            onChange={(e) => setAuthor(e.target.value)}
-            className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100"
-          />
-        </label>
-      </div>
-      <div>
-        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
-          Wydawnictwo (opcjonalnie — gdy widoczne na grzbiecie)
-          <input
-            data-testid="rematch-publisher"
-            value={publisher}
-            onChange={(e) => setPublisher(e.target.value)}
-            placeholder="np. Nasza Księgarnia"
-            className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 placeholder:text-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500"
-          />
-        </label>
-      </div>
-      <div>
-        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
-          ISBN (opcjonalnie — gdy tytuł nie daje wyników)
-          <input
-            data-testid="rematch-isbn"
-            value={isbn}
-            onChange={(e) => setIsbn(e.target.value)}
-            placeholder="np. 9788308073087"
-            className="mt-0.5 w-full rounded border border-gray-300 bg-white px-2 py-1 text-xs text-gray-900 placeholder:text-gray-400 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500"
-          />
-        </label>
-      </div>
-      {errorMsg && (
-        <p
-          data-testid="rematch-error"
-          className="text-xs text-red-600 dark:text-red-400"
-          role="alert"
-        >
-          {errorMsg}
-        </p>
-      )}
-      <div className="flex gap-2">
-        <button
-          type="submit"
-          data-testid="rematch-submit"
-          disabled={busy || (!title.trim() && !isbn.trim())}
-          className="flex-1 rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-        >
-          {busy ? 'Szukam...' : 'Szukaj'}
-        </button>
-        <button
-          type="button"
-          data-testid="rematch-cancel"
-          onClick={onCancel}
-          className="rounded-md border border-gray-300 px-3 py-1.5 text-xs text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-700"
-        >
-          Anuluj
-        </button>
-      </div>
-    </form>
-  );
 }
 
 // ---------------------------------------------------------------------------
@@ -756,7 +255,7 @@ type DecisionKind = 'confirmed' | 'rejected';
 // ---------------------------------------------------------------------------
 // Hook decyzji — współdzielona logika akceptacji/odrzucenia/korekty per detekcja.
 // Wyekstrahowany z DetectionCard, by 3 tryby prezentacji (Karty/Lista/Kafelki)
-// nie duplikowały wywołań API. Render-specific UI (showAlts, showCorrectForm)
+// nie duplikowały wywołań API. Render-specific UI (np. showAlts)
 // zostaje lokalny w każdym wariancie prezentacji.
 // ---------------------------------------------------------------------------
 
@@ -933,58 +432,6 @@ function useDetectionDecision(
     }
   }
 
-  async function handleRematch(
-    title: string,
-    author: string | null,
-    isbn: string | null,
-    publisher: string | null = null, // M22
-  ): Promise<boolean> {
-    setBusyLabel('Szukam kandydatów w bazach książek...');
-    setBusy(true);
-    setErrorMsg(null);
-    try {
-      const res = await fetch(`/api/detections/${detection.id}/rematch`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, author, isbn, publisher }),
-      });
-      const json = (await res.json()) as {
-        data?: {
-          applied?: boolean;
-          detection?: Partial<DetectionWithCandidatesDTO>;
-          candidates?: BookCandidateDTO[];
-          duplicate?: DetectionWithCandidatesDTO['duplicate'];
-        };
-        error?: { message?: string };
-      };
-      if (res.status === 429) {
-        setErrorMsg('Rate limit, spróbuj za chwilę.');
-        return false;
-      }
-      if (!res.ok) {
-        setErrorMsg(json.error?.message ?? `Błąd wyszukiwania (${res.status})`);
-        return false;
-      }
-      const nextDetection = json.data?.detection;
-      const candidates = json.data?.candidates ?? [];
-      if (nextDetection) {
-        onRefined?.({
-          ...detection,
-          ...nextDetection,
-          candidates,
-          duplicate: json.data?.duplicate ?? null,
-        });
-      }
-      return candidates.length > 0;
-    } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : 'Błąd sieci.');
-      return false;
-    } finally {
-      setBusyLabel(null);
-      setBusy(false);
-    }
-  }
-
   const [confirmRefine, setConfirmRefine] = useState(false);
 
   async function handleRefine() {
@@ -1128,8 +575,9 @@ function useDetectionDecision(
     }
   }
 
-  // Po sukcesie korekty: detekcja zdecydowana. Komponent przechodzi w widok
-  // 'decided' (early return), więc reset lokalnego showCorrectForm jest zbędny.
+  // Po sukcesie korekty (BookModal onConfirmed): detekcja zdecydowana. Komponent
+  // przechodzi w widok 'decided' (early return), więc reset lokalnego stanu
+  // formularza jest zbędny.
   function handleCorrectSuccess() {
     setDecidedKind('confirmed');
     setState('decided');
@@ -1160,7 +608,6 @@ function useDetectionDecision(
     confirmAiResolve,
     setConfirmAiResolve,
     openAiResolveConfirm,
-    handleRematch,
     handleCorrectSuccess,
     activeProviderIsAnthropic,
     cardKeys,
@@ -1193,9 +640,6 @@ function DetectionCard({
   photoId,
 }: DetectionCardProps) {
   const [showAlts, setShowAlts] = useState(false);
-  const [showCorrectForm, setShowCorrectForm] = useState(false);
-  const [showRematchForm, setShowRematchForm] = useState(false);
-  const [rematchNoResults, setRematchNoResults] = useState(false);
   const [showCandidateDetail, setShowCandidateDetail] = useState(false);
   const {
     setSelectedCandidateId,
@@ -1220,7 +664,6 @@ function DetectionCard({
     confirmAiResolve,
     setConfirmAiResolve,
     openAiResolveConfirm,
-    handleRematch,
     handleCorrectSuccess,
     activeProviderIsAnthropic,
     cardKeys,
@@ -1229,6 +672,31 @@ function DetectionCard({
     activeCardKeyId,
     hasNoApiKeys,
   } = useDetectionDecision(detection, onDecided, onRefined, onUndecided);
+
+  // Draft-kandydat no-match (unify-detection-edit-entrypoint, Faza 3) — lokalny
+  // stan, NIE detection.candidates, dopóki user nie kliknie „Zapisz" w BookModal
+  // (plan-review F1: append do detection.candidates dopiero w onCandidateSaved).
+  const [draftCandidate, setDraftCandidate] = useState<BookCandidateDTO | null>(null);
+  const [draftBusy, setDraftBusy] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  // true gdy user zapisał/zatwierdził coś w BookModal dla bieżącego draftu —
+  // onClose bez tego sprząta (DELETE) porzucony, nigdy-nie-zapisany wiersz.
+  const draftSavedRef = useRef(false);
+  const detailCandidate = activeCandidate ?? draftCandidate;
+
+  async function handleOpenNoMatch() {
+    setDraftBusy(true);
+    setDraftError(null);
+    const draft = await createDraftCandidate(detection.id);
+    setDraftBusy(false);
+    if (!draft) {
+      setDraftError('Nie udało się utworzyć wpisu. Spróbuj ponownie.');
+      return;
+    }
+    draftSavedRef.current = false;
+    setDraftCandidate(draft);
+    setShowCandidateDetail(true);
+  }
 
   if (state === 'decided') {
     if (decidedKind === 'rejected') {
@@ -1366,74 +834,33 @@ function DetectionCard({
         </div>
       )}
 
-      {/* No match → rematch + manual entry */}
-      {!top && !showCorrectForm && !showRematchForm && (
-        <div>
-          <p
-            data-testid="no-match-placeholder"
-            className="rounded-lg border border-dashed border-gray-300 px-3 py-4 text-center text-sm text-gray-500"
+      {/* No match → klikalny placeholder okładki, otwiera BookModal.propose z
+          draft-kandydatem (unify-detection-edit-entrypoint, Faza 3). */}
+      {!top && (
+        <div className="flex flex-col items-center gap-1">
+          <button
+            type="button"
+            data-testid="candidate-cover-button"
+            disabled={draftBusy}
+            onClick={(e) => {
+              e.stopPropagation();
+              void handleOpenNoMatch();
+            }}
+            title="Pokaż szczegóły książki"
+            className="cursor-zoom-in rounded focus:ring-2 focus:ring-blue-400 focus:outline-none disabled:cursor-wait disabled:opacity-50"
           >
-            Brak pewnego matchu
-          </p>
-          {rematchNoResults && (
-            <p className="mt-1 text-center text-xs text-amber-600" data-testid="rematch-no-results">
-              Nie znaleziono wyników dla podanego tytułu
+            <CoverImage url={null} title="" />
+          </button>
+          {draftError && (
+            <p data-testid="draft-candidate-error" className="text-center text-xs text-red-600">
+              {draftError}
             </p>
           )}
-          <button
-            data-testid="rematch-button"
-            onClick={() => {
-              setShowRematchForm(true);
-              setRematchNoResults(false);
-            }}
-            className="mt-2 w-full rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
-          >
-            Szukaj po tytule
-          </button>
-          <button
-            data-testid="manual-entry-button"
-            onClick={() => setShowCorrectForm(true)}
-            className="mt-2 w-full rounded-md border border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
-          >
-            Wpisz ręcznie
-          </button>
         </div>
       )}
 
-      {/* Rematch form */}
-      {!top && showRematchForm && (
-        <RematchForm
-          detectionId={detection.id}
-          initialTitle={detection.raw_title ?? ''}
-          initialAuthor={detection.raw_author ?? ''}
-          initialIsbn={''}
-          activeCandidate={activeCandidate}
-          busy={busy}
-          errorMsg={errorMsg}
-          onSubmit={async (title, author, isbn, publisher) => {
-            const found = await handleRematch(title, author, isbn, publisher);
-            // M12: zamykaj ZAWSZE — po sukcesie pojawia się kandydat (top) i stan
-            // showRematchForm=true przejmowała gałąź „z kandydatem", renderując
-            // formularz ponownie pod zaktualizowaną propozycją.
-            setShowRematchForm(false);
-            if (!found) setRematchNoResults(true);
-          }}
-          onCancel={() => setShowRematchForm(false)}
-        />
-      )}
-
-      {/* Manual entry form */}
-      {!top && showCorrectForm && (
-        <CorrectForm
-          mode="manual_entry"
-          detectionId={detection.id}
-          onSuccess={handleCorrectSuccess}
-          onCancel={() => setShowCorrectForm(false)}
-        />
-      )}
-
       {/* Top candidate */}
-      {top && !showCorrectForm && (
+      {top && (
         <>
           {/* Candidate selector for alternatives */}
           {alts.length > 0 && (
@@ -1555,109 +982,84 @@ function DetectionCard({
         </p>
       )}
 
-      {/* Action buttons (only when form not shown) */}
-      {!showCorrectForm && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {top && (
-            <button
-              data-testid="confirm-button"
-              disabled={busy || !activeCandidateId}
-              onClick={() => void handleConfirm()}
-              className="rounded-md bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
-            >
-              {busy ? 'Zapisuję...' : 'Akceptuj'}
-            </button>
-          )}
+      {/* Action buttons */}
+      <div className="mt-3 flex flex-wrap gap-2">
+        {top && (
           <button
-            data-testid="reject-button"
-            disabled={busy}
-            onClick={() => void handleReject()}
-            className="rounded-md border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
+            data-testid="confirm-button"
+            disabled={busy || !activeCandidateId}
+            onClick={() => void handleConfirm()}
+            className="rounded-md bg-green-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
           >
-            Odrzuć
+            {busy ? 'Zapisuję...' : 'Akceptuj'}
           </button>
-          {top && (
-            <button
-              data-testid="correct-button"
-              disabled={busy}
-              onClick={() => setShowCandidateDetail(true)}
-              className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-            >
-              Popraw
-            </button>
-          )}
-          {top && (
-            <button
-              data-testid="rematch-button"
-              disabled={busy}
-              onClick={() => {
-                setShowRematchForm(true);
-                setRematchNoResults(false);
-              }}
-              className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 disabled:opacity-50 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
-            >
-              Szukaj po tytule
-            </button>
-          )}
-          <WebSearchButton title={detection.raw_title} author={detection.raw_author} size="lg" />
-          <RefineButton
-            bbox={detection.bbox}
+        )}
+        <button
+          data-testid="reject-button"
+          disabled={busy}
+          onClick={() => void handleReject()}
+          className="rounded-md border border-red-300 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
+        >
+          Odrzuć
+        </button>
+        {top && (
+          <button
+            data-testid="correct-button"
+            disabled={busy}
+            onClick={() => setShowCandidateDetail(true)}
+            className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          >
+            Popraw
+          </button>
+        )}
+        <WebSearchButton parts={[detection.raw_title, detection.raw_author]} size="lg" />
+        <RefineButton
+          bbox={detection.bbox}
+          busy={busy}
+          onClick={openRefineConfirm}
+          size="lg"
+          noApiKey={hasNoApiKeys}
+        />
+        {(!top || top.matchScore < MATCH_MID) && (
+          <AiResolutionButton
             busy={busy}
-            onClick={openRefineConfirm}
+            onClick={openAiResolveConfirm}
             size="lg"
+            activeProviderIsAnthropic={activeProviderIsAnthropic}
             noApiKey={hasNoApiKeys}
           />
-          {(!top || top.matchScore < MATCH_MID) && (
-            <AiResolutionButton
-              busy={busy}
-              onClick={openAiResolveConfirm}
-              size="lg"
-              activeProviderIsAnthropic={activeProviderIsAnthropic}
-              noApiKey={hasNoApiKeys}
-            />
-          )}
-          <CorrectionHistoryPanel detectionId={detection.id} />
-        </div>
-      )}
+        )}
+        <CorrectionHistoryPanel detectionId={detection.id} />
+      </div>
 
-      {/* Rematch form when candidates already exist */}
-      {top && showRematchForm && (
-        <RematchForm
-          detectionId={detection.id}
-          initialTitle={detection.raw_title ?? ''}
-          initialAuthor={detection.raw_author ?? ''}
-          initialIsbn={activeCandidate?.isbn13 ?? activeCandidate?.isbn10 ?? ''}
-          activeCandidate={activeCandidate}
-          busy={busy}
-          errorMsg={errorMsg}
-          onSubmit={async (title, author, isbn, publisher) => {
-            const found = await handleRematch(title, author, isbn, publisher);
-            setShowRematchForm(false);
-            if (!found) setRematchNoResults(true);
-          }}
-          onCancel={() => setShowRematchForm(false)}
-        />
-      )}
-      {top && rematchNoResults && !showRematchForm && (
-        <p className="mt-1 text-center text-xs text-amber-600" data-testid="rematch-no-results">
-          Nie znaleziono wyników dla podanego tytułu
-        </p>
-      )}
-
-      {showCandidateDetail && activeCandidate && (
+      {showCandidateDetail && detailCandidate && (
         <BookModal
           mode="propose"
-          book={candidateToDetail(activeCandidate, detection.id)}
-          onCandidateSaved={(patch) =>
+          book={candidateToDetail(detailCandidate, detection)}
+          onCandidateSaved={(patch) => {
+            draftSavedRef.current = true;
+            const exists = detection.candidates.some((c) => c.id === detailCandidate.id);
             onRefined?.({
               ...detection,
-              candidates: detection.candidates.map((c) =>
-                c.id === activeCandidate.id ? applyCandidatePatch(c, patch) : c,
-              ),
-            })
-          }
-          onConfirmed={handleCorrectSuccess}
-          onClose={() => setShowCandidateDetail(false)}
+              candidates: exists
+                ? detection.candidates.map((c) =>
+                    c.id === detailCandidate.id ? applyCandidatePatch(c, patch) : c,
+                  )
+                : [...detection.candidates, applyCandidatePatch(detailCandidate, patch)],
+            });
+          }}
+          onConfirmed={() => {
+            draftSavedRef.current = true;
+            handleCorrectSuccess();
+          }}
+          onClose={() => {
+            if (draftCandidate && !draftSavedRef.current) {
+              deleteDraftCandidate(detection.id, draftCandidate.id);
+            }
+            setDraftCandidate(null);
+            draftSavedRef.current = false;
+            setShowCandidateDetail(false);
+          }}
         />
       )}
 
@@ -1709,8 +1111,8 @@ function DetectionCard({
 }
 
 // ---------------------------------------------------------------------------
-// Modal korekty — opakowuje istniejący CorrectForm dla trybów Lista/Kafelki
-// (w trybie Karty korekta zostaje inline). Zamknięcie: Esc lub klik w tło.
+// Modal generyczny — opakowuje dowolną treść (dziś: AddMissedBookForm).
+// Zamknięcie: Esc lub klik w tło.
 // ---------------------------------------------------------------------------
 
 export function CorrectionModal({
@@ -1746,30 +1148,6 @@ export function CorrectionModal({
   );
 }
 
-// Modal korekty dla trybów Lista/Kafelki — wyłącznie manual_entry (brak kandydata).
-// candidate-propose-edit-all-fields: gałąź field_edit usunięta — Lista/Kafelki
-// wołają dla istniejącego kandydata BookModal mode="propose" zamiast tego modala.
-function DetectionCorrectionModal({
-  detection,
-  onClose,
-  onSuccess,
-}: {
-  detection: DetectionWithCandidatesDTO;
-  onClose: () => void;
-  onSuccess: () => void;
-}) {
-  return (
-    <CorrectionModal onClose={onClose}>
-      <CorrectForm
-        mode="manual_entry"
-        detectionId={detection.id}
-        onSuccess={onSuccess}
-        onCancel={onClose}
-      />
-    </CorrectionModal>
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Wiersz detekcji (tryb Lista) — kompakt 1-linia, akcje na top-kandydacie,
 // korekta przez modal. Współdzieli logikę decyzji z Kartami (useDetectionDecision).
@@ -1794,8 +1172,6 @@ export function DetectionRow({
   isSelected = false,
   onNavigateToMarker,
 }: DetectionRowProps) {
-  const [showModal, setShowModal] = useState(false);
-  const [showRematchForm, setShowRematchForm] = useState(false);
   const [showCandidateDetail, setShowCandidateDetail] = useState(false);
   const {
     state,
@@ -1818,7 +1194,6 @@ export function DetectionRow({
     confirmAiResolve,
     setConfirmAiResolve,
     openAiResolveConfirm,
-    handleRematch,
     handleCorrectSuccess,
     activeProviderIsAnthropic,
     cardKeys,
@@ -1827,6 +1202,28 @@ export function DetectionRow({
     activeCardKeyId,
     hasNoApiKeys,
   } = useDetectionDecision(detection, onDecided, onRefined, onUndecided);
+
+  // Draft-kandydat no-match (unify-detection-edit-entrypoint, Faza 3) — patrz
+  // komentarz w DetectionCard, ta sama logika.
+  const [draftCandidate, setDraftCandidate] = useState<BookCandidateDTO | null>(null);
+  const [draftBusy, setDraftBusy] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const draftSavedRef = useRef(false);
+  const detailCandidate = activeCandidate ?? draftCandidate;
+
+  async function handleOpenNoMatch() {
+    setDraftBusy(true);
+    setDraftError(null);
+    const draft = await createDraftCandidate(detection.id);
+    setDraftBusy(false);
+    if (!draft) {
+      setDraftError('Nie udało się utworzyć wpisu. Spróbuj ponownie.');
+      return;
+    }
+    draftSavedRef.current = false;
+    setDraftCandidate(draft);
+    setShowCandidateDetail(true);
+  }
 
   if (state === 'decided') {
     if (decidedKind === 'rejected') {
@@ -1920,6 +1317,26 @@ export function DetectionRow({
         </button>
       )}
 
+      {/* Miniatura okładki — klikalna, otwiera BookModal.propose (match: istniejący
+          kandydat; no-match: świeży draft, unify-detection-edit-entrypoint Faza 3). */}
+      <button
+        type="button"
+        data-testid="candidate-cover-button"
+        disabled={draftBusy}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (activeCandidate) {
+            setShowCandidateDetail(true);
+          } else {
+            void handleOpenNoMatch();
+          }
+        }}
+        title="Pokaż szczegóły książki"
+        className="flex-shrink-0 cursor-zoom-in rounded focus:ring-2 focus:ring-blue-400 focus:outline-none disabled:cursor-wait disabled:opacity-50"
+      >
+        <CoverImage url={activeCandidate?.coverUrl ?? null} title={displayTitle} />
+      </button>
+
       <div className="flex min-w-0 flex-1 items-center gap-2">
         <span className="truncate text-sm font-medium text-gray-800">{displayTitle}</span>
         {displayAuthor && (
@@ -1951,6 +1368,12 @@ export function DetectionRow({
         </span>
       )}
 
+      {draftError && (
+        <span data-testid="draft-candidate-error" className="w-full text-xs text-red-600">
+          {draftError}
+        </span>
+      )}
+
       {errorMsg && (
         <span data-testid="detection-error" className="w-full text-xs text-red-600" role="alert">
           {errorMsg}
@@ -1959,125 +1382,51 @@ export function DetectionRow({
 
       {/* S-28: wrap na wąskim ekranie — flex-shrink-0 bez wrap dawał 479 px min-content i poziomy scroll na 375 px */}
       <div className="flex flex-wrap gap-1 sm:flex-shrink-0">
-        {top && (
-          <button
-            data-testid="confirm-button"
-            disabled={busy || !activeCandidateId}
-            onClick={() => void handleConfirm()}
-            className="rounded bg-green-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
-          >
-            {busy ? '...' : 'Akceptuj'}
-          </button>
-        )}
-        <button
-          data-testid="reject-button"
-          disabled={busy}
-          onClick={() => void handleReject()}
-          className="rounded border border-red-300 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
-        >
-          Odrzuć
-        </button>
-        {top ? (
-          // M19: parytet z Kartami — „Szukaj" także przy istniejącym kandydacie
-          <>
-            <button
-              data-testid="correct-button"
-              disabled={busy}
-              onClick={() => setShowCandidateDetail(true)}
-              className="rounded border border-gray-300 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-            >
-              Popraw
-            </button>
-            <button
-              data-testid="rematch-button"
-              disabled={busy}
-              onClick={() => setShowRematchForm(true)}
-              className="rounded border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
-            >
-              Szukaj
-            </button>
-          </>
-        ) : (
-          <>
-            <button
-              data-testid="rematch-button"
-              disabled={busy}
-              onClick={() => setShowRematchForm(true)}
-              className="rounded border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
-            >
-              Szukaj
-            </button>
-            <button
-              data-testid="manual-entry-button"
-              onClick={() => setShowModal(true)}
-              className="rounded border border-blue-300 bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
-            >
-              Wpisz ręcznie
-            </button>
-          </>
-        )}
-        <WebSearchButton title={detection.raw_title} author={detection.raw_author} size="md" />
-        <RefineButton
-          bbox={detection.bbox}
-          busy={busy}
-          onClick={openRefineConfirm}
+        <DetectionActionsRow
           size="md"
-          noApiKey={hasNoApiKeys}
+          detection={detection}
+          top={top}
+          activeCandidateId={activeCandidateId}
+          busy={busy}
+          showAiResolution={!top || top.matchScore < MATCH_MID}
+          hasNoApiKeys={hasNoApiKeys}
+          activeProviderIsAnthropic={activeProviderIsAnthropic}
+          onConfirm={() => void handleConfirm()}
+          onReject={() => void handleReject()}
+          onCorrect={() => setShowCandidateDetail(true)}
+          onOpenRefineConfirm={openRefineConfirm}
+          onOpenAiResolveConfirm={openAiResolveConfirm}
         />
-        {(!top || top.matchScore < MATCH_MID) && (
-          <AiResolutionButton
-            busy={busy}
-            onClick={openAiResolveConfirm}
-            size="md"
-            activeProviderIsAnthropic={activeProviderIsAnthropic}
-            noApiKey={hasNoApiKeys}
-          />
-        )}
-        <CorrectionHistoryPanel detectionId={detection.id} />
       </div>
 
-      {showRematchForm && (
-        <RematchForm
-          detectionId={detection.id}
-          initialTitle={detection.raw_title ?? ''}
-          initialAuthor={detection.raw_author ?? ''}
-          initialIsbn={activeCandidate?.isbn13 ?? activeCandidate?.isbn10 ?? ''}
-          activeCandidate={activeCandidate}
-          busy={busy}
-          errorMsg={errorMsg}
-          onSubmit={async (title, author, isbn, publisher) => {
-            const found = await handleRematch(title, author, isbn, publisher);
-            if (found) setShowRematchForm(false);
-          }}
-          onCancel={() => setShowRematchForm(false)}
-        />
-      )}
-
-      {showModal && (
-        <DetectionCorrectionModal
-          detection={detection}
-          onClose={() => setShowModal(false)}
-          onSuccess={() => {
-            setShowModal(false);
-            handleCorrectSuccess();
-          }}
-        />
-      )}
-
-      {showCandidateDetail && activeCandidate && (
+      {showCandidateDetail && detailCandidate && (
         <BookModal
           mode="propose"
-          book={candidateToDetail(activeCandidate, detection.id)}
-          onCandidateSaved={(patch) =>
+          book={candidateToDetail(detailCandidate, detection)}
+          onCandidateSaved={(patch) => {
+            draftSavedRef.current = true;
+            const exists = detection.candidates.some((c) => c.id === detailCandidate.id);
             onRefined?.({
               ...detection,
-              candidates: detection.candidates.map((c) =>
-                c.id === activeCandidate.id ? applyCandidatePatch(c, patch) : c,
-              ),
-            })
-          }
-          onConfirmed={handleCorrectSuccess}
-          onClose={() => setShowCandidateDetail(false)}
+              candidates: exists
+                ? detection.candidates.map((c) =>
+                    c.id === detailCandidate.id ? applyCandidatePatch(c, patch) : c,
+                  )
+                : [...detection.candidates, applyCandidatePatch(detailCandidate, patch)],
+            });
+          }}
+          onConfirmed={() => {
+            draftSavedRef.current = true;
+            handleCorrectSuccess();
+          }}
+          onClose={() => {
+            if (draftCandidate && !draftSavedRef.current) {
+              deleteDraftCandidate(detection.id, draftCandidate.id);
+            }
+            setDraftCandidate(null);
+            draftSavedRef.current = false;
+            setShowCandidateDetail(false);
+          }}
         />
       )}
 
@@ -2152,8 +1501,6 @@ export function DetectionTile({
   isSelected = false,
   onNavigateToMarker,
 }: DetectionTileProps) {
-  const [showModal, setShowModal] = useState(false);
-  const [showRematchForm, setShowRematchForm] = useState(false);
   const [showCandidateDetail, setShowCandidateDetail] = useState(false);
   const {
     state,
@@ -2176,7 +1523,6 @@ export function DetectionTile({
     confirmAiResolve,
     setConfirmAiResolve,
     openAiResolveConfirm,
-    handleRematch,
     handleCorrectSuccess,
     activeProviderIsAnthropic,
     cardKeys,
@@ -2185,6 +1531,28 @@ export function DetectionTile({
     activeCardKeyId,
     hasNoApiKeys,
   } = useDetectionDecision(detection, onDecided, onRefined, onUndecided);
+
+  // Draft-kandydat no-match (unify-detection-edit-entrypoint, Faza 3) — patrz
+  // komentarz w DetectionCard, ta sama logika.
+  const [draftCandidate, setDraftCandidate] = useState<BookCandidateDTO | null>(null);
+  const [draftBusy, setDraftBusy] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
+  const draftSavedRef = useRef(false);
+  const detailCandidate = activeCandidate ?? draftCandidate;
+
+  async function handleOpenNoMatch() {
+    setDraftBusy(true);
+    setDraftError(null);
+    const draft = await createDraftCandidate(detection.id);
+    setDraftBusy(false);
+    if (!draft) {
+      setDraftError('Nie udało się utworzyć wpisu. Spróbuj ponownie.');
+      return;
+    }
+    draftSavedRef.current = false;
+    setDraftCandidate(draft);
+    setShowCandidateDetail(true);
+  }
 
   if (state === 'decided') {
     if (decidedKind === 'rejected') {
@@ -2249,39 +1617,61 @@ export function DetectionTile({
       className={`flex flex-col rounded-xl border bg-white p-3 shadow-sm ${isSelected ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200' : 'border-gray-200'}`}
       onClick={() => onSelect?.(detection.id)}
     >
-      <div className="flex justify-center">
-        {activeCandidate ? (
-          <button
-            type="button"
-            data-testid="candidate-cover-button"
-            onClick={(e) => {
-              e.stopPropagation();
+      <div className="flex flex-col items-center gap-1">
+        {/* Klikalna okładka (match: istniejący kandydat; no-match: świeży draft) —
+            unify-detection-edit-entrypoint, Faza 3. */}
+        <button
+          type="button"
+          data-testid="candidate-cover-button"
+          disabled={draftBusy}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (activeCandidate) {
               setShowCandidateDetail(true);
-            }}
-            title="Pokaż szczegóły książki"
-            className="cursor-zoom-in rounded focus:ring-2 focus:ring-blue-400 focus:outline-none"
-          >
-            <CoverImage url={activeCandidate.coverUrl} title={displayTitle} />
-          </button>
-        ) : (
-          <CoverImage url={null} title={displayTitle} />
+            } else {
+              void handleOpenNoMatch();
+            }
+          }}
+          title="Pokaż szczegóły książki"
+          className="cursor-zoom-in rounded focus:ring-2 focus:ring-blue-400 focus:outline-none disabled:cursor-wait disabled:opacity-50"
+        >
+          <CoverImage url={activeCandidate?.coverUrl ?? null} title={displayTitle} />
+        </button>
+        {draftError && (
+          <p data-testid="draft-candidate-error" className="text-center text-[10px] text-red-600">
+            {draftError}
+          </p>
         )}
       </div>
 
-      {showCandidateDetail && activeCandidate && (
+      {showCandidateDetail && detailCandidate && (
         <BookModal
           mode="propose"
-          book={candidateToDetail(activeCandidate, detection.id)}
-          onCandidateSaved={(patch) =>
+          book={candidateToDetail(detailCandidate, detection)}
+          onCandidateSaved={(patch) => {
+            draftSavedRef.current = true;
+            const exists = detection.candidates.some((c) => c.id === detailCandidate.id);
             onRefined?.({
               ...detection,
-              candidates: detection.candidates.map((c) =>
-                c.id === activeCandidate.id ? applyCandidatePatch(c, patch) : c,
-              ),
-            })
-          }
-          onConfirmed={handleCorrectSuccess}
-          onClose={() => setShowCandidateDetail(false)}
+              candidates: exists
+                ? detection.candidates.map((c) =>
+                    c.id === detailCandidate.id ? applyCandidatePatch(c, patch) : c,
+                  )
+                : [...detection.candidates, applyCandidatePatch(detailCandidate, patch)],
+            });
+          }}
+          onConfirmed={() => {
+            draftSavedRef.current = true;
+            handleCorrectSuccess();
+          }}
+          onClose={() => {
+            if (draftCandidate && !draftSavedRef.current) {
+              deleteDraftCandidate(detection.id, draftCandidate.id);
+            }
+            setDraftCandidate(null);
+            draftSavedRef.current = false;
+            setShowCandidateDetail(false);
+          }}
         />
       )}
 
@@ -2351,110 +1741,22 @@ export function DetectionTile({
       )}
 
       <div className="mt-2 flex flex-wrap gap-1">
-        {top && (
-          <button
-            data-testid="confirm-button"
-            disabled={busy || !activeCandidateId}
-            onClick={() => void handleConfirm()}
-            className="rounded bg-green-600 px-2 py-1 text-xs font-medium text-white hover:bg-green-700 disabled:opacity-50"
-          >
-            {busy ? '...' : 'Akceptuj'}
-          </button>
-        )}
-        <button
-          data-testid="reject-button"
-          disabled={busy}
-          onClick={() => void handleReject()}
-          className="rounded border border-red-300 bg-red-50 px-2 py-1 text-xs font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
-        >
-          Odrzuć
-        </button>
-        {top ? (
-          // M19: parytet z Kartami — „Szukaj" także przy istniejącym kandydacie
-          <>
-            <button
-              data-testid="correct-button"
-              disabled={busy}
-              onClick={() => setShowCandidateDetail(true)}
-              className="rounded border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-            >
-              Popraw
-            </button>
-            <button
-              data-testid="rematch-button"
-              disabled={busy}
-              onClick={() => setShowRematchForm(true)}
-              className="rounded border border-emerald-300 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
-            >
-              Szukaj
-            </button>
-          </>
-        ) : (
-          <>
-            <button
-              data-testid="rematch-button"
-              disabled={busy}
-              onClick={() => setShowRematchForm(true)}
-              className="rounded border border-emerald-300 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:border-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300 dark:hover:bg-emerald-900/40"
-            >
-              Szukaj
-            </button>
-            <button
-              data-testid="manual-entry-button"
-              onClick={() => setShowModal(true)}
-              className="rounded border border-blue-300 bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
-            >
-              Wpisz ręcznie
-            </button>
-          </>
-        )}
-        <WebSearchButton title={detection.raw_title} author={detection.raw_author} size="sm" />
-        <RefineButton
-          bbox={detection.bbox}
-          busy={busy}
-          onClick={openRefineConfirm}
+        <DetectionActionsRow
           size="sm"
-          noApiKey={hasNoApiKeys}
-        />
-        {(!top || top.matchScore < MATCH_MID) && (
-          <AiResolutionButton
-            busy={busy}
-            onClick={openAiResolveConfirm}
-            size="sm"
-            activeProviderIsAnthropic={activeProviderIsAnthropic}
-            noApiKey={hasNoApiKeys}
-          />
-        )}
-        <CorrectionHistoryPanel detectionId={detection.id} />
-      </div>
-
-      {showRematchForm && (
-        <RematchForm
-          detectionId={detection.id}
-          initialTitle={detection.raw_title ?? ''}
-          initialAuthor={detection.raw_author ?? ''}
-          initialIsbn={activeCandidate?.isbn13 ?? activeCandidate?.isbn10 ?? ''}
-          activeCandidate={activeCandidate}
-          busy={busy}
-          errorMsg={errorMsg}
-          onSubmit={async (title, author, isbn, publisher) => {
-            const found = await handleRematch(title, author, isbn, publisher);
-            if (found) setShowRematchForm(false);
-          }}
-          onCancel={() => setShowRematchForm(false)}
-        />
-      )}
-
-      {showModal && (
-        <DetectionCorrectionModal
           detection={detection}
-          onClose={() => setShowModal(false)}
-          onSuccess={() => {
-            setShowModal(false);
-            handleCorrectSuccess();
-          }}
+          top={top}
+          activeCandidateId={activeCandidateId}
+          busy={busy}
+          showAiResolution={!top || top.matchScore < MATCH_MID}
+          hasNoApiKeys={hasNoApiKeys}
+          activeProviderIsAnthropic={activeProviderIsAnthropic}
+          onConfirm={() => void handleConfirm()}
+          onReject={() => void handleReject()}
+          onCorrect={() => setShowCandidateDetail(true)}
+          onOpenRefineConfirm={openRefineConfirm}
+          onOpenAiResolveConfirm={openAiResolveConfirm}
         />
-      )}
+      </div>
 
       <ConfirmDialog
         open={confirmRefine}

@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
   ConfirmDetectionSchema,
-  CorrectDetectionSchema,
   ConfirmBatchSchema,
   UpdateBookReadSchema,
   UpdateBookSchema,
@@ -44,8 +43,8 @@ describe('ConfirmDetectionSchema', () => {
 });
 
 // ---------------------------------------------------------------------------
-// UpdateCandidateSchema (candidate-propose-edit-all-fields) — zastępuje
-// dawny wariant field_edit CorrectDetectionSchema (usunięty, zob. niżej)
+// UpdateCandidateSchema (candidate-propose-edit-all-fields) — zastępuje dawny
+// wariant field_edit i dawny manual_entry (oba usunięte, unify-detection-edit-entrypoint)
 // ---------------------------------------------------------------------------
 
 describe('UpdateCandidateSchema', () => {
@@ -162,52 +161,6 @@ describe('UpdateCandidateSchema', () => {
     expect(
       UpdateCandidateSchema.safeParse({ candidate_id: CAND_ID, title: 'X', hack: true }).success,
     ).toBe(false);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// CorrectDetectionSchema — wariant manual_entry
-// ---------------------------------------------------------------------------
-
-describe('CorrectDetectionSchema — manual_entry', () => {
-  const validManual = {
-    mode: 'manual_entry' as const,
-    title: 'Nieznana książka',
-  };
-
-  it('akceptuje minimalny manual_entry (tylko title)', () => {
-    const result = CorrectDetectionSchema.safeParse(validManual);
-    expect(result.success).toBe(true);
-  });
-
-  it('akceptuje manual_entry z autorami i isbn_13', () => {
-    const result = CorrectDetectionSchema.safeParse({
-      ...validManual,
-      authors: ['Autor Nieznany'],
-      isbn_13: '9788301055011',
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it('odrzuca isbn_13 o złym formacie (nie 13 cyfr)', () => {
-    const result = CorrectDetectionSchema.safeParse({
-      ...validManual,
-      isbn_13: '978-83-010-5501-1', // z myślnikami — invalid
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it('odrzuca isbn_10 o złym formacie', () => {
-    const result = CorrectDetectionSchema.safeParse({
-      ...validManual,
-      isbn_10: '123',
-    });
-    expect(result.success).toBe(false);
-  });
-
-  it('odrzuca brak tytułu', () => {
-    const result = CorrectDetectionSchema.safeParse({ mode: 'manual_entry' });
-    expect(result.success).toBe(false);
   });
 });
 

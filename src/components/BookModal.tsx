@@ -5,6 +5,7 @@ import BookFields from './book/BookFields';
 import type { BookFieldValues } from './book/BookFields';
 import CoverEditor, { type CoverEditorPatch } from './book/CoverEditor';
 import ConfirmDialog from './ConfirmDialog';
+import { WebSearchButton } from './DetectionActionsRow';
 import PurchaseSection from './PurchaseSection';
 import { useBodyScrollLock } from './useBodyScrollLock';
 
@@ -61,6 +62,12 @@ export type BookModalBook = {
   source?: string | null;
   matchScore?: number | null;
   spineColor?: string | null;
+  /** raw_title/raw_author bieżącej detekcji (propose mode) — fallback dla „Oryginalny
+   *  odczyt OCR" gdy detekcja nigdy nie miała korekty (unify-detection-edit-entrypoint).
+   *  Różni się od `title`/`authors` kandydata: te ostatnie mogą pochodzić z dopasowania
+   *  w zewnętrznej bazie, nie z surowego odczytu OCR. */
+  rawTitle?: string | null;
+  rawAuthor?: string | null;
   purchase_date?: string | null;
   purchase_price?: number | null;
   purchase_city?: string | null;
@@ -109,18 +116,6 @@ const SOURCE_LABELS: Record<string, string> = {
 
 // ---------------------------------------------------------------------------
 // Helpers
-
-function googleSearchUrl(fields: BookFieldValues): string {
-  const q = [
-    fields.title.trim(),
-    fields.authors.trim(),
-    fields.isbn13.trim() || fields.isbn10.trim(),
-  ]
-    .filter(Boolean)
-    .join(' ')
-    .trim();
-  return q ? `https://www.google.com/search?q=${encodeURIComponent(q)}` : '#';
-}
 
 function bookToFields(b?: BookModalBook): BookFieldValues {
   return {
@@ -584,6 +579,17 @@ export default function BookModal({
   const [cityHints, setCityHints] = useState<string[]>([]);
   const [eventHints, setEventHints] = useState<string[]>([]);
 
+  // „Oryginalny odczyt OCR" (propose mode) — port z dawnego formularza wyszukiwania
+  // po tytule (unify-detection-edit-entrypoint). originalValues cachuje wynik
+  // pierwszego fetch/detekcji na czas życia modala, żeby kolejne kliknięcia nie
+  // biły do API.
+  const [originalValues, setOriginalValues] = useState<{ title: string; author: string } | null>(
+    null,
+  );
+  const [loadingOriginal, setLoadingOriginal] = useState(false);
+  const [originalError, setOriginalError] = useState<string | null>(null);
+  const [noHistoryFound, setNoHistoryFound] = useState(false);
+
   // Snapshot bieżącego stanu formularza — porównywany z savedSnapshot dla dirty-check.
   function currentCandidateSnapshot(): CandidateSnapshotShape {
     return {
@@ -630,6 +636,80 @@ export default function BookModal({
 
   function handleField(field: keyof BookFieldValues, value: string) {
     setFields((prev) => ({ ...prev, [field]: value }));
+  }
+
+  // „Oryginalny odczyt OCR" (propose mode) — port z dawnego formularza wyszukiwania
+  // po tytule. ISBN jest ZAWSZE czyszczony: OCR czyta grzbiet, fizycznie nie ma tam
+  // ISBN (ten jest na tylnej okładce, poza kadrem) — zob. commit c2ef75a. Publisher
+  // czyszczony z tego samego powodu (60aaadd): wydawnictwo z OCR-owanego grzbietu,
+  // jeśli w ogóle było, wraca dopiero z historii korekt. Rok wydania czyszczony z
+  // tego samego powodu — DetectionSchema (src/lib/vision/prompt.ts) nie ma pola
+  // published_year, więc OCR fizycznie go nigdy nie zwraca (pole istnieje tylko
+  // w BookModal, którego RematchForm nie miało — brak wcześniejszego precedensu).
+  async function handleUseOriginal() {
+    if (!book?.detectionId) return;
+    const initialTitle = book.rawTitle ?? '';
+    const initialAuthor = book.rawAuthor ?? '';
+    if (originalValues) {
+      setFields((prev) => ({
+        ...prev,
+        title: originalValues.title,
+        authors: originalValues.author,
+        publisher: '',
+        year: '',
+        isbn13: '',
+        isbn10: '',
+      }));
+      setNoHistoryFound(false);
+      return;
+    }
+    setLoadingOriginal(true);
+    setOriginalError(null);
+    setNoHistoryFound(false);
+    try {
+      const res = await fetch(`/api/detections/${book.detectionId}/history`);
+      const json = (await res.json()) as {
+        data?: {
+          corrections: Array<{
+            original_raw_title: string | null;
+            original_raw_author: string | null;
+          }>;
+        };
+        error?: { message?: string };
+      };
+      if (!res.ok) throw new Error(json.error?.message ?? `HTTP ${res.status}`);
+      // API zwraca chronologicznie rosnąco — pierwszy wpis to najwcześniejszy original_*.
+      const earliest = json.data?.corrections?.[0];
+      if (!earliest) {
+        setFields((prev) => ({
+          ...prev,
+          title: initialTitle,
+          authors: initialAuthor,
+          publisher: '',
+          year: '',
+          isbn13: '',
+          isbn10: '',
+        }));
+        setNoHistoryFound(true);
+        return;
+      }
+      const resolvedTitle = earliest.original_raw_title ?? initialTitle;
+      const resolvedAuthor = earliest.original_raw_author ?? initialAuthor;
+      setOriginalValues({ title: resolvedTitle, author: resolvedAuthor });
+      setFields((prev) => ({
+        ...prev,
+        title: resolvedTitle,
+        authors: resolvedAuthor,
+        publisher: '',
+        year: '',
+        isbn13: '',
+        isbn10: '',
+      }));
+    } catch (e) {
+      setOriginalError(e instanceof Error ? e.message : 'Błąd ładowania historii');
+    } finally {
+      setLoadingOriginal(false);
+    }
   }
 
   function handleCandidateSelect(c: SearchCandidate) {
@@ -964,6 +1044,39 @@ export default function BookModal({
                   przed zatwierdzeniem, candidate-propose-edit-all-fields). */}
                   <BookFields values={fields} onChange={handleField} readOnly={false} />
 
+                  {/* „Oryginalny odczyt OCR" (propose mode) — dostępny niezależnie od tego,
+                  czy kandydat jest świeżym draftem (no-match) czy prawdziwym matchem
+                  (unify-detection-edit-entrypoint). */}
+                  {mode === 'propose' && book?.detectionId && (
+                    <div className="space-y-1">
+                      <button
+                        type="button"
+                        data-testid="book-modal-use-original"
+                        disabled={loadingOriginal}
+                        onClick={() => void handleUseOriginal()}
+                        className="rounded border border-gray-300 bg-white px-2 py-1 text-[11px] font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300"
+                      >
+                        {loadingOriginal ? 'Ładowanie...' : 'Oryginalny odczyt OCR'}
+                      </button>
+                      {originalError && (
+                        <p
+                          data-testid="book-modal-original-error"
+                          className="text-[11px] text-red-600 dark:text-red-400"
+                        >
+                          {originalError}
+                        </p>
+                      )}
+                      {noHistoryFound && (
+                        <p
+                          data-testid="book-modal-no-history-hint"
+                          className="text-[11px] text-gray-500 dark:text-gray-400"
+                        >
+                          Brak historii korekt — to już jest oryginalny odczyt OCR.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
                   {/* Dodatkowe info w propose mode */}
                   {mode === 'propose' && (
                     <dl className="space-y-1 text-sm">
@@ -1025,22 +1138,13 @@ export default function BookModal({
 
                   {/* Przyciski akcji */}
                   <div className="flex flex-wrap items-center gap-2 pt-1">
-                    {/* W trybie add — tylko gdy cokolwiek wpisano */}
-                    {(mode !== 'add' ||
-                      fields.title.trim() ||
-                      fields.isbn13.trim() ||
-                      fields.isbn10.trim() ||
-                      fields.authors.trim()) && (
-                      <a
-                        data-testid="book-modal-web-search"
-                        href={googleSearchUrl(fields)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="rounded-md border border-sky-300 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 hover:bg-sky-100 dark:border-sky-700 dark:bg-sky-900/20 dark:text-sky-300 dark:hover:bg-sky-900/40"
-                      >
-                        Szukaj w sieci
-                      </a>
-                    )}
+                    {/* unify-detection-edit-entrypoint (Faza 5): jedna implementacja
+                    z DetectionActionsRow — znika sama, gdy pola puste (nie trzeba
+                    już ręcznej bramki trybu add jak w dawnej lokalnej wersji). */}
+                    <WebSearchButton
+                      parts={[fields.title, fields.authors, fields.isbn13 || fields.isbn10]}
+                      testId="book-modal-web-search"
+                    />
 
                     {mode === 'edit' && book?.photoId && (
                       <a

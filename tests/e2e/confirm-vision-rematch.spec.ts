@@ -458,3 +458,72 @@ test.describe('confirm: Doprecyzuj odczyt (DetectionReview)', () => {
     await refinePromise;
   });
 });
+
+// ── DetectionReview toolbar — Ponów match (rerun-match-button) ──────────────
+// Przeniesione z dawnego manual-rematch.spec.ts (retired w unify-detection-edit-
+// entrypoint, Faza 6) — niepowiązane z RematchForm, osobny przycisk toolbara
+// strony przeglądu (nie mylić z per-zdjęciowym rerun-match-${id} w PhotoListIsland
+// testowanym wyżej).
+
+test.describe('confirm: Ponów match — toolbar DetectionReview', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.route(`**/api/photos/${PHOTO_MATCH_DONE_ID}`, async (route) => {
+      if (route.request().method() !== 'GET') return route.fallback();
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          data: {
+            photo: {
+              id: PHOTO_MATCH_DONE_ID,
+              shelf_id: 'cc000000-0000-4000-8000-000000000001',
+              status: 'processed',
+              detected_count: 1,
+              error_message: null,
+              vision_cost_usd: 0.005,
+              vision_latency_ms: 3000,
+              created_at: new Date().toISOString(),
+            },
+            photo_url: null,
+            detections: [MOCK_DETECTION],
+            vision_run: MOCK_VISION_RUN,
+            costs_total_usd: null,
+          },
+        }),
+      });
+    });
+
+    await page.goto(`/photos/${PHOTO_MATCH_DONE_ID}`);
+    await expect(page.getByTestId('rerun-match-button')).toBeVisible({ timeout: 5_000 });
+  });
+
+  test('progress modal widoczny podczas trzymanego SSE match-stream, znika po done', async ({
+    page,
+  }) => {
+    let resolveStream!: (value: string) => void;
+    const streamHeld = new Promise<string>((r) => {
+      resolveStream = r;
+    });
+
+    await page.route(`**/api/photos/${PHOTO_MATCH_DONE_ID}/match-stream**`, async (route) => {
+      const body = await streamHeld;
+      void route.fulfill({
+        status: 200,
+        contentType: 'text/event-stream',
+        body,
+      });
+    });
+
+    await page.getByTestId('rerun-match-button').click();
+    await page.getByTestId('rerun-match-confirm-confirm').click();
+
+    // Modal powinien się pojawić podczas trzymanego SSE stream
+    await expect(page.getByTestId('progress-modal')).toBeVisible({ timeout: 3_000 });
+    await expect(page.getByTestId('progress-modal-label')).toContainText('Dopasowywanie');
+
+    resolveStream('event: done\ndata: {}\n\n');
+    // Po sukcesie window.location.reload() — czekamy na załadowanie strony
+    await page.waitForLoadState('networkidle', { timeout: 10_000 });
+    await expect(page.getByTestId('progress-modal')).not.toBeVisible();
+  });
+});

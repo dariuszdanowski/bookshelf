@@ -109,60 +109,6 @@ const detNoMatch: DetectionWithCandidatesDTO = {
   duplicate: null,
 };
 
-// weak-match-resolve-and-ocr-audit (Faza 7): detekcja z top + alt kandydatem,
-// każdy z odrębnym ISBN/tytułem/autorem, żeby przetestować reaktywność RematchForm
-// na wybraną propozycję.
-const candTop = {
-  id: '00000000-0000-4000-8000-000000000050',
-  source: 'google_books' as const,
-  externalId: 'gb-top',
-  title: 'Zupełnie inna książka',
-  authors: ['Zły Autor'],
-  isbn10: null,
-  isbn13: '9788300000001',
-  publisher: null,
-  publishedYear: 2010,
-  coverUrl: null,
-  matchScore: 0.9,
-  rank: 1,
-  purchaseDate: null,
-  purchasePrice: null,
-  purchaseCity: null,
-  purchaseEvent: null,
-};
-
-const candAlt = {
-  id: '00000000-0000-4000-8000-000000000051',
-  source: 'open_library' as const,
-  externalId: 'ol-alt',
-  title: 'Solaris',
-  authors: ['Stanisław Lem'],
-  isbn10: null,
-  isbn13: '9780156027601',
-  publisher: null,
-  publishedYear: 1961,
-  coverUrl: null,
-  matchScore: 0.6,
-  rank: 2,
-  purchaseDate: null,
-  purchasePrice: null,
-  purchaseCity: null,
-  purchaseEvent: null,
-};
-
-const detWithAlts: DetectionWithCandidatesDTO = {
-  id: '00000000-0000-4000-8000-000000000013',
-  position_index: 4,
-  raw_title: 'Nieznana surowa',
-  raw_author: null,
-  vision_confidence: 0.7,
-  spine_color: null,
-  bbox: { x1: 0.1, y1: 0.05, x2: 0.2, y2: 0.95 },
-  status: 'matched',
-  candidates: [candTop, candAlt],
-  duplicate: null,
-};
-
 function makePhotoResponse(detections: DetectionWithCandidatesDTO[] = [detHigh, detLow]) {
   return {
     data: {
@@ -624,12 +570,12 @@ describe('DetectionReview — refine', () => {
 
 // ---------------------------------------------------------------------------
 // Akcja: Popraw (candidate-propose-edit-all-fields) — BookModal mode="propose"
-// w pełni edytowalny zastępuje dawny inline CorrectForm mode="field_edit" we
-// wszystkich trzech widokach (Karty/Lista/Kafelki).
+// w pełni edytowalny zastępuje dawny inline formularz korekty (mode="field_edit")
+// we wszystkich trzech widokach (Karty/Lista/Kafelki).
 // ---------------------------------------------------------------------------
 
 describe('DetectionReview — Popraw otwiera BookModal (propose) — Karty', () => {
-  it('klik Popraw otwiera BookModal w pełni edytowalny, nie stary CorrectForm', async () => {
+  it('klik Popraw otwiera BookModal w pełni edytowalny, nie stary formularz korekty', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 }),
     );
@@ -739,62 +685,192 @@ describe('DetectionReview — Popraw otwiera BookModal (propose) — Lista i Kaf
 });
 
 // ---------------------------------------------------------------------------
-// Ręczny wpis (manual_entry)
+// Placeholder okładki (no-match) → draft-kandydat (unify-detection-edit-entrypoint,
+// Faza 3). Klik na placeholder zastępuje dawne „Szukaj po tytule"/„Wpisz ręcznie":
+// tworzy draft (POST /candidate) i otwiera ten sam BookModal co dla matcha.
 // ---------------------------------------------------------------------------
 
-describe('DetectionReview — manual entry (no match)', () => {
-  it('pokazuje placeholder brak matchu i przycisk Wpisz ręcznie', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify(makePhotoResponse([detNoMatch])), { status: 200 }),
+const DRAFT_CANDIDATE_ID = '00000000-0000-4000-8000-000000000098';
+
+function draftCandidateResponseBody(title: string) {
+  return {
+    data: {
+      candidate_id: DRAFT_CANDIDATE_ID,
+      title,
+      authors: [],
+      isbn_13: null,
+      isbn_10: null,
+      publisher: null,
+      published_year: null,
+      cover_url: null,
+    },
+  };
+}
+
+type TrackedCall = { method: string; url: string; body?: unknown };
+
+/** Fetch router dla draft-lifecycle: POST/PATCH/DELETE /candidate + GET photo + purchase-hints. */
+function makeDraftRouter(
+  detectionId: string,
+  detections: DetectionWithCandidatesDTO[],
+): TrackedCall[] {
+  const calls: TrackedCall[] = [];
+  vi.spyOn(globalThis, 'fetch').mockImplementation((url, init) => {
+    const u = typeof url === 'string' ? url : (url as Request).url;
+    const method = init?.method ?? 'GET';
+    calls.push({
+      method,
+      url: u,
+      body: init?.body ? (JSON.parse(String(init.body)) as unknown) : undefined,
+    });
+    if (u.includes('/api/books/purchase-hints')) {
+      return Promise.resolve(
+        new Response(JSON.stringify({ data: { hints: [] } }), { status: 200 }),
+      );
+    }
+    if (u.includes(`/api/detections/${detectionId}/candidate`)) {
+      if (method === 'POST') {
+        return Promise.resolve(
+          new Response(JSON.stringify(draftCandidateResponseBody(detNoMatch.raw_title ?? '')), {
+            status: 201,
+          }),
+        );
+      }
+      if (method === 'DELETE') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ data: { deleted: true } }), { status: 200 }),
+        );
+      }
+      if (method === 'PATCH') {
+        return Promise.resolve(new Response(JSON.stringify({ data: {} }), { status: 200 }));
+      }
+    }
+    if (u.includes(`/api/photos/${PHOTO_ID}`)) {
+      return Promise.resolve(
+        new Response(JSON.stringify(makePhotoResponse(detections)), { status: 200 }),
+      );
+    }
+    return Promise.resolve(
+      new Response(JSON.stringify({ data: { candidates: [] } }), { status: 200 }),
     );
+  });
+  return calls;
+}
+
+describe('DetectionReview — placeholder okładki (no-match) → draft-kandydat (Faza 3)', () => {
+  beforeEach(() => localStorage.removeItem('bookshelf:detection-view-mode'));
+  afterEach(() => localStorage.removeItem('bookshelf:detection-view-mode'));
+
+  it('Karty: klik placeholdera tworzy draft (POST /candidate) i otwiera BookModal z tytułem z raw_title', async () => {
+    const calls = makeDraftRouter(detNoMatch.id, [detNoMatch]);
     render(<DetectionReview photoId={PHOTO_ID} />);
-    await waitFor(() => screen.getByTestId('no-match-placeholder'));
-    expect(screen.getByTestId('manual-entry-button')).toBeInTheDocument();
+    const coverBtn = await waitFor(() => screen.getByTestId('candidate-cover-button'));
+    expect(screen.queryByTestId('book-modal')).not.toBeInTheDocument();
+
+    fireEvent.click(coverBtn);
+
+    await waitFor(() => expect(screen.getByTestId('book-modal')).toBeInTheDocument());
+    expect(
+      calls.some(
+        (c) => c.method === 'POST' && c.url.includes(`/api/detections/${detNoMatch.id}/candidate`),
+      ),
+    ).toBe(true);
+    expect((screen.getByTestId('book-field-title') as HTMLInputElement).value).toBe(
+      detNoMatch.raw_title,
+    );
   });
 
-  it('klik Wpisz ręcznie otwiera formularz', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify(makePhotoResponse([detNoMatch])), { status: 200 }),
-    );
+  it('Karty: zamknięcie bez zapisu usuwa draft (DELETE /candidate z candidate_id z odpowiedzi POST)', async () => {
+    const calls = makeDraftRouter(detNoMatch.id, [detNoMatch]);
     render(<DetectionReview photoId={PHOTO_ID} />);
-    await waitFor(() => screen.getByTestId('manual-entry-button'));
-    fireEvent.click(screen.getByTestId('manual-entry-button'));
-    expect(screen.getByTestId('correct-form')).toBeInTheDocument();
+    fireEvent.click(await waitFor(() => screen.getByTestId('candidate-cover-button')));
+    await waitFor(() => screen.getByTestId('book-modal'));
+
+    fireEvent.click(screen.getByTestId('book-modal-cancel'));
+
+    await waitFor(() =>
+      expect(
+        calls.some(
+          (c) =>
+            c.method === 'DELETE' && c.url.includes(`/api/detections/${detNoMatch.id}/candidate`),
+        ),
+      ).toBe(true),
+    );
+    const deleteCall = calls.find((c) => c.method === 'DELETE');
+    expect((deleteCall!.body as { candidate_id: string }).candidate_id).toBe(DRAFT_CANDIDATE_ID);
   });
 
-  it('submit manual woła POST /correct z mode=manual_entry bez candidate_id', async () => {
-    const fetchMock = vi
-      .spyOn(globalThis, 'fetch')
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify(makePhotoResponse([detNoMatch])), { status: 200 }),
-      )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ data: { book_id: 'b1', shelf_id: SHELF_ID } }), {
-          status: 200,
-        }),
-      );
-
+  it('Karty: „Zapisz" dodaje draft do detection.candidates (append) — po zamknięciu karta pokazuje Akceptuj, bez DELETE', async () => {
+    const calls = makeDraftRouter(detNoMatch.id, [detNoMatch]);
     render(<DetectionReview photoId={PHOTO_ID} />);
-    await waitFor(() => screen.getByTestId('manual-entry-button'));
-    fireEvent.click(screen.getByTestId('manual-entry-button'));
+    fireEvent.click(await waitFor(() => screen.getByTestId('candidate-cover-button')));
+    await waitFor(() => screen.getByTestId('book-modal'));
 
-    fireEvent.change(screen.getByTestId('correct-title'), {
-      target: { value: 'Moja Nieznana Książka' },
+    fireEvent.change(screen.getByTestId('book-field-title'), {
+      target: { value: 'Ręcznie wpisany tytuł' },
     });
-    fireEvent.click(screen.getByTestId('correct-submit'));
+    fireEvent.click(screen.getByTestId('book-modal-save'));
+    await waitFor(() => screen.getByTestId('propose-saved'));
 
-    await waitFor(() => {
-      const correctCall = fetchMock.mock.calls.find(
-        ([url]) => typeof url === 'string' && url.includes('/correct'),
-      );
-      expect(correctCall).toBeDefined();
-      const body = JSON.parse(correctCall![1]!.body as string) as {
-        mode: string;
-        candidate_id?: string;
-      };
-      expect(body.mode).toBe('manual_entry');
-      expect(body.candidate_id).toBeUndefined();
-    });
+    fireEvent.click(screen.getByTestId('book-modal-cancel'));
+    await waitFor(() => expect(screen.queryByTestId('book-modal')).not.toBeInTheDocument());
+
+    // Dowód że onCandidateSaved dopisał (nie zmapował pustej tablicy) — karta ma
+    // teraz top, więc pokazuje Akceptuj zamiast placeholdera (plan-review F1).
+    expect(screen.getByTestId('confirm-button')).toBeInTheDocument();
+    expect(calls.some((c) => c.method === 'DELETE')).toBe(false);
+  });
+
+  it('Lista: klik placeholdera tworzy draft i otwiera BookModal', async () => {
+    makeDraftRouter(detNoMatch.id, [detNoMatch]);
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => screen.getByTestId('detection-card-3'));
+    fireEvent.click(screen.getByTestId('view-mode-list'));
+    await waitFor(() => screen.getByTestId('detection-row-3'));
+
+    fireEvent.click(screen.getByTestId('candidate-cover-button'));
+
+    await waitFor(() => expect(screen.getByTestId('book-modal')).toBeInTheDocument());
+  });
+
+  it('Lista: zamknięcie bez zapisu usuwa draft', async () => {
+    const calls = makeDraftRouter(detNoMatch.id, [detNoMatch]);
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => screen.getByTestId('detection-card-3'));
+    fireEvent.click(screen.getByTestId('view-mode-list'));
+    await waitFor(() => screen.getByTestId('detection-row-3'));
+
+    fireEvent.click(screen.getByTestId('candidate-cover-button'));
+    await waitFor(() => screen.getByTestId('book-modal'));
+    fireEvent.click(screen.getByTestId('book-modal-cancel'));
+
+    await waitFor(() => expect(calls.some((c) => c.method === 'DELETE')).toBe(true));
+  });
+
+  it('Kafelki: klik placeholdera tworzy draft i otwiera BookModal', async () => {
+    makeDraftRouter(detNoMatch.id, [detNoMatch]);
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => screen.getByTestId('detection-card-3'));
+    fireEvent.click(screen.getByTestId('view-mode-tiles'));
+    await waitFor(() => screen.getByTestId('detection-tile-3'));
+
+    fireEvent.click(screen.getByTestId('candidate-cover-button'));
+
+    await waitFor(() => expect(screen.getByTestId('book-modal')).toBeInTheDocument());
+  });
+
+  it('Kafelki: zamknięcie bez zapisu usuwa draft', async () => {
+    const calls = makeDraftRouter(detNoMatch.id, [detNoMatch]);
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => screen.getByTestId('detection-card-3'));
+    fireEvent.click(screen.getByTestId('view-mode-tiles'));
+    await waitFor(() => screen.getByTestId('detection-tile-3'));
+
+    fireEvent.click(screen.getByTestId('candidate-cover-button'));
+    await waitFor(() => screen.getByTestId('book-modal'));
+    fireEvent.click(screen.getByTestId('book-modal-cancel'));
+
+    await waitFor(() => expect(calls.some((c) => c.method === 'DELETE')).toBe(true));
   });
 });
 
@@ -998,276 +1074,6 @@ describe('DetectionReview — initial focus z deep-linku (S-37)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// M12 (mobile-polish): formularz "Szukaj po tytule" zamyka sie po SUKCESIE
-// — regresja: odwrocony warunek zamykal go tylko przy braku wynikow, a po
-// sukcesie stan przejmowala galaz "z kandydatem" i form wracal na ekran.
-// ---------------------------------------------------------------------------
-
-describe('DetectionReview — rematch form close po sukcesie (M12)', () => {
-  it('po udanym wyszukiwaniu formularz znika, kandydat widoczny', async () => {
-    vi.spyOn(globalThis, 'fetch').mockImplementation((url, init) => {
-      const u = typeof url === 'string' ? url : (url as Request).url;
-      if (u.includes('/rematch') && init?.method === 'POST') {
-        return Promise.resolve(
-          new Response(
-            JSON.stringify({
-              data: {
-                applied: true,
-                detection: {
-                  id: detNoMatch.id,
-                  status: 'matched',
-                  raw_title: 'Scrum. O zwinnym zarządzaniu projektami',
-                  raw_author: 'Mariusz Chrapko',
-                },
-                candidates: [
-                  {
-                    id: '00000000-0000-4000-8000-000000000077',
-                    source: 'google_books',
-                    externalId: 'gb-scrum',
-                    title: 'Scrum. O zwinnym zarządzaniu projektami',
-                    authors: ['Mariusz Chrapko'],
-                    isbn10: null,
-                    isbn13: '9788324625192',
-                    publisher: 'Helion',
-                    publishedYear: 2014,
-                    coverUrl: null,
-                    matchScore: 1,
-                    rank: 1,
-                  },
-                ],
-                duplicate: null,
-              },
-            }),
-            { status: 200 },
-          ),
-        );
-      }
-      return Promise.resolve(
-        new Response(JSON.stringify(makePhotoResponse([detNoMatch])), { status: 200 }),
-      );
-    });
-
-    render(<DetectionReview photoId={PHOTO_ID} />);
-    await waitFor(() => screen.getByTestId('no-match-placeholder'));
-
-    fireEvent.click(screen.getByTestId('rematch-button'));
-    await waitFor(() => screen.getByTestId('rematch-form'));
-    fireEvent.change(screen.getByTestId('rematch-title'), {
-      target: { value: 'Scrum. O zwinnym zarządzaniu projektami' },
-    });
-    fireEvent.click(screen.getByTestId('rematch-submit'));
-
-    // Form znika po sukcesie (nie wraca w gałęzi z kandydatem)
-    await waitFor(() => expect(screen.queryByTestId('rematch-form')).not.toBeInTheDocument());
-    expect(screen.getAllByText('Scrum. O zwinnym zarządzaniu projektami').length).toBeGreaterThan(
-      0,
-    );
-    expect(screen.queryByTestId('rematch-no-results')).not.toBeInTheDocument();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// S-153: "Szukaj" odblokowany gdy wypełniono TYLKO ISBN (bez tytułu)
-// ---------------------------------------------------------------------------
-
-describe('DetectionReview — rematch po samym ISBN (S-153)', () => {
-  it('rematch-submit odblokowany i wysyła pusty tytuł, gdy wypełniono tylko ISBN', async () => {
-    const fetchMock = vi.fn((url, init) => {
-      const u = typeof url === 'string' ? url : (url as Request).url;
-      if (u.includes('/rematch') && init?.method === 'POST') {
-        return Promise.resolve(
-          new Response(
-            JSON.stringify({
-              data: {
-                applied: true,
-                detection: { id: detNoMatch.id, status: 'matched', raw_title: 'Nieznana' },
-                candidates: [],
-                duplicate: null,
-              },
-            }),
-            { status: 200 },
-          ),
-        );
-      }
-      return Promise.resolve(
-        new Response(JSON.stringify(makePhotoResponse([detNoMatch])), { status: 200 }),
-      );
-    });
-    vi.spyOn(globalThis, 'fetch').mockImplementation(fetchMock);
-
-    render(<DetectionReview photoId={PHOTO_ID} />);
-    await waitFor(() => screen.getByTestId('no-match-placeholder'));
-
-    fireEvent.click(screen.getByTestId('rematch-button'));
-    await waitFor(() => screen.getByTestId('rematch-form'));
-
-    // Formularz wystartował z detection.raw_title — czyścimy, by przetestować ISBN-only.
-    fireEvent.change(screen.getByTestId('rematch-title'), { target: { value: '' } });
-    expect(screen.getByTestId('rematch-submit')).toBeDisabled();
-
-    fireEvent.change(screen.getByTestId('rematch-isbn'), {
-      target: { value: '9788308073087' },
-    });
-    expect(screen.getByTestId('rematch-submit')).not.toBeDisabled();
-
-    fireEvent.click(screen.getByTestId('rematch-submit'));
-
-    await waitFor(() => {
-      const rematchCall = fetchMock.mock.calls.find(([url, init]) => {
-        const u = typeof url === 'string' ? url : (url as Request).url;
-        return u.includes('/rematch') && init?.method === 'POST';
-      });
-      expect(rematchCall).toBeTruthy();
-      const body = JSON.parse((rematchCall![1] as RequestInit).body as string) as {
-        title: string;
-        isbn: string | null;
-      };
-      expect(body.title).toBe('');
-      expect(body.isbn).toBe('9788308073087');
-    });
-  });
-});
-
-// ---------------------------------------------------------------------------
-// weak-match-resolve-and-ocr-audit: formularz rematch pre-fillsował ostatnio
-// przypisaną wartość raw_title/raw_author (już nadpisaną przez poprzedni
-// rematch/refine) — bez dostępu do oryginalnego odczytu OCR user powielał
-// błąd. Przyciski „Ostatnia propozycja" / „Oryginalny odczyt OCR" naprawiają to.
-// ---------------------------------------------------------------------------
-
-describe('DetectionReview — rematch: oryginalny odczyt OCR vs ostatnia propozycja', () => {
-  it('klik „Oryginalny odczyt OCR" fetchuje historię i wypełnia pola najwcześniejszym original_raw_*', async () => {
-    const detWithLastProposal: DetectionWithCandidatesDTO = {
-      ...detNoMatch,
-      raw_title: 'Marowska Duchowska (błędny rematch)',
-      raw_author: null,
-    };
-    vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
-      const u = typeof url === 'string' ? url : (url as Request).url;
-      if (u.includes('/history')) {
-        return Promise.resolve(
-          new Response(
-            JSON.stringify({
-              data: {
-                corrections: [
-                  {
-                    id: 'c1',
-                    correction_type: 'rematch',
-                    original_raw_title: 'Podroz zycia siostry Shergill',
-                    original_raw_author: 'Prawdziwy Autor',
-                    corrected_title: 'Marowska Duchowska (błędny rematch)',
-                    corrected_authors: null,
-                    created_at: '2026-07-13T10:00:00.000Z',
-                  },
-                ],
-              },
-            }),
-            { status: 200 },
-          ),
-        );
-      }
-      return Promise.resolve(
-        new Response(JSON.stringify(makePhotoResponse([detWithLastProposal])), { status: 200 }),
-      );
-    });
-
-    render(<DetectionReview photoId={PHOTO_ID} />);
-    await waitFor(() => screen.getByTestId('no-match-placeholder'));
-    fireEvent.click(screen.getByTestId('rematch-button'));
-    await waitFor(() => screen.getByTestId('rematch-form'));
-
-    expect(screen.getByTestId('rematch-title')).toHaveValue('Marowska Duchowska (błędny rematch)');
-
-    fireEvent.click(screen.getByTestId('rematch-use-original'));
-
-    await waitFor(() => {
-      expect(screen.getByTestId('rematch-title')).toHaveValue('Podroz zycia siostry Shergill');
-    });
-    expect(screen.getByTestId('rematch-author')).toHaveValue('Prawdziwy Autor');
-  });
-
-  it('klik „Ostatnia propozycja" po zmianie pól przywraca initialTitle/initialAuthor', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify(makePhotoResponse([detNoMatch])), { status: 200 }),
-    );
-
-    render(<DetectionReview photoId={PHOTO_ID} />);
-    await waitFor(() => screen.getByTestId('no-match-placeholder'));
-    fireEvent.click(screen.getByTestId('rematch-button'));
-    await waitFor(() => screen.getByTestId('rematch-form'));
-
-    fireEvent.change(screen.getByTestId('rematch-title'), { target: { value: 'Coś innego' } });
-    expect(screen.getByTestId('rematch-title')).toHaveValue('Coś innego');
-
-    fireEvent.click(screen.getByTestId('rematch-use-proposal'));
-    expect(screen.getByTestId('rematch-title')).toHaveValue(detNoMatch.raw_title);
-  });
-
-  it('brak historii → fallback do bieżących wartości (już oryginał) + hint, bez błędu', async () => {
-    vi.spyOn(globalThis, 'fetch').mockImplementation((url) => {
-      const u = typeof url === 'string' ? url : (url as Request).url;
-      if (u.includes('/history')) {
-        return Promise.resolve(
-          new Response(JSON.stringify({ data: { corrections: [] } }), { status: 200 }),
-        );
-      }
-      return Promise.resolve(
-        new Response(JSON.stringify(makePhotoResponse([detNoMatch])), { status: 200 }),
-      );
-    });
-
-    render(<DetectionReview photoId={PHOTO_ID} />);
-    await waitFor(() => screen.getByTestId('no-match-placeholder'));
-    fireEvent.click(screen.getByTestId('rematch-button'));
-    await waitFor(() => screen.getByTestId('rematch-form'));
-
-    fireEvent.click(screen.getByTestId('rematch-use-original'));
-
-    await waitFor(() => {
-      expect(screen.getByTestId('rematch-no-history-hint')).toBeInTheDocument();
-    });
-    expect(screen.getByTestId('rematch-title')).toHaveValue(detNoMatch.raw_title);
-    expect(screen.queryByTestId('rematch-original-error')).not.toBeInTheDocument();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// M19: parytet akcji „Szukaj" w trybach Lista i Kafelki — przy istniejącym
-// kandydacie (top) Karty miały „Szukaj", a Lista/Kafelki tylko „Popraw".
-// ---------------------------------------------------------------------------
-
-describe('DetectionReview — Szukaj w trybach lista/kafelki (M19)', () => {
-  beforeEach(() => localStorage.removeItem('bookshelf:detection-view-mode'));
-  afterEach(() => localStorage.removeItem('bookshelf:detection-view-mode'));
-
-  it('tryb lista: detekcja z kandydatem ma Popraw + Szukaj', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 }),
-    );
-    render(<DetectionReview photoId={PHOTO_ID} />);
-    await waitFor(() => screen.getByTestId('detection-card-1'));
-
-    fireEvent.click(screen.getByTestId('view-mode-list'));
-    await waitFor(() => screen.getByTestId('detection-row-1'));
-    expect(screen.getByTestId('correct-button')).toBeInTheDocument();
-    expect(screen.getByTestId('rematch-button')).toBeInTheDocument();
-  });
-
-  it('tryb kafelki: detekcja z kandydatem ma Popraw + Szukaj', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify(makePhotoResponse([detHigh])), { status: 200 }),
-    );
-    render(<DetectionReview photoId={PHOTO_ID} />);
-    await waitFor(() => screen.getByTestId('detection-card-1'));
-
-    fireEvent.click(screen.getByTestId('view-mode-tiles'));
-    await waitFor(() => screen.getByTestId('detection-tile-1'));
-    expect(screen.getByTestId('correct-button')).toBeInTheDocument();
-    expect(screen.getByTestId('rematch-button')).toBeInTheDocument();
-  });
-});
-
-// ---------------------------------------------------------------------------
 // M20: detekcja potwierdzona w DB (deep-link S-37 do skatalogowanej książki)
 // renderuje od razu widok „dodano" zamiast udawać pending z absurdalnym
 // dedupem „Masz już tę książkę w katalogu"; auto-redirect na półkę wymaga
@@ -1309,167 +1115,5 @@ describe('DetectionReview — potwierdzone z DB (M20)', () => {
     // redirect ustawiałby window.location.href na /shelves/<id> — ma zostać puste
     await new Promise((r) => setTimeout(r, 50));
     expect(window.location.href).toBe('');
-  });
-});
-
-// ---------------------------------------------------------------------------
-// M22: pole „Wydawnictwo" w formularzu „Szukaj po tytule" — przekazywane
-// do POST /rematch (server zawęża kaskadę GB przez inpublisher:).
-// ---------------------------------------------------------------------------
-
-describe('DetectionReview — rematch z wydawnictwem (M22)', () => {
-  it('wpisany publisher trafia do body POST /rematch', async () => {
-    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation((url, init) => {
-      const u = typeof url === 'string' ? url : (url as Request).url;
-      if (u.includes('/rematch') && init?.method === 'POST') {
-        return Promise.resolve(
-          new Response(
-            JSON.stringify({
-              data: {
-                applied: false,
-                detection: {
-                  id: detNoMatch.id,
-                  status: 'pending',
-                  raw_title: 'Mafalda',
-                  raw_author: null,
-                },
-                candidates: [],
-                duplicate: null,
-              },
-            }),
-            { status: 200 },
-          ),
-        );
-      }
-      return Promise.resolve(
-        new Response(JSON.stringify(makePhotoResponse([detNoMatch])), { status: 200 }),
-      );
-    });
-
-    render(<DetectionReview photoId={PHOTO_ID} />);
-    await waitFor(() => screen.getByTestId('no-match-placeholder'));
-
-    fireEvent.click(screen.getByTestId('rematch-button'));
-    await waitFor(() => screen.getByTestId('rematch-form'));
-    fireEvent.change(screen.getByTestId('rematch-title'), { target: { value: 'Mafalda' } });
-    fireEvent.change(screen.getByTestId('rematch-publisher'), {
-      target: { value: 'Nasza Księgarnia' },
-    });
-    fireEvent.click(screen.getByTestId('rematch-submit'));
-
-    await waitFor(() => {
-      const rematchCall = fetchMock.mock.calls.find(
-        ([u, init]) => String(u).includes('/rematch') && init?.method === 'POST',
-      );
-      expect(rematchCall).toBeDefined();
-      const body = JSON.parse(String(rematchCall![1]!.body));
-      expect(body.publisher).toBe('Nasza Księgarnia');
-      expect(body.title).toBe('Mafalda');
-    });
-  });
-
-  it('puste pole publisher → null w body (nie pusty string)', async () => {
-    const fetchMock = vi.spyOn(globalThis, 'fetch').mockImplementation((url, init) => {
-      const u = typeof url === 'string' ? url : (url as Request).url;
-      if (u.includes('/rematch') && init?.method === 'POST') {
-        return Promise.resolve(
-          new Response(
-            JSON.stringify({
-              data: {
-                applied: false,
-                detection: {
-                  id: detNoMatch.id,
-                  status: 'pending',
-                  raw_title: 'Mafalda',
-                  raw_author: null,
-                },
-                candidates: [],
-                duplicate: null,
-              },
-            }),
-            { status: 200 },
-          ),
-        );
-      }
-      return Promise.resolve(
-        new Response(JSON.stringify(makePhotoResponse([detNoMatch])), { status: 200 }),
-      );
-    });
-
-    render(<DetectionReview photoId={PHOTO_ID} />);
-    await waitFor(() => screen.getByTestId('no-match-placeholder'));
-
-    fireEvent.click(screen.getByTestId('rematch-button'));
-    await waitFor(() => screen.getByTestId('rematch-form'));
-    fireEvent.change(screen.getByTestId('rematch-title'), { target: { value: 'Mafalda' } });
-    fireEvent.click(screen.getByTestId('rematch-submit'));
-
-    await waitFor(() => {
-      const rematchCall = fetchMock.mock.calls.find(
-        ([u, init]) => String(u).includes('/rematch') && init?.method === 'POST',
-      );
-      expect(rematchCall).toBeDefined();
-      const body = JSON.parse(String(rematchCall![1]!.body));
-      expect(body.publisher).toBeNull();
-    });
-  });
-});
-
-// ---------------------------------------------------------------------------
-// weak-match-resolve-and-ocr-audit (Faza 7): RematchForm reaguje na aktualnie
-// wybraną propozycję (activeCandidate), nie na sztywnego topa — ISBN prefill
-// podąża za wyborem, plus przycisk „Użyj kandydata" wciąga Tytuł/Autor/ISBN.
-// ---------------------------------------------------------------------------
-
-describe('DetectionReview — rematch: reaktywność na wybraną propozycję (Faza 7)', () => {
-  it('ISBN prefill podąża za wybranym alt-kandydatem, nie za topem', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify(makePhotoResponse([detWithAlts])), { status: 200 }),
-    );
-    render(<DetectionReview photoId={PHOTO_ID} />);
-    await waitFor(() => screen.getByTestId('detection-card-4'));
-
-    // Domyślnie top — otwórz i sprawdź ISBN topa.
-    fireEvent.click(screen.getByTestId('rematch-button'));
-    await waitFor(() => screen.getByTestId('rematch-form'));
-    expect(screen.getByTestId('rematch-isbn')).toHaveValue('9788300000001');
-    fireEvent.click(screen.getByTestId('rematch-cancel'));
-
-    // Wybierz alt kandydata, otwórz ponownie — ISBN powinno być alt-a.
-    fireEvent.click(screen.getByTestId(`candidate-select-${candAlt.id}`));
-    fireEvent.click(screen.getByTestId('rematch-button'));
-    await waitFor(() => screen.getByTestId('rematch-form'));
-    expect(screen.getByTestId('rematch-isbn')).toHaveValue('9780156027601');
-  });
-
-  it('klik „Użyj kandydata" wypełnia Tytuł/Autor/ISBN z aktualnie wybranej propozycji', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify(makePhotoResponse([detWithAlts])), { status: 200 }),
-    );
-    render(<DetectionReview photoId={PHOTO_ID} />);
-    await waitFor(() => screen.getByTestId('detection-card-4'));
-
-    fireEvent.click(screen.getByTestId(`candidate-select-${candAlt.id}`));
-    fireEvent.click(screen.getByTestId('rematch-button'));
-    await waitFor(() => screen.getByTestId('rematch-form'));
-
-    fireEvent.click(screen.getByTestId('rematch-use-candidate'));
-
-    expect(screen.getByTestId('rematch-title')).toHaveValue('Solaris');
-    expect(screen.getByTestId('rematch-author')).toHaveValue('Stanisław Lem');
-    expect(screen.getByTestId('rematch-isbn')).toHaveValue('9780156027601');
-  });
-
-  it('przycisk „Użyj kandydata" niewidoczny gdy detekcja nie ma kandydatów', async () => {
-    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-      new Response(JSON.stringify(makePhotoResponse([detNoMatch])), { status: 200 }),
-    );
-    render(<DetectionReview photoId={PHOTO_ID} />);
-    await waitFor(() => screen.getByTestId('no-match-placeholder'));
-
-    fireEvent.click(screen.getByTestId('rematch-button'));
-    await waitFor(() => screen.getByTestId('rematch-form'));
-
-    expect(screen.queryByTestId('rematch-use-candidate')).not.toBeInTheDocument();
   });
 });
