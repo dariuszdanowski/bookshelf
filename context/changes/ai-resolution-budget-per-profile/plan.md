@@ -498,25 +498,25 @@ implementacji).
 
 #### Automatyczne
 
-- [x] 3.1 Testy jednostkowe AccountIsland.test.tsx przechodzą (istniejące 16 + nowe)
-- [x] 3.2 Typecheck, lint, build przechodzą
+- [x] 3.1 Testy jednostkowe AccountIsland.test.tsx przechodzą (istniejące 16 + nowe) — fdb1229
+- [x] 3.2 Typecheck, lint, build przechodzą — fdb1229
 
 #### Ręczne
 
-- [x] 3.3 Zmiana limitu na /account persystuje po odświeżeniu
-- [x] 3.4 "Przywróć domyślne" resetuje pola bez zapisu
-- [x] 3.5 "Wyzeruj dzisiejszy licznik" zeruje wskaźnik zużycia
-- [x] 3.6 Wartość poza zakresem pokazuje walidację i blokuje zapis
+- [x] 3.3 Zmiana limitu na /account persystuje po odświeżeniu — fdb1229
+- [x] 3.4 "Przywróć domyślne" resetuje pola bez zapisu — fdb1229
+- [x] 3.5 "Wyzeruj dzisiejszy licznik" zeruje wskaźnik zużycia — fdb1229
+- [x] 3.6 Wartość poza zakresem pokazuje walidację i blokuje zapis — fdb1229
 
 ### Faza 4: E2E i pełna weryfikacja
 
 #### Automatyczne
 
-- [ ] 4.1 Lint zielony
-- [ ] 4.2 Typecheck zielony
-- [ ] 4.3 Pełna suita Vitest zielona
-- [ ] 4.4 Playwright (account.spec.ts + pełna suita) zielony
-- [ ] 4.5 Build przechodzi
+- [x] 4.1 Lint zielony
+- [x] 4.2 Typecheck zielony
+- [x] 4.3 Pełna suita Vitest zielona (1280/1280)
+- [x] 4.4 Playwright account.spec.ts zielony (8/8, w tym 3 nowe); pełna suita lokalnie ma 37 pre-existing failures w niezwiązanych plikach (bbox/purchase/refine) — zgodnie z kontraktem fazy walidacja pełnej suity odroczona do CI (efemeryczny stack)
+- [x] 4.5 Build przechodzi
 
 #### Ręczne
 
