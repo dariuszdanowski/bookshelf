@@ -1,6 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import AccountIsland from '../components/AccountIsland.tsx';
+import { effectiveDailyWindowStart } from '../lib/resolution/budgetPolicy';
 
 export const prerender = false;
 
@@ -9,11 +10,27 @@ const user = Astro.locals.user!;
 
 const { data: profile } = await Astro.locals.supabase
   .from('profiles')
-  .select('display_name')
+  .select(
+    'display_name, ai_resolution_max_calls_per_photo, ai_resolution_max_calls_per_day, ai_resolution_daily_reset_at',
+  )
   .eq('id', user.id)
   .single();
 
 const initialDisplayName = profile?.display_name ?? null;
+const initialMaxCallsPerPhoto = profile?.ai_resolution_max_calls_per_photo ?? 3;
+const initialMaxCallsPerDay = profile?.ai_resolution_max_calls_per_day ?? 20;
+
+const dailyWindowStart = effectiveDailyWindowStart(
+  new Date(),
+  profile?.ai_resolution_daily_reset_at ?? null,
+);
+// .eq('user_id', ...) explicite obok RLS — belt-and-suspenders, zgodnie z istniejącym stylem repo.
+const { count: initialUsageTodayCount } = await Astro.locals.supabase
+  .from('resolution_calls')
+  .select('id', { count: 'exact', head: true })
+  .eq('user_id', user.id)
+  .gte('created_at', dailyWindowStart.toISOString());
+const initialUsageToday = initialUsageTodayCount ?? 0;
 ---
 
 <Layout title="Moje konto">
@@ -23,6 +40,9 @@ const initialDisplayName = profile?.display_name ?? null;
       client:load
       initialDisplayName={initialDisplayName}
       userEmail={user.email ?? ''}
+      initialMaxCallsPerPhoto={initialMaxCallsPerPhoto}
+      initialMaxCallsPerDay={initialMaxCallsPerDay}
+      initialUsageToday={initialUsageToday}
     />
   </main>
 </Layout>

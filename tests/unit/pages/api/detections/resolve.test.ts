@@ -47,7 +47,12 @@ function makeSupabase(opts?: {
   aiEnabled?: boolean;
   detectionResult?: { data: typeof detectionRow | null; error: { code?: string } | null };
   resolutionCallsCount?: { day: number; photo: number };
-  track?: { resolutionCallsInsertPayload: unknown[] };
+  track?: { resolutionCallsInsertPayload: unknown[]; dailyWindowStart?: string };
+  profileBudget?: {
+    ai_resolution_max_calls_per_photo?: number;
+    ai_resolution_max_calls_per_day?: number;
+    ai_resolution_daily_reset_at?: string | null;
+  };
 }) {
   const aiEnabled = opts?.aiEnabled ?? true;
   const detectionResult = opts?.detectionResult ?? { data: detectionRow, error: null };
@@ -59,7 +64,10 @@ function makeSupabase(opts?: {
       return {
         select: vi.fn(() => ({
           eq: vi.fn(() => ({
-            single: vi.fn().mockResolvedValue({ data: { ai_enabled: aiEnabled }, error: null }),
+            single: vi.fn().mockResolvedValue({
+              data: { ai_enabled: aiEnabled, ...opts?.profileBudget },
+              error: null,
+            }),
           })),
         })),
       };
@@ -79,7 +87,12 @@ function makeSupabase(opts?: {
         select: vi.fn(() => ({
           eq: vi.fn((field: string) => {
             if (field === 'user_id') {
-              return { gte: vi.fn().mockResolvedValue({ count: dayCount, error: null }) };
+              return {
+                gte: vi.fn((_col: string, windowStart: string) => {
+                  if (opts?.track) opts.track.dailyWindowStart = windowStart;
+                  return Promise.resolve({ count: dayCount, error: null });
+                }),
+              };
             }
             // field === 'photo_id' — .eq() resolves directly, no .gte chain (matches resolve.ts)
             return Promise.resolve({ count: photoCount, error: null });
@@ -280,6 +293,100 @@ describe('POST /api/detections/[id]/resolve', () => {
     } as never);
     expect(res.status).not.toBe(400);
     expect(mockGetActiveProviderConfig).toHaveBeenCalledWith(expect.anything(), USER_ID, undefined);
+  });
+
+  it('fallback do defaultów gdy profil nie ma nowych pól (regresja mocka bez budgetu)', async () => {
+    const res = await POST(
+      makeContext(makeSupabase({ resolutionCallsCount: { day: 20, photo: 0 } })),
+    );
+    expect(res.status).toBe(429);
+    const json = (await res.json()) as { error: { message: string } };
+    expect(json.error.message).toContain('20/20');
+  });
+
+  it('respektuje custom limit dzienny z profilu (niższy niż default)', async () => {
+    const res = await POST(
+      makeContext(
+        makeSupabase({
+          resolutionCallsCount: { day: 1, photo: 0 },
+          profileBudget: {
+            ai_resolution_max_calls_per_day: 1,
+            ai_resolution_max_calls_per_photo: 3,
+          },
+        }),
+      ),
+    );
+    expect(res.status).toBe(429);
+    const json = (await res.json()) as { error: { code: string; message: string } };
+    expect(json.error.code).toBe('RESOLUTION_BUDGET_EXCEEDED');
+    expect(json.error.message).toContain('1/1');
+  });
+
+  it('respektuje custom limit per-zdjęcie z profilu (wyższy niż default)', async () => {
+    const res = await POST(
+      makeContext(
+        makeSupabase({
+          resolutionCallsCount: { day: 0, photo: 5 },
+          profileBudget: {
+            ai_resolution_max_calls_per_photo: 10,
+            ai_resolution_max_calls_per_day: 20,
+          },
+        }),
+      ),
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it('komunikat 429 zawiera realne liczby dziennego i per-zdjęcie limitu', async () => {
+    const res = await POST(
+      makeContext(
+        makeSupabase({
+          resolutionCallsCount: { day: 0, photo: 3 },
+          profileBudget: {
+            ai_resolution_max_calls_per_photo: 3,
+            ai_resolution_max_calls_per_day: 20,
+          },
+        }),
+      ),
+    );
+    expect(res.status).toBe(429);
+    const json = (await res.json()) as { error: { message: string } };
+    expect(json.error.message).toContain('dziennie: 0/20');
+    expect(json.error.message).toContain('na zdjęcie: 3/3');
+  });
+
+  it('reset_at w przeszłości (sprzed dzisiejszej północy) ignorowany — okno liczone od północy', async () => {
+    const track: { resolutionCallsInsertPayload: unknown[]; dailyWindowStart?: string } = {
+      resolutionCallsInsertPayload: [],
+    };
+    await POST(
+      makeContext(
+        makeSupabase({
+          track,
+          profileBudget: { ai_resolution_daily_reset_at: '2020-01-01T00:00:00.000Z' },
+        }),
+      ),
+    );
+    const midnight = new Date();
+    midnight.setUTCHours(0, 0, 0, 0);
+    expect(track.dailyWindowStart).toBe(midnight.toISOString());
+  });
+
+  it('reset_at po dzisiejszej północy zawęża okno liczenia', async () => {
+    const track: { resolutionCallsInsertPayload: unknown[]; dailyWindowStart?: string } = {
+      resolutionCallsInsertPayload: [],
+    };
+    const future = new Date();
+    future.setUTCHours(23, 59, 0, 0);
+    await POST(
+      makeContext(
+        makeSupabase({
+          track,
+          profileBudget: { ai_resolution_daily_reset_at: future.toISOString() },
+        }),
+      ),
+    );
+    expect(track.dailyWindowStart).toBe(future.toISOString());
   });
 
   it('returns 200 applied=false gdy AI zwraca not_found', async () => {

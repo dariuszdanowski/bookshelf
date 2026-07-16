@@ -6,7 +6,11 @@ import { getActiveProviderConfig } from '../../../../lib/keys/getActiveProviderC
 import { ApiKeyOverrideSchema } from '../../../../lib/keys/schema';
 import { checkCatalogDuplicate } from '../../../../lib/matching/dedupe';
 import { scoreCandidate } from '../../../../lib/matching/score';
-import { isAiResolutionBudgetAvailable } from '../../../../lib/resolution/budgetPolicy';
+import {
+  AI_RESOLUTION_BUDGET_LIMITS,
+  effectiveDailyWindowStart,
+  isAiResolutionBudgetAvailable,
+} from '../../../../lib/resolution/budgetPolicy';
 import { resolveBookViaAI } from '../../../../lib/resolution/client';
 
 export const prerender = false;
@@ -45,10 +49,12 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
     return apiError({ code: 'NOT_FOUND', status: 404, message: 'Nie znaleziono detekcji.' });
   }
 
-  // Guard: ai_enabled per profile (wzorzec S-26 z process.ts)
+  // Guard: ai_enabled per profile (wzorzec S-26 z process.ts) + limity budżetu per-profil
   const { data: profile } = await locals.supabase
     .from('profiles')
-    .select('ai_enabled')
+    .select(
+      'ai_enabled, ai_resolution_max_calls_per_photo, ai_resolution_max_calls_per_day, ai_resolution_daily_reset_at',
+    )
     .eq('id', locals.user.id)
     .single();
   if (!profile?.ai_enabled) {
@@ -106,15 +112,21 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
   const userId = locals.user.id;
   const sb = locals.supabase;
 
-  const todayStartUtc = new Date();
-  todayStartUtc.setUTCHours(0, 0, 0, 0);
+  const dailyWindowStart = effectiveDailyWindowStart(
+    new Date(),
+    profile.ai_resolution_daily_reset_at,
+  );
+  const maxCallsPerPhoto =
+    profile.ai_resolution_max_calls_per_photo ?? AI_RESOLUTION_BUDGET_LIMITS.maxCallsPerPhoto;
+  const maxCallsPerDay =
+    profile.ai_resolution_max_calls_per_day ?? AI_RESOLUTION_BUDGET_LIMITS.maxCallsPerDay;
 
   const [dayCountResult, photoCountResult] = await Promise.all([
     sb
       .from('resolution_calls')
       .select('id', { count: 'exact', head: true })
       .eq('user_id', userId)
-      .gte('created_at', todayStartUtc.toISOString()),
+      .gte('created_at', dailyWindowStart.toISOString()),
     sb
       .from('resolution_calls')
       .select('id', { count: 'exact', head: true })
@@ -129,15 +141,17 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
     return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Błąd sprawdzania budżetu.' });
   }
 
-  const budgetAvailable = isAiResolutionBudgetAvailable({
-    callsForDay: dayCountResult.count ?? 0,
-    callsForPhoto: photoCountResult.count ?? 0,
-  });
+  const dayCount = dayCountResult.count ?? 0;
+  const photoCount = photoCountResult.count ?? 0;
+  const budgetAvailable = isAiResolutionBudgetAvailable(
+    { callsForDay: dayCount, callsForPhoto: photoCount },
+    { maxCallsPerPhoto, maxCallsPerDay },
+  );
   if (!budgetAvailable) {
     return apiError({
       code: 'RESOLUTION_BUDGET_EXCEEDED',
       status: 429,
-      message: 'Osiągnięto limit wywołań AI-resolution (per zdjęcie lub dzienny). Spróbuj później.',
+      message: `Osiągnięto Twój limit AI-resolution (dziennie: ${dayCount}/${maxCallsPerDay}, na zdjęcie: ${photoCount}/${maxCallsPerPhoto}). Zmień limit na /account.`,
     });
   }
 
