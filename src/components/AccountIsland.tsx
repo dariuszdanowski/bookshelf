@@ -19,9 +19,18 @@ type StatsData = {
   cost_by_key?: Record<string, { cost_usd: number; call_count: number }>;
 };
 
+// Defaulty muszą pozostać zsynchronizowane z AI_RESOLUTION_BUDGET_LIMITS
+// (src/lib/resolution/budgetPolicy.ts) — fallback dla propsów pominiętych w
+// istniejących testach/wywołaniach, nie duplikat źródła prawdy.
+const DEFAULT_MAX_CALLS_PER_PHOTO = 3;
+const DEFAULT_MAX_CALLS_PER_DAY = 20;
+
 interface Props {
   initialDisplayName: string | null;
   userEmail: string;
+  initialMaxCallsPerPhoto?: number;
+  initialMaxCallsPerDay?: number;
+  initialUsageToday?: number;
 }
 
 function formatUsd(val: number): string {
@@ -30,13 +39,29 @@ function formatUsd(val: number): string {
   return `$${val.toFixed(2)}`;
 }
 
-export default function AccountIsland({ initialDisplayName, userEmail }: Props) {
+export default function AccountIsland({
+  initialDisplayName,
+  userEmail,
+  initialMaxCallsPerPhoto = DEFAULT_MAX_CALLS_PER_PHOTO,
+  initialMaxCallsPerDay = DEFAULT_MAX_CALLS_PER_DAY,
+  initialUsageToday = 0,
+}: Props) {
   // Display name
   const [displayName, setDisplayName] = useState(initialDisplayName ?? '');
   const savedDisplayNameRef = useRef(initialDisplayName ?? '');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Limity AI-resolution (budżet per-profil)
+  const [maxCallsPerPhoto, setMaxCallsPerPhoto] = useState(String(initialMaxCallsPerPhoto));
+  const [maxCallsPerDay, setMaxCallsPerDay] = useState(String(initialMaxCallsPerDay));
+  const [usageToday, setUsageToday] = useState(initialUsageToday);
+  const [limitsSaving, setLimitsSaving] = useState(false);
+  const [limitsError, setLimitsError] = useState<string | null>(null);
+  const [limitsSuccess, setLimitsSuccess] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
 
   // Email change
   const [newEmail, setNewEmail] = useState('');
@@ -159,6 +184,83 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
       setSaveError('Błąd sieci. Spróbuj ponownie.');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleSaveLimits() {
+    const photoNum = Number(maxCallsPerPhoto);
+    const dayNum = Number(maxCallsPerDay);
+    const parsed = UpdateProfileSchema.safeParse({
+      ai_resolution_max_calls_per_photo: photoNum,
+      ai_resolution_max_calls_per_day: dayNum,
+    });
+    if (!parsed.success) {
+      setLimitsError('Limit na zdjęcie: 1-10, limit dzienny: 1-100.');
+      return;
+    }
+
+    setLimitsSaving(true);
+    setLimitsError(null);
+    setLimitsSuccess(false);
+
+    try {
+      const res = await fetch('/api/account/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ai_resolution_max_calls_per_photo: parsed.data.ai_resolution_max_calls_per_photo,
+          ai_resolution_max_calls_per_day: parsed.data.ai_resolution_max_calls_per_day,
+        }),
+      });
+
+      type LimitsOk = {
+        data: {
+          profile: {
+            ai_resolution_max_calls_per_photo: number;
+            ai_resolution_max_calls_per_day: number;
+          };
+        };
+      };
+      type LimitsErr = { error: { code: string; message: string } };
+      const json = (await res.json()) as LimitsOk | LimitsErr;
+
+      if (res.ok && 'data' in json) {
+        setMaxCallsPerPhoto(String(json.data.profile.ai_resolution_max_calls_per_photo));
+        setMaxCallsPerDay(String(json.data.profile.ai_resolution_max_calls_per_day));
+        setLimitsSuccess(true);
+      } else {
+        const failure = json as LimitsErr;
+        setLimitsError(failure.error?.message ?? 'Nie udało się zapisać limitów.');
+      }
+    } catch {
+      setLimitsError('Błąd sieci. Spróbuj ponownie.');
+    } finally {
+      setLimitsSaving(false);
+    }
+  }
+
+  function handleRestoreDefaults() {
+    setMaxCallsPerPhoto(String(DEFAULT_MAX_CALLS_PER_PHOTO));
+    setMaxCallsPerDay(String(DEFAULT_MAX_CALLS_PER_DAY));
+    setLimitsSuccess(false);
+    setLimitsError(null);
+  }
+
+  async function handleResetUsage() {
+    setResetLoading(true);
+    setResetError(null);
+    try {
+      const res = await fetch('/api/account/reset-resolution-usage', { method: 'POST' });
+      if (res.ok) {
+        setUsageToday(0);
+      } else {
+        const err = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
+        setResetError(err?.error?.message ?? 'Nie udało się wyzerować licznika.');
+      }
+    } catch {
+      setResetError('Błąd sieci. Spróbuj ponownie.');
+    } finally {
+      setResetLoading(false);
     }
   }
 
@@ -460,6 +562,99 @@ export default function AccountIsland({ initialDisplayName, userEmail }: Props) 
               </p>
             )}
           </div>
+        </div>
+      </section>
+
+      {/* Sekcja: Limity AI-resolution */}
+      <section data-testid="account-resolution-budget-section">
+        <h2 className="mb-4 text-xl font-semibold">Limity AI-resolution</h2>
+        <div className={sectionBoxCls}>
+          <p
+            className="text-sm text-gray-500 dark:text-gray-400"
+            data-testid="account-resolution-usage-today"
+          >
+            Dzisiejsze zużycie: {usageToday} / {maxCallsPerDay}
+          </p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="resolution_max_per_photo" className="block text-sm font-medium">
+                Limit na zdjęcie
+              </label>
+              <input
+                id="resolution_max_per_photo"
+                type="number"
+                min={1}
+                max={10}
+                value={maxCallsPerPhoto}
+                onChange={(e) => {
+                  setMaxCallsPerPhoto(e.target.value);
+                  setLimitsSuccess(false);
+                  setLimitsError(null);
+                }}
+                className={`mt-1 ${inputCls}`}
+                data-testid="account-resolution-max-photo-input"
+              />
+            </div>
+            <div>
+              <label htmlFor="resolution_max_per_day" className="block text-sm font-medium">
+                Limit dzienny
+              </label>
+              <input
+                id="resolution_max_per_day"
+                type="number"
+                min={1}
+                max={100}
+                value={maxCallsPerDay}
+                onChange={(e) => {
+                  setMaxCallsPerDay(e.target.value);
+                  setLimitsSuccess(false);
+                  setLimitsError(null);
+                }}
+                className={`mt-1 ${inputCls}`}
+                data-testid="account-resolution-max-day-input"
+              />
+            </div>
+          </div>
+          {limitsError && (
+            <p className="text-sm text-red-600" data-testid="account-resolution-limits-error">
+              {limitsError}
+            </p>
+          )}
+          {limitsSuccess && (
+            <p className="text-sm text-green-600" data-testid="account-resolution-limits-success">
+              Limity zapisane.
+            </p>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={handleSaveLimits}
+              disabled={limitsSaving}
+              className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-50"
+              data-testid="account-resolution-save"
+            >
+              {limitsSaving ? 'Zapisuję...' : 'Zapisz'}
+            </button>
+            <button
+              onClick={handleRestoreDefaults}
+              className="rounded border border-gray-300 px-4 py-2 dark:border-gray-600"
+              data-testid="account-resolution-restore-defaults"
+            >
+              Przywróć domyślne
+            </button>
+            <button
+              onClick={handleResetUsage}
+              disabled={resetLoading}
+              className="rounded border border-gray-300 px-4 py-2 disabled:opacity-50 dark:border-gray-600"
+              data-testid="account-resolution-reset-usage"
+            >
+              {resetLoading ? 'Zeruję...' : 'Wyzeruj dzisiejszy licznik'}
+            </button>
+          </div>
+          {resetError && (
+            <p className="text-sm text-red-600" data-testid="account-resolution-reset-error">
+              {resetError}
+            </p>
+          )}
         </div>
       </section>
 

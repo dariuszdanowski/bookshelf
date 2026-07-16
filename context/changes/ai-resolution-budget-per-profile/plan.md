@@ -489,24 +489,24 @@ implementacji).
 
 #### Automatyczne
 
-- [x] 2.1 Testy jednostkowe profile.test.ts przechodzą (istniejące + nowe)
-- [x] 2.2 Testy jednostkowe reset-resolution-usage.test.ts przechodzą (nowy plik)
-- [x] 2.3 Testy jednostkowe resolve.test.ts przechodzą (istniejące + nowe)
-- [x] 2.4 Typecheck i lint przechodzą
+- [x] 2.1 Testy jednostkowe profile.test.ts przechodzą (istniejące + nowe) — 719bd99
+- [x] 2.2 Testy jednostkowe reset-resolution-usage.test.ts przechodzą (nowy plik) — 719bd99
+- [x] 2.3 Testy jednostkowe resolve.test.ts przechodzą (istniejące + nowe) — 719bd99
+- [x] 2.4 Typecheck i lint przechodzą — 719bd99
 
 ### Faza 3: UI /account
 
 #### Automatyczne
 
-- [ ] 3.1 Testy jednostkowe AccountIsland.test.tsx przechodzą (istniejące 16 + nowe)
-- [ ] 3.2 Typecheck, lint, build przechodzą
+- [x] 3.1 Testy jednostkowe AccountIsland.test.tsx przechodzą (istniejące 16 + nowe)
+- [x] 3.2 Typecheck, lint, build przechodzą
 
 #### Ręczne
 
-- [ ] 3.3 Zmiana limitu na /account persystuje po odświeżeniu
-- [ ] 3.4 "Przywróć domyślne" resetuje pola bez zapisu
-- [ ] 3.5 "Wyzeruj dzisiejszy licznik" zeruje wskaźnik zużycia
-- [ ] 3.6 Wartość poza zakresem pokazuje walidację i blokuje zapis
+- [x] 3.3 Zmiana limitu na /account persystuje po odświeżeniu
+- [x] 3.4 "Przywróć domyślne" resetuje pola bez zapisu
+- [x] 3.5 "Wyzeruj dzisiejszy licznik" zeruje wskaźnik zużycia
+- [x] 3.6 Wartość poza zakresem pokazuje walidację i blokuje zapis
 
 ### Faza 4: E2E i pełna weryfikacja
 
