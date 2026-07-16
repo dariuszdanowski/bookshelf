@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // vi.hoisted ensures mockCreate is initialized before vi.mock factory runs (ESM hoisting)
 const mockCreate = vi.hoisted(() => vi.fn());
+const mockFindBookCandidates = vi.hoisted(() => vi.fn());
 
 vi.mock('@anthropic-ai/sdk', () => {
   class MockAnthropic {
@@ -9,6 +10,10 @@ vi.mock('@anthropic-ai/sdk', () => {
   }
   return { default: MockAnthropic };
 });
+
+vi.mock('../../../../src/lib/matching/findCandidates', () => ({
+  findBookCandidates: mockFindBookCandidates,
+}));
 
 import { resolveBookViaAI } from '../../../../src/lib/resolution/client';
 
@@ -28,6 +33,46 @@ function makeResponse(
       server_tool_use: { web_search_requests: opts.webSearchRequests ?? 1 },
     },
   };
+}
+
+function makeScoredCandidate(overrides: Partial<Record<string, unknown>> = {}) {
+  return {
+    source: 'google_books',
+    externalId: 'gb-1',
+    title: 'Solaris',
+    authors: ['Stanisław Lem'],
+    isbn10: null,
+    isbn13: '9788308034609',
+    publisher: 'Wydawnictwo Literackie',
+    publishedYear: 1961,
+    coverUrl: 'https://example.com/cover.jpg',
+    description: 'Opis książki',
+    matchScore: 0.9,
+    ...overrides,
+  };
+}
+
+function makeToolCall(id: string, args: Record<string, unknown>) {
+  return {
+    id,
+    type: 'function',
+    function: { name: 'search_book', arguments: JSON.stringify(args) },
+  };
+}
+
+function makeToolCallResponse(toolCalls: ReturnType<typeof makeToolCall>[]) {
+  return {
+    ok: true,
+    json: async () => ({ choices: [{ message: { content: null, tool_calls: toolCalls } }] }),
+  };
+}
+
+function makeFinalResponse(content: string) {
+  return { ok: true, json: async () => ({ choices: [{ message: { content } }] }) };
+}
+
+function makeHttpErrorResponse(status: number, body = '') {
+  return { ok: false, status, text: async () => body };
 }
 
 beforeEach(() => vi.clearAllMocks());
@@ -287,7 +332,10 @@ describe('resolveBookViaAI — openai_compatible branch', () => {
     );
     const body = JSON.parse(mockFetch.mock.calls[0][1].body);
     expect(body.max_tokens).toBe(5000);
-    expect(body.tools).toBeUndefined();
+    // Pierwszy request zawsze zawiera search_book tool (chyba że wcześniejszy request
+    // w tym samym wywołaniu dostał HTTP 400 i wywołał fallback — zob. testy fallbacku niżej).
+    expect(body.tools).toHaveLength(1);
+    expect(body.tools[0].function.name).toBe('search_book');
 
     vi.unstubAllGlobals();
   });
@@ -309,6 +357,287 @@ describe('resolveBookViaAI — openai_compatible branch', () => {
     expect(outcome.ok).toBe(true);
     if (!outcome.ok) return;
     expect(outcome.result.status).toBe('not_found');
+
+    vi.unstubAllGlobals();
+  });
+
+  it('1 runda: tool_calls → search_book → finalna odpowiedź found', async () => {
+    mockFindBookCandidates.mockResolvedValueOnce({
+      candidates: [makeScoredCandidate()],
+      rateLimited: false,
+    });
+    const finalJson = JSON.stringify({
+      status: 'found',
+      title: 'Solaris',
+      authors: ['Stanisław Lem'],
+      isbn10: null,
+      isbn13: '9788308034609',
+      publisher: 'Wydawnictwo Literackie',
+      publishedYear: 1961,
+      confidence: 0.9,
+    });
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        makeToolCallResponse([
+          makeToolCall('call_1', { title: 'Solaris', author: 'Stanisław Lem' }),
+        ]),
+      )
+      .mockResolvedValueOnce(makeFinalResponse(finalJson));
+    vi.stubGlobal('fetch', mockFetch);
+
+    const outcome = await resolveBookViaAI(query, openaiCompatConfig);
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.status).toBe('found');
+    expect(outcome.searchCount).toBe(1);
+    expect(mockFindBookCandidates).toHaveBeenCalledWith('Solaris', 'Stanisław Lem', null);
+
+    // Format wyniku narzędzia przekazywany modelowi: okrojone pola ScoredCandidate,
+    // BEZ coverUrl/description (zob. plan § Faza 1, Kontrakt).
+    const secondBody = JSON.parse(mockFetch.mock.calls[1][1].body);
+    const toolMessage = secondBody.messages.find((m: { role: string }) => m.role === 'tool');
+    expect(JSON.parse(toolMessage.content).candidates[0]).toEqual({
+      title: 'Solaris',
+      authors: ['Stanisław Lem'],
+      isbn10: null,
+      isbn13: '9788308034609',
+      publisher: 'Wydawnictwo Literackie',
+      publishedYear: 1961,
+      matchScore: 0.9,
+    });
+
+    vi.unstubAllGlobals();
+  });
+
+  it('multi-round (2 rundy) → searchCount odpowiada liczbie wywołań findBookCandidates, nie requestów HTTP', async () => {
+    mockFindBookCandidates
+      .mockResolvedValueOnce({
+        candidates: [makeScoredCandidate({ title: 'Zlodziej ksiazek' })],
+        rateLimited: false,
+      })
+      .mockResolvedValueOnce({
+        candidates: [makeScoredCandidate({ title: 'Złodziejka książek' })],
+        rateLimited: false,
+      });
+    const finalJson = JSON.stringify({
+      status: 'found',
+      title: 'Złodziejka książek',
+      authors: ['Markus Zusak'],
+      isbn10: null,
+      isbn13: null,
+      publisher: null,
+      publishedYear: null,
+      confidence: 0.85,
+    });
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        makeToolCallResponse([makeToolCall('call_1', { title: 'Zlodziej ksiazek' })]),
+      )
+      .mockResolvedValueOnce(
+        makeToolCallResponse([makeToolCall('call_2', { title: 'Złodziejka książek' })]),
+      )
+      .mockResolvedValueOnce(makeFinalResponse(finalJson));
+    vi.stubGlobal('fetch', mockFetch);
+
+    const outcome = await resolveBookViaAI(query, openaiCompatConfig);
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.status).toBe('found');
+    expect(outcome.searchCount).toBe(2);
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+    expect(mockFindBookCandidates).toHaveBeenCalledTimes(2);
+
+    vi.unstubAllGlobals();
+  });
+
+  it('przekroczenie MAX_TOOL_ROUNDS: finalny request bez tools', async () => {
+    mockFindBookCandidates
+      .mockResolvedValueOnce({ candidates: [makeScoredCandidate()], rateLimited: false })
+      .mockResolvedValueOnce({ candidates: [makeScoredCandidate()], rateLimited: false })
+      .mockResolvedValueOnce({ candidates: [makeScoredCandidate()], rateLimited: false });
+
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce(makeToolCallResponse([makeToolCall('call_1', { title: 'Solaris' })]))
+      .mockResolvedValueOnce(makeToolCallResponse([makeToolCall('call_2', { title: 'Solaris' })]))
+      .mockResolvedValueOnce(makeToolCallResponse([makeToolCall('call_3', { title: 'Solaris' })]))
+      .mockResolvedValueOnce(
+        makeFinalResponse(JSON.stringify({ status: 'not_found', reason: null })),
+      );
+    vi.stubGlobal('fetch', mockFetch);
+
+    const outcome = await resolveBookViaAI(query, openaiCompatConfig);
+
+    expect(outcome.ok).toBe(true);
+    expect(mockFetch).toHaveBeenCalledTimes(4);
+    const lastBody = JSON.parse(mockFetch.mock.calls[3][1].body);
+    expect(lastBody.tools).toBeUndefined();
+
+    vi.unstubAllGlobals();
+  });
+
+  it('fallback: HTTP 400 na pierwszym requeście → retry bez tools, sukces na drugiej próbie', async () => {
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce(makeHttpErrorResponse(400, 'Unknown parameter: tools'))
+      .mockResolvedValueOnce(
+        makeFinalResponse(JSON.stringify({ status: 'not_found', reason: null })),
+      );
+    vi.stubGlobal('fetch', mockFetch);
+
+    const outcome = await resolveBookViaAI(query, openaiCompatConfig);
+
+    expect(outcome.ok).toBe(true);
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    const secondBody = JSON.parse(mockFetch.mock.calls[1][1].body);
+    expect(secondBody.tools).toBeUndefined();
+    expect(secondBody.messages[0].content).not.toContain('search_book');
+
+    vi.unstubAllGlobals();
+  });
+
+  it('HTTP 400 w trakcie pętli (po udanej rundzie z tools) → api_error, NIE fallback', async () => {
+    mockFindBookCandidates.mockResolvedValueOnce({
+      candidates: [makeScoredCandidate()],
+      rateLimited: false,
+    });
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce(makeToolCallResponse([makeToolCall('call_1', { title: 'Solaris' })]))
+      .mockResolvedValueOnce(makeHttpErrorResponse(400, 'bad request'));
+    vi.stubGlobal('fetch', mockFetch);
+
+    const outcome = await resolveBookViaAI(query, openaiCompatConfig);
+
+    expect(outcome.ok).toBe(false);
+    if (outcome.ok) return;
+    expect(outcome.reason).toBe('api_error');
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+
+    vi.unstubAllGlobals();
+  });
+
+  it('równoległe tool_calls (2 elementy) → 2 wiadomości tool w tej samej kolejności', async () => {
+    mockFindBookCandidates
+      .mockResolvedValueOnce({
+        candidates: [makeScoredCandidate({ title: 'Solaris' })],
+        rateLimited: false,
+      })
+      .mockResolvedValueOnce({
+        candidates: [makeScoredCandidate({ title: 'Eden' })],
+        rateLimited: false,
+      });
+
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        makeToolCallResponse([
+          makeToolCall('call_a', { title: 'Solaris' }),
+          makeToolCall('call_b', { title: 'Eden' }),
+        ]),
+      )
+      .mockResolvedValueOnce(
+        makeFinalResponse(JSON.stringify({ status: 'not_found', reason: null })),
+      );
+    vi.stubGlobal('fetch', mockFetch);
+
+    await resolveBookViaAI(query, openaiCompatConfig);
+
+    expect(mockFindBookCandidates).toHaveBeenCalledTimes(2);
+    const secondBody = JSON.parse(mockFetch.mock.calls[1][1].body);
+    const toolMessages = secondBody.messages.filter((m: { role: string }) => m.role === 'tool');
+    expect(toolMessages).toHaveLength(2);
+    expect(toolMessages[0].tool_call_id).toBe('call_a');
+    expect(toolMessages[1].tool_call_id).toBe('call_b');
+
+    vi.unstubAllGlobals();
+  });
+
+  it('przekroczenie MAX_PARALLEL_TOOL_CALLS (4 równoległe) → nadmiarowe dostają błąd, findBookCandidates wołane max 3 razy', async () => {
+    mockFindBookCandidates
+      .mockResolvedValueOnce({ candidates: [makeScoredCandidate()], rateLimited: false })
+      .mockResolvedValueOnce({ candidates: [makeScoredCandidate()], rateLimited: false })
+      .mockResolvedValueOnce({ candidates: [makeScoredCandidate()], rateLimited: false });
+
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        makeToolCallResponse([
+          makeToolCall('call_1', { title: 'A' }),
+          makeToolCall('call_2', { title: 'B' }),
+          makeToolCall('call_3', { title: 'C' }),
+          makeToolCall('call_4', { title: 'D' }),
+        ]),
+      )
+      .mockResolvedValueOnce(
+        makeFinalResponse(JSON.stringify({ status: 'not_found', reason: null })),
+      );
+    vi.stubGlobal('fetch', mockFetch);
+
+    await resolveBookViaAI(query, openaiCompatConfig);
+
+    expect(mockFindBookCandidates).toHaveBeenCalledTimes(3);
+    const secondBody = JSON.parse(mockFetch.mock.calls[1][1].body);
+    const toolMessages = secondBody.messages.filter((m: { role: string }) => m.role === 'tool');
+    expect(toolMessages).toHaveLength(4);
+    expect(JSON.parse(toolMessages[3].content).error).toContain('too many parallel tool calls');
+
+    vi.unstubAllGlobals();
+  });
+
+  it('błędne argumenty tool-call (JSON invalid / Zod fail) → wiadomość tool z błędem, pętla kontynuuje', async () => {
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        makeToolCallResponse([
+          {
+            id: 'call_bad_json',
+            type: 'function',
+            function: { name: 'search_book', arguments: 'not valid json' },
+          },
+          makeToolCall('call_bad_schema', { title: '' }),
+        ]),
+      )
+      .mockResolvedValueOnce(
+        makeFinalResponse(JSON.stringify({ status: 'not_found', reason: null })),
+      );
+    vi.stubGlobal('fetch', mockFetch);
+
+    const outcome = await resolveBookViaAI(query, openaiCompatConfig);
+
+    expect(outcome.ok).toBe(true);
+    expect(mockFindBookCandidates).not.toHaveBeenCalled();
+    const secondBody = JSON.parse(mockFetch.mock.calls[1][1].body);
+    const toolMessages = secondBody.messages.filter((m: { role: string }) => m.role === 'tool');
+    expect(toolMessages).toHaveLength(2);
+    expect(JSON.parse(toolMessages[0].content).error).toBe('invalid arguments');
+    expect(JSON.parse(toolMessages[1].content).error).toBe('invalid arguments');
+
+    vi.unstubAllGlobals();
+  });
+
+  it('rateLimited z findBookCandidates jest przekazywane modelowi gdy brak kandydatów', async () => {
+    mockFindBookCandidates.mockResolvedValueOnce({ candidates: [], rateLimited: true });
+
+    const mockFetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        makeToolCallResponse([makeToolCall('call_1', { title: 'Rzadki tytuł' })]),
+      )
+      .mockResolvedValueOnce(
+        makeFinalResponse(JSON.stringify({ status: 'not_found', reason: 'rate limited' })),
+      );
+    vi.stubGlobal('fetch', mockFetch);
+
+    await resolveBookViaAI(query, openaiCompatConfig);
+
+    const secondBody = JSON.parse(mockFetch.mock.calls[1][1].body);
+    const toolMessage = secondBody.messages.find((m: { role: string }) => m.role === 'tool');
+    expect(JSON.parse(toolMessage.content)).toEqual({ candidates: [], rateLimited: true });
 
     vi.unstubAllGlobals();
   });
