@@ -1,9 +1,9 @@
 ---
 change_id: unify-detection-edit-entrypoint
 title: Jeden punkt wejścia do edycji detekcji (Popraw / okładka-lub-placeholder) zamiast rozproszonych "Szukaj po tytule" / "Wyszukaj po danych" / "Wpisz ręcznie"
-status: implementing
+status: implemented
 created: 2026-07-15
-updated: 2026-07-15
+updated: 2026-07-16
 ---
 
 ## Notes

@@ -608,12 +608,12 @@ w `deploy.yml`).
 
 #### Automatyczne
 
-- [x] 6.1 `npm run test:e2e` zielone
-- [x] 6.2 `npm run typecheck`, `npm run lint`, `npm run test` (pełny gate) zielone
+- [x] 6.1 `npm run test:e2e` zielone — ec5f1e8
+- [x] 6.2 `npm run typecheck`, `npm run lint`, `npm run test` (pełny gate) zielone — ec5f1e8
 
 #### Ręczne
 
-- [x] 6.3 Golden path no-match dla 3 widoków (placeholder → BookModal → Wyszukaj po danych → Zapisz → Zatwierdź)
-- [x] 6.4 Golden path match: Oryginalny odczyt OCR działa w BookModal
-- [x] 6.5 Zamknięcie bez zapisu nie zostawia osieroconego wiersza (sprawdzone w Supabase Studio)
-- [x] 6.6 „Szukaj w sieci" identyczny z obu miejsc
+- [x] 6.3 Golden path no-match dla 3 widoków (placeholder → BookModal → Wyszukaj po danych → Zapisz → Zatwierdź) — ec5f1e8
+- [x] 6.4 Golden path match: Oryginalny odczyt OCR działa w BookModal — ec5f1e8
+- [x] 6.5 Zamknięcie bez zapisu nie zostawia osieroconego wiersza (sprawdzone w Supabase Studio) — ec5f1e8
+- [x] 6.6 „Szukaj w sieci" identyczny z obu miejsc — ec5f1e8
