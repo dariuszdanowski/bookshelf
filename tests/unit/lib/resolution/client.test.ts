@@ -98,6 +98,19 @@ describe('resolveBookViaAI', () => {
     expect(outcome.result.status).toBe('not_found');
   });
 
+  // Regresja manualnego smoke testu (2026-07-15): self-hosted model zwrócił odpowiedź
+  // z wiodącym "\n" przed fence — `^` anchor w stripCodeFences nie dopasowywał się.
+  it('parsuje JSON owinięty w code fence markdown poprzedzony wiodącym whitespace', async () => {
+    const json = JSON.stringify({ status: 'not_found', reason: 'Brak trafienia' });
+    mockCreate.mockResolvedValueOnce(makeResponse('\n```json\n' + json + '\n```'));
+
+    const outcome = await resolveBookViaAI(query, config);
+
+    expect(outcome.ok).toBe(true);
+    if (!outcome.ok) return;
+    expect(outcome.result.status).toBe('not_found');
+  });
+
   it('zwraca parse_failure gdy w tekście nie ma żadnego JSON', async () => {
     mockCreate.mockResolvedValueOnce(makeResponse('Nie udało mi się znaleźć tej książki.'));
 

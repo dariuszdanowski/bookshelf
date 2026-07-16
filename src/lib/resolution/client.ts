@@ -72,9 +72,12 @@ function extractText(content: Anthropic.ContentBlock[]): string {
 }
 
 // Claude wraps JSON in markdown code fences despite prompt instructions — strip before parsing.
+// `^` regex anchor requires leading whitespace to be stripped in the SAME pattern (a
+// self-hosted model observed replying with a leading "\n" before the fence — `^` doesn't
+// match past it, leaving "```json" attached to the JSON and breaking JSON.parse).
 function stripCodeFences(text: string): string {
   return text
-    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/^\s*```(?:json)?\s*/i, '')
     .replace(/\s*```\s*$/, '')
     .trim();
 }
