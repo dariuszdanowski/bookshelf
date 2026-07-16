@@ -11,9 +11,18 @@ import { z } from 'zod';
  */
 
 // Zod v4: preferowane `z.email()` vs deprecated `z.string().email()`.
-export const UpdateProfileSchema = z.object({
-  display_name: z.string().trim().min(1).max(100),
-});
+// Partial update (S-31 + budżet AI-resolution per-profil): przynajmniej jedno pole wymagane,
+// żeby pusty `{}` nie przechodził jako no-op 200. Granice liczbowe dopasowane do CHECK
+// constraints z `supabase/migrations/0032_profiles_resolution_budget.sql`.
+export const UpdateProfileSchema = z
+  .object({
+    display_name: z.string().trim().min(1).max(100).optional(),
+    ai_resolution_max_calls_per_photo: z.number().int().min(1).max(10).optional(),
+    ai_resolution_max_calls_per_day: z.number().int().min(1).max(100).optional(),
+  })
+  .refine((d) => Object.keys(d).length > 0, {
+    message: 'Podaj co najmniej jedno pole do aktualizacji.',
+  });
 
 export type UpdateProfileInput = z.infer<typeof UpdateProfileSchema>;
 

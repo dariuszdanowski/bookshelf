@@ -480,19 +480,19 @@ implementacji).
 
 #### Automatyczne
 
-- [x] 1.1 Migracja stosuje się czysto
-- [x] 1.2 Typecheck przechodzi z nowymi polami w database.types.ts
-- [x] 1.3 Testy jednostkowe budgetPolicy.test.ts przechodzą (istniejące + nowe)
-- [x] 1.4 Lint przechodzi
+- [x] 1.1 Migracja stosuje się czysto — 16f929b
+- [x] 1.2 Typecheck przechodzi z nowymi polami w database.types.ts — 16f929b
+- [x] 1.3 Testy jednostkowe budgetPolicy.test.ts przechodzą (istniejące + nowe) — 16f929b
+- [x] 1.4 Lint przechodzi — 16f929b
 
 ### Faza 2: Backend API
 
 #### Automatyczne
 
-- [ ] 2.1 Testy jednostkowe profile.test.ts przechodzą (istniejące + nowe)
-- [ ] 2.2 Testy jednostkowe reset-resolution-usage.test.ts przechodzą (nowy plik)
-- [ ] 2.3 Testy jednostkowe resolve.test.ts przechodzą (istniejące + nowe)
-- [ ] 2.4 Typecheck i lint przechodzą
+- [x] 2.1 Testy jednostkowe profile.test.ts przechodzą (istniejące + nowe)
+- [x] 2.2 Testy jednostkowe reset-resolution-usage.test.ts przechodzą (nowy plik)
+- [x] 2.3 Testy jednostkowe resolve.test.ts przechodzą (istniejące + nowe)
+- [x] 2.4 Typecheck i lint przechodzą
 
 ### Faza 3: UI /account
 
