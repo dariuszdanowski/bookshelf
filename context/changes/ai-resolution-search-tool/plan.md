@@ -356,17 +356,17 @@ change w `src/lib/resolution/`.
 
 #### Automatyczne
 
-- [x] 1.1 `npm run typecheck` przechodzi
-- [x] 1.2 `npm run lint` przechodzi
-- [x] 1.3 `npm run build` przechodzi
+- [x] 1.1 `npm run typecheck` przechodzi — 3a00d15
+- [x] 1.2 `npm run lint` przechodzi — 3a00d15
+- [x] 1.3 `npm run build` przechodzi — 3a00d15
 
 ### Faza 2: Testy jednostkowe + manualny smoke test
 
 #### Automatyczne
 
-- [ ] 2.1 `npx vitest run tests/unit/lib/resolution/client.test.ts` zielone
-- [ ] 2.2 `npm run test` (pełna suita) zielone
-- [ ] 2.3 `npm run typecheck` i `npm run lint` przechodzą
+- [x] 2.1 `npx vitest run tests/unit/lib/resolution/client.test.ts` zielone
+- [x] 2.2 `npm run test` (pełna suita) zielone
+- [x] 2.3 `npm run typecheck` i `npm run lint` przechodzą
 
 #### Ręczne
 
