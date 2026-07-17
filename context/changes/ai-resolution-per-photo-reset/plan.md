@@ -447,12 +447,12 @@ je czytać w tej samej fazie co migracja) — brak ryzyka utraty aktywnie używa
 
 #### Automatyczne
 
-- [x] 4.1 Lint zielony
-- [x] 4.2 Typecheck zielony
-- [x] 4.3 Pełna suita Vitest zielona (1285/1285)
-- [x] 4.4 Playwright account.spec.ts zielony (8/8; pełna suita w CI, nie lokalnie)
-- [x] 4.5 Build przechodzi
+- [x] 4.1 Lint zielony — abbff6e
+- [x] 4.2 Typecheck zielony — abbff6e
+- [x] 4.3 Pełna suita Vitest zielona (1285/1285) — abbff6e
+- [x] 4.4 Playwright account.spec.ts zielony (8/8; pełna suita w CI, nie lokalnie) — abbff6e
+- [x] 4.5 Build przechodzi — abbff6e
 
 #### Ręczne
 
-- [x] 4.6 Pełny smoke na /account i widoku zdjęcia bez regresji
+- [x] 4.6 Pełny smoke na /account i widoku zdjęcia bez regresji — abbff6e
