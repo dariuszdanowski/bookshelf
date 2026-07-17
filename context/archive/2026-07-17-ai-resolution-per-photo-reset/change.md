@@ -1,10 +1,10 @@
 ---
 change_id: ai-resolution-per-photo-reset
 title: Usunięcie blokady AI-resolution per-zdjęcie + informacyjny licznik prób
-status: impl_reviewed
+status: archived
 created: 2026-07-17
 updated: 2026-07-17
-archived_at: null
+archived_at: 2026-07-17T16:40:50Z
 ---
 
 ## Notes
