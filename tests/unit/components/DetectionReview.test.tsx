@@ -109,12 +109,16 @@ const detNoMatch: DetectionWithCandidatesDTO = {
   duplicate: null,
 };
 
-function makePhotoResponse(detections: DetectionWithCandidatesDTO[] = [detHigh, detLow]) {
+function makePhotoResponse(
+  detections: DetectionWithCandidatesDTO[] = [detHigh, detLow],
+  resolutionAttemptsCount?: number | null,
+) {
   return {
     data: {
       photo: mockPhoto,
       detections,
       vision_run: mockVisionRun,
+      resolution_attempts_count: resolutionAttemptsCount,
     },
   };
 }
@@ -176,6 +180,87 @@ describe('DetectionReview — initial render', () => {
     await waitFor(() => {
       expect(screen.getByTestId('detection-review-error')).toBeInTheDocument();
     });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ai-resolution-per-photo-reset: informacyjny licznik prób AI-resolution
+// ---------------------------------------------------------------------------
+
+describe('DetectionReview — licznik prób AI-resolution', () => {
+  it('renderuje licznik, gdy resolution_attempts_count > 0', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(makePhotoResponse(undefined, 4)), { status: 200 }),
+    );
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => {
+      expect(screen.getByTestId('resolution-attempts-count')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('resolution-attempts-count')).toHaveTextContent('4');
+  });
+
+  it('ukrywa licznik, gdy resolution_attempts_count = 0', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(makePhotoResponse(undefined, 0)), { status: 200 }),
+    );
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => {
+      expect(screen.getByTestId('detection-review')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('resolution-attempts-count')).not.toBeInTheDocument();
+  });
+
+  it('ukrywa licznik, gdy resolution_attempts_count = null', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(makePhotoResponse(undefined, null)), { status: 200 }),
+    );
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => {
+      expect(screen.getByTestId('detection-review')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('resolution-attempts-count')).not.toBeInTheDocument();
+  });
+});
+
+describe('DetectionReview — badge $ propozycji łączy koszt OCR + AI-resolution', () => {
+  it('etykieta $ sumuje refine_cost_usd + resolution_cost_usd', async () => {
+    const detWithBoth: DetectionWithCandidatesDTO = {
+      ...detHigh,
+      refine_cost_usd: 0.01,
+      resolution_cost_usd: 0.02,
+      resolution_attempts_count: 2,
+    };
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(makePhotoResponse([detWithBoth])), { status: 200 }),
+    );
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => {
+      expect(screen.getByTestId(`cost-button-det-${DET_ID_HIGH}`)).toBeInTheDocument();
+    });
+    const btn = screen.getByTestId(`cost-button-det-${DET_ID_HIGH}`);
+    expect(btn).toHaveTextContent('$0.0300');
+    expect(btn.title).toContain('2 próby AI');
+  });
+
+  it('bez prób AI-resolution etykieta $ i tooltip pokazują tylko OCR', async () => {
+    const detOnlyRefine: DetectionWithCandidatesDTO = {
+      ...detHigh,
+      refine_cost_usd: 0.01,
+      resolution_cost_usd: 0,
+      resolution_attempts_count: 0,
+    };
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify(makePhotoResponse([detOnlyRefine])), { status: 200 }),
+    );
+    render(<DetectionReview photoId={PHOTO_ID} />);
+    await waitFor(() => {
+      expect(screen.getByTestId(`cost-button-det-${DET_ID_HIGH}`)).toBeInTheDocument();
+    });
+    const btn = screen.getByTestId(`cost-button-det-${DET_ID_HIGH}`);
+    expect(btn).toHaveTextContent('$0.0100');
+    expect(btn.title).toBe(
+      'Koszt doczytywania OCR tej ramki. Kliknij, by zobaczyć wywołania z cenami.',
+    );
   });
 });
 

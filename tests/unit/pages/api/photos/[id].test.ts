@@ -109,10 +109,12 @@ function makeDeleteContext(opts: {
   };
 }
 
+type ResolutionCallRow = { detection_id: string | null; cost_usd: number | null };
+
 function makeGetContext(opts: {
   id?: string;
   photoResult?: { data: unknown; error: PgError };
-  resolutionResult?: { count: number | null; error: PgError };
+  resolutionResult?: { data: ResolutionCallRow[] | null; error: PgError };
   user?: { id: string; email: string } | null;
 }) {
   const validGetRow = {
@@ -155,7 +157,7 @@ function makeGetContext(opts: {
 
   const refineSelect = vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ data: [], error: null }) }));
 
-  const resolutionResult = opts.resolutionResult ?? { count: 0, error: null };
+  const resolutionResult = opts.resolutionResult ?? { data: [], error: null };
   const resolutionSelect = vi.fn(() => ({ eq: vi.fn().mockResolvedValue(resolutionResult) }));
 
   const fromFn = vi.fn((table: string) => {
@@ -184,7 +186,17 @@ beforeEach(() => vi.clearAllMocks());
 
 describe('GET /api/photos/:id', () => {
   it('zwraca resolution_attempts_count (happy path)', async () => {
-    const { context } = makeGetContext({ resolutionResult: { count: 4, error: null } });
+    const { context } = makeGetContext({
+      resolutionResult: {
+        data: [
+          { detection_id: 'det-1', cost_usd: 0.01 },
+          { detection_id: 'det-1', cost_usd: 0.02 },
+          { detection_id: 'det-2', cost_usd: 0.03 },
+          { detection_id: null, cost_usd: 0.01 },
+        ],
+        error: null,
+      },
+    });
     const res = await GET(context as never);
     expect(res.status).toBe(200);
     const json = (await res.json()) as { data: { resolution_attempts_count: number | null } };
@@ -193,7 +205,7 @@ describe('GET /api/photos/:id', () => {
 
   it('degraduje resolution_attempts_count do null przy błędzie zapytania', async () => {
     const { context } = makeGetContext({
-      resolutionResult: { count: null, error: { message: 'db down' } },
+      resolutionResult: { data: null, error: { message: 'db down' } },
     });
     const res = await GET(context as never);
     expect(res.status).toBe(200);

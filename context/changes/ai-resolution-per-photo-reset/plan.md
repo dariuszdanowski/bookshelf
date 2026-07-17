@@ -281,6 +281,28 @@ pola.
 **Kontrakt**: `<p data-testid="resolution-attempts-count">Próby AI-resolution dla tego zdjęcia:
 {resolutionAttemptsCount}</p>` — czysto informacyjny, bez interakcji.
 
+#### 4. Rozszerzenie zakresu (ustalone podczas manualnej weryfikacji): koszt/liczba prób AI-resolution per propozycja
+
+**Kontekst**: Podczas ręcznego testowania punktu 3 właściciel repo zauważył, że informacja o
+AI-resolution powinna być widoczna też na poziomie pojedynczej propozycji (detekcji) — nie tylko
+zbiorczo dla zdjęcia — analogicznie do istniejącego badge'a `$` pokazującego koszt OCR (refine)
+per detekcja. Ustalono (AskUserQuestion): rozszerzyć **istniejący** badge `$`
+(`CostPanel` w `DetectionCard`) o koszt AI-resolution, zamiast dodawać osobną ikonkę. Zdecydowano
+dołożyć to do trwającej Fazy 3 (nie osobny cykl plan-review) — mniejszy, ściśle powiązany zakres.
+
+**Pliki**: `src/pages/api/photos/[id].ts`, `src/lib/photos/schema.ts`, `src/components/DetectionReview.tsx`.
+
+**Cel**: `GET /api/photos/[id]` agreguje `resolution_calls` per `detection_id` (ten sam wzorzec co
+istniejący `refineCostByDet`) — nowe pola `resolution_cost_usd`/`resolution_attempts_count` na
+`DetectionWithCandidatesDTO`. Badge `$` w `DetectionCard` sumuje `refine_cost_usd +
+resolution_cost_usd` jako etykietę; tooltip wspomina liczbę prób AI, gdy > 0. `CostPanel` już
+obsługiwał filtrowanie `resolution_calls` po `detectionId` w rozwijanym panelu (S-50) — brak
+zmian w tym komponencie, tylko w danych wejściowych (`label`/`hint`).
+
+**Kontrakt**: `resolution_cost_usd?: number`, `resolution_attempts_count?: number` na DTO.
+Label: `` `$${(refine_cost_usd ?? 0 + resolution_cost_usd ?? 0).toFixed(4)}` `` (gdy suma > 0).
+Hint: `` `Koszt OCR + AI-resolution tej propozycji (${attempts} ${attempts === 1 ? 'próba AI' : 'próby AI'}). Kliknij, by zobaczyć wywołania z cenami.` `` gdy attempts > 0, inaczej dotychczasowy tekst OCR-only.
+
 ### Kryteria sukcesu:
 
 #### Weryfikacja automatyczna:
@@ -299,6 +321,9 @@ pola.
   panelu akcji zdjęcia
 - Wywołaj AI-resolution wielokrotnie (>10 razy) na tym samym zdjęciu w ramach dziennego budżetu —
   żadne wywołanie nie jest blokowane przez limit per-zdjęcie (bo już nie istnieje)
+- Na propozycji (detekcji) z historią AI-resolution — badge `$` pokazuje sumę kosztu OCR +
+  AI-resolution, tooltip po najechaniu wspomina liczbę prób AI; kliknięcie rozwija panel z
+  wywołaniami (już istniejąca funkcjonalność `CostPanel`, tylko zasilona nowymi danymi)
 
 **Uwaga implementacyjna**: Po zakończeniu tej fazy i przejściu wszystkich automatycznych
 weryfikacji, zatrzymaj się tutaj po ręczne potwierdzenie przed przejściem do Fazy 4.
@@ -398,10 +423,10 @@ je czytać w tej samej fazie co migracja) — brak ryzyka utraty aktywnie używa
 
 #### Automatyczne
 
-- [x] 2.1 Testy jednostkowe resolve.test.ts przechodzą (zaktualizowane + nowe)
-- [x] 2.2 Testy jednostkowe profile.test.ts przechodzą (zaktualizowane)
-- [x] 2.3 Testy jednostkowe photos/[id].test.ts przechodzą (nowe)
-- [x] 2.4 Typecheck i lint przechodzą
+- [x] 2.1 Testy jednostkowe resolve.test.ts przechodzą (zaktualizowane + nowe) — 7f8a17a
+- [x] 2.2 Testy jednostkowe profile.test.ts przechodzą (zaktualizowane) — 7f8a17a
+- [x] 2.3 Testy jednostkowe photos/[id].test.ts przechodzą (nowe) — 7f8a17a
+- [x] 2.4 Typecheck i lint przechodzą — 7f8a17a
 
 ### Faza 3: UI
 
@@ -413,9 +438,10 @@ je czytać w tej samej fazie co migracja) — brak ryzyka utraty aktywnie używa
 
 #### Ręczne
 
-- [ ] 3.4 /account nie pokazuje pola "Limit na zdjęcie"
-- [ ] 3.5 Licznik prób widoczny w widoku zdjęcia
-- [ ] 3.6 Wielokrotne wywołania AI-resolution na tym samym zdjęciu nie są blokowane
+- [x] 3.4 /account nie pokazuje pola "Limit na zdjęcie"
+- [x] 3.5 Licznik prób widoczny w widoku zdjęcia
+- [x] 3.6 Wielokrotne wywołania AI-resolution na tym samym zdjęciu nie są blokowane
+- [x] 3.7 Badge $ per propozycja sumuje OCR + AI-resolution, tooltip pokazuje liczbę prób
 
 ### Faza 4: E2E i pełna weryfikacja
 

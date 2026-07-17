@@ -81,13 +81,17 @@ export const GET: APIRoute = async ({ params, locals }) => {
   // z urządzeń mobilnych w LAN (signed URL wskazuje na 127.0.0.1:54321).
   const photo_url = `/api/photos/${id}/image`;
 
-  // M26: pełny koszt zdjęcia (WSZYSTKIE vision_runs + refine_calls — ta sama
-  // suma co dropdown CostPanel/endpoint /costs) + per-detekcja koszt OCR.
+  // M26 + ai-resolution-per-photo-reset: pełny koszt zdjęcia (WSZYSTKIE vision_runs +
+  // refine_calls + resolution_calls — ta sama suma co dropdown CostPanel/endpoint /costs)
+  // + per-detekcja koszt/liczba prób OCR i AI-resolution (etykieta przycisku $ na karcie).
   // Best-effort: koszt to dekoracja UI — błąd degraduje do null, nie 500.
   let costsTotalUsd: number | null = null;
+  let resolutionAttemptsCount: number | null = null;
   const refineCostByDet = new Map<string, number>();
+  const resolutionCostByDet = new Map<string, number>();
+  const resolutionCountByDet = new Map<string, number>();
   try {
-    const [allRunsRes, refineRes] = await Promise.all([
+    const [allRunsRes, refineRes, resolutionRes] = await Promise.all([
       locals.supabase.from('vision_runs').select('cost_usd').eq('photo_id', id),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (locals.supabase as any)
@@ -97,6 +101,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
         data: Array<{ detection_id: string; cost_usd: number | null }> | null;
         error: { message: string } | null;
       }>,
+      locals.supabase.from('resolution_calls').select('detection_id, cost_usd').eq('photo_id', id),
     ]);
     const visionTotal = (allRunsRes.data ?? []).reduce((s, r) => s + (r.cost_usd ?? 0), 0);
     let refineTotal = 0;
@@ -107,24 +112,24 @@ export const GET: APIRoute = async ({ params, locals }) => {
         (refineCostByDet.get(rc.detection_id) ?? 0) + (rc.cost_usd ?? 0),
       );
     }
-    if (!allRunsRes.error) costsTotalUsd = visionTotal + refineTotal;
+    let resolutionTotal = 0;
+    for (const rc of resolutionRes.data ?? []) {
+      resolutionTotal += rc.cost_usd ?? 0;
+      if (rc.detection_id) {
+        resolutionCostByDet.set(
+          rc.detection_id,
+          (resolutionCostByDet.get(rc.detection_id) ?? 0) + (rc.cost_usd ?? 0),
+        );
+        resolutionCountByDet.set(
+          rc.detection_id,
+          (resolutionCountByDet.get(rc.detection_id) ?? 0) + 1,
+        );
+      }
+    }
+    if (!allRunsRes.error) costsTotalUsd = visionTotal + refineTotal + resolutionTotal;
+    if (!resolutionRes.error) resolutionAttemptsCount = (resolutionRes.data ?? []).length;
   } catch (err) {
     console.warn('[api/photos GET] costs total unavailable', {
-      message: err instanceof Error ? err.message : String(err),
-    });
-  }
-
-  // ai-resolution-per-photo-reset: informacyjny licznik prób AI-resolution dla tego zdjęcia
-  // (nie blokuje niczego — czysta dekoracja UI). Best-effort jak costsTotalUsd powyżej.
-  let resolutionAttemptsCount: number | null = null;
-  try {
-    const { count, error: resCountError } = await locals.supabase
-      .from('resolution_calls')
-      .select('id', { count: 'exact', head: true })
-      .eq('photo_id', id);
-    if (!resCountError) resolutionAttemptsCount = count ?? 0;
-  } catch (err) {
-    console.warn('[api/photos GET] resolution attempts count unavailable', {
       message: err instanceof Error ? err.message : String(err),
     });
   }
@@ -329,6 +334,10 @@ export const GET: APIRoute = async ({ params, locals }) => {
       duplicate,
       // M26: koszt OCR (refine) tej detekcji — etykieta przycisku $ na karcie
       refine_cost_usd: refineCostByDet.get(row.id) ?? 0,
+      // ai-resolution-per-photo-reset: koszt/liczba prób AI-resolution tej detekcji —
+      // wliczane do tej samej etykiety $ (razem z refine_cost_usd).
+      resolution_cost_usd: resolutionCostByDet.get(row.id) ?? 0,
+      resolution_attempts_count: resolutionCountByDet.get(row.id) ?? 0,
     };
   });
 

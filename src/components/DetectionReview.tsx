@@ -799,22 +799,29 @@ function DetectionCard({
             </svg>
           </button>
         )}
-        {photoId && (
-          <span onClick={(e) => e.stopPropagation()}>
-            {/* M26: wartość kosztu OCR jako etykieta (gdy >0; bez OCR — sama ikona) */}
-            <CostPanel
-              photoId={photoId}
-              detectionId={detection.id}
-              align="left"
-              label={
-                detection.refine_cost_usd != null && detection.refine_cost_usd > 0
-                  ? `$${detection.refine_cost_usd.toFixed(4)}`
-                  : undefined
-              }
-              hint="Koszt doczytywania OCR tej ramki. Kliknij, by zobaczyć wywołania z cenami."
-            />
-          </span>
-        )}
+        {photoId &&
+          (() => {
+            // M26 + ai-resolution-per-photo-reset: etykieta $ = OCR (refine) + AI-resolution
+            // razem — jedna, spójna suma kosztu tej propozycji (zamiast dwóch osobnych badge'y).
+            const combinedCost =
+              (detection.refine_cost_usd ?? 0) + (detection.resolution_cost_usd ?? 0);
+            const attempts = detection.resolution_attempts_count ?? 0;
+            const hint =
+              attempts > 0
+                ? `Koszt OCR + AI-resolution tej propozycji (${attempts} ${attempts === 1 ? 'próba AI' : 'próby AI'}). Kliknij, by zobaczyć wywołania z cenami.`
+                : 'Koszt doczytywania OCR tej ramki. Kliknij, by zobaczyć wywołania z cenami.';
+            return (
+              <span onClick={(e) => e.stopPropagation()}>
+                <CostPanel
+                  photoId={photoId}
+                  detectionId={detection.id}
+                  align="left"
+                  label={combinedCost > 0 ? `$${combinedCost.toFixed(4)}` : undefined}
+                  hint={hint}
+                />
+              </span>
+            );
+          })()}
       </div>
 
       {/* Duplicate flag */}
@@ -1938,6 +1945,8 @@ type ApiResponse = {
     vision_run: VisionRunMeta | null;
     /** M26: pełny koszt zdjęcia (vision + OCR) — etykieta przycisku kosztów */
     costs_total_usd?: number | null;
+    /** ai-resolution-per-photo-reset: informacyjny licznik prób AI-resolution dla zdjęcia */
+    resolution_attempts_count?: number | null;
   };
   error?: { message?: string };
 };
@@ -2002,6 +2011,8 @@ export default function DetectionReview({
   const [visionRun, setVisionRun] = useState<VisionRunMeta | null>(null);
   // M26: pełny koszt zdjęcia (vision + OCR) z API — etykieta przycisku kosztów
   const [costsTotalUsd, setCostsTotalUsd] = useState<number | null>(null);
+  // ai-resolution-per-photo-reset: informacyjny licznik prób AI-resolution dla zdjęcia
+  const [resolutionAttemptsCount, setResolutionAttemptsCount] = useState<number | null>(null);
   // resolution-openai-compatible-provider: aktywny klucz BYOK widoczny w dialogu
   // "Ponowić vision?" — user musi wiedzieć KTÓRY klucz/provider poniesie koszt
   // przed potwierdzeniem uruchomienia nowego runu.
@@ -2092,6 +2103,7 @@ export default function DetectionReview({
         setDetections(loadedDetections);
         setVisionRun(json.data.vision_run ?? null);
         setCostsTotalUsd(json.data.costs_total_usd ?? null);
+        setResolutionAttemptsCount(json.data.resolution_attempts_count ?? null);
         // M20: potwierdzone w DB liczą się jako zdecydowane (liczniki, bulk),
         // ale NIE jako akcja sesyjna — auto-redirect ich nie uwzględnia.
         const confirmedFromDb = new Set(
@@ -2878,6 +2890,11 @@ export default function DetectionReview({
               </button>
             </span>
           </div>
+          {resolutionAttemptsCount != null && resolutionAttemptsCount > 0 && (
+            <p data-testid="resolution-attempts-count" className="mt-1 text-xs text-gray-500">
+              Próby AI-resolution dla tego zdjęcia: {resolutionAttemptsCount}
+            </p>
+          )}
           {actionMsg && (
             <p data-testid="action-message" className="mt-1 text-xs text-amber-700" role="alert">
               {actionMsg}
