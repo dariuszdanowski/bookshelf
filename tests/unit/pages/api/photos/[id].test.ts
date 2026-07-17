@@ -184,6 +184,138 @@ function makeGetContext(opts: {
 
 beforeEach(() => vi.clearAllMocks());
 
+// Pełny happy-path mock (latestRun niepusty + wiersze detections) — jedyny sposób
+// dotrzeć do mapowania wierszy w GET, które konsumuje resolutionCostByDet/CountByDet
+// (makeGetContext trafia w early-return latestRun=null i nigdy tam nie dociera).
+function makeFullDetectionsContext() {
+  const DET_A = '00000000-0000-4000-8000-0000000000a1';
+  const DET_B = '00000000-0000-4000-8000-0000000000b2';
+
+  const validGetRow = {
+    id: VALID_ID,
+    shelf_id: VALID_SHELF,
+    storage_path: 'user-1/abc.jpg',
+    status: 'processed',
+    detected_count: 2,
+    error_message: null,
+    vision_cost_usd: null,
+    vision_latency_ms: null,
+    created_at: '2026-06-03T12:00:00Z',
+  };
+
+  const photoSelect = vi.fn(() => ({
+    eq: vi.fn(() => ({ single: vi.fn().mockResolvedValue({ data: validGetRow, error: null }) })),
+  }));
+
+  let visionRunsCallCount = 0;
+  const visionRunsSelect = vi.fn(() => {
+    visionRunsCallCount += 1;
+    if (visionRunsCallCount === 1) {
+      return { eq: vi.fn().mockResolvedValue({ data: [], error: null }) };
+    }
+    return {
+      eq: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          order: vi.fn(() => ({
+            limit: vi.fn(() => ({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: {
+                  id: 'run-1',
+                  model: 'test-model',
+                  created_at: '2026-06-03T12:05:00Z',
+                  cost_usd: 0.01,
+                  latency_ms: 900,
+                },
+                error: null,
+              }),
+            })),
+          })),
+        })),
+      })),
+    };
+  });
+
+  const refineSelect = vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ data: [], error: null }) }));
+
+  const resolutionSelect = vi.fn(() => ({
+    eq: vi.fn().mockResolvedValue({
+      data: [
+        { detection_id: DET_A, cost_usd: 0.01 },
+        { detection_id: DET_A, cost_usd: 0.02 },
+        { detection_id: DET_B, cost_usd: 0.05 },
+        { detection_id: null, cost_usd: 0.01 },
+      ],
+      error: null,
+    }),
+  }));
+
+  const detectionsSelect = vi.fn(() => ({
+    eq: vi.fn(() => ({
+      order: vi.fn().mockResolvedValue({
+        data: [
+          {
+            id: DET_A,
+            position_index: 1,
+            raw_title: 'Tytuł A',
+            raw_author: null,
+            vision_confidence: 0.9,
+            spine_color: null,
+            bbox_x1: null,
+            bbox_y1: null,
+            bbox_x2: null,
+            bbox_y2: null,
+            bbox_quad: null,
+            status: 'pending',
+          },
+          {
+            id: DET_B,
+            position_index: 2,
+            raw_title: 'Tytuł B',
+            raw_author: null,
+            vision_confidence: 0.8,
+            spine_color: null,
+            bbox_x1: null,
+            bbox_y1: null,
+            bbox_x2: null,
+            bbox_y2: null,
+            bbox_quad: null,
+            status: 'pending',
+          },
+        ],
+        error: null,
+      }),
+    })),
+  }));
+
+  const candidatesSelect = vi.fn(() => ({
+    in: vi.fn(() => ({ order: vi.fn().mockResolvedValue({ data: [], error: null }) })),
+  }));
+  const booksSelect = vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ data: [], error: null }) }));
+
+  const fromFn = vi.fn((table: string) => {
+    if (table === 'photos') return { select: photoSelect };
+    if (table === 'vision_runs') return { select: visionRunsSelect };
+    if (table === 'refine_calls') return { select: refineSelect };
+    if (table === 'resolution_calls') return { select: resolutionSelect };
+    if (table === 'detections') return { select: detectionsSelect };
+    if (table === 'book_candidates') return { select: candidatesSelect };
+    if (table === 'books') return { select: booksSelect };
+    return {};
+  });
+
+  return {
+    context: {
+      params: { id: VALID_ID },
+      locals: {
+        supabase: { from: fromFn } as never,
+        user: { id: 'user-1', email: 't@test' } as never,
+      },
+    },
+    DET_A,
+    DET_B,
+  };
+}
+
 describe('GET /api/photos/:id', () => {
   it('zwraca resolution_attempts_count (happy path)', async () => {
     const { context } = makeGetContext({
@@ -211,6 +343,30 @@ describe('GET /api/photos/:id', () => {
     expect(res.status).toBe(200);
     const json = (await res.json()) as { data: { resolution_attempts_count: number | null } };
     expect(json.data.resolution_attempts_count).toBeNull();
+  });
+
+  it('agreguje koszt/liczbę prób AI-resolution per detekcja (nie tylko photo-level)', async () => {
+    const { context, DET_A, DET_B } = makeFullDetectionsContext();
+    const res = await GET(context as never);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as {
+      data: {
+        resolution_attempts_count: number | null;
+        detections: Array<{
+          id: string;
+          resolution_cost_usd?: number;
+          resolution_attempts_count?: number;
+        }>;
+      };
+    };
+    expect(json.data.resolution_attempts_count).toBe(4);
+
+    const detA = json.data.detections.find((d) => d.id === DET_A);
+    const detB = json.data.detections.find((d) => d.id === DET_B);
+    expect(detA?.resolution_cost_usd).toBeCloseTo(0.03);
+    expect(detA?.resolution_attempts_count).toBe(2);
+    expect(detB?.resolution_cost_usd).toBeCloseTo(0.05);
+    expect(detB?.resolution_attempts_count).toBe(1);
   });
 });
 
