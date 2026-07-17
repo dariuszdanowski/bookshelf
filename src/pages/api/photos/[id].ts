@@ -114,6 +114,21 @@ export const GET: APIRoute = async ({ params, locals }) => {
     });
   }
 
+  // ai-resolution-per-photo-reset: informacyjny licznik prób AI-resolution dla tego zdjęcia
+  // (nie blokuje niczego — czysta dekoracja UI). Best-effort jak costsTotalUsd powyżej.
+  let resolutionAttemptsCount: number | null = null;
+  try {
+    const { count, error: resCountError } = await locals.supabase
+      .from('resolution_calls')
+      .select('id', { count: 'exact', head: true })
+      .eq('photo_id', id);
+    if (!resCountError) resolutionAttemptsCount = count ?? 0;
+  } catch (err) {
+    console.warn('[api/photos GET] resolution attempts count unavailable', {
+      message: err instanceof Error ? err.message : String(err),
+    });
+  }
+
   // Latest succeeded vision_run — defines which detections to show
   const { data: latestRun, error: runError } = await locals.supabase
     .from('vision_runs')
@@ -145,6 +160,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
         detections: [],
         vision_run: null,
         costs_total_usd: costsTotalUsd,
+        resolution_attempts_count: resolutionAttemptsCount,
       },
     });
   }
@@ -183,7 +199,14 @@ export const GET: APIRoute = async ({ params, locals }) => {
   if (rows.length === 0) {
     const detections: DetectionWithCandidatesDTO[] = [];
     return apiResponse({
-      data: { photo, photo_url, detections, vision_run: visionRun, costs_total_usd: costsTotalUsd },
+      data: {
+        photo,
+        photo_url,
+        detections,
+        vision_run: visionRun,
+        costs_total_usd: costsTotalUsd,
+        resolution_attempts_count: resolutionAttemptsCount,
+      },
     });
   }
 
@@ -310,7 +333,14 @@ export const GET: APIRoute = async ({ params, locals }) => {
   });
 
   return apiResponse({
-    data: { photo, photo_url, detections, vision_run: visionRun, costs_total_usd: costsTotalUsd },
+    data: {
+      photo,
+      photo_url,
+      detections,
+      vision_run: visionRun,
+      costs_total_usd: costsTotalUsd,
+      resolution_attempts_count: resolutionAttemptsCount,
+    },
   });
 };
 

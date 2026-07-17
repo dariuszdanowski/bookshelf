@@ -389,10 +389,10 @@ je czytać w tej samej fazie co migracja) — brak ryzyka utraty aktywnie używa
 
 #### Automatyczne
 
-- [x] 1.1 Migracja stosuje się czysto
-- [x] 1.2 Typecheck przechodzi bez ai_resolution_max_calls_per_photo
-- [x] 1.3 Testy jednostkowe budgetPolicy.test.ts przechodzą (zaktualizowane)
-- [x] 1.4 Lint przechodzi
+- [x] 1.1 Migracja stosuje się czysto — 0c72d9e
+- [x] 1.2 Typecheck przechodzi bez ai_resolution_max_calls_per_photo — 0c72d9e
+- [x] 1.3 Testy jednostkowe budgetPolicy.test.ts przechodzą (zaktualizowane) — 0c72d9e
+- [x] 1.4 Lint przechodzi — 0c72d9e
 
 ### Faza 2: Backend API
 

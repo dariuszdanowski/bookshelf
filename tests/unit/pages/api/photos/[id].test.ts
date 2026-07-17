@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { DELETE, PATCH } from '../../../../../src/pages/api/photos/[id]';
+import { DELETE, GET, PATCH } from '../../../../../src/pages/api/photos/[id]';
 
 const VALID_ID = '12345678-1234-1234-1234-123456789012';
 const VALID_SHELF = '11111111-1111-4111-8111-111111111111';
@@ -109,7 +109,98 @@ function makeDeleteContext(opts: {
   };
 }
 
+function makeGetContext(opts: {
+  id?: string;
+  photoResult?: { data: unknown; error: PgError };
+  resolutionResult?: { count: number | null; error: PgError };
+  user?: { id: string; email: string } | null;
+}) {
+  const validGetRow = {
+    id: VALID_ID,
+    shelf_id: VALID_SHELF,
+    storage_path: 'user-1/abc.jpg',
+    status: 'processed',
+    detected_count: 0,
+    error_message: null,
+    vision_cost_usd: null,
+    vision_latency_ms: null,
+    created_at: '2026-06-03T12:00:00Z',
+  };
+
+  const photoSingle = vi
+    .fn()
+    .mockResolvedValue(opts.photoResult ?? { data: validGetRow, error: null });
+  const photoSelect = vi.fn(() => ({ eq: vi.fn(() => ({ single: photoSingle })) }));
+
+  // vision_runs used twice: (1) cost query `.select('cost_usd').eq('photo_id', id)`,
+  // (2) latest-run query `.select(...).eq().eq().order().limit().maybeSingle()`.
+  let visionRunsCallCount = 0;
+  const visionRunsSelect = vi.fn(() => {
+    visionRunsCallCount += 1;
+    if (visionRunsCallCount === 1) {
+      return { eq: vi.fn().mockResolvedValue({ data: [], error: null }) };
+    }
+    return {
+      eq: vi.fn(() => ({
+        eq: vi.fn(() => ({
+          order: vi.fn(() => ({
+            limit: vi.fn(() => ({
+              maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+            })),
+          })),
+        })),
+      })),
+    };
+  });
+
+  const refineSelect = vi.fn(() => ({ eq: vi.fn().mockResolvedValue({ data: [], error: null }) }));
+
+  const resolutionResult = opts.resolutionResult ?? { count: 0, error: null };
+  const resolutionSelect = vi.fn(() => ({ eq: vi.fn().mockResolvedValue(resolutionResult) }));
+
+  const fromFn = vi.fn((table: string) => {
+    if (table === 'photos') return { select: photoSelect };
+    if (table === 'vision_runs') return { select: visionRunsSelect };
+    if (table === 'refine_calls') return { select: refineSelect };
+    if (table === 'resolution_calls') return { select: resolutionSelect };
+    return {};
+  });
+
+  return {
+    context: {
+      params: { id: opts.id ?? VALID_ID },
+      locals: {
+        supabase: { from: fromFn } as never,
+        user:
+          opts.user === undefined
+            ? ({ id: 'user-1', email: 't@test' } as never)
+            : (opts.user as never),
+      },
+    },
+  };
+}
+
 beforeEach(() => vi.clearAllMocks());
+
+describe('GET /api/photos/:id', () => {
+  it('zwraca resolution_attempts_count (happy path)', async () => {
+    const { context } = makeGetContext({ resolutionResult: { count: 4, error: null } });
+    const res = await GET(context as never);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { data: { resolution_attempts_count: number | null } };
+    expect(json.data.resolution_attempts_count).toBe(4);
+  });
+
+  it('degraduje resolution_attempts_count do null przy błędzie zapytania', async () => {
+    const { context } = makeGetContext({
+      resolutionResult: { count: null, error: { message: 'db down' } },
+    });
+    const res = await GET(context as never);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { data: { resolution_attempts_count: number | null } };
+    expect(json.data.resolution_attempts_count).toBeNull();
+  });
+});
 
 describe('PATCH /api/photos/:id', () => {
   it('updates shelf_id and returns 200 with photo', async () => {

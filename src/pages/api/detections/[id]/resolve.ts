@@ -49,12 +49,10 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
     return apiError({ code: 'NOT_FOUND', status: 404, message: 'Nie znaleziono detekcji.' });
   }
 
-  // Guard: ai_enabled per profile (wzorzec S-26 z process.ts) + limity budżetu per-profil
+  // Guard: ai_enabled per profile (wzorzec S-26 z process.ts) + dzienny limit budżetu per-profil
   const { data: profile } = await locals.supabase
     .from('profiles')
-    .select(
-      'ai_enabled, ai_resolution_max_calls_per_photo, ai_resolution_max_calls_per_day, ai_resolution_daily_reset_at',
-    )
+    .select('ai_enabled, ai_resolution_max_calls_per_day, ai_resolution_daily_reset_at')
     .eq('id', locals.user.id)
     .single();
   if (!profile?.ai_enabled) {
@@ -116,42 +114,33 @@ export const POST: APIRoute = async ({ params, locals, request }) => {
     new Date(),
     profile.ai_resolution_daily_reset_at,
   );
-  const maxCallsPerPhoto =
-    profile.ai_resolution_max_calls_per_photo ?? AI_RESOLUTION_BUDGET_LIMITS.maxCallsPerPhoto;
   const maxCallsPerDay =
     profile.ai_resolution_max_calls_per_day ?? AI_RESOLUTION_BUDGET_LIMITS.maxCallsPerDay;
 
-  const [dayCountResult, photoCountResult] = await Promise.all([
-    sb
-      .from('resolution_calls')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', userId)
-      .gte('created_at', dailyWindowStart.toISOString()),
-    sb
-      .from('resolution_calls')
-      .select('id', { count: 'exact', head: true })
-      .eq('photo_id', detection.photo_id),
-  ]);
+  const dayCountResult = await sb
+    .from('resolution_calls')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .gte('created_at', dailyWindowStart.toISOString());
 
-  if (dayCountResult.error || photoCountResult.error) {
-    console.error('[api/detections/resolve POST] budget count failed', {
-      day: dayCountResult.error?.message,
-      photo: photoCountResult.error?.message,
-    });
+  if (dayCountResult.error) {
+    console.error(
+      '[api/detections/resolve POST] budget count failed',
+      dayCountResult.error.message,
+    );
     return apiError({ code: 'INTERNAL_ERROR', status: 500, message: 'Błąd sprawdzania budżetu.' });
   }
 
   const dayCount = dayCountResult.count ?? 0;
-  const photoCount = photoCountResult.count ?? 0;
   const budgetAvailable = isAiResolutionBudgetAvailable(
-    { callsForDay: dayCount, callsForPhoto: photoCount },
-    { maxCallsPerPhoto, maxCallsPerDay },
+    { callsForDay: dayCount },
+    { maxCallsPerDay },
   );
   if (!budgetAvailable) {
     return apiError({
       code: 'RESOLUTION_BUDGET_EXCEEDED',
       status: 429,
-      message: `Osiągnięto Twój limit AI-resolution (dziennie: ${dayCount}/${maxCallsPerDay}, na zdjęcie: ${photoCount}/${maxCallsPerPhoto}). Zmień limit na /account.`,
+      message: `Osiągnięto Twój dzienny limit AI-resolution (${dayCount}/${maxCallsPerDay}). Zmień limit na /account.`,
     });
   }
 

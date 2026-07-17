@@ -12,12 +12,11 @@ import { z } from 'zod';
 
 // Zod v4: preferowane `z.email()` vs deprecated `z.string().email()`.
 // Partial update (S-31 + budżet AI-resolution per-profil): przynajmniej jedno pole wymagane,
-// żeby pusty `{}` nie przechodził jako no-op 200. Granice liczbowe dopasowane do CHECK
-// constraints z `supabase/migrations/0032_profiles_resolution_budget.sql`.
+// żeby pusty `{}` nie przechodził jako no-op 200. Granica liczbowa dopasowana do CHECK
+// constraint z `supabase/migrations/0032_profiles_resolution_budget.sql`.
 export const UpdateProfileSchema = z
   .object({
     display_name: z.string().trim().min(1).max(100).optional(),
-    ai_resolution_max_calls_per_photo: z.number().int().min(1).max(10).optional(),
     ai_resolution_max_calls_per_day: z.number().int().min(1).max(100).optional(),
   })
   .refine((d) => Object.keys(d).length > 0, {
