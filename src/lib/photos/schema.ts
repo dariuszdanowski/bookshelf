@@ -124,4 +124,8 @@ export type DetectionWithCandidatesDTO = {
   duplicate: { type: 'exact' | 'edition'; shelfHint?: string } | null;
   /** M26: suma kosztów OCR (refine) tej detekcji — etykieta przycisku $ */
   refine_cost_usd?: number;
+  /** ai-resolution-per-photo-reset: suma kosztów AI-resolution tej detekcji — wliczana do $ */
+  resolution_cost_usd?: number;
+  /** ai-resolution-per-photo-reset: liczba prób AI-resolution tej detekcji */
+  resolution_attempts_count?: number;
 };

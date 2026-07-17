@@ -10,8 +10,8 @@ export const prerender = false;
 /**
  * PATCH /api/account/profile
  *
- * Partial update zalogowanego usera: `display_name` i/lub limity budżetu
- * AI-resolution (`ai_resolution_max_calls_per_photo`/`_per_day`). RLS
+ * Partial update zalogowanego usera: `display_name` i/lub dzienny limit budżetu
+ * AI-resolution (`ai_resolution_max_calls_per_day`). RLS
  * (`profiles_update_own`) scopuje update do `auth.uid()`; `.eq('id', user.id)`
  * dodane explicite dla czytelności + parytetu z `.single()`. Profil zawsze
  * istnieje (bootstrap `handle_new_user`, migracja 0003), więc 0 rows =
@@ -49,11 +49,10 @@ export const PATCH: APIRoute = async ({ request, locals }) => {
     .from('profiles')
     .update({
       display_name: parsed.data.display_name,
-      ai_resolution_max_calls_per_photo: parsed.data.ai_resolution_max_calls_per_photo,
       ai_resolution_max_calls_per_day: parsed.data.ai_resolution_max_calls_per_day,
     })
     .eq('id', locals.user.id)
-    .select('id, display_name, ai_resolution_max_calls_per_photo, ai_resolution_max_calls_per_day')
+    .select('id, display_name, ai_resolution_max_calls_per_day')
     .single();
 
   if (error) {
@@ -86,7 +85,6 @@ export const PATCH: APIRoute = async ({ request, locals }) => {
       profile: {
         id: data.id,
         display_name: data.display_name,
-        ai_resolution_max_calls_per_photo: data.ai_resolution_max_calls_per_photo,
         ai_resolution_max_calls_per_day: data.ai_resolution_max_calls_per_day,
       },
     },

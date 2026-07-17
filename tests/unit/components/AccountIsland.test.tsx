@@ -107,58 +107,41 @@ describe('AccountIsland — display_name', () => {
 });
 
 describe('AccountIsland — limity AI-resolution', () => {
-  it('renderuje initial values w polach i wskaźniku zużycia', async () => {
+  it('renderuje initial value w polu i wskaźniku zużycia', async () => {
     stubFetch({ ok: true, body: MOCK_STATS });
     render(
       <AccountIsland
         initialDisplayName={INITIAL_DISPLAY_NAME}
         userEmail={USER_EMAIL}
-        initialMaxCallsPerPhoto={5}
         initialMaxCallsPerDay={30}
         initialUsageToday={7}
       />,
     );
 
-    expect(
-      (screen.getByTestId('account-resolution-max-photo-input') as HTMLInputElement).value,
-    ).toBe('5');
     expect((screen.getByTestId('account-resolution-max-day-input') as HTMLInputElement).value).toBe(
       '30',
     );
     expect(screen.getByTestId('account-resolution-usage-today')).toHaveTextContent('7 / 30');
   });
 
-  it('renderuje defaulty 3/20/0 gdy propsy pominięte', async () => {
+  it('renderuje defaulty 20/0 gdy propsy pominięte', async () => {
     stubFetch({ ok: true, body: MOCK_STATS });
     render(<AccountIsland initialDisplayName={INITIAL_DISPLAY_NAME} userEmail={USER_EMAIL} />);
 
-    expect(
-      (screen.getByTestId('account-resolution-max-photo-input') as HTMLInputElement).value,
-    ).toBe('3');
     expect((screen.getByTestId('account-resolution-max-day-input') as HTMLInputElement).value).toBe(
       '20',
     );
     expect(screen.getByTestId('account-resolution-usage-today')).toHaveTextContent('0 / 20');
   });
 
-  it('zapisuje limity i pokazuje sukces', async () => {
+  it('zapisuje limit i pokazuje sukces', async () => {
     stubFetch(
       { ok: true, body: MOCK_STATS },
       { ok: true, body: MOCK_STATS },
-      {
-        ok: true,
-        body: {
-          data: {
-            profile: { ai_resolution_max_calls_per_photo: 5, ai_resolution_max_calls_per_day: 40 },
-          },
-        },
-      },
+      { ok: true, body: { data: { profile: { ai_resolution_max_calls_per_day: 40 } } } },
     );
 
     render(<AccountIsland initialDisplayName={INITIAL_DISPLAY_NAME} userEmail={USER_EMAIL} />);
-    fireEvent.change(screen.getByTestId('account-resolution-max-photo-input'), {
-      target: { value: '5' },
-    });
     fireEvent.change(screen.getByTestId('account-resolution-max-day-input'), {
       target: { value: '40' },
     });
@@ -185,22 +168,18 @@ describe('AccountIsland — limity AI-resolution', () => {
     expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2);
   });
 
-  it('"Przywróć domyślne" resetuje pola bez fetcha', async () => {
+  it('"Przywróć domyślne" resetuje pole bez fetcha', async () => {
     stubFetch({ ok: true, body: MOCK_STATS });
 
     render(
       <AccountIsland
         initialDisplayName={INITIAL_DISPLAY_NAME}
         userEmail={USER_EMAIL}
-        initialMaxCallsPerPhoto={7}
         initialMaxCallsPerDay={50}
       />,
     );
     fireEvent.click(screen.getByTestId('account-resolution-restore-defaults'));
 
-    expect(
-      (screen.getByTestId('account-resolution-max-photo-input') as HTMLInputElement).value,
-    ).toBe('3');
     expect((screen.getByTestId('account-resolution-max-day-input') as HTMLInputElement).value).toBe(
       '20',
     );

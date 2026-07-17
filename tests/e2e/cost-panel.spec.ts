@@ -12,6 +12,9 @@ const PHOTO_ID = '00000000-0000-4000-8000-000000000aa1';
 const SHELF_ID = '00000000-0000-4000-8000-000000000aa2';
 const DET_1_ID = '00000000-0000-4000-8000-000000000b01';
 const DET_2_ID = '00000000-0000-4000-8000-000000000b02';
+// ai-resolution-per-photo-reset: detekcja z historią AI-resolution — osobna od DET_1/DET_2
+// żeby nie zmieniać ich istniejących, już zweryfikowanych oczekiwań (tylko OCR).
+const DET_3_ID = '00000000-0000-4000-8000-000000000b03';
 
 const TINY_GIF = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 
@@ -65,6 +68,23 @@ async function setupRoutes(page: Page) {
               duplicate: null,
               refine_cost_usd: 0,
             },
+            // ai-resolution-per-photo-reset: det #3 ma koszt OCR + AI-resolution —
+            // przycisk $ łączy oba (etykieta = suma), tooltip wspomina liczbę prób AI.
+            {
+              id: DET_3_ID,
+              position_index: 3,
+              raw_title: 'Mrożek',
+              raw_author: null,
+              vision_confidence: 0.6,
+              spine_color: null,
+              bbox: { x1: 0.45, y1: 0.02, x2: 0.55, y2: 0.35 },
+              status: 'matched',
+              candidates: [],
+              duplicate: null,
+              refine_cost_usd: 0.002,
+              resolution_cost_usd: 0.005,
+              resolution_attempts_count: 2,
+            },
           ],
           vision_run: {
             id: 'vr-1',
@@ -73,8 +93,11 @@ async function setupRoutes(page: Page) {
             cost_usd: 0.015,
             latency_ms: 3200,
           },
-          // M26: pełna suma (vision 0.015 + refine 0.0031) — etykieta przycisku
-          costs_total_usd: 0.0181,
+          // M26 + ai-resolution-per-photo-reset: pełna suma (vision 0.015 + refine 0.0031 +
+          // resolution 0.005) — etykieta przycisku
+          costs_total_usd: 0.0231,
+          // ai-resolution-per-photo-reset: licznik prób AI-resolution dla zdjęcia
+          resolution_attempts_count: 2,
         },
       }),
     });
@@ -109,11 +132,25 @@ async function setupRoutes(page: Page) {
               created_at: '2026-06-01T10:05:00Z',
             },
           ],
+          resolution_calls: [
+            {
+              id: 'rs-1',
+              detection_id: DET_3_ID,
+              position_index: 3,
+              raw_title: 'Mrożek',
+              model: 'claude-sonnet-4-6',
+              cost_usd: 0.005,
+              latency_ms: 4200,
+              status: 'found',
+              created_at: '2026-06-01T10:06:00Z',
+            },
+          ],
           totals: {
             vision_cost_usd: 0.015,
             refine_cost_usd: 0.0031,
-            grand_total_usd: 0.0181,
-            call_count: 2,
+            resolution_cost_usd: 0.005,
+            grand_total_usd: 0.0231,
+            call_count: 3,
           },
         },
       }),
@@ -135,9 +172,9 @@ test.describe('cost-panel', () => {
   }) => {
     const btn = page.getByTestId('cost-button-photo');
     await expect(btn).toBeVisible();
-    // M26: etykieta = costs_total_usd (0.015 vision + 0.0031 refine), NIE koszt
-    // ostatniego runa; spójna z sumą w dropdownie
-    await expect(btn).toHaveText(/\$0\.0181/);
+    // M26 + ai-resolution-per-photo-reset: etykieta = costs_total_usd (0.015 vision +
+    // 0.0031 refine + 0.005 resolution), NIE koszt ostatniego runa; spójna z sumą w dropdownie
+    await expect(btn).toHaveText(/\$0\.0231/);
     // przycisk żyje w panelu vision-run pod zdjęciem, nie w toolbarze overlay
     await expect(
       page.getByTestId('vision-run-panel').getByTestId('cost-button-photo'),
@@ -163,9 +200,9 @@ test.describe('cost-panel', () => {
     await expect(panel).toContainText('Vision');
     // Zawiera OCR wpis
     await expect(panel).toContainText('OCR #1');
-    // Suma
+    // Suma (obejmuje teraz też koszt AI-resolution detekcji #3)
     await expect(panel).toContainText('Suma');
-    await expect(panel).toContainText('$0.0181');
+    await expect(panel).toContainText('$0.0231');
   });
 
   test('drugi klik $ zamyka panel', async ({ page }) => {
@@ -245,5 +282,32 @@ test.describe('cost-panel', () => {
     await page.getByTestId('cost-button-photo').click();
     await costsRequestPromise;
     expect(costsCalled).toBe(true);
+  });
+
+  // ── ai-resolution-per-photo-reset: licznik prób + badge $ łączący OCR+AI ──
+
+  test('licznik prób AI-resolution widoczny w panelu zdjęcia', async ({ page }) => {
+    await expect(page.getByTestId('resolution-attempts-count')).toBeVisible();
+    await expect(page.getByTestId('resolution-attempts-count')).toContainText('2');
+  });
+
+  test('badge $ na detekcji z AI-resolution łączy koszt OCR + AI, tooltip wspomina liczbę prób', async ({
+    page,
+  }) => {
+    const btn = page.getByTestId(`cost-button-det-${DET_3_ID}`);
+    await expect(btn).toHaveText(/\$0\.0070/);
+    await expect(btn).toHaveAttribute('title', /2 próby AI/);
+  });
+
+  test('klik $ na detekcji z AI-resolution pokazuje wpis AI w rozwijanym panelu', async ({
+    page,
+  }) => {
+    const btn = page.getByTestId(`cost-button-det-${DET_3_ID}`);
+    await btn.click();
+
+    const panel = btn.locator('..').locator('div.absolute');
+    await expect(panel).toBeVisible();
+    await expect(panel).toContainText('AI');
+    await expect(panel).toContainText('$0.0050');
   });
 });

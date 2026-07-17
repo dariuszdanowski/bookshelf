@@ -19,16 +19,14 @@ type StatsData = {
   cost_by_key?: Record<string, { cost_usd: number; call_count: number }>;
 };
 
-// Defaulty muszą pozostać zsynchronizowane z AI_RESOLUTION_BUDGET_LIMITS
+// Default musi pozostać zsynchronizowany z AI_RESOLUTION_BUDGET_LIMITS
 // (src/lib/resolution/budgetPolicy.ts) — fallback dla propsów pominiętych w
 // istniejących testach/wywołaniach, nie duplikat źródła prawdy.
-const DEFAULT_MAX_CALLS_PER_PHOTO = 3;
 const DEFAULT_MAX_CALLS_PER_DAY = 20;
 
 interface Props {
   initialDisplayName: string | null;
   userEmail: string;
-  initialMaxCallsPerPhoto?: number;
   initialMaxCallsPerDay?: number;
   initialUsageToday?: number;
 }
@@ -42,7 +40,6 @@ function formatUsd(val: number): string {
 export default function AccountIsland({
   initialDisplayName,
   userEmail,
-  initialMaxCallsPerPhoto = DEFAULT_MAX_CALLS_PER_PHOTO,
   initialMaxCallsPerDay = DEFAULT_MAX_CALLS_PER_DAY,
   initialUsageToday = 0,
 }: Props) {
@@ -53,8 +50,7 @@ export default function AccountIsland({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // Limity AI-resolution (budżet per-profil)
-  const [maxCallsPerPhoto, setMaxCallsPerPhoto] = useState(String(initialMaxCallsPerPhoto));
+  // Limit dzienny AI-resolution (budżet per-profil)
   const [maxCallsPerDay, setMaxCallsPerDay] = useState(String(initialMaxCallsPerDay));
   const [usageToday, setUsageToday] = useState(initialUsageToday);
   const [limitsSaving, setLimitsSaving] = useState(false);
@@ -188,14 +184,12 @@ export default function AccountIsland({
   }
 
   async function handleSaveLimits() {
-    const photoNum = Number(maxCallsPerPhoto);
     const dayNum = Number(maxCallsPerDay);
     const parsed = UpdateProfileSchema.safeParse({
-      ai_resolution_max_calls_per_photo: photoNum,
       ai_resolution_max_calls_per_day: dayNum,
     });
     if (!parsed.success) {
-      setLimitsError('Limit na zdjęcie: 1-10, limit dzienny: 1-100.');
+      setLimitsError('Limit dzienny: 1-100.');
       return;
     }
 
@@ -208,29 +202,20 @@ export default function AccountIsland({
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ai_resolution_max_calls_per_photo: parsed.data.ai_resolution_max_calls_per_photo,
           ai_resolution_max_calls_per_day: parsed.data.ai_resolution_max_calls_per_day,
         }),
       });
 
-      type LimitsOk = {
-        data: {
-          profile: {
-            ai_resolution_max_calls_per_photo: number;
-            ai_resolution_max_calls_per_day: number;
-          };
-        };
-      };
+      type LimitsOk = { data: { profile: { ai_resolution_max_calls_per_day: number } } };
       type LimitsErr = { error: { code: string; message: string } };
       const json = (await res.json()) as LimitsOk | LimitsErr;
 
       if (res.ok && 'data' in json) {
-        setMaxCallsPerPhoto(String(json.data.profile.ai_resolution_max_calls_per_photo));
         setMaxCallsPerDay(String(json.data.profile.ai_resolution_max_calls_per_day));
         setLimitsSuccess(true);
       } else {
         const failure = json as LimitsErr;
-        setLimitsError(failure.error?.message ?? 'Nie udało się zapisać limitów.');
+        setLimitsError(failure.error?.message ?? 'Nie udało się zapisać limitu.');
       }
     } catch {
       setLimitsError('Błąd sieci. Spróbuj ponownie.');
@@ -240,7 +225,6 @@ export default function AccountIsland({
   }
 
   function handleRestoreDefaults() {
-    setMaxCallsPerPhoto(String(DEFAULT_MAX_CALLS_PER_PHOTO));
     setMaxCallsPerDay(String(DEFAULT_MAX_CALLS_PER_DAY));
     setLimitsSuccess(false);
     setLimitsError(null);
@@ -575,45 +559,24 @@ export default function AccountIsland({
           >
             Dzisiejsze zużycie: {usageToday} / {maxCallsPerDay}
           </p>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label htmlFor="resolution_max_per_photo" className="block text-sm font-medium">
-                Limit na zdjęcie
-              </label>
-              <input
-                id="resolution_max_per_photo"
-                type="number"
-                min={1}
-                max={10}
-                value={maxCallsPerPhoto}
-                onChange={(e) => {
-                  setMaxCallsPerPhoto(e.target.value);
-                  setLimitsSuccess(false);
-                  setLimitsError(null);
-                }}
-                className={`mt-1 ${inputCls}`}
-                data-testid="account-resolution-max-photo-input"
-              />
-            </div>
-            <div>
-              <label htmlFor="resolution_max_per_day" className="block text-sm font-medium">
-                Limit dzienny
-              </label>
-              <input
-                id="resolution_max_per_day"
-                type="number"
-                min={1}
-                max={100}
-                value={maxCallsPerDay}
-                onChange={(e) => {
-                  setMaxCallsPerDay(e.target.value);
-                  setLimitsSuccess(false);
-                  setLimitsError(null);
-                }}
-                className={`mt-1 ${inputCls}`}
-                data-testid="account-resolution-max-day-input"
-              />
-            </div>
+          <div>
+            <label htmlFor="resolution_max_per_day" className="block text-sm font-medium">
+              Limit dzienny
+            </label>
+            <input
+              id="resolution_max_per_day"
+              type="number"
+              min={1}
+              max={100}
+              value={maxCallsPerDay}
+              onChange={(e) => {
+                setMaxCallsPerDay(e.target.value);
+                setLimitsSuccess(false);
+                setLimitsError(null);
+              }}
+              className={`mt-1 ${inputCls}`}
+              data-testid="account-resolution-max-day-input"
+            />
           </div>
           {limitsError && (
             <p className="text-sm text-red-600" data-testid="account-resolution-limits-error">

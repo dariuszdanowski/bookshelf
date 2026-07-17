@@ -7,7 +7,6 @@ const USER_ID = '00000000-0000-4000-8000-000000000001';
 type Row = {
   id: string;
   display_name: string | null;
-  ai_resolution_max_calls_per_photo?: number;
   ai_resolution_max_calls_per_day?: number;
 };
 type QResult = {
@@ -123,17 +122,12 @@ describe('PATCH /api/account/profile', () => {
     expect(json.error.code).toBe('INTERNAL_ERROR');
   });
 
-  it('partial update tylko z polami budżetu (bez display_name) — 200', async () => {
+  it('partial update tylko z polem budżetu (bez display_name) — 200', async () => {
     let capturedPayload: unknown;
     const ctx = makeContext({
-      body: { ai_resolution_max_calls_per_photo: 5, ai_resolution_max_calls_per_day: 30 },
+      body: { ai_resolution_max_calls_per_day: 30 },
       result: {
-        data: {
-          id: USER_ID,
-          display_name: null,
-          ai_resolution_max_calls_per_photo: 5,
-          ai_resolution_max_calls_per_day: 30,
-        },
+        data: { id: USER_ID, display_name: null, ai_resolution_max_calls_per_day: 30 },
         error: null,
       },
       onUpdate: (payload) => (capturedPayload = payload),
@@ -141,14 +135,8 @@ describe('PATCH /api/account/profile', () => {
     const res = await PATCH(ctx as never);
     expect(res.status).toBe(200);
     const json = (await res.json()) as {
-      data: {
-        profile: {
-          ai_resolution_max_calls_per_photo: number;
-          ai_resolution_max_calls_per_day: number;
-        };
-      };
+      data: { profile: { ai_resolution_max_calls_per_day: number } };
     };
-    expect(json.data.profile.ai_resolution_max_calls_per_photo).toBe(5);
     expect(json.data.profile.ai_resolution_max_calls_per_day).toBe(30);
     expect(capturedPayload).toMatchObject({ display_name: undefined });
   });
@@ -162,7 +150,7 @@ describe('PATCH /api/account/profile', () => {
   });
 
   it('zwraca 400 gdy limit poza zakresem (Zod, przed dotarciem do DB)', async () => {
-    const ctx = makeContext({ body: { ai_resolution_max_calls_per_photo: 999 } });
+    const ctx = makeContext({ body: { ai_resolution_max_calls_per_day: 999 } });
     const res = await PATCH(ctx as never);
     expect(res.status).toBe(400);
     const json = (await res.json()) as { error: { code: string } };

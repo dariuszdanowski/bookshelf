@@ -7,80 +7,36 @@ import {
 } from '../../../../src/lib/resolution/budgetPolicy';
 
 describe('isAiResolutionBudgetAvailable', () => {
-  it('dostępny gdy oba liczniki poniżej limitu', () => {
-    expect(isAiResolutionBudgetAvailable({ callsForPhoto: 0, callsForDay: 0 })).toBe(true);
+  it('dostępny gdy dzienny licznik poniżej limitu', () => {
+    expect(isAiResolutionBudgetAvailable({ callsForDay: 0 })).toBe(true);
     expect(
       isAiResolutionBudgetAvailable({
-        callsForPhoto: AI_RESOLUTION_BUDGET_LIMITS.maxCallsPerPhoto - 1,
         callsForDay: AI_RESOLUTION_BUDGET_LIMITS.maxCallsPerDay - 1,
       }),
     ).toBe(true);
   });
 
-  it('granica per-photo: dokładnie na limicie → niedostępny', () => {
-    expect(
-      isAiResolutionBudgetAvailable({
-        callsForPhoto: AI_RESOLUTION_BUDGET_LIMITS.maxCallsPerPhoto,
-        callsForDay: 0,
-      }),
-    ).toBe(false);
-  });
-
   it('granica dzienna: dokładnie na limicie → niedostępny', () => {
     expect(
-      isAiResolutionBudgetAvailable({
-        callsForPhoto: 0,
-        callsForDay: AI_RESOLUTION_BUDGET_LIMITS.maxCallsPerDay,
-      }),
+      isAiResolutionBudgetAvailable({ callsForDay: AI_RESOLUTION_BUDGET_LIMITS.maxCallsPerDay }),
     ).toBe(false);
   });
 
-  it('oba liczniki są niezależne — przekroczenie jednego blokuje mimo że drugi jest w normie', () => {
+  it('powyżej dziennego limitu → niedostępny', () => {
     expect(
       isAiResolutionBudgetAvailable({
-        callsForPhoto: AI_RESOLUTION_BUDGET_LIMITS.maxCallsPerPhoto,
-        callsForDay: 0,
-      }),
-    ).toBe(false);
-    expect(
-      isAiResolutionBudgetAvailable({
-        callsForPhoto: 0,
-        callsForDay: AI_RESOLUTION_BUDGET_LIMITS.maxCallsPerDay,
-      }),
-    ).toBe(false);
-  });
-
-  it('powyżej obu limitów → niedostępny', () => {
-    expect(
-      isAiResolutionBudgetAvailable({
-        callsForPhoto: AI_RESOLUTION_BUDGET_LIMITS.maxCallsPerPhoto + 1,
         callsForDay: AI_RESOLUTION_BUDGET_LIMITS.maxCallsPerDay + 1,
       }),
     ).toBe(false);
   });
 
-  it('respektuje custom limity przekazane jako parametr (niższe niż default)', () => {
-    expect(
-      isAiResolutionBudgetAvailable(
-        { callsForPhoto: 1, callsForDay: 0 },
-        { maxCallsPerPhoto: 1, maxCallsPerDay: 20 },
-      ),
-    ).toBe(false);
-    expect(
-      isAiResolutionBudgetAvailable(
-        { callsForPhoto: 0, callsForDay: 0 },
-        { maxCallsPerPhoto: 1, maxCallsPerDay: 20 },
-      ),
-    ).toBe(true);
+  it('respektuje custom limit przekazany jako parametr (niższy niż default)', () => {
+    expect(isAiResolutionBudgetAvailable({ callsForDay: 1 }, { maxCallsPerDay: 1 })).toBe(false);
+    expect(isAiResolutionBudgetAvailable({ callsForDay: 0 }, { maxCallsPerDay: 1 })).toBe(true);
   });
 
-  it('respektuje custom limity przekazane jako parametr (wyższe niż default)', () => {
-    expect(
-      isAiResolutionBudgetAvailable(
-        { callsForPhoto: 5, callsForDay: 50 },
-        { maxCallsPerPhoto: 10, maxCallsPerDay: 100 },
-      ),
-    ).toBe(true);
+  it('respektuje custom limit przekazany jako parametr (wyższy niż default)', () => {
+    expect(isAiResolutionBudgetAvailable({ callsForDay: 50 }, { maxCallsPerDay: 100 })).toBe(true);
   });
 });
 
