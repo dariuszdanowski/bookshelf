@@ -2,23 +2,19 @@
 // matching/fallbackPolicy.ts::REFINE_BUDGET_LIMITS (martwy kod, nigdy niewpięty),
 // ten budżet jest faktycznie wołany z endpointu (src/pages/api/detections/[id]/resolve.ts).
 export const AI_RESOLUTION_BUDGET_LIMITS = {
-  maxCallsPerPhoto: 3,
   maxCallsPerUserAction: 1,
   maxCallsPerDay: 20,
 } as const;
 
-export type AiResolutionBudgetState = {
-  callsForPhoto: number;
-  callsForDay: number;
-};
+export type AiResolutionBudgetState = { callsForDay: number };
 
-export type AiResolutionBudgetLimits = { maxCallsPerPhoto: number; maxCallsPerDay: number };
+export type AiResolutionBudgetLimits = { maxCallsPerDay: number };
 
 export function isAiResolutionBudgetAvailable(
   state: AiResolutionBudgetState,
   limits: AiResolutionBudgetLimits = AI_RESOLUTION_BUDGET_LIMITS,
 ): boolean {
-  return state.callsForPhoto < limits.maxCallsPerPhoto && state.callsForDay < limits.maxCallsPerDay;
+  return state.callsForDay < limits.maxCallsPerDay;
 }
 
 // Efektywny początek "dzisiaj" dla liczenia dziennego budżetu — domyślnie północ UTC,

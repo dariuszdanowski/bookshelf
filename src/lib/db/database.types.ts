@@ -350,7 +350,6 @@ export type Database = {
           ai_enabled: boolean;
           ai_resolution_daily_reset_at: string | null;
           ai_resolution_max_calls_per_day: number;
-          ai_resolution_max_calls_per_photo: number;
           created_at: string;
           deleted_at: string | null;
           display_name: string | null;
@@ -362,7 +361,6 @@ export type Database = {
           ai_enabled?: boolean;
           ai_resolution_daily_reset_at?: string | null;
           ai_resolution_max_calls_per_day?: number;
-          ai_resolution_max_calls_per_photo?: number;
           created_at?: string;
           deleted_at?: string | null;
           display_name?: string | null;
@@ -374,7 +372,6 @@ export type Database = {
           ai_enabled?: boolean;
           ai_resolution_daily_reset_at?: string | null;
           ai_resolution_max_calls_per_day?: number;
-          ai_resolution_max_calls_per_photo?: number;
           created_at?: string;
           deleted_at?: string | null;
           display_name?: string | null;
