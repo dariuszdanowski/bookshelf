@@ -432,27 +432,27 @@ je czytać w tej samej fazie co migracja) — brak ryzyka utraty aktywnie używa
 
 #### Automatyczne
 
-- [x] 3.1 Testy jednostkowe AccountIsland.test.tsx przechodzą (zaktualizowane)
-- [x] 3.2 Testy jednostkowe DetectionReview.test.tsx przechodzą (nowe)
-- [x] 3.3 Typecheck, lint, build przechodzą
+- [x] 3.1 Testy jednostkowe AccountIsland.test.tsx przechodzą (zaktualizowane) — 8484975
+- [x] 3.2 Testy jednostkowe DetectionReview.test.tsx przechodzą (nowe) — 8484975
+- [x] 3.3 Typecheck, lint, build przechodzą — 8484975
 
 #### Ręczne
 
-- [x] 3.4 /account nie pokazuje pola "Limit na zdjęcie"
-- [x] 3.5 Licznik prób widoczny w widoku zdjęcia
-- [x] 3.6 Wielokrotne wywołania AI-resolution na tym samym zdjęciu nie są blokowane
-- [x] 3.7 Badge $ per propozycja sumuje OCR + AI-resolution, tooltip pokazuje liczbę prób
+- [x] 3.4 /account nie pokazuje pola "Limit na zdjęcie" — 8484975
+- [x] 3.5 Licznik prób widoczny w widoku zdjęcia — 8484975
+- [x] 3.6 Wielokrotne wywołania AI-resolution na tym samym zdjęciu nie są blokowane — 8484975
+- [x] 3.7 Badge $ per propozycja sumuje OCR + AI-resolution, tooltip pokazuje liczbę prób — 8484975
 
 ### Faza 4: E2E i pełna weryfikacja
 
 #### Automatyczne
 
-- [ ] 4.1 Lint zielony
-- [ ] 4.2 Typecheck zielony
-- [ ] 4.3 Pełna suita Vitest zielona
-- [ ] 4.4 Playwright account.spec.ts zielony (pełna suita w CI, nie lokalnie)
-- [ ] 4.5 Build przechodzi
+- [x] 4.1 Lint zielony
+- [x] 4.2 Typecheck zielony
+- [x] 4.3 Pełna suita Vitest zielona (1285/1285)
+- [x] 4.4 Playwright account.spec.ts zielony (8/8; pełna suita w CI, nie lokalnie)
+- [x] 4.5 Build przechodzi
 
 #### Ręczne
 
-- [ ] 4.6 Pełny smoke na /account i widoku zdjęcia bez regresji
+- [x] 4.6 Pełny smoke na /account i widoku zdjęcia bez regresji

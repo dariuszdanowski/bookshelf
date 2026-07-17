@@ -119,10 +119,8 @@ test('/account → limit AI-resolution: zapis przeżywa reload, przywróć domy�
     page.getByTestId('account-stats-content').or(page.getByTestId('account-stats-error')),
   ).toBeVisible({ timeout: 8_000 });
 
-  const photoInput = page.getByTestId('account-resolution-max-photo-input');
   const dayInput = page.getByTestId('account-resolution-max-day-input');
 
-  await photoInput.fill('5');
   await dayInput.fill('15');
   await page.getByTestId('account-resolution-save').click();
   await expect(page.getByTestId('account-resolution-limits-success')).toBeVisible({
@@ -130,19 +128,15 @@ test('/account → limit AI-resolution: zapis przeżywa reload, przywróć domy�
   });
 
   await page.reload();
-  await expect(page.getByTestId('account-resolution-max-photo-input')).toHaveValue('5');
   await expect(page.getByTestId('account-resolution-max-day-input')).toHaveValue('15');
 
   // "Przywróć domyślne" — tylko lokalna zmiana formularza, bez zapisu.
   await page.getByTestId('account-resolution-restore-defaults').click();
-  await expect(page.getByTestId('account-resolution-max-photo-input')).toHaveValue('3');
   await expect(page.getByTestId('account-resolution-max-day-input')).toHaveValue('20');
   await page.reload();
-  await expect(page.getByTestId('account-resolution-max-photo-input')).toHaveValue('5');
   await expect(page.getByTestId('account-resolution-max-day-input')).toHaveValue('15');
 
   // Sprzątanie: przywróć wartości domyślne dla kolejnych testów/runów.
-  await page.getByTestId('account-resolution-max-photo-input').fill('3');
   await page.getByTestId('account-resolution-max-day-input').fill('20');
   await page.getByTestId('account-resolution-save').click();
   await expect(page.getByTestId('account-resolution-limits-success')).toBeVisible({
