@@ -239,12 +239,12 @@ Nie dotyczy — brak zmian schematu DB.
 
 #### Automatyczne
 
-- [x] 1.1 npm run lint przechodzi
-- [x] 1.2 npx astro check przechodzi
-- [x] 1.3 tests/unit/lib/keys/probe.test.ts (nowy) przechodzi
-- [x] 1.4 tests/unit/lib/keys/schema.test.ts (rozszerzony) przechodzi
-- [x] 1.5 tests/unit/pages/api/account/keys/models.test.ts (nowy) przechodzi
-- [x] 1.6 npm test (cała suita) zielone
+- [x] 1.1 npm run lint przechodzi — fbf6d17
+- [x] 1.2 npx astro check przechodzi — fbf6d17
+- [x] 1.3 tests/unit/lib/keys/probe.test.ts (nowy) przechodzi — fbf6d17
+- [x] 1.4 tests/unit/lib/keys/schema.test.ts (rozszerzony) przechodzi — fbf6d17
+- [x] 1.5 tests/unit/pages/api/account/keys/models.test.ts (nowy) przechodzi — fbf6d17
+- [x] 1.6 npm test (cała suita) zielone — fbf6d17
 
 ### Faza 2: Frontend — UI w AccountIsland
 
