@@ -4,6 +4,8 @@ import {
   UpdateKeySchema,
   ApiKeyDTO,
   ApiKeyOverrideSchema,
+  ListModelsInputSchema,
+  normalizeBaseUrl,
 } from '../../../../src/lib/keys/schema';
 
 describe('CreateKeySchema', () => {
@@ -193,6 +195,63 @@ describe('ApiKeyDTO', () => {
 
   it('odrzuca brak wymaganych pól', () => {
     const result = ApiKeyDTO.safeParse({ id: '00000000-0000-4000-8000-000000000001' });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('normalizeBaseUrl', () => {
+  it('usuwa trailing /v1 i trailing slash', () => {
+    expect(normalizeBaseUrl('https://relay.example.com/v1')).toBe('https://relay.example.com');
+    expect(normalizeBaseUrl('https://relay.example.com/v1/')).toBe('https://relay.example.com');
+    expect(normalizeBaseUrl('https://relay.example.com/')).toBe('https://relay.example.com');
+  });
+
+  it('nie zmienia URL bez trailing /v1', () => {
+    expect(normalizeBaseUrl('https://relay.example.com')).toBe('https://relay.example.com');
+  });
+});
+
+describe('ListModelsInputSchema', () => {
+  it('akceptuje z key_value (bez id)', () => {
+    const result = ListModelsInputSchema.safeParse({
+      provider: 'openai_compatible',
+      base_url: 'https://relay.example.com',
+      key_value: 'test-key',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('akceptuje z id (bez key_value)', () => {
+    const result = ListModelsInputSchema.safeParse({
+      provider: 'openai_compatible',
+      base_url: 'https://relay.example.com',
+      id: '00000000-0000-4000-8000-000000000001',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('odrzuca gdy brak zarówno id jak i key_value', () => {
+    const result = ListModelsInputSchema.safeParse({
+      provider: 'openai_compatible',
+      base_url: 'https://relay.example.com',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('odrzuca nieprawidłowy URL w base_url', () => {
+    const result = ListModelsInputSchema.safeParse({
+      provider: 'openai_compatible',
+      base_url: 'not-a-url',
+      key_value: 'test-key',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('odrzuca brak base_url', () => {
+    const result = ListModelsInputSchema.safeParse({
+      provider: 'openai_compatible',
+      key_value: 'test-key',
+    });
     expect(result.success).toBe(false);
   });
 });
