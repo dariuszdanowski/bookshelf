@@ -250,10 +250,10 @@ Nie dotyczy — brak zmian schematu DB.
 
 #### Automatyczne
 
-- [x] 2.1 npm run lint przechodzi
-- [x] 2.2 npx astro check przechodzi
-- [x] 2.3 tests/unit/components/AccountIsland.test.tsx (rozszerzony) przechodzi
-- [x] 2.4 npm test zielone
+- [x] 2.1 npm run lint przechodzi — 81c0dcb
+- [x] 2.2 npx astro check przechodzi — 81c0dcb
+- [x] 2.3 tests/unit/components/AccountIsland.test.tsx (rozszerzony) przechodzi — 81c0dcb
+- [x] 2.4 npm test zielone — 81c0dcb
 
 ### Faza 3: E2E + weryfikacja końcowa
 
