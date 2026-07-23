@@ -19,6 +19,13 @@ type StatsData = {
   cost_by_key?: Record<string, { cost_usd: number; call_count: number }>;
 };
 
+// byok-openai-compatible-models: stan listy modeli providera openai_compatible.
+type ModelListState = {
+  loading: boolean;
+  error: string | null;
+  list: { id: string; available: boolean }[];
+};
+
 // Default musi pozostać zsynchronizowany z AI_RESOLUTION_BUDGET_LIMITS
 // (src/lib/resolution/budgetPolicy.ts) — fallback dla propsów pominiętych w
 // istniejących testach/wywołaniach, nie duplikat źródła prawdy.
@@ -119,6 +126,11 @@ export default function AccountIsland({
   const [editError, setEditError] = useState<string | null>(null);
   // Błąd akcji wierszowych (aktywuj/dezaktywuj/usuń) — wcześniej połykany po cichu.
   const [keyActionError, setKeyActionError] = useState<string | null>(null);
+
+  // byok-openai-compatible-models: lista modeli z serwera openai_compatible.
+  const EMPTY_MODEL_LIST_STATE: ModelListState = { loading: false, error: null, list: [] };
+  const [addModels, setAddModels] = useState<ModelListState>(EMPTY_MODEL_LIST_STATE);
+  const [editModels, setEditModels] = useState<ModelListState>(EMPTY_MODEL_LIST_STATE);
 
   useEffect(() => {
     let cancelled = false;
@@ -457,6 +469,7 @@ export default function AccountIsland({
       max_tokens_override: key.max_tokens_override != null ? String(key.max_tokens_override) : '',
     });
     setEditError(null);
+    setEditModels(EMPTY_MODEL_LIST_STATE);
   }
 
   async function handleSaveEdit(id: string) {
@@ -492,6 +505,40 @@ export default function AccountIsland({
       setEditError('Błąd sieci. Spróbuj ponownie.');
     } finally {
       setEditLoading(false);
+    }
+  }
+
+  async function handleLoadModels(
+    opts: { baseUrl: string; keyValue?: string; id?: string },
+    setState: (updater: (prev: ModelListState) => ModelListState) => void,
+  ) {
+    setState(() => ({ loading: true, error: null, list: [] }));
+    try {
+      const res = await fetch('/api/account/keys/models', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          provider: 'openai_compatible',
+          base_url: opts.baseUrl,
+          key_value: opts.keyValue || undefined,
+          id: opts.id,
+        }),
+      });
+      type ModelsOk = {
+        data: { result: 'ok' | 'error'; models: { id: string; available: boolean }[] };
+      };
+      const json = (await res.json().catch(() => null)) as ModelsOk | { error?: unknown } | null;
+      if (res.ok && json && 'data' in json && json.data.result === 'ok') {
+        setState(() => ({ loading: false, error: null, list: json.data.models }));
+      } else {
+        setState(() => ({
+          loading: false,
+          error: 'Nie udało się pobrać listy modeli. Sprawdź adres i klucz.',
+          list: [],
+        }));
+      }
+    } catch {
+      setState(() => ({ loading: false, error: 'Błąd sieci. Spróbuj ponownie.', list: [] }));
     }
   }
 
@@ -821,7 +868,10 @@ export default function AccountIsland({
           </h2>
           {!addOpen && (
             <button
-              onClick={() => setAddOpen(true)}
+              onClick={() => {
+                setAddOpen(true);
+                setAddModels(EMPTY_MODEL_LIST_STATE);
+              }}
               className="rounded bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
               data-testid="account-keys-add-btn"
             >
@@ -880,9 +930,10 @@ export default function AccountIsland({
                   id="key_base_url"
                   type="url"
                   value={addForm.base_url ?? ''}
-                  onChange={(e) =>
-                    setAddForm((f) => ({ ...f, base_url: e.target.value || undefined }))
-                  }
+                  onChange={(e) => {
+                    setAddForm((f) => ({ ...f, base_url: e.target.value || undefined }));
+                    setAddModels(EMPTY_MODEL_LIST_STATE);
+                  }}
                   className={`mt-1 ${inputCls}`}
                   placeholder="https://api.example.com/v1"
                   data-testid="account-keys-base-url-input"
@@ -890,9 +941,27 @@ export default function AccountIsland({
               </div>
             )}
             <div>
-              <label htmlFor="key_model" className="block text-sm font-medium">
-                Model (opcjonalnie)
-              </label>
+              <div className="flex items-center gap-2">
+                <label htmlFor="key_model" className="block text-sm font-medium">
+                  Model (opcjonalnie)
+                </label>
+                {addForm.provider === 'openai_compatible' && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleLoadModels(
+                        { baseUrl: addForm.base_url ?? '', keyValue: addForm.key_value },
+                        setAddModels,
+                      )
+                    }
+                    disabled={!addForm.base_url || !addForm.key_value || addModels.loading}
+                    className="rounded border border-gray-300 px-2 py-0.5 text-xs disabled:opacity-50 dark:border-gray-600"
+                    data-testid="account-keys-models-btn"
+                  >
+                    {addModels.loading ? 'Ładuję...' : 'Załaduj modele'}
+                  </button>
+                )}
+              </div>
               <input
                 id="key_model"
                 type="text"
@@ -903,6 +972,42 @@ export default function AccountIsland({
                 placeholder="np. claude-3-5-sonnet-20241022"
                 data-testid="account-keys-model-input"
               />
+              {addModels.error && (
+                <p className="mt-1 text-sm text-red-600" data-testid="account-keys-models-error">
+                  {addModels.error}
+                </p>
+              )}
+              {addModels.list.length > 0 && (
+                <div
+                  className="mt-1 max-h-40 overflow-y-auto rounded border border-gray-300 dark:border-gray-600"
+                  data-testid="account-keys-models-list"
+                >
+                  {addModels.list.map((m, i) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => {
+                        setAddForm((f) => ({ ...f, model: m.id }));
+                        setAddModels(EMPTY_MODEL_LIST_STATE);
+                      }}
+                      className="flex w-full items-center justify-between gap-2 px-2 py-1 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700"
+                      data-testid={`account-keys-models-item-${i}`}
+                    >
+                      <span className="truncate">{m.id}</span>
+                      <span
+                        className={
+                          m.available
+                            ? 'shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                            : 'shrink-0 rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+                        }
+                        data-testid={`account-keys-models-badge-${i}`}
+                      >
+                        {m.available ? 'Dostępny' : 'Niedostępny'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             {addForm.provider !== 'anthropic' && (
               <>
@@ -957,7 +1062,10 @@ export default function AccountIsland({
                 type="password"
                 autoComplete="off"
                 value={addForm.key_value}
-                onChange={(e) => setAddForm((f) => ({ ...f, key_value: e.target.value }))}
+                onChange={(e) => {
+                  setAddForm((f) => ({ ...f, key_value: e.target.value }));
+                  setAddModels(EMPTY_MODEL_LIST_STATE);
+                }}
                 className={`mt-1 ${inputCls}`}
                 placeholder="sk-..."
                 data-testid="account-keys-value-input"
@@ -981,6 +1089,7 @@ export default function AccountIsland({
                 onClick={() => {
                   setAddOpen(false);
                   setAddError(null);
+                  setAddModels(EMPTY_MODEL_LIST_STATE);
                   setAddForm({
                     label: '',
                     provider: 'anthropic',
@@ -1063,7 +1172,10 @@ export default function AccountIsland({
                       <input
                         type="url"
                         value={editForm.base_url}
-                        onChange={(e) => setEditForm((f) => ({ ...f, base_url: e.target.value }))}
+                        onChange={(e) => {
+                          setEditForm((f) => ({ ...f, base_url: e.target.value }));
+                          setEditModels(EMPTY_MODEL_LIST_STATE);
+                        }}
                         className={`mt-1 ${inputCls}`}
                         placeholder="https://api.example.com/v1"
                         data-testid={`account-key-edit-base-url-${key.id}`}
@@ -1071,7 +1183,29 @@ export default function AccountIsland({
                     </div>
                   )}
                   <div>
-                    <label className="block text-sm font-medium">Model (opcjonalnie)</label>
+                    <div className="flex items-center gap-2">
+                      <label className="block text-sm font-medium">Model (opcjonalnie)</label>
+                      {editForm.provider === 'openai_compatible' && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleLoadModels(
+                              {
+                                baseUrl: editForm.base_url,
+                                keyValue: editForm.key_value,
+                                id: key.id,
+                              },
+                              setEditModels,
+                            )
+                          }
+                          disabled={!editForm.base_url || editModels.loading}
+                          className="rounded border border-gray-300 px-2 py-0.5 text-xs disabled:opacity-50 dark:border-gray-600"
+                          data-testid={`account-key-edit-models-btn-${key.id}`}
+                        >
+                          {editModels.loading ? 'Ładuję...' : 'Załaduj modele'}
+                        </button>
+                      )}
+                    </div>
                     <input
                       type="text"
                       maxLength={100}
@@ -1081,6 +1215,45 @@ export default function AccountIsland({
                       placeholder="np. claude-3-5-sonnet-20241022"
                       data-testid={`account-key-edit-model-${key.id}`}
                     />
+                    {editModels.error && (
+                      <p
+                        className="mt-1 text-sm text-red-600"
+                        data-testid={`account-key-edit-models-error-${key.id}`}
+                      >
+                        {editModels.error}
+                      </p>
+                    )}
+                    {editModels.list.length > 0 && (
+                      <div
+                        className="mt-1 max-h-40 overflow-y-auto rounded border border-gray-300 dark:border-gray-600"
+                        data-testid={`account-key-edit-models-list-${key.id}`}
+                      >
+                        {editModels.list.map((m, i) => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => {
+                              setEditForm((f) => ({ ...f, model: m.id }));
+                              setEditModels(EMPTY_MODEL_LIST_STATE);
+                            }}
+                            className="flex w-full items-center justify-between gap-2 px-2 py-1 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700"
+                            data-testid={`account-key-edit-models-item-${key.id}-${i}`}
+                          >
+                            <span className="truncate">{m.id}</span>
+                            <span
+                              className={
+                                m.available
+                                  ? 'shrink-0 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                                  : 'shrink-0 rounded-full bg-gray-200 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+                              }
+                              data-testid={`account-key-edit-models-badge-${key.id}-${i}`}
+                            >
+                              {m.available ? 'Dostępny' : 'Niedostępny'}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   {editForm.provider !== 'anthropic' && (
                     <>
@@ -1126,7 +1299,10 @@ export default function AccountIsland({
                       type="password"
                       autoComplete="off"
                       value={editForm.key_value}
-                      onChange={(e) => setEditForm((f) => ({ ...f, key_value: e.target.value }))}
+                      onChange={(e) => {
+                        setEditForm((f) => ({ ...f, key_value: e.target.value }));
+                        setEditModels(EMPTY_MODEL_LIST_STATE);
+                      }}
                       className={`mt-1 ${inputCls}`}
                       placeholder="Pozostaw puste, aby nie zmieniać"
                       data-testid={`account-key-edit-value-${key.id}`}
@@ -1153,6 +1329,7 @@ export default function AccountIsland({
                       onClick={() => {
                         setEditingId(null);
                         setEditError(null);
+                        setEditModels(EMPTY_MODEL_LIST_STATE);
                       }}
                       className="rounded border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-600"
                       data-testid={`account-key-edit-cancel-${key.id}`}

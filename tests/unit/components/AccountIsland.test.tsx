@@ -527,3 +527,174 @@ describe('AccountIsland — formularz kluczy: timeout/max_tokens (resolution-ope
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// byok-openai-compatible-models: przycisk "Załaduj modele" + klikalna lista
+// ze znacznikiem dostępności, w add-formie i edit-formie.
+// ---------------------------------------------------------------------------
+
+describe('AccountIsland — model picker (byok-openai-compatible-models)', () => {
+  const KEY_ID = '00000000-0000-4000-8000-00000000dddd';
+  const MODELS_RESPONSE = {
+    data: {
+      result: 'ok',
+      models: [
+        { id: 'model-a', available: true },
+        { id: 'model-b', available: false },
+      ],
+    },
+  };
+
+  function stubKeysAndModelsRoute(
+    keys: unknown[],
+    modelsResponse: { ok: boolean; body: unknown } = { ok: true, body: MODELS_RESPONSE },
+  ) {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const u = String(input);
+        if (u.includes('/api/account/stats')) {
+          return { ok: true, json: async () => MOCK_STATS };
+        }
+        if (u.includes('/api/account/keys/models')) {
+          return { ok: modelsResponse.ok, json: async () => modelsResponse.body };
+        }
+        if (u.includes('/api/account/keys') && (!init || init.method === undefined)) {
+          return { ok: true, json: async () => ({ data: { keys } }) };
+        }
+        return { ok: true, json: async () => ({ data: {} }) };
+      }),
+    );
+  }
+
+  it('przycisk niewidoczny dla anthropic, widoczny i disabled bez base_url/klucza dla openai_compatible (add-form)', async () => {
+    stubKeysAndModelsRoute([]);
+    render(<AccountIsland initialDisplayName={INITIAL_DISPLAY_NAME} userEmail={USER_EMAIL} />);
+
+    fireEvent.click(screen.getByTestId('account-keys-add-btn'));
+    expect(screen.queryByTestId('account-keys-models-btn')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByTestId('account-keys-provider-select'), {
+      target: { value: 'openai_compatible' },
+    });
+
+    const btn = screen.getByTestId('account-keys-models-btn') as HTMLButtonElement;
+    expect(btn).toBeDisabled();
+
+    fireEvent.change(screen.getByTestId('account-keys-base-url-input'), {
+      target: { value: 'https://relay.example.com' },
+    });
+    expect(btn).toBeDisabled();
+
+    fireEvent.change(screen.getByTestId('account-keys-value-input'), {
+      target: { value: 'sk-relay' },
+    });
+    expect(btn).not.toBeDisabled();
+  });
+
+  it('add-form: klik ładuje listę z badge’ami dostępności, klik na model wypełnia pole i chowa listę', async () => {
+    stubKeysAndModelsRoute([]);
+    render(<AccountIsland initialDisplayName={INITIAL_DISPLAY_NAME} userEmail={USER_EMAIL} />);
+
+    fireEvent.click(screen.getByTestId('account-keys-add-btn'));
+    fireEvent.change(screen.getByTestId('account-keys-provider-select'), {
+      target: { value: 'openai_compatible' },
+    });
+    fireEvent.change(screen.getByTestId('account-keys-base-url-input'), {
+      target: { value: 'https://relay.example.com/v1' },
+    });
+    fireEvent.change(screen.getByTestId('account-keys-value-input'), {
+      target: { value: 'sk-relay' },
+    });
+    fireEvent.click(screen.getByTestId('account-keys-models-btn'));
+
+    await waitFor(() => expect(screen.getByTestId('account-keys-models-list')).toBeInTheDocument());
+    expect(screen.getByTestId('account-keys-models-badge-0')).toHaveTextContent('Dostępny');
+    expect(screen.getByTestId('account-keys-models-badge-1')).toHaveTextContent('Niedostępny');
+
+    const modelsCall = vi
+      .mocked(fetch)
+      .mock.calls.find((c) => String(c[0]).includes('/api/account/keys/models'));
+    expect(modelsCall).toBeDefined();
+    const body = JSON.parse(String((modelsCall?.[1] as RequestInit).body));
+    expect(body).toMatchObject({
+      provider: 'openai_compatible',
+      base_url: 'https://relay.example.com/v1',
+      key_value: 'sk-relay',
+    });
+
+    fireEvent.click(screen.getByTestId('account-keys-models-item-0'));
+
+    expect((screen.getByTestId('account-keys-model-input') as HTMLInputElement).value).toBe(
+      'model-a',
+    );
+    expect(screen.queryByTestId('account-keys-models-list')).not.toBeInTheDocument();
+  });
+
+  it('add-form: błąd sieci pokazuje komunikat inline', async () => {
+    stubKeysAndModelsRoute([], { ok: false, body: { error: { code: 'INTERNAL_ERROR' } } });
+    render(<AccountIsland initialDisplayName={INITIAL_DISPLAY_NAME} userEmail={USER_EMAIL} />);
+
+    fireEvent.click(screen.getByTestId('account-keys-add-btn'));
+    fireEvent.change(screen.getByTestId('account-keys-provider-select'), {
+      target: { value: 'openai_compatible' },
+    });
+    fireEvent.change(screen.getByTestId('account-keys-base-url-input'), {
+      target: { value: 'https://relay.example.com' },
+    });
+    fireEvent.change(screen.getByTestId('account-keys-value-input'), {
+      target: { value: 'sk-relay' },
+    });
+    fireEvent.click(screen.getByTestId('account-keys-models-btn'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('account-keys-models-error')).toBeInTheDocument(),
+    );
+    expect(screen.queryByTestId('account-keys-models-list')).not.toBeInTheDocument();
+  });
+
+  it('edit-form: pole klucza puste → request idzie z id, nie z key_value', async () => {
+    stubKeysAndModelsRoute([
+      {
+        id: KEY_ID,
+        label: 'Self-hosted relay',
+        provider: 'openai_compatible',
+        model: null,
+        base_url: 'https://relay.example.com',
+        is_active: false,
+        last_tested_at: null,
+        last_test_result: null,
+        created_at: '2026-07-01T10:00:00Z',
+        request_timeout_ms: null,
+        max_tokens_override: null,
+      },
+    ]);
+    render(<AccountIsland initialDisplayName={INITIAL_DISPLAY_NAME} userEmail={USER_EMAIL} />);
+
+    await waitFor(() =>
+      expect(screen.getByTestId(`account-key-edit-btn-${KEY_ID}`)).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByTestId(`account-key-edit-btn-${KEY_ID}`));
+
+    const btn = screen.getByTestId(`account-key-edit-models-btn-${KEY_ID}`) as HTMLButtonElement;
+    expect(btn).not.toBeDisabled();
+    fireEvent.click(btn);
+
+    await waitFor(() =>
+      expect(screen.getByTestId(`account-key-edit-models-list-${KEY_ID}`)).toBeInTheDocument(),
+    );
+
+    const modelsCall = vi
+      .mocked(fetch)
+      .mock.calls.find((c) => String(c[0]).includes('/api/account/keys/models'));
+    expect(modelsCall).toBeDefined();
+    const body = JSON.parse(String((modelsCall?.[1] as RequestInit).body));
+    expect(body.id).toBe(KEY_ID);
+    expect(body.key_value).toBeUndefined();
+
+    fireEvent.click(screen.getByTestId(`account-key-edit-models-item-${KEY_ID}-1`));
+    expect((screen.getByTestId(`account-key-edit-model-${KEY_ID}`) as HTMLInputElement).value).toBe(
+      'model-b',
+    );
+  });
+});
