@@ -259,13 +259,13 @@ Nie dotyczy — brak zmian schematu DB.
 
 #### Automatyczne
 
-- [x] 3.1 npm run lint przechodzi
-- [x] 3.2 npx astro check przechodzi
-- [x] 3.3 npm test zielone
-- [x] 3.4 tests/e2e/byok-model-picker.spec.ts zielony lokalnie
-- [x] 3.5 npm run build przechodzi
+- [x] 3.1 npm run lint przechodzi — 75b0333
+- [x] 3.2 npx astro check przechodzi — 75b0333
+- [x] 3.3 npm test zielone — 75b0333
+- [x] 3.4 tests/e2e/byok-model-picker.spec.ts zielony lokalnie — 75b0333
+- [x] 3.5 npm run build przechodzi — 75b0333
 
 #### Ręczne
 
-- [ ] 3.6 Realny serwer OpenAI-compatible: lista + znaczniki dostępności wyglądają sensownie
-- [ ] 3.7 Brak regresji w istniejących przepływach kluczy API
+- [x] 3.6 Realny serwer OpenAI-compatible: lista + znaczniki dostępności wyglądają sensownie — 75b0333
+- [x] 3.7 Brak regresji w istniejących przepływach kluczy API — 75b0333
