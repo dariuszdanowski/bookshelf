@@ -8,7 +8,7 @@ export const ProviderEnum = z.enum(['anthropic', 'openai', 'openrouter', 'openai
 // URL z tym sufiksem), wołania trafiają w "/v1/v1/..." i 404-ują. Normalizujemy raz,
 // przy zapisie, żeby żaden z trzech konsumentów (vision, resolution, probe) nie musiał
 // się o to martwić.
-function normalizeBaseUrl(url: string): string {
+export function normalizeBaseUrl(url: string): string {
   return url.replace(/\/+$/, '').replace(/\/v1$/i, '');
 }
 
@@ -76,3 +76,19 @@ export type UpdateKeyInput = z.infer<typeof UpdateKeySchema>;
 // z brakiem/błędem JSON (body jest opcjonalne, nie wymagane).
 export const ApiKeyOverrideSchema = z.object({ apiKeyId: z.string().uuid().optional() });
 export type ApiKeyOverrideInput = z.infer<typeof ApiKeyOverrideSchema>;
+
+// byok-openai-compatible-models: input dla POST /api/account/keys/models.
+// `key_value` — ad-hoc klucz (add-form / edit-form z nowym kluczem); `id` —
+// fallback na już zapisany (zaszyfrowany) klucz gdy edit-form zostawia pole
+// puste ("Pozostaw puste, aby nie zmieniać"). Wymagane jest co najmniej jedno.
+export const ListModelsInputSchema = z
+  .object({
+    id: z.string().uuid().optional(),
+    provider: ProviderEnum,
+    base_url: z.string().url().max(500),
+    key_value: z.string().min(1).max(500).optional(),
+  })
+  .refine((d) => d.id !== undefined || d.key_value !== undefined, {
+    message: 'id or key_value required',
+  });
+export type ListModelsInput = z.infer<typeof ListModelsInputSchema>;
