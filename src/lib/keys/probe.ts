@@ -55,6 +55,10 @@ export async function probeKey(
 
 export type ProviderModelInfo = { id: string; available: boolean };
 
+// Zabezpieczenie przed niesprawnym/nieprzewidywalnym serwerem OpenAI-compatible
+// zwracającym nieproporcjonalnie dużą listę modeli.
+const MAX_MODELS = 500;
+
 // Wartości status/state/health uznawane za "niedostępny" (lowercased
 // porównanie). Brak pola / nierozpoznana wartość → domyślnie dostępny
 // (standard OpenAI /v1/models nie ma pojęcia dostępności — sama obecność
@@ -116,7 +120,9 @@ export async function listModels(
         ? (json as { data: unknown[] }).data
         : [];
 
+    // Guard przeciw niesprawnemu/nieprzewidywalnemu serwerowi zwracającemu ogromną listę.
     const models = rawList
+      .slice(0, MAX_MODELS)
       .filter(
         (entry): entry is Record<string, unknown> =>
           !!entry &&

@@ -52,7 +52,22 @@ export const POST: APIRoute = async ({ request, locals }) => {
       .eq('user_id', locals.user.id)
       .single();
 
-    if (fetchError || !row) {
+    if (fetchError) {
+      if (fetchError.code === 'PGRST116') {
+        return apiError({ code: 'NOT_FOUND', status: 404, message: 'Klucz nie istnieje.' });
+      }
+      console.error('[api/account/keys/models POST] fetch failed', {
+        name: fetchError.name,
+        message: fetchError.message,
+        code: fetchError.code,
+      });
+      return apiError({
+        code: 'INTERNAL_ERROR',
+        status: 500,
+        message: 'Nie udało się pobrać klucza.',
+      });
+    }
+    if (!row) {
       return apiError({ code: 'NOT_FOUND', status: 404, message: 'Klucz nie istnieje.' });
     }
 

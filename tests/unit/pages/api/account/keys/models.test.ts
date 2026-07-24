@@ -117,6 +117,17 @@ describe('POST /api/account/keys/models', () => {
     expect(json.error.code).toBe('NOT_FOUND');
   });
 
+  it('zwraca 500 na nieoczekiwany błąd DB (nie PGRST116)', async () => {
+    const ctx = makeContext({
+      body: { provider: 'openai_compatible', base_url: 'https://relay.example.com', id: KEY_ID },
+      fetchResult: { data: null, error: { code: '08006', message: 'connection failure' } },
+    });
+    const res = await POST(ctx as never);
+    expect(res.status).toBe(500);
+    const json = (await res.json()) as { error: { code: string } };
+    expect(json.error.code).toBe('INTERNAL_ERROR');
+  });
+
   it('propaguje result:error gdy listModels zwraca ok:false', async () => {
     vi.mocked(listModels).mockResolvedValueOnce({ ok: false, models: [] });
     const ctx = makeContext({

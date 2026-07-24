@@ -1,7 +1,7 @@
 ---
 change_id: byok-openai-compatible-models
 title: Model picker dla klucza BYOK openai_compatible
-status: implemented
+status: impl_reviewed
 created: 2026-07-23
 updated: 2026-07-24
 archived_at: null
