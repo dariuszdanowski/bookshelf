@@ -259,11 +259,11 @@ Nie dotyczy — brak zmian schematu DB.
 
 #### Automatyczne
 
-- [ ] 3.1 npm run lint przechodzi
-- [ ] 3.2 npx astro check przechodzi
-- [ ] 3.3 npm test zielone
-- [ ] 3.4 tests/e2e/byok-model-picker.spec.ts zielony lokalnie
-- [ ] 3.5 npm run build przechodzi
+- [x] 3.1 npm run lint przechodzi
+- [x] 3.2 npx astro check przechodzi
+- [x] 3.3 npm test zielone
+- [x] 3.4 tests/e2e/byok-model-picker.spec.ts zielony lokalnie
+- [x] 3.5 npm run build przechodzi
 
 #### Ręczne
 

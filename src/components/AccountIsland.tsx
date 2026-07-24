@@ -1060,7 +1060,7 @@ export default function AccountIsland({
               <input
                 id="key_value"
                 type="password"
-                autoComplete="off"
+                autoComplete="new-password"
                 value={addForm.key_value}
                 onChange={(e) => {
                   setAddForm((f) => ({ ...f, key_value: e.target.value }));
@@ -1297,7 +1297,7 @@ export default function AccountIsland({
                     </label>
                     <input
                       type="password"
-                      autoComplete="off"
+                      autoComplete="new-password"
                       value={editForm.key_value}
                       onChange={(e) => {
                         setEditForm((f) => ({ ...f, key_value: e.target.value }));

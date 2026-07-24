@@ -37,6 +37,69 @@ describe('listModels', () => {
     ]);
   });
 
+  it('rozpoznaje pole health (cf-llm-relay: healthy/unhealthy)', async () => {
+    stubFetch(
+      async () =>
+        new Response(
+          JSON.stringify({
+            object: 'list',
+            data: [
+              {
+                id: 'qwen2.5-vl-3b-instruct',
+                qualified_id: 'mId-lmstudio::qwen2.5-vl-3b-instruct',
+                object: 'model',
+                owned_by: 'mId-lmstudio',
+                health: 'healthy',
+              },
+              {
+                id: 'llama-3.2-1b-instruct',
+                qualified_id: 'mId-lmstudio::llama-3.2-1b-instruct',
+                object: 'model',
+                owned_by: 'mId-lmstudio',
+                health: 'unhealthy',
+              },
+            ],
+          }),
+          { status: 200 },
+        ),
+    );
+
+    const result = await listModels('openai_compatible', 'key', 'https://relay.example.com');
+
+    expect(result.ok).toBe(true);
+    expect(result.models).toEqual([
+      { id: 'mId-lmstudio::qwen2.5-vl-3b-instruct', available: true },
+      { id: 'mId-lmstudio::llama-3.2-1b-instruct', available: false },
+    ]);
+  });
+
+  it('preferuje qualified_id nad id (multi-agent relay, np. cf-llm-relay)', async () => {
+    stubFetch(
+      async () =>
+        new Response(
+          JSON.stringify({
+            data: [
+              {
+                id: 'qwen2.5-vl-3b-instruct',
+                qualified_id: 'mId-lmstudio::qwen2.5-vl-3b-instruct',
+                health: 'healthy',
+              },
+              { id: 'plain-model-no-qualified-id', health: 'healthy' },
+            ],
+          }),
+          { status: 200 },
+        ),
+    );
+
+    const result = await listModels('openai_compatible', 'key', 'https://relay.example.com');
+
+    expect(result.ok).toBe(true);
+    expect(result.models).toEqual([
+      { id: 'mId-lmstudio::qwen2.5-vl-3b-instruct', available: true },
+      { id: 'plain-model-no-qualified-id', available: true },
+    ]);
+  });
+
   it('domyślnie oznacza model jako dostępny, gdy brak pól dostępności', async () => {
     stubFetch(
       async () =>

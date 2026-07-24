@@ -697,4 +697,45 @@ describe('AccountIsland — model picker (byok-openai-compatible-models)', () =>
       'model-b',
     );
   });
+
+  // Odkryte w manualnej weryfikacji Fazy 3 (2026-07-24): autoComplete="off" jest
+  // ignorowane przez Chrome dla pól password — przeglądarka potrafi autofillować
+  // WCZEŚNIEJ zapisany klucz do pola "Nowy klucz API (opcjonalnie)", mimo że pole
+  // ma pozostać puste ("leave blank to keep unchanged"). Skutek: request do
+  // /api/account/keys/models (i sam zapis PATCH) wysyła cudzy/stary klucz zamiast
+  // fallbacku na `id`. Fix: autoComplete="new-password" (jedyna wartość, którą
+  // Chrome faktycznie respektuje dla pól hasłopodobnych).
+  it('pola klucza API (add i edit) mają autoComplete="new-password", nie "off" (blokada autofill)', async () => {
+    stubKeysAndModelsRoute([
+      {
+        id: KEY_ID,
+        label: 'Self-hosted relay',
+        provider: 'openai_compatible',
+        model: null,
+        base_url: 'https://relay.example.com',
+        is_active: false,
+        last_tested_at: null,
+        last_test_result: null,
+        created_at: '2026-07-01T10:00:00Z',
+        request_timeout_ms: null,
+        max_tokens_override: null,
+      },
+    ]);
+    render(<AccountIsland initialDisplayName={INITIAL_DISPLAY_NAME} userEmail={USER_EMAIL} />);
+
+    fireEvent.click(screen.getByTestId('account-keys-add-btn'));
+    expect(screen.getByTestId('account-keys-value-input')).toHaveAttribute(
+      'autocomplete',
+      'new-password',
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId(`account-key-edit-btn-${KEY_ID}`)).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByTestId(`account-key-edit-btn-${KEY_ID}`));
+    expect(screen.getByTestId(`account-key-edit-value-${KEY_ID}`)).toHaveAttribute(
+      'autocomplete',
+      'new-password',
+    );
+  });
 });

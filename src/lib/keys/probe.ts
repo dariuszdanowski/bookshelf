@@ -55,9 +55,12 @@ export async function probeKey(
 
 export type ProviderModelInfo = { id: string; available: boolean };
 
-// Wartości status/state uznawane za "niedostępny" (lowercased porównanie).
-// Brak pola / nierozpoznana wartość → domyślnie dostępny (standard OpenAI
-// /v1/models nie ma pojęcia dostępności — sama obecność w liście nią jest).
+// Wartości status/state/health uznawane za "niedostępny" (lowercased
+// porównanie). Brak pola / nierozpoznana wartość → domyślnie dostępny
+// (standard OpenAI /v1/models nie ma pojęcia dostępności — sama obecność
+// w liście nią jest). `health: 'healthy'|'unhealthy'` zweryfikowane na żywym
+// serwerze cf-llm-relay (byok-openai-compatible-models, manualny test 2026-07-24) —
+// relay agreguje modele z wielu maszyn i tylko część jest aktualnie połączona.
 const UNAVAILABLE_STATUS_VALUES = new Set([
   'offline',
   'unavailable',
@@ -65,12 +68,24 @@ const UNAVAILABLE_STATUS_VALUES = new Set([
   'disabled',
   'inactive',
   'error',
+  'unhealthy',
 ]);
+
+// Multi-agent relaye (np. cf-llm-relay) rejestrują ten sam nazwany model pod
+// wieloma maszynami/agentami — `id` to gołą nazwa modelu, `qualified_id` to
+// faktyczny identyfikator do wywołań ("<agent>::<model>", np.
+// "mId-lmstudio::qwen2.5-vl-3b-instruct"). Zweryfikowane na żywym serwerze
+// (byok-openai-compatible-models, manualny test 2026-07-24) — user musi
+// wybrać `qualified_id`, gołe `id` nie jest routowalne do konkretnej maszyny.
+// Standardowe OpenAI-compatible serwery nie mają `qualified_id` → fallback na `id`.
+function resolveModelId(entry: Record<string, unknown>): string {
+  return typeof entry.qualified_id === 'string' ? entry.qualified_id : (entry.id as string);
+}
 
 function extractAvailability(entry: Record<string, unknown>): boolean {
   if (typeof entry.available === 'boolean') return entry.available;
   if (typeof entry.is_available === 'boolean') return entry.is_available;
-  const statusLike = entry.status ?? entry.state;
+  const statusLike = entry.status ?? entry.state ?? entry.health;
   if (typeof statusLike === 'string') {
     return !UNAVAILABLE_STATUS_VALUES.has(statusLike.toLowerCase());
   }
@@ -108,7 +123,7 @@ export async function listModels(
           typeof entry === 'object' &&
           typeof (entry as Record<string, unknown>).id === 'string',
       )
-      .map((entry) => ({ id: entry.id as string, available: extractAvailability(entry) }));
+      .map((entry) => ({ id: resolveModelId(entry), available: extractAvailability(entry) }));
 
     models.sort((a, b) => Number(b.available) - Number(a.available) || a.id.localeCompare(b.id));
 

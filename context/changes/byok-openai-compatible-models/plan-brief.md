@@ -57,7 +57,8 @@ Przeglądarka → `POST /api/account/keys/models` (nasz serwer) → `fetch({base
 
 ## Otwarte ryzyka i założenia
 
-- Heurystyka dostępności nie ma potwierdzonego kontraktu z żadnym konkretnym serwerem (w tym `cf-llm-relay`, który jest poza tym repo) — jeśli realny serwer zwraca inny kształt sygnału, wymaga to dostrojenia po pierwszym realnym użyciu, nie jest to blokujące na start.
+- ~~Heurystyka dostępności nie ma potwierdzonego kontraktu z żadnym konkretnym serwerem~~ — **zweryfikowane manualnie w Fazie 3** (2026-07-24) na żywym `cf-llm-relay` (`localhost:8787`): realny kształt to `health: 'healthy'|'unhealthy'` per model, nie `status`/`state`. Heurystyka w `probe.ts` dopisana o pole `health` + `'unhealthy'` w zbiorze niedostępnych wartości.
+- **Drugie kalibrujące odkrycie z tej samej manualnej weryfikacji**: multi-agent relaye (jak `cf-llm-relay`) zwracają per model zarówno `id` (goła nazwa) jak i `qualified_id` (`<agent>::<model>`, np. `mId-lmstudio::qwen2.5-vl-3b-instruct`) — do realnych wywołań trzeba użyć `qualified_id`, nie `id` (użytkownik ręcznie wpisywał identyfikatory w tym formacie, np. `rav_lmstudio::qwen/qwen3.5-9b`, właśnie dlatego że gołe `id` nie jest routowalne do konkretnej maszyny). `listModels()` teraz preferuje `qualified_id`, z fallbackiem na `id` dla standardowych serwerów OpenAI-compatible bez tego pola.
 
 ## Kryteria sukcesu (podsumowanie)
 
